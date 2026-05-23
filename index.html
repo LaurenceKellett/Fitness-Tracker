@@ -94,12 +94,12 @@ a{color:inherit;text-decoration:none}
 .heatmap-title{font-size:14px;font-weight:600;margin-bottom:4px}
 .heatmap-sub{font-size:12px;color:var(--text-muted);margin-bottom:16px}
 .heatmap-year-label{font-size:13px;font-weight:700;color:var(--text-muted);margin:20px 0 6px}
-.heatmap-grid{display:flex;gap:3px}
-.heatmap-col{display:flex;flex-direction:column;gap:3px}
-.heatmap-cell{width:13px;height:13px;border-radius:2px;cursor:pointer}
+.heatmap-grid{display:flex;gap:2px}
+.heatmap-col{display:flex;flex-direction:column;gap:2px}
+.heatmap-cell{width:10px;height:20px;border-radius:2px;cursor:pointer}
 .heatmap-legend{display:flex;align-items:center;gap:6px;margin-top:12px;font-size:11px;color:var(--text-muted)}
 .heatmap-legend-cells{display:flex;gap:2px}
-.heatmap-legend-cell{width:12px;height:12px;border-radius:2px}
+.heatmap-legend-cell{width:10px;height:20px;border-radius:2px}
 /* RECORDS */
 .records-section{margin-bottom:28px}
 .records-section h3{font-size:14px;font-weight:700;margin-bottom:14px}
@@ -113,7 +113,8 @@ a{color:inherit;text-decoration:none}
 .record-value{font-size:22px;font-weight:700;letter-spacing:-.3px}
 .record-date{font-size:11px;color:var(--text-muted);margin-top:4px}
 .record-name{font-size:11px;color:var(--text-muted);margin-top:2px;font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.record-strava{display:inline-flex;align-items:center;gap:3px;margin-top:6px;padding:3px 8px;background:#fc4c02;color:white;border-radius:5px;font-size:10px;font-weight:700}
+.record-strava{display:inline-flex;align-items:center;gap:4px;margin-top:8px;color:#fc4c02;font-size:11px;font-weight:600;text-decoration:none;opacity:.85;transition:opacity .15s}
+.record-strava:hover{opacity:1}
 /* LOG */
 .log-controls{display:flex;gap:10px;margin-bottom:12px;align-items:center;flex-wrap:wrap}
 .log-search{padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;outline:none;flex:1;min-width:180px;background:var(--surface)}
@@ -228,6 +229,27 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
 .top-gear-name{flex:1;font-weight:500}
 .top-gear-dist{font-weight:700;color:var(--text-muted);font-size:12px}
+/* MOBILE SELECTS */
+.mobile-select{display:none;padding:6px 28px 6px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:500;background:var(--surface);color:var(--text);cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+.mobile-tab-select{display:none;width:100%;padding:10px 30px 10px 14px;border:none;border-top:1px solid var(--border);font-size:13px;font-weight:500;background:var(--bg);color:var(--text);cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center}
+@media(max-width:640px){.year-select{display:none!important}.mobile-select{display:block}.tabs-bar{display:none!important}.mobile-tab-select{display:block}}
+/* PARTNER LOG BTN */
+.partner-log-btn{width:100%;margin-top:8px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text-muted);background:transparent;cursor:pointer;transition:all .15s;font-family:inherit;text-align:center}
+.partner-log-btn:hover{background:var(--bg);color:var(--text)}
+/* STRAVA HEADER LINK */
+.strava-header-link{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;background:#fc4c02;color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;transition:opacity .15s;flex-shrink:0}
+.strava-header-link:hover{opacity:.85}
+/* SYNC INDICATOR */
+.sync-indicator{display:flex;align-items:center;gap:8px;padding:9px 14px;background:#fef9c3;border:1px solid #fde047;border-radius:var(--radius-sm);font-size:12px;color:#854d0e;margin-bottom:16px}
+/* EDDINGTON INFO ICON */
+.edd-info-wrap{position:relative;display:inline-block;margin-left:5px;vertical-align:middle;top:-1px}
+.edd-info-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--border);color:var(--text-muted);font-size:9px;font-weight:700;cursor:help;line-height:1}
+.edd-tooltip-box{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:rgba(20,20,30,.95);color:#fff;border-radius:8px;padding:9px 12px;font-size:11px;font-weight:400;white-space:normal;width:220px;line-height:1.6;z-index:9999;text-align:left;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.3)}
+.edd-tooltip-box::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:rgba(20,20,30,.95)}
+.edd-info-wrap:hover .edd-tooltip-box{display:block}
+/* TOP GEAR VIEW ALL */
+.gear-view-all{display:block;width:100%;text-align:center;padding:10px;font-size:12px;color:var(--text-muted);border:none;border-top:1px solid var(--border);cursor:pointer;transition:color .15s;background:transparent;font-family:inherit}
+.gear-view-all:hover{color:var(--text)}
 </style>
 </head>
 <body>
@@ -239,11 +261,13 @@ tbody td{padding:10px 14px;vertical-align:middle}
         <h1>Fitness<span>Dashboard</span></h1>
       </div>
       <div class="header-controls">
+        <a href="https://www.strava.com" target="_blank" class="strava-header-link" id="stravaProfileLink"><svg viewBox="0 0 24 24" width="13" height="13" style="flex-shrink:0"><path fill="white" d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0 4 13.828h4.172"/></svg>Strava</a>
         <div class="toggle-group" id="unitToggle">
           <button class="toggle-btn active" data-unit="mi" onclick="setUnit('mi')">Miles</button>
           <button class="toggle-btn" data-unit="km" onclick="setUnit('km')">KM</button>
         </div>
         <div class="year-select" id="yearSelect"></div>
+        <select class="mobile-select" id="yearSelectMobile" onchange="setYear(this.value)"></select>
       </div>
     </div>
     <div class="tabs-bar">
@@ -255,6 +279,15 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <button class="tab-btn" onclick="setTab('gear')">Gear</button>
       <button class="tab-btn" onclick="setTab('log')">Activity Log</button>
     </div>
+    <select class="mobile-tab-select" id="tabSelectMobile" onchange="setTab(this.value)">
+      <option value="summary">Summary</option>
+      <option value="charts">Charts</option>
+      <option value="heatmap">Heatmap</option>
+      <option value="records">Records</option>
+      <option value="social">Social</option>
+      <option value="gear">Gear</option>
+      <option value="log">Activity Log</option>
+    </select>
   </div>
 </div>
 <div id="dashTooltip" class="dash-tooltip"></div>
@@ -403,6 +436,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 <!-- GEAR -->
 <div id="tab-gear" class="tab-content">
   <div class="type-filters" id="typeFilters-gear"></div>
+  <div class="sync-indicator" id="gearSyncIndicator" style="display:none">⚠️ Sync needed — last sync <strong class="sync-days"></strong> days ago. <span style="opacity:.7;font-size:11px">Export a new CSV from Strava to update.</span></div>
   <div class="section-header"><h2>Gear Summary</h2><span class="badge" id="gearBadge"></span></div>
   <div class="gear-grid" id="gearCards"></div>
   <div class="charts-grid">
@@ -528,7 +562,10 @@ function getFilteredForYear(year){
 
 function buildYearPills(){
   const years=[...new Set(ALL_DATA.map(a=>a.date.slice(0,4)))].sort().reverse();
-  document.getElementById('yearSelect').innerHTML=['All',...years].map(y=>`<button class="year-pill${y===activeYear?' active':''}" onclick="setYear('${y}')">${y}</button>`).join('');
+  const yopts=['All',...years];
+  document.getElementById('yearSelect').innerHTML=yopts.map(y=>`<button class="year-pill${y===activeYear?' active':''}" onclick="setYear('${y}')">${y}</button>`).join('');
+  const msel=document.getElementById('yearSelectMobile');
+  if(msel)msel.innerHTML=yopts.map(y=>`<option value="${y}"${y===activeYear?' selected':''}>${y}</option>`).join('');
 }
 function setYear(y){activeYear=y;buildYearPills();renderAll();}
 
@@ -553,6 +590,7 @@ function setTab(tab){
   document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',tabs[i]===tab));
   document.querySelectorAll('.tab-content').forEach(d=>d.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
+  const mts=document.getElementById('tabSelectMobile');if(mts)mts.value=tab;
   renderAll();
 }
 function setUnit(u){unit=u;document.querySelectorAll('.toggle-btn').forEach(b=>b.classList.toggle('active',b.dataset.unit===u));renderAll();}
@@ -615,7 +653,7 @@ function renderSummary(){
     </div>
     ${longestRide?`<div class="stat-card"><div class="stat-label">Longest Ride</div><div class="stat-value">${fmtDist(longestRide.dist_mi)}<span class="stat-unit">${distUnit()}</span></div><div class="stat-sub">${fmtDate(longestRide.date)}</div></div>`:''}
     ${longestRun?`<div class="stat-card"><div class="stat-label">Longest Run</div><div class="stat-value">${fmtDist(longestRun.dist_mi)}<span class="stat-unit">${distUnit()}</span></div><div class="stat-sub">${fmtDate(longestRun.date)}</div></div>`:''}
-    <div class="stat-card"><div class="stat-label">Eddington №</div><div class="stat-value">${eddington}</div><div class="stat-sub">${eddington} days ≥${eddington} ${distUnit()}</div></div>
+    <div class="stat-card"><div class="stat-label">Eddington №<span class="edd-info-wrap"><span class="edd-info-icon">?</span><span class="edd-tooltip-box">The largest number E where you've had at least E days with E or more ${distUnit()} of activity. For example E=74 means 74 days where you did 74+ ${distUnit()}. A tough benchmark that only grows harder to improve.</span></span></div><div class="stat-value">${eddington}</div><div class="stat-sub">${eddington} days ≥${eddington} ${distUnit()}</div></div>
   `;
 
   // Type cards
@@ -667,14 +705,14 @@ function renderSummary(){
   // Top gear
   const gearMap={};
   data.forEach(a=>{const g=a.gear;if(!g||g==='n/a')return;if(!gearMap[g])gearMap[g]={dist:0,count:0};gearMap[g].dist+=a.dist_mi||0;gearMap[g].count++;});
-  const topGear=Object.entries(gearMap).sort((a,b)=>b[1].dist-a[1].dist).slice(0,8);
+  const topGear=Object.entries(gearMap).sort((a,b)=>b[1].dist-a[1].dist).slice(0,10);
   document.getElementById('topGearList').innerHTML=topGear.map(([name,s],i)=>`
     <div class="top-gear-row">
       <div class="top-gear-rank">${i+1}</div>
       <div style="font-size:16px">${gearEmoji(name)}</div>
       <div class="top-gear-name">${name}</div>
       <div class="top-gear-dist">${fmtDist(s.dist)} ${distUnit()} · ${s.count.toLocaleString('en-GB')} acts</div>
-    </div>`).join('');
+    </div>`).join('')+'<button class="gear-view-all" onclick="setTab(\"gear\")">View all gear →</button>';
 
   // Recent
   const recentAll=[...data].reverse();
@@ -1013,6 +1051,7 @@ function renderRecords(){
 }
 
 // ── SOCIAL ──
+function goToLogSearch(name){logSearch=name;const el=document.getElementById('logSearch');if(el)el.value=name;logPage=1;setTab('log');}
 function renderSocial(){
   const data=getFiltered();
   const pm={};
@@ -1023,7 +1062,7 @@ function renderSocial(){
   document.getElementById('partnerCards').innerHTML=sorted.slice(0,12).map(([name,d],i)=>{
     const init=name.trim().split(' ').map(w=>w[0]||'').slice(0,2).join('').toUpperCase();
     const tt=d.types?Object.entries(d.types).sort((a,b)=>b[1]-a[1])[0][0]:'?';
-    return`<div class="partner-card"><div class="partner-avatar" style="background:${AC[i%AC.length]}">${init}</div><div class="partner-name">${name}</div><div class="partner-count">${d.count.toLocaleString('en-GB')} activities</div><div class="partner-dist">${fmtDist(d.dist)} ${distUnit()}</div><div class="partner-type">${typeEmoji(tt)} mostly ${tt.toLowerCase()}</div></div>`;
+    return`<div class="partner-card"><div class="partner-avatar" style="background:${AC[i%AC.length]}">${init}</div><div class="partner-name">${name}</div><div class="partner-count">${d.count.toLocaleString('en-GB')} activities</div><div class="partner-dist">${fmtDist(d.dist)} ${distUnit()}</div><div class="partner-type">${typeEmoji(tt)} mostly ${tt.toLowerCase()}</div><button class="partner-log-btn" onclick="goToLogSearch(decodeURIComponent('${encodeURIComponent(name)}'))">View activities →</button></div>`;
   }).join('');
   const top12=sorted.slice(0,12);
   destroyChart('partnerCount');
@@ -1041,6 +1080,11 @@ function renderSocial(){
 // ── GEAR ──
 function renderGear(){
   const data=getFiltered();
+  // Sync indicator — computes dynamically from today's date
+  const _lastDate=ALL_DATA.map(a=>a.date).sort().slice(-1)[0];
+  const _daysSince=_lastDate?Math.floor((new Date()-new Date(_lastDate+' 12:00:00'))/86400000):null;
+  const _syncEl=document.getElementById('gearSyncIndicator');
+  if(_syncEl){if(_daysSince!==null&&_daysSince>2){_syncEl.style.display='flex';const _sd=_syncEl.querySelector('.sync-days');if(_sd)_sd.textContent=_daysSince;}else _syncEl.style.display='none';}
   const gm={};
   data.forEach(a=>{
     const g=a.gear;if(!g||g==='n/a')return;
@@ -1052,7 +1096,7 @@ function renderGear(){
   document.getElementById('gearBadge').textContent=sorted.length+' items';
   const GEAR_COLORS=['#1d4ed8','#ef4444','#eab308','#0ea5e9','#8b5cf6','#22c55e','#f97316','#14b8a6','#84cc16','#a855f7'];
   // Gear cards (top 8)
-  document.getElementById('gearCards').innerHTML=sorted.slice(0,8).map(([name,s],i)=>{
+  document.getElementById('gearCards').innerHTML=sorted.map(([name,s],i)=>{
     const topType=s.types?Object.entries(s.types).sort((a,b)=>b[1]-a[1])[0][0]:'?';
     const col=groupColor(topType);
     return`<div class="gear-card" style="border-top:3px solid ${col}">
