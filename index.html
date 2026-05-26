@@ -259,6 +259,10 @@ tbody td{padding:10px 14px;vertical-align:middle}
 /* TOP GEAR VIEW ALL */
 .gear-view-all{display:block;width:100%;text-align:center;padding:10px;font-size:12px;color:var(--text-muted);border:none;border-top:1px solid var(--border);cursor:pointer;transition:color .15s;background:transparent;font-family:inherit}
 .gear-view-all:hover{color:var(--text)}
+
+.hm-layout-desktop{display:block}
+.hm-layout-mobile{display:none}
+@media(max-width:640px){.hm-layout-desktop{display:none}.hm-layout-mobile{display:block}}
 </style>
 </head>
 <body>
@@ -973,48 +977,88 @@ function renderHeatmap(){
       (next?`<button class="hm-nav-btn" onclick="setYear('${next}')">${next} →</button>`:``);
   }
 
-  // Build 7-col × N-week vertical grid
+  // GitHub-style horizontal heatmap (vertical on mobile)
   function renderHeatYear(year){
     const sd=new Date(year,0,1),ed=new Date(year,11,31);
-    const fd=new Date(sd);
-    const dow0=fd.getDay();fd.setDate(fd.getDate()-(dow0===0?6:dow0-1));
-    const dows=['M','T','W','T','F','S','S'];
+    const start=new Date(sd);
+    const dow0=start.getDay();start.setDate(start.getDate()-(dow0===0?6:dow0-1));
     const r1=240,g1=240,b1=240;
     const r2=parseInt(accent.slice(1,3),16),g2=parseInt(accent.slice(3,5),16),b2=parseInt(accent.slice(5,7),16);
+    const MNAMES=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const C=13,G=2;
 
-    let rows=[],cur=new Date(fd),lastMonth='';
+    // Build weeks array [[{ds,inY,dd,mo}×7]×N]
+    const weeks=[];let cur=new Date(start);
     while(cur<=ed){
-      const cells=[];let monthLabel='';
+      const wk=[];
       for(let d=0;d<7;d++){
         const ds=cur.toISOString().slice(0,10);
         const inY=cur>=sd&&cur<=ed;
-        if(inY&&d===0){const mn=cur.toLocaleString('en-GB',{month:'short'});if(mn!==lastMonth){monthLabel=mn;lastMonth=mn;}}
-        const dd=inY?byDay[ds]:null;
-        let bg,cls='hm-cell';
-        if(!inY){bg='transparent';}
-        else if(!dd){bg='#f0f0f0';}
-        else{
-          cls+=' active';
-          const intensity=Math.pow(Math.min(dd.dist/(maxDist*0.6),1),.5);
-          bg=`rgb(${Math.round(r1+(r2-r1)*intensity)},${Math.round(g1+(g2-g1)*intensity)},${Math.round(b1+(b2-b1)*intensity)})`;
-        }
-        if(dd)
-          cells.push(`<div class="${cls}" style="background:${bg}" onmouseenter="showDashTooltip(event,'${ds}')" onmouseleave="hideDashTooltip()" onclick="showDayDetail('${ds}')"></div>`);
-        else
-          cells.push(`<div class="${cls}" style="background:${bg}"></div>`);
+        wk.push({ds,inY,dd:inY?(byDay[ds]||null):null,mo:cur.getMonth()});
         cur.setDate(cur.getDate()+1);
       }
-      rows.push({cells,monthLabel});
+      weeks.push(wk);
     }
 
-    let html=`<div class="hm-grid-outer">`;
-    // Day-of-week header
-    html+=`<div class="hm-row"><div class="hm-month-lbl"></div>${dows.map(d=>`<div class="hm-dow-hdr">${d}</div>`).join('')}</div>`;
-    rows.forEach(({cells,monthLabel})=>{
-      html+=`<div class="hm-row"><div class="hm-month-lbl">${monthLabel}</div>${cells.join('')}</div>`;
+    function cellBg(dd){
+      if(!dd)return'var(--hm-empty,#f0f0f0)';
+      const intensity=Math.pow(Math.min(dd.dist/(maxDist*0.6),1),.5);
+      return`rgb(${Math.round(r1+(r2-r1)*intensity)},${Math.round(g1+(g2-g1)*intensity)},${Math.round(b1+(b2-b1)*intensity)})`;
+    }
+    function cellDiv(day){
+      if(!day.inY)return`<div style="width:${C}px;height:${C}px;border-radius:2px;"></div>`;
+      const bg=cellBg(day.dd);
+      const cls=day.dd?'hm-cell active':'hm-cell';
+      const ev=day.dd?`onmouseenter="showDashTooltip(event,'${day.ds}')" onmouseleave="hideDashTooltip()" onclick="showDayDetail('${day.ds}')"`:''
+      return`<div class="${cls}" style="width:${C}px;height:${C}px;border-radius:2px;background:${bg}" ${ev}></div>`;
+    }
+
+    // ── DESKTOP: horizontal GitHub strip ──
+    let lastMoD=-1;const moLabels=[];
+    weeks.forEach((wk,wi)=>{
+      const f=wk.find(d=>d.inY);
+      if(f&&f.mo!==lastMoD){moLabels.push({mo:f.mo,col:wi});lastMoD=f.mo;}
     });
-    html+=`</div>`;
-    return html;
+    const DOW_W=14;
+    let dHtml=`<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;">`;
+    dHtml+=`<div style="display:inline-block;min-width:max-content;">`;
+    // Month label row
+    dHtml+=`<div style="display:flex;padding-left:${DOW_W+4}px;height:16px;position:relative;">`;
+    moLabels.forEach(({mo,col})=>{
+      dHtml+=`<span style="position:absolute;left:${DOW_W+4+col*(C+G)}px;font-size:10px;color:var(--color-text-secondary,#6b7280);white-space:nowrap;">${MNAMES[mo]}</span>`;
+    });
+    dHtml+=`</div>`;
+    // DOW labels + grid row
+    dHtml+=`<div style="display:flex;align-items:flex-start;gap:4px;">`;
+    dHtml+=`<div style="display:flex;flex-direction:column;gap:${G}px;width:${DOW_W}px;flex-shrink:0;">`;
+    ['M','','W','','F','','S'].forEach(d=>{
+      dHtml+=`<div style="height:${C}px;font-size:9px;color:var(--color-text-secondary,#6b7280);line-height:${C}px;text-align:right;padding-right:2px;">${d}</div>`;
+    });
+    dHtml+=`</div>`;
+    dHtml+=`<div style="display:grid;grid-template-rows:repeat(7,${C}px);grid-auto-flow:column;grid-auto-columns:${C}px;gap:${G}px;">`;
+    weeks.forEach(wk=>wk.forEach(day=>{ dHtml+=cellDiv(day); }));
+    dHtml+=`</div></div></div></div>`;
+
+    // ── MOBILE: vertical strip (weeks as rows) ──
+    let mHtml=`<div>`;
+    mHtml+=`<div style="display:flex;gap:${G}px;margin-bottom:${G}px;padding-left:30px;">`;
+    ['M','T','W','T','F','S','S'].forEach(d=>{
+      mHtml+=`<div style="width:${C}px;font-size:9px;color:var(--color-text-secondary,#6b7280);text-align:center;">${d}</div>`;
+    });
+    mHtml+=`</div>`;
+    let lastMoM=-1;
+    weeks.forEach(wk=>{
+      const f=wk.find(d=>d.inY);
+      let mo='';
+      if(f&&f.mo!==lastMoM){mo=MNAMES[f.mo];lastMoM=f.mo;}
+      mHtml+=`<div style="display:flex;align-items:center;gap:${G}px;margin-bottom:${G}px;">`;
+      mHtml+=`<div style="width:26px;font-size:9px;color:var(--color-text-secondary,#6b7280);text-align:right;flex-shrink:0;">${mo}</div>`;
+      wk.forEach(day=>{ mHtml+=cellDiv(day); });
+      mHtml+=`</div>`;
+    });
+    mHtml+=`</div>`;
+
+    return`<div class="hm-layout-desktop">${dHtml}</div><div class="hm-layout-mobile">${mHtml}</div>`;
   }
 
   document.getElementById('heatmapContainer').innerHTML=renderHeatYear(displayYear);
