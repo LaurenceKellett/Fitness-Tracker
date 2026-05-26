@@ -1276,15 +1276,11 @@ function renderAll(){
 }
 
 async function loadData() {
-  const loadingEl = document.querySelector('.main');
-  if (loadingEl) loadingEl.innerHTML = '<div style="padding:60px 0;text-align:center;color:#6b7280;font-size:15px">Loading activities from Strava…</div>';
-
   try {
     const res = await fetch('https://activities-api.lk-ff7.workers.dev/activities');
     ALL_DATA = await res.json();
   } catch (e) {
-    const loadingEl = document.querySelector('.main');
-    if (loadingEl) loadingEl.innerHTML = '<div style="padding:60px 0;text-align:center;color:#ef4444;font-size:15px">Could not load activities. Check the Worker is running.</div>';
+    console.error('Could not load activities from Strava Worker:', e);
     return;
   }
 
