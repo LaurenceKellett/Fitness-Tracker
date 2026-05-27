@@ -259,6 +259,14 @@ tbody td{padding:10px 14px;vertical-align:middle}
 /* TOP GEAR VIEW ALL */
 .gear-view-all{display:block;width:100%;text-align:center;padding:10px;font-size:12px;color:var(--text-muted);border:none;border-top:1px solid var(--border);cursor:pointer;transition:color .15s;background:transparent;font-family:inherit}
 .gear-view-all:hover{color:var(--text)}
+/* REFRESH BUTTON */
+.refresh-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border:1px solid var(--border);border-radius:8px;font-size:12px;font-weight:600;background:var(--surface);color:var(--text-muted);cursor:pointer;transition:all .15s;font-family:inherit;flex-shrink:0}
+.refresh-btn:hover:not(:disabled){background:var(--bg);color:var(--text);border-color:var(--text-muted)}
+.refresh-btn:disabled{opacity:.5;cursor:not-allowed}
+.refresh-btn .refresh-icon{display:inline-block;transition:transform .6s}
+.refresh-btn.spinning .refresh-icon{animation:rspin .8s linear infinite}
+@keyframes rspin{to{transform:rotate(360deg)}}
+.last-updated{font-size:11px;color:var(--text-light);white-space:nowrap;flex-shrink:0}
 
 .hm-layout-desktop{display:block}
 .hm-layout-mobile{display:none}
@@ -274,6 +282,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
         <h1>Fitness<span>Dashboard</span></h1>
       </div>
       <div class="header-controls">
+        <span class="last-updated" id="lastUpdated"></span>
+        <button class="refresh-btn" id="refreshBtn" onclick="refreshData()" title="Pull latest activities from Strava"><span class="refresh-icon">↻</span> Refresh</button>
         <a href="https://www.strava.com/athletes/263104" target="_blank" class="strava-header-link" id="stravaProfileLink"><svg viewBox="0 0 24 24" width="13" height="13" style="flex-shrink:0"><path fill="white" d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0 4 13.828h4.172"/></svg>Strava</a>
         <div class="toggle-group" id="unitToggle">
           <button class="toggle-btn active" data-unit="mi" onclick="setUnit('mi')">Miles</button>
@@ -1324,10 +1334,37 @@ function renderAll(){
   else if(activeTab==='log')renderLog();
 }
 
-async function loadData() {
+function formatUpdatedAt(isoString) {
+  if (!isoString) return '';
+  const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
+  if (diff < 60)  return 'Updated just now';
+  if (diff < 3600) return `Updated ${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `Updated ${Math.floor(diff / 3600)}h ago`;
+  return `Updated ${Math.floor(diff / 86400)}d ago`;
+}
+
+function setUpdatedAt(isoString) {
+  const el = document.getElementById('lastUpdated');
+  if (el) el.textContent = formatUpdatedAt(isoString);
+}
+
+async function loadData(forceRefresh = false) {
+  const url = forceRefresh
+    ? 'https://activities-api.lk-ff7.workers.dev/activities?refresh=true'
+    : 'https://activities-api.lk-ff7.workers.dev/activities';
+
   try {
-    const res = await fetch('https://activities-api.lk-ff7.workers.dev/activities');
-    ALL_DATA = await res.json();
+    const res  = await fetch(url);
+    const json = await res.json();
+
+    // Handle both the new envelope {data, updatedAt} and the old raw-array format
+    if (Array.isArray(json)) {
+      ALL_DATA = json;
+      setUpdatedAt(null);
+    } else {
+      ALL_DATA = json.data;
+      setUpdatedAt(json.updatedAt);
+    }
   } catch (e) {
     console.error('Could not load activities from Strava Worker:', e);
     return;
@@ -1337,6 +1374,17 @@ async function loadData() {
   ['summary','charts','heatmap','social','gear','log'].forEach(buildTypeFilters);
   renderSummary();
   renderRecords();
+}
+
+async function refreshData() {
+  const btn  = document.getElementById('refreshBtn');
+  const label = document.getElementById('lastUpdated');
+  if (btn) { btn.disabled = true; btn.classList.add('spinning'); }
+  if (label) label.textContent = 'Refreshing…';
+
+  await loadData(true);
+
+  if (btn) { btn.disabled = false; btn.classList.remove('spinning'); }
 }
 
 loadData();
