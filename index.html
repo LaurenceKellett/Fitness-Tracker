@@ -809,7 +809,7 @@ function renderCharts(){
   // Hide/show conditional charts
   document.getElementById('donutChartCard').style.display=isSpecificType?'none':'block';
   document.getElementById('yoyChartCard').style.gridColumn=isSpecificType?'1 / -1':'';
-  document.getElementById('yoyDonutGrid').style.gridTemplateColumns=isSpecificType?'1fr':'1fr 1fr';
+  document.getElementById('yoyDonutGrid').style.gridTemplateColumns=isSpecificType?'1fr':'';
   document.getElementById('paceChartRow').style.display=(activeType==='All'||activeType==='Run')?'grid':'none';
 
   // First chart: year calendar or monthly bar
