@@ -1348,7 +1348,32 @@ function setUpdatedAt(isoString) {
   if (el) el.textContent = formatUpdatedAt(isoString);
 }
 
+const CACHE_KEY = 'fitness_dashboard_v1';
+
+function renderFromData() {
+  buildYearPills();
+  ['summary','charts','heatmap','social','gear','log'].forEach(buildTypeFilters);
+  renderSummary();
+  renderRecords();
+}
+
 async function loadData(forceRefresh = false) {
+  // Render from cache immediately so the page isn't blank on first load
+  if (!forceRefresh) {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        ALL_DATA = parsed.data || [];
+        setUpdatedAt(parsed.updatedAt);
+        renderFromData();
+        // Show that a background refresh is in progress
+        const lu = document.getElementById('lastUpdated');
+        if (lu) lu.textContent += ' · Syncing…';
+      }
+    } catch(e) { /* bad cache, ignore */ }
+  }
+
   const url = forceRefresh
     ? 'https://activities-api.lk-ff7.workers.dev/activities?refresh=true'
     : 'https://activities-api.lk-ff7.workers.dev/activities';
@@ -1361,19 +1386,23 @@ async function loadData(forceRefresh = false) {
     if (Array.isArray(json)) {
       ALL_DATA = json;
       setUpdatedAt(null);
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ data: json, updatedAt: new Date().toISOString() }));
     } else {
       ALL_DATA = json.data;
       setUpdatedAt(json.updatedAt);
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ data: json.data, updatedAt: json.updatedAt }));
     }
   } catch (e) {
     console.error('Could not load activities from Strava Worker:', e);
+    // If we already rendered from cache, leave it as-is
+    if (ALL_DATA.length) {
+      const lu = document.getElementById('lastUpdated');
+      if (lu) lu.textContent = lu.textContent.replace(' · Syncing…', ' · (offline)');
+    }
     return;
   }
 
-  buildYearPills();
-  ['summary','charts','heatmap','social','gear','log'].forEach(buildTypeFilters);
-  renderSummary();
-  renderRecords();
+  renderFromData();
 }
 
 async function refreshData() {
