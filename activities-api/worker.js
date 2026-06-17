@@ -184,45 +184,40 @@ async function handleActivities(request, env) {
 
 async function generateAiSummary(activities, env) {
   try {
-    if (!activities || activities.length === 0) {
-      return "No training data found to summarize.";
-    }
+    if (!activities || activities.length === 0) return "No data found.";
 
-    // 1. Filter for ONLY the last 30 days
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
-    const recentActivities = activities.filter(a => new Date(a.date) >= thirtyDaysAgo);
+    const recent = activities.filter(a => new Date(a.date) >= thirtyDaysAgo);
 
-    if (recentActivities.length === 0) {
-      return "No training data from the last 30 days to summarize.";
-    }
+    // Calculate details for the prompt
+    const totalDist = recent.reduce((sum, a) => sum + (a.dist_mi || 0), 0);
+    const walkCount = recent.filter(a => a.type === 'Walk').length;
+    const totalCount = recent.length;
+    const walkPct = Math.round((walkCount / totalCount) * 100);
 
-    // 2. Calculate monthly stats
-    const totalMiles = recentActivities.reduce((sum, a) => sum + (a.dist_mi || 0), 0);
-    const recentDataStr = recentActivities.map(a => 
-      `- ${a.date}: ${a.type} - "${a.name}" (${a.dist_mi} mi, ${Math.round(a.mt / 60)} mins)`
+    const recentDataStr = recent.map(a => 
+      `- ${a.date}: ${a.type} (${a.dist_mi} mi)`
     ).join('\n');
 
-    // 3. Define the concise prompt
     const systemPrompt = `You are a realistic, data-driven fitness analyst. 
-    Your goal is to provide a grounded, punchy, and strictly factual 3-sentence summary of a hobbyist athlete's activity over the last month. 
+    Write a 5-6 sentence summary for Laurence, a hobbyist athlete. 
     CRITICAL RULES:
-    1. Avoid all flowery, grandiose, or superlative language. 
-    2. Be precise with data: Report only what is in the provided log. 
-    3. Maintain a supportive but neutral, 'just the facts' tone. 
-    4. Do not use bolding or markdown symbols.`;
+    1. Use "you" instead of "the athlete". 
+    2. Be explicit: distinguish between activity 'count' (frequency) and 'distance' (miles). 
+    3. Be factual, grounded, and supportive. No flowery language or hyperbole. 
+    4. Do not use bolding or markdown.`;
 
-    const userPrompt = `Monthly Data (Last 30 Days):
-    - Total Workouts: ${recentActivities.length}
-    - Total Distance: ${Math.round(totalMiles)} miles
+    const userPrompt = `Data for the last 30 days:
+    - Total Workouts: ${totalCount}
+    - Total Distance: ${Math.round(totalDist)} miles
+    - Walk frequency: ${walkCount} out of ${totalCount} workouts (${walkPct}% of workouts by count).
 
-    Recent Training Log:
+    Activity Log:
     ${recentDataStr}
 
-    Task: Write a concise, factual 3-sentence summary of the athlete's activity over the last month. Focus on consistency and the types of workouts performed.`;
+    Task: Write a 5-6 sentence summary for Laurence. Describe the activity mix, highlighting that walking is the most frequent activity by count while acknowledging the distance covered.`;
 
-    // 4. Run inference
     const aiResponse = await env.AI.run('@cf/meta/llama-3.2-3b-instruct', {
       messages: [
         { role: 'system', content: systemPrompt },
@@ -230,7 +225,7 @@ async function generateAiSummary(activities, env) {
       ]
     });
 
-    return aiResponse.response || "Inference completed without returning text.";
+    return aiResponse.response;
   } catch (err) {
     return `Coach breakdown temporarily unavailable: ${err.message}`;
   }
