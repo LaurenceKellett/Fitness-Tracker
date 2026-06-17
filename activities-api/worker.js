@@ -220,18 +220,24 @@ async function generateAiSummary(activities, env) {
     ).join('\n');
 
     // 3. Assemble prompt providing full macro history + micro context
-    const systemPrompt = `You are a concise, supportive personal fitness coach. Analyze the athlete's lifetime fitness totals alongside their most recent workouts. Provide a punchy, highly encouraging 3-sentence summary of their fitness progress, highlighting their career milestones and their current momentum. Do not use any markdown bolding symbols like '**'. Provide plain, natural text.`;
+    const systemPrompt = `You are a realistic, data-driven fitness analyst. 
+Your goal is to provide a grounded, punchy, and strictly factual 3-sentence summary of a hobbyist athlete's performance. 
+CRITICAL RULES:
+1. Avoid all flowery, grandiose, or superlative language (e.g., no 'cementing your legacy' or 'one of the most accomplished'). 
+2. Be precise with data: NEVER assume an activity type. If the data says 55,000 miles, but only 3,000 are walking, do not claim the miles were 'walked'. 
+3. Maintain a supportive but neutral, 'just the facts' tone. 
+4. Do not use bolding or markdown symbols.`;
     
-    const userPrompt = `Here is my overall historical career summary crunched from my full tracking history:
-- Total Career Workouts: ${totalWorkouts}
-- Total Career Distance: ${Math.round(totalMiles)} miles
-- Total Career Elevation Gain: ${Math.round(totalElevation)} feet
-- Primary Sport: ${favoriteSport} (${favoriteSportCount} sessions)
-- Highest Recorded Avg Heart Rate: ${highestHeartRate || 'N/A'} bpm
+    const userPrompt = `Overall Career Stats:
+- Total Workouts: ${totalWorkouts}
+- Total Distance: ${Math.round(totalMiles)} miles
+- Primary Sport: ${favoriteSport}
+- Sport Breakdown: ${JSON.stringify(sportCounts)}
 
-Here are my 5 most recent workouts for immediate context:
+Recent Activities (5 most recent):
 ${recentDataStr}
 
+Task: Write a 3-sentence summary. If the total distance is high, acknowledge the consistency over time without assuming specific activity types for the whole distance. If the recent data shows cycling, focus on that.`;
 Coach Summary:`;
 
    // Replace the old model string with this current, stable identifier
