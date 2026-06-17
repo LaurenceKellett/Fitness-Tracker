@@ -234,13 +234,13 @@ ${recentDataStr}
 
 Coach Summary:`;
 
-    // Perform edge inference
-    const aiResponse = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fast', {
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ]
-    });
+   // Replace the old model string with this current, stable identifier
+const aiResponse = await env.AI.run('@cf/meta/llama-3.2-3b-instruct', {
+  messages: [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userPrompt }
+  ]
+});
 
     return aiResponse.response || "Inference completed without returning text.";
   } catch (err) {
