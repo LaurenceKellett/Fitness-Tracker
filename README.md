@@ -1,28 +1,64 @@
-# Fitness Tracker
+# 💪 Fitness Tracker with AI Coach
 
-A personal fitness dashboard that pulls activity data from Strava and displays it as an interactive web app — charts, heatmaps, zone breakdowns, PR timelines, and more.
+A high-performance, serverless fitness dashboard that pulls activity data from Strava and utilizes Cloudflare Workers AI to provide automated, intelligent, and context-aware coaching insights.
 
 ---
 
-## Architecture
+## 🏗️ Technical Architecture
 
-The app is split across two Cloudflare services:
+The app is split across three Cloudflare services:
 
 ```
 Strava API
    │
    ▼
-Cloudflare Worker (activities-api)        ← API proxy + OAuth + KV cache
+Cloudflare Worker (activities-api)        ← API proxy + OAuth + AI Inference + KV cache
 activities-api.lk-ff7.workers.dev
    │
    ▼
 Cloudflare Pages (activities-5z4.pages.dev)   ← Static frontend
-   │  index.html pulled from GitHub
+   │  index.html (dynamic AI text injection)
    ▼
 Your browser
 ```
 
-**Why split?** Cloudflare Pages serves static assets but cannot hold secrets. The Worker holds the Strava credentials, calls the Strava API, and exposes a single `/activities` endpoint the frontend calls.
+**Why split?** Cloudflare Pages serves static assets but cannot hold secrets. The Worker holds the Strava credentials, calls the Strava API, runs AI inference on edge, and exposes a single `/activities` endpoint the frontend calls with enriched data.
+
+---
+
+## 🤖 New Feature: Edge AI Coaching
+
+We have added a server-side AI aggregation layer. Instead of just returning raw activity lists, the Worker now performs pre-inference math to analyze your lifetime performance metrics and injects them into a large language model.
+
+### How it works
+
+**Pre-Aggregation (The "Crunch"):** The worker iterates through your entire cached Strava history (thousands of activities) in pure JavaScript to calculate career totals, primary sports, and maximum heart rate metrics. This happens in milliseconds with zero token cost.
+
+**Prompt Engineering:** These aggregated metrics are packaged into a high-context prompt alongside your 5 most recent activities.
+
+**Edge Inference:** The worker calls `@cf/meta/llama-3.2-3b-instruct` to generate a personalized 3-sentence summary of your fitness momentum.
+
+**Frontend Injection:** The frontend receives a JSON "envelope" containing both the raw data and the generated `aiSummary` string, which is dynamically injected into the `ai-box` UI element.
+
+### Worker Code Snippet
+
+The core logic resides in the `generateAiSummary` function added to `worker.js`:
+
+```javascript
+async function generateAiSummary(activities, env) {
+  // 1. Aggregates historical metrics (Total miles, favorite sports, etc.)
+  // ... (JS aggregation logic) ...
+  // 2. Formats recent activities for context
+  // 3. Runs edge inference
+  const aiResponse = await env.AI.run('@cf/meta/llama-3.2-3b-instruct', {
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ]
+  });
+  return aiResponse.response;
+}
+```
 
 ---
 
@@ -47,8 +83,8 @@ Your browser
 |---|---|
 | `GET /auth` | Redirects to Strava OAuth — run once to get your refresh token |
 | `GET /callback` | Exchanges the OAuth code and shows you the refresh token to save |
-| `GET /activities` | Returns all activities as JSON (cached in Workers KV for 24 hours) |
-| `GET /activities?refresh=true` | Bypasses the cache and fetches fresh from Strava |
+| `GET /activities` | Returns all activities as JSON with `aiSummary` (cached in Workers KV for 24 hours) |
+| `GET /activities?refresh=true` | Bypasses the cache, fetches fresh from Strava, and regenerates AI summary |
 | `GET /debug` | Raw Strava token + activity diagnostic — useful when troubleshooting |
 
 ### Caching
@@ -65,7 +101,7 @@ The Strava list API returns a `gear_id`, not the name. The Worker resolves each 
 
 ---
 
-## Cloudflare setup
+## ⚙️ Cloudflare Setup
 
 ### Worker — `activities-api`
 
@@ -80,6 +116,17 @@ The Strava list API returns a `gear_id`, not the name. The Worker resolves each 
 | `STRAVA_REFRESH_TOKEN` | Secret | Obtained via the `/auth` → `/callback` flow |
 
 **KV namespace:** The Worker reads `env.CACHE` — bind a KV namespace named `CACHE` in the Worker → Settings → Bindings.
+
+**AI Binding:** In addition to the above, your worker now requires the AI binding to be enabled:
+- Type: **AI**
+- Variable Name: **AI**
+
+**wrangler.toml:** Ensure your `wrangler.toml` includes the AI service binding:
+
+```toml
+[ai]
+binding = "AI"
+```
 
 ### Pages — `activities-5z4`
 
@@ -133,3 +180,7 @@ Then every push to `main` deploys the Worker via `.github/workflows/deploy.yml`.
 | After editing in the dashboard, changes not live | You must click **Deploy**, not just Save — they are different actions |
 | Frontend can't reach the Worker | CORS headers are set to `*` in the Worker; if blocked, check the browser console for the exact error |
 | HR zone splits look wrong | Expected for interval sessions — the estimation is less reliable when avg HR is much lower than peak HR. Steady efforts (long rides, tempo runs) are more accurate |
+| "Coach breakdown unavailable: 5028" | The model name has changed. Ensure you are using `@cf/meta/llama-3.2-3b-instruct` in `worker.js` |
+| AI Summary is stale | Trigger a fresh calculation by visiting `https://activities-api.lk-ff7.workers.dev/activities?refresh=true` |
+| "Summary payload empty" in UI | Verify your frontend JS is accessing `envelope.aiSummary` and not just the raw data array |
+| AI binding not found | Check Worker → Settings → Bindings for an **AI** binding, and ensure `wrangler.toml` includes `[ai]` section |
