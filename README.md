@@ -46,17 +46,50 @@ The core logic resides in the `generateAiSummary` function added to `worker.js`:
 
 ```javascript
 async function generateAiSummary(activities, env) {
-  // 1. Aggregates historical metrics (Total miles, favorite sports, etc.)
-  // ... (JS aggregation logic) ...
-  // 2. Formats recent activities for context
-  // 3. Runs edge inference
-  const aiResponse = await env.AI.run('@cf/meta/llama-3.2-3b-instruct', {
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt }
-    ]
-  });
-  return aiResponse.response;
+  try {
+    if (!activities || activities.length === 0) return "No data found.";
+    
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const recent = activities.filter(a => new Date(a.date) >= thirtyDaysAgo);
+    
+    // Calculate details for the prompt
+    const totalDist = recent.reduce((sum, a) => sum + (a.dist_mi || 0), 0);
+    const walkCount = recent.filter(a => a.type === 'Walk').length;
+    const totalCount = recent.length;
+    const walkPct = Math.round((walkCount / totalCount) * 100);
+    
+    const recentDataStr = recent.map(a => 
+      `- ${a.date}: ${a.type} (${a.dist_mi} mi)`
+    ).join('\n');
+    
+    const systemPrompt = `You are a realistic, data-driven fitness analyst. 
+    Write a 5-6 sentence summary for Laurence, a hobbyist athlete. 
+    CRITICAL RULES:
+    1. Use "you" instead of "the athlete". 
+    2. Be explicit: distinguish between activity 'count' (frequency) and 'distance' (miles). 
+    3. Be factual, grounded, and supportive. No flowery language or hyperbole. 
+    4. Do not use bolding or markdown.`;
+    
+    const userPrompt = `Data for the last 30 days:
+    - Total Workouts: ${totalCount}
+    - Total Distance: ${Math.round(totalDist)} miles
+    - Walk frequency: ${walkCount} out of ${totalCount} workouts (${walkPct}% of workouts by count).
+    Activity Log:
+    ${recentDataStr}
+    Task: Write a 5-6 sentence summary for Laurence. Describe the activity mix, highlighting that walking is the most frequent activity by count while acknowledging the distance covered.`;
+    
+    const aiResponse = await env.AI.run('@cf/meta/llama-3.2-3b-instruct', {
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ]
+    });
+    
+    return aiResponse.response;
+  } catch (err) {
+    return `Coach breakdown temporarily unavailable: ${err.message}`;
+  }
 }
 ```
 
@@ -64,20 +97,19 @@ async function generateAiSummary(activities, env) {
 
 **System Prompt:**
 
-> You are a realistic, data-driven fitness analyst. Your goal is to provide a grounded, punchy, and strictly factual 3-sentence summary of a hobbyist athlete's performance. CRITICAL RULES: 1. Avoid all flowery, grandiose, or superlative language (e.g., no 'cementing your legacy' or 'one of the most accomplished'). 2. Be precise with data: NEVER assume an activity type. If the data says 55,000 miles, but only 3,000 are walking, do not claim the miles were 'walked'. 3. Maintain a supportive but neutral, 'just the facts' tone. 4. Do not use bolding or markdown symbols.
+> You are a realistic, data-driven fitness analyst. Write a 5-6 sentence summary for Laurence, a hobbyist athlete. CRITICAL RULES: 1. Use "you" instead of "the athlete". 2. Be explicit: distinguish between activity 'count' (frequency) and 'distance' (miles). 3. Be factual, grounded, and supportive. No flowery language or hyperbole. 4. Do not use bolding or markdown.
 
 **User Prompt:**
 
-> Overall Career Stats:
-> - Total Workouts: ${totalWorkouts}
-> - Total Distance: ${Math.round(totalMiles)} miles
-> - Primary Sport: ${favoriteSport}
-> - Sport Breakdown: ${JSON.stringify(sportCounts)}
+> Data for the last 30 days:
+> - Total Workouts: ${totalCount}
+> - Total Distance: ${Math.round(totalDist)} miles
+> - Walk frequency: ${walkCount} out of ${totalCount} workouts (${walkPct}% of workouts by count).
 > 
-> Recent Activities (5 most recent):
+> Activity Log:
 > ${recentDataStr}
 > 
-> Task: Write a 3-sentence summary. If the total distance is high, acknowledge the consistency over time without assuming specific activity types for the whole distance. If the recent data shows cycling, focus on that.
+> Task: Write a 5-6 sentence summary for Laurence. Describe the activity mix, highlighting that walking is the most frequent activity by count while acknowledging the distance covered.
 
 ---
 
@@ -85,12 +117,9 @@ async function generateAiSummary(activities, env) {
 
 | File | What it is |
 |---|---|
-| `worker.js` | The Cloudflare Worker — Strava OAuth, activity fetching, KV caching |
-| `index.html` | The full dashboard frontend — charts, filters, heatmaps, tabs |
+| `worker.js` | The Cloudflare Worker — Strava OAuth, activity fetching, KV caching, AI inference |
+| `index.html` | The full dashboard frontend — charts, filters, heatmaps, tabs, AI coach box |
 | `activities.csv` | Strava bulk export (legacy seed data — the Worker now fetches live) |
-| `design-dark.html` | Design explorations (not in production) |
-| `design-glass.html` | Design explorations (not in production) |
-| `design-minimal.html` | Design explorations (not in production) |
 
 ---
 
