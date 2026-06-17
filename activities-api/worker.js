@@ -1,18 +1,18 @@
 // =============================================================================
-// FITNESS TRACKER — CLOUDFLARE WORKER
+// FITNESS TRACKER — CLOUDFLARE WORKER (WITH SMART LFETIME AI SUMMARY)
 // =============================================================================
 // Routes:
 //   GET /auth        → redirects to Strava OAuth (run once to get refresh token)
 //   GET /callback    → exchanges code, shows you your refresh token to copy
-//   GET /activities  → returns all activities in ALL_DATA format (KV cached)
-//   GET /activities?refresh=true → forces a fresh fetch from Strava
+//   GET /activities  → returns data & AI summary in cached envelope
+//   GET /activities?refresh=true → forces a fresh pull & completely regenerates AI
 // =============================================================================
 
 // ---- IMPORTANT: replace this with your actual Worker URL ------------------
-const WORKER_URL = 'activities-api.lk-ff7.workers.dev';
+const WORKER_URL = 'https://YOUR-WORKER-NAME.workers.dev';
 // ---------------------------------------------------------------------------
 
-const CACHE_KEY  = 'activities_v2'; // bumped from v1 to avoid stale envelope mismatch
+const CACHE_KEY  = 'activities_v2'; 
 const CACHE_TTL  = 60 * 60 * 24; // 24 hours in seconds
 
 const CORS = {
@@ -45,7 +45,6 @@ export default {
 
 // =============================================================================
 // AUTH — step 1 of one-time OAuth setup
-// Visit /auth in your browser to kick off the Strava login
 // =============================================================================
 
 function handleAuth(env) {
@@ -64,8 +63,6 @@ function handleAuth(env) {
 
 // =============================================================================
 // CALLBACK — step 2 of one-time OAuth setup
-// Strava redirects here with a code; we exchange it and show you the
-// refresh token so you can save it as a Worker secret
 // =============================================================================
 
 async function handleCallback(request, env) {
@@ -117,8 +114,6 @@ async function handleCallback(request, env) {
   <textarea readonly onclick="this.select()">${data.refresh_token}</textarea>
   <div class="step">
     <strong>Once saved:</strong> visit <code>${WORKER_URL}/activities</code> to test the live feed.
-    You can delete the <code>/auth</code> and <code>/callback</code> routes from the Worker
-    after that if you want to tidy up.
   </div>
 </body>
 </html>`;
@@ -130,8 +125,6 @@ async function handleCallback(request, env) {
 
 // =============================================================================
 // ACTIVITIES — main endpoint, called by your frontend
-// Returns JSON array in ALL_DATA format, cached in Workers KV for 6 hours
-// Add ?refresh=true to force a fresh pull from Strava
 // =============================================================================
 
 async function handleActivities(request, env) {
@@ -157,7 +150,19 @@ async function handleActivities(request, env) {
 
   // Fetch every page of activities from Strava
   const activities  = await fetchAllActivities(accessToken);
-  const envelope    = JSON.stringify({ data: activities, updatedAt: new Date().toISOString() });
+  
+  // Calculate historical metrics & request high-context AI response
+  let aiSummary = "No AI summary generated.";
+  if (env.AI) {
+    aiSummary = await generateAiSummary(activities, env);
+  }
+
+  // Combine raw list data alongside the AI response into the response envelope
+  const envelope = JSON.stringify({ 
+    data: activities, 
+    aiSummary: aiSummary,
+    updatedAt: new Date().toISOString() 
+  });
 
   // Save to KV cache
   if (env.CACHE) {
@@ -174,14 +179,82 @@ async function handleActivities(request, env) {
 }
 
 // =============================================================================
-// DEBUG — shows raw Strava responses so we can see what's going wrong
-// Remove this route once everything is working
+// PRE-AGGREGATION AI SUMMARY GENERATOR
+// =============================================================================
+
+async function generateAiSummary(activities, env) {
+  try {
+    if (!activities || activities.length === 0) {
+      return "No training data found to summarize.";
+    }
+
+    // 1. Crunch metrics across your ENTIRE history in pure JS (Zero Token Cost)
+    let totalMiles = 0;
+    let totalElevation = 0;
+    let totalWorkouts = activities.length;
+    let highestHeartRate = 0;
+    let sportCounts = {};
+
+    for (const act of activities) {
+      totalMiles += (act.dist_mi || 0);
+      totalElevation += (act.elv || 0);
+      if (act.hr > highestHeartRate) highestHeartRate = act.hr;
+      
+      const type = act.type || 'Other';
+      sportCounts[type] = (sportCounts[type] || 0) + 1;
+    }
+
+    let favoriteSport = "None";
+    let favoriteSportCount = 0;
+    for (const [sport, count] of Object.entries(sportCounts)) {
+      if (count > favoriteSportCount) {
+        favoriteSport = sport;
+        favoriteSportCount = count;
+      }
+    }
+
+    // 2. Isolate the 5 most recent activities from the end of the sorted array
+    const recent = activities.slice(-5).reverse();
+    const recentDataStr = recent.map(a => 
+      `- ${a.date}: ${a.type} - "${a.name}" (${a.dist_mi} mi, ${Math.round(a.mt / 60)} mins, Avg HR: ${a.hr || 'N/A'})`
+    ).join('\n');
+
+    // 3. Assemble prompt providing full macro history + micro context
+    const systemPrompt = `You are a concise, supportive personal fitness coach. Analyze the athlete's lifetime fitness totals alongside their most recent workouts. Provide a punchy, highly encouraging 3-sentence summary of their fitness progress, highlighting their career milestones and their current momentum. Do not use any markdown bolding symbols like '**'. Provide plain, natural text.`;
+    
+    const userPrompt = `Here is my overall historical career summary crunched from my full tracking history:
+- Total Career Workouts: ${totalWorkouts}
+- Total Career Distance: ${Math.round(totalMiles)} miles
+- Total Career Elevation Gain: ${Math.round(totalElevation)} feet
+- Primary Sport: ${favoriteSport} (${favoriteSportCount} sessions)
+- Highest Recorded Avg Heart Rate: ${highestHeartRate || 'N/A'} bpm
+
+Here are my 5 most recent workouts for immediate context:
+${recentDataStr}
+
+Coach Summary:`;
+
+    // Perform edge inference
+    const aiResponse = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ]
+    });
+
+    return aiResponse.response || "Inference completed without returning text.";
+  } catch (err) {
+    return `Coach breakdown temporarily unavailable: ${err.message}`;
+  }
+}
+
+// =============================================================================
+// DEBUG ROUTE
 // =============================================================================
 
 async function handleDebug(env) {
   const out = {};
 
-  // Step 1: try token refresh
   const tokenRes = await fetch('https://www.strava.com/oauth/token', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -201,7 +274,6 @@ async function handleDebug(env) {
     });
   }
 
-  // Step 2: try fetching page 1 of activities
   const actRes = await fetch(
     'https://www.strava.com/api/v3/athlete/activities?per_page=5&page=1',
     { headers: { Authorization: `Bearer ${tokenData.access_token}` } }
@@ -215,7 +287,7 @@ async function handleDebug(env) {
 }
 
 // =============================================================================
-// TOKEN REFRESH — exchanges your stored refresh token for a live access token
+// TOKEN REFRESH
 // =============================================================================
 
 async function getAccessToken(env) {
@@ -237,7 +309,7 @@ async function getAccessToken(env) {
 }
 
 // =============================================================================
-// PAGINATION — fetches every page (200 per page) until Strava returns empty
+// PAGINATION
 // =============================================================================
 
 async function fetchAllActivities(accessToken) {
@@ -257,12 +329,10 @@ async function fetchAllActivities(accessToken) {
       all.push(transformActivity(activity));
     }
 
-    if (batch.length < 200) break; // last page
+    if (batch.length < 200) break; 
     page++;
   }
 
-  // Newest first — matches existing ALL_DATA order
-  // Resolve gear IDs to names (one API call per unique gear item)
   const gearIds = [...new Set(all.map(a => a._gear_id).filter(Boolean))];
   const gearMap  = {};
   await Promise.all(gearIds.map(async id => {
@@ -273,20 +343,17 @@ async function fetchAllActivities(accessToken) {
       const data = await res.json();
       gearMap[id] = data.name || id;
     } catch (_) {
-      gearMap[id] = id; // fall back to the raw ID if lookup fails
+      gearMap[id] = id;
     }
   }));
 
-  // Apply gear names and remove the temporary _gear_id field
   for (const a of all) {
     a.gear    = a._gear_id ? (gearMap[a._gear_id] || null) : null;
     delete a._gear_id;
   }
 
-  // Fetch athlete HR zone boundaries (one call, not per activity)
   const hrZones = await fetchAthleteZones(accessToken);
 
-  // Apply zone estimates to every activity that has HR data
   for (const a of all) {
     const zones = estimateZones(a.hr, a.max_hr, a.mt, hrZones);
     a.z1 = zones.z1;
@@ -296,19 +363,11 @@ async function fetchAllActivities(accessToken) {
     a.z5 = zones.z5;
   }
 
-  // Sort oldest-first to match the original hardcoded ALL_DATA order
   return all.sort((a, b) => a.date.localeCompare(b.date));
 }
 
 // =============================================================================
-// HR ZONES — fetches your configured zone boundaries from Strava, then
-// estimates time in each zone using a normal distribution centred on
-// average_heartrate with spread derived from max_heartrate.
-//
-// Caveats:
-//   - Underestimates zone 5 on interval sessions (short spikes barely move avg)
-//   - Steady efforts (long zone 2 rides, tempo runs) are quite accurate
-//   - Activities without HR data get z1–z5 = 0
+// HR ZONES ESTIMATION
 // =============================================================================
 
 async function fetchAthleteZones(accessToken) {
@@ -323,7 +382,6 @@ async function fetchAthleteZones(accessToken) {
   }
 }
 
-// Error function approximation (Abramowitz & Stegun 7.1.26, max error 1.5e-7)
 function erf(x) {
   const t    = 1 / (1 + 0.3275911 * Math.abs(x));
   const poly = t * (0.254829592 + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
@@ -331,7 +389,6 @@ function erf(x) {
   return x >= 0 ? val : -val;
 }
 
-// Normal CDF: probability that a N(mean, std) variable is ≤ x
 function normalCDF(x, mean, std) {
   if (std <= 0) return x >= mean ? 1 : 0;
   return 0.5 * (1 + erf((x - mean) / (std * Math.SQRT2)));
@@ -339,16 +396,10 @@ function normalCDF(x, mean, std) {
 
 function estimateZones(avgHr, maxHr, movingTime, zones) {
   const zero = { z1: 0, z2: 0, z3: 0, z4: 0, z5: 0 };
-
-  // Need at least avg HR and some moving time to estimate anything
   if (!avgHr || movingTime === 0) return zero;
 
-  // If max HR wasn't recorded, estimate it: avg HR on a moderate sustained effort
-  // is typically around 80% of max, so max ≈ avg / 0.80
   const effectiveMax = maxHr > 0 ? maxHr : Math.round(avgHr / 0.80);
 
-  // If Strava didn't return athlete zones (custom zones not configured, or API
-  // call failed), fall back to standard % of max HR boundaries
   const effectiveZones = (zones && zones.length >= 5) ? zones : [
     { min: 0,                               max: Math.round(effectiveMax * 0.60) },
     { min: Math.round(effectiveMax * 0.60), max: Math.round(effectiveMax * 0.70) },
@@ -357,14 +408,11 @@ function estimateZones(avgHr, maxHr, movingTime, zones) {
     { min: Math.round(effectiveMax * 0.90), max: -1 },
   ];
 
-  // Estimate standard deviation:
-  // max HR is typically ~1.5σ above mean in a workout with sustained effort
   const std = Math.max((effectiveMax - avgHr) / 1.5, 3);
 
   const result = {};
   for (let i = 0; i < 5; i++) {
     const lo = effectiveZones[i].min;
-    // Strava uses max: -1 for the open-ended top zone
     const hi = effectiveZones[i].max === -1 ? effectiveMax + 40 : effectiveZones[i].max;
     const proportion = Math.max(0, normalCDF(hi, avgHr, std) - normalCDF(lo, avgHr, std));
     result[`z${i + 1}`] = Math.round(proportion * movingTime);
@@ -374,16 +422,7 @@ function estimateZones(avgHr, maxHr, movingTime, zones) {
 }
 
 // =============================================================================
-// TRANSFORM — maps Strava's API format to your existing ALL_DATA field names
-//
-// Notes on gaps vs your CSV-based data:
-//   gear     → null  (list API only returns gear_id, not the name)
-//   z1–z5    → estimated via normal distribution on avg/max HR + athlete zones
-//   pr_*     → null  (segment PRs only available on detailed activity endpoint)
-//   temp     → null  (only on detailed activity endpoint)
-//   score    → suffer_score from Strava if present, else 0
-//   cal      → Strava's calories field; falls back to kilojoules (kJ ≈ kcal
-//               for cycling — less accurate for running/walking)
+// TRANSFORM API FORMAT
 // =============================================================================
 
 const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -392,7 +431,7 @@ function transformActivity(a) {
   const date      = new Date(a.start_date_local);
   const dist_km   = (a.distance || 0) / 1000;
   const dist_mi   = dist_km * 0.621371;
-  const elv_ft    = (a.total_elevation_gain || 0) * 3.28084; // metres → feet
+  const elv_ft    = (a.total_elevation_gain || 0) * 3.28084; 
   const speed_ms  = a.average_speed || 0;
   const speed_kph = speed_ms * 3.6;
   const speed_mph = speed_ms * 2.23694;
@@ -416,7 +455,7 @@ function transformActivity(a) {
     pace_km:    Math.round(pace_km),
     speed_mph:  round(speed_mph, 2),
     speed_kph:  round(speed_kph, 2),
-    gear:       null,      // filled in after gear lookup
+    gear:       null,      
     _gear_id:   a.gear_id || null,
     kudos:      a.kudos_count || 0,
     has_map:    !!(a.map && a.map.summary_polyline),
