@@ -9,7 +9,7 @@
 // =============================================================================
 
 // ---- IMPORTANT: replace this with your actual Worker URL ------------------
-const WORKER_URL = 'https://YOUR-WORKER-NAME.workers.dev';
+const WORKER_URL = 'activities-api.lk-ff7.workers.dev';
 // ---------------------------------------------------------------------------
 
 const CACHE_KEY  = 'activities_v2'; // bumped from v1 to avoid stale envelope mismatch
