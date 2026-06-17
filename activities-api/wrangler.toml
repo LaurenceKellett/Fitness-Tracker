@@ -1,0 +1,5 @@
+name            = "activities-api"
+main            = "worker.js"          # Looks for worker.js inside this same folder
+compatibility_date = "2024-01-01"
+
+# We will add your Strava and KV configurations here later!
