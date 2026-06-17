@@ -1,5 +1,8 @@
 name            = "activities-api"
-main            = "worker.js"          # Looks for worker.js inside this same folder
+main            = "worker.js"
 compatibility_date = "2024-01-01"
 
-# We will add your Strava and KV configurations here later!
+# This connects your code's "env.CACHE" to an actual KV bucket
+[[kv_namespaces]]
+binding = "CACHE"
+id      = "1d4eb3dfbeeb4e7a90468052225dcfec" # <-- Replace this!
