@@ -235,7 +235,7 @@ ${recentDataStr}
 Coach Summary:`;
 
     // Perform edge inference
-    const aiResponse = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+    const aiResponse = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fast', {
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
