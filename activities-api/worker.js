@@ -188,65 +188,47 @@ async function generateAiSummary(activities, env) {
       return "No training data found to summarize.";
     }
 
-    // 1. Crunch metrics across your ENTIRE history in pure JS (Zero Token Cost)
-    let totalMiles = 0;
-    let totalElevation = 0;
-    let totalWorkouts = activities.length;
-    let highestHeartRate = 0;
-    let sportCounts = {};
+    // 1. Filter for ONLY the last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const recentActivities = activities.filter(a => new Date(a.date) >= thirtyDaysAgo);
 
-    for (const act of activities) {
-      totalMiles += (act.dist_mi || 0);
-      totalElevation += (act.elv || 0);
-      if (act.hr > highestHeartRate) highestHeartRate = act.hr;
-      
-      const type = act.type || 'Other';
-      sportCounts[type] = (sportCounts[type] || 0) + 1;
+    if (recentActivities.length === 0) {
+      return "No training data from the last 30 days to summarize.";
     }
 
-    let favoriteSport = "None";
-    let favoriteSportCount = 0;
-    for (const [sport, count] of Object.entries(sportCounts)) {
-      if (count > favoriteSportCount) {
-        favoriteSport = sport;
-        favoriteSportCount = count;
-      }
-    }
-
-    // 2. Isolate the 5 most recent activities from the end of the sorted array
-    const recent = activities.slice(-5).reverse();
-    const recentDataStr = recent.map(a => 
-      `- ${a.date}: ${a.type} - "${a.name}" (${a.dist_mi} mi, ${Math.round(a.mt / 60)} mins, Avg HR: ${a.hr || 'N/A'})`
+    // 2. Calculate monthly stats
+    const totalMiles = recentActivities.reduce((sum, a) => sum + (a.dist_mi || 0), 0);
+    const recentDataStr = recentActivities.map(a => 
+      `- ${a.date}: ${a.type} - "${a.name}" (${a.dist_mi} mi, ${Math.round(a.mt / 60)} mins)`
     ).join('\n');
 
-    // 3. Assemble prompt providing full macro history + micro context
+    // 3. Define the concise prompt
     const systemPrompt = `You are a realistic, data-driven fitness analyst. 
-Your goal is to provide a grounded, punchy, and strictly factual 3-sentence summary of a hobbyist athlete's performance. 
-CRITICAL RULES:
-1. Avoid all flowery, grandiose, or superlative language (e.g., no 'cementing your legacy' or 'one of the most accomplished'). 
-2. Be precise with data: NEVER assume an activity type. If the data says 55,000 miles, but only 3,000 are walking, do not claim the miles were 'walked'. 
-3. Maintain a supportive but neutral, 'just the facts' tone. 
-4. Do not use bolding or markdown symbols.`;
-    
-    const userPrompt = `Overall Career Stats:
-- Total Workouts: ${totalWorkouts}
-- Total Distance: ${Math.round(totalMiles)} miles
-- Primary Sport: ${favoriteSport}
-- Sport Breakdown: ${JSON.stringify(sportCounts)}
+    Your goal is to provide a grounded, punchy, and strictly factual 3-sentence summary of a hobbyist athlete's activity over the last month. 
+    CRITICAL RULES:
+    1. Avoid all flowery, grandiose, or superlative language. 
+    2. Be precise with data: Report only what is in the provided log. 
+    3. Maintain a supportive but neutral, 'just the facts' tone. 
+    4. Do not use bolding or markdown symbols.`;
 
-Recent Activities (5 most recent):
-${recentDataStr}
+    const userPrompt = `Monthly Data (Last 30 Days):
+    - Total Workouts: ${recentActivities.length}
+    - Total Distance: ${Math.round(totalMiles)} miles
 
-Task: Write a 3-sentence summary. If the total distance is high, acknowledge the consistency over time without assuming specific activity types for the whole distance. If the recent data shows cycling, focus on that.`;
-Coach Summary:`;
+    Recent Training Log:
+    ${recentDataStr}
 
-   // Replace the old model string with this current, stable identifier
-const aiResponse = await env.AI.run('@cf/meta/llama-3.2-3b-instruct', {
-  messages: [
-    { role: 'system', content: systemPrompt },
-    { role: 'user', content: userPrompt }
-  ]
-});
+    Task: Write a concise, factual 3-sentence summary of the athlete's activity over the last month. Focus on consistency and the types of workouts performed.`;
+
+    // 4. Run inference
+    const aiResponse = await env.AI.run('@cf/meta/llama-3.2-3b-instruct', {
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ]
+    });
 
     return aiResponse.response || "Inference completed without returning text.";
   } catch (err) {
