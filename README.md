@@ -1,234 +1,188 @@
-# 💪 Fitness Tracker with AI Coach
+# Fitness Tracker
 
-A high-performance, serverless fitness dashboard that pulls activity data from Strava and utilizes Cloudflare Workers AI to provide automated, intelligent, and context-aware coaching insights.
+A personal fitness dashboard connected to Strava. Built on Cloudflare (Worker + Pages), with a single-file frontend and an AI-generated monthly summary powered by Workers AI.
 
 ---
 
-## 🏗️ Technical Architecture
-
-The app is split across three Cloudflare services:
+## Architecture
 
 ```
 Strava API
    │
    ▼
-Cloudflare Worker (activities-api)        ← API proxy + OAuth + AI Inference + KV cache
-activities-api.lk-ff7.workers.dev
+Cloudflare Worker  (activities-api.lk-ff7.workers.dev)
+   OAuth · activity fetch · gear lookup · GPS privacy · KV cache · AI summary
    │
    ▼
-Cloudflare Pages (activities-5z4.pages.dev)   ← Static frontend
-   │  index.html (dynamic AI text injection)
+Cloudflare Pages   (activities-5z4.pages.dev)
+   index.html — all UI, charts, map, filtering
+   │
    ▼
-Your browser
+Browser
 ```
 
-**Why split?** Cloudflare Pages serves static assets but cannot hold secrets. The Worker holds the Strava credentials, calls the Strava API, runs AI inference on edge, and exposes a single `/activities` endpoint the frontend calls with enriched data.
-
----
-
-## 🤖 New Feature: Edge AI Coaching
-
-We have added a server-side AI aggregation layer. Instead of just returning raw activity lists, the Worker now performs pre-inference math to analyze your lifetime performance metrics and injects them into a large language model.
-
-### How it works
-
-**Pre-Aggregation (The "Crunch"):** The worker iterates through your entire cached Strava history (thousands of activities) in pure JavaScript to calculate career totals, primary sports, and maximum heart rate metrics. This happens in milliseconds with zero token cost.
-
-**Prompt Engineering:** These aggregated metrics are packaged into a high-context prompt alongside your 5 most recent activities.
-
-**Edge Inference:** The worker calls `@cf/meta/llama-3.2-3b-instruct` to generate a personalized 3-sentence summary of your fitness momentum.
-
-**Frontend Injection:** The frontend receives a JSON "envelope" containing both the raw data and the generated `aiSummary` string, which is dynamically injected into the `ai-box` UI element.
-
-### Worker Code Snippet
-
-The core logic resides in the `generateAiSummary` function added to `worker.js`:
-
-```javascript
-async function generateAiSummary(activities, env) {
-  try {
-    if (!activities || activities.length === 0) return "No data found.";
-    
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const recent = activities.filter(a => new Date(a.date) >= thirtyDaysAgo);
-    
-    // Calculate details for the prompt
-    const totalDist = recent.reduce((sum, a) => sum + (a.dist_mi || 0), 0);
-    const walkCount = recent.filter(a => a.type === 'Walk').length;
-    const totalCount = recent.length;
-    const walkPct = Math.round((walkCount / totalCount) * 100);
-    
-    const recentDataStr = recent.map(a => 
-      `- ${a.date}: ${a.type} (${a.dist_mi} mi)`
-    ).join('\n');
-    
-    const systemPrompt = `You are a realistic, data-driven fitness analyst. 
-    Write a 5-6 sentence summary for Laurence, a hobbyist athlete. 
-    CRITICAL RULES:
-    1. Use "you" instead of "the athlete". 
-    2. Be explicit: distinguish between activity 'count' (frequency) and 'distance' (miles). 
-    3. Be factual, grounded, and supportive. No flowery language or hyperbole. 
-    4. Do not use bolding or markdown.`;
-    
-    const userPrompt = `Data for the last 30 days:
-    - Total Workouts: ${totalCount}
-    - Total Distance: ${Math.round(totalDist)} miles
-    - Walk frequency: ${walkCount} out of ${totalCount} workouts (${walkPct}% of workouts by count).
-    Activity Log:
-    ${recentDataStr}
-    Task: Write a 5-6 sentence summary for Laurence. Describe the activity mix, highlighting that walking is the most frequent activity by count while acknowledging the distance covered.`;
-    
-    const aiResponse = await env.AI.run('@cf/meta/llama-3.2-3b-instruct', {
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ]
-    });
-    
-    return aiResponse.response;
-  } catch (err) {
-    return `Coach breakdown temporarily unavailable: ${err.message}`;
-  }
-}
-```
-
-### Prompt Template
-
-**System Prompt:**
-
-> You are a realistic, data-driven fitness analyst. Write a 5-6 sentence summary for Laurence, a hobbyist athlete. CRITICAL RULES: 1. Use "you" instead of "the athlete". 2. Be explicit: distinguish between activity 'count' (frequency) and 'distance' (miles). 3. Be factual, grounded, and supportive. No flowery language or hyperbole. 4. Do not use bolding or markdown.
-
-**User Prompt:**
-
-> Data for the last 30 days:
-> - Total Workouts: ${totalCount}
-> - Total Distance: ${Math.round(totalDist)} miles
-> - Walk frequency: ${walkCount} out of ${totalCount} workouts (${walkPct}% of workouts by count).
-> 
-> Activity Log:
-> ${recentDataStr}
-> 
-> Task: Write a 5-6 sentence summary for Laurence. Describe the activity mix, highlighting that walking is the most frequent activity by count while acknowledging the distance covered.
+The Worker holds all secrets and does all the heavy work. The Pages frontend is a static file that calls one endpoint and renders everything client-side.
 
 ---
 
 ## Files
 
-| File | What it is |
-|---|---|
-| `worker.js` | The Cloudflare Worker — Strava OAuth, activity fetching, KV caching, AI inference |
-| `index.html` | The full dashboard frontend — charts, filters, heatmaps, tabs, AI coach box |
-| `activities.csv` | Strava bulk export (legacy seed data — the Worker now fetches live) |
+| File | Purpose |
+|------|---------|
+| `worker.js` | Cloudflare Worker — OAuth, Strava fetch, GPS privacy trimming, KV caching, AI summary |
+| `index.html` | Full dashboard frontend — all CSS, HTML, and JS in one file |
+| `wrangler.toml` | Wrangler config for the Worker |
+| `.github/workflows/deploy-worker.yml` | Auto-deploys the Worker to Cloudflare on every push that touches `worker.js` or `wrangler.toml` |
+| `activities.csv` | **Not committed** (in `.gitignore`) — personal Strava export, never goes to GitHub |
 
 ---
 
-## How it works
+## Dashboard tabs
 
-### Worker routes
-
-| Route | Purpose |
-|---|---|
-| `GET /auth` | Redirects to Strava OAuth — run once to get your refresh token |
-| `GET /callback` | Exchanges the OAuth code and shows you the refresh token to save |
-| `GET /activities` | Returns all activities as JSON with `aiSummary` (cached in Workers KV for 24 hours) |
-| `GET /activities?refresh=true` | Bypasses the cache, fetches fresh from Strava, and regenerates AI summary |
-| `GET /debug` | Raw Strava token + activity diagnostic — useful when troubleshooting |
-
-### Caching
-
-Activity data is stored in **Workers KV** under the key `activities_v2` with a 24-hour TTL. The response includes an `X-Cache: HIT` or `X-Cache: MISS` header so you can tell whether you got cached data. Force a refresh with `?refresh=true`.
-
-### HR zone estimation
-
-Strava's list API doesn't return per-second HR data, so zone splits are **estimated** using a normal distribution centred on `average_heartrate` with spread derived from `max_heartrate`. Boundaries come from your configured Strava athlete zones (falling back to standard % of max HR if not set). This is accurate for steady-state efforts; interval sessions will underestimate zone 5.
-
-### Gear names
-
-The Strava list API returns a `gear_id`, not the name. The Worker resolves each unique gear ID with one extra API call per item and stores the result on the activity object.
+| Tab | What it shows |
+|-----|---------------|
+| Summary | Stats, year-over-year table, activity breakdown by type, recent activities, AI monthly summary, location pills |
+| Map | Route heatmap — all GPS routes rendered as semi-transparent polylines on a dark basemap, coloured by sport type |
+| Charts | Monthly distance, elevation, year-on-year bar chart, activity type doughnut |
+| Heatmap | GitHub-style activity calendar |
+| Records | Personal bests and highlights by sport type |
+| Social | Kudos leaderboard |
+| Gear | Bike and shoe mileage |
+| Activity Log | Searchable, sortable full activity table |
 
 ---
 
-## ⚙️ Cloudflare Setup
+## GPS privacy
 
-### Worker — `activities-api`
+Activities starting within **¼ mile of any configured home location** are handled server-side in the Worker:
 
-**URL:** `https://activities-api.lk-ff7.workers.dev`
+- **Polylines** — the first and last GPS points within the exclusion radius are trimmed from the route before it reaches the browser. Routes appear to begin and end on a public road.
+- **Start dots** — the start coordinate is snapped to the home zone centre at 3 decimal places (~100 m precision) rather than your exact door.
+- The `near_home: true` flag is set on those activities so the frontend knows to exclude them from the location pills.
 
-**Required secrets** (Worker → Settings → Variables and Secrets):
-
-| Name | Type | Value |
-|---|---|---|
-| `STRAVA_CLIENT_ID` | Secret | Your Strava app client ID |
-| `STRAVA_CLIENT_SECRET` | Secret | Your Strava app client secret |
-| `STRAVA_REFRESH_TOKEN` | Secret | Obtained via the `/auth` → `/callback` flow |
-
-**KV namespace:** The Worker reads `env.CACHE` — bind a KV namespace named `CACHE` in the Worker → Settings → Bindings.
-
-**AI Binding:** In addition to the above, your worker now requires the AI binding to be enabled:
-- Type: **AI**
-- Variable Name: **AI**
-
-**wrangler.toml:** Ensure your `wrangler.toml` includes the AI service binding:
-
-```toml
-[ai]
-binding = "AI"
-```
-
-### Pages — `activities-5z4`
-
-**URL:** `https://activities-5z4.pages.dev`
-
-Connected to GitHub — `index.html` is deployed automatically on every push to `main`.
+Home coordinates are stored as **Cloudflare Worker secrets** and never committed to GitHub.
 
 ---
 
-## One-time OAuth setup (getting your refresh token)
+## Cloudflare setup
 
-You only need to do this once (or if your token is revoked):
+### Worker secrets
 
-1. Make sure `STRAVA_CLIENT_ID` and `STRAVA_CLIENT_SECRET` are set as Worker secrets.
-2. Make sure `WORKER_URL` at the top of `worker.js` is set to `https://activities-api.lk-ff7.workers.dev`.
-3. Make sure the Strava app's **Authorization Callback Domain** is `activities-api.lk-ff7.workers.dev` (bare domain — no `https://`, no `/callback`).
-4. Visit `https://activities-api.lk-ff7.workers.dev/auth` in your browser.
-5. Authorise the app on Strava.
-6. Copy the refresh token from the confirmation page.
-7. Add it as a secret named `STRAVA_REFRESH_TOKEN` in the Worker settings.
-8. Test: visit `/activities` — you should get a JSON envelope with a `data` array.
+Set these in the Cloudflare dashboard under **Workers & Pages → activities-api → Settings → Variables and Secrets** (use the Secret type):
+
+| Secret name | Description |
+|-------------|-------------|
+| `STRAVA_CLIENT_ID` | Strava app client ID |
+| `STRAVA_CLIENT_SECRET` | Strava app client secret |
+| `STRAVA_REFRESH_TOKEN` | Obtained via the `/auth` → `/callback` OAuth flow (see below) |
+| `HOME_LAT_1` | Latitude of home location 1 |
+| `HOME_LNG_1` | Longitude of home location 1 |
+| `HOME_LAT_2` | Latitude of home location 2 (optional) |
+| `HOME_LNG_2` | Longitude of home location 2 (optional) |
+| `HOME_LAT_3` … `HOME_LAT_5` | Additional home locations (optional) |
+| `HOME_LNG_3` … `HOME_LNG_5` | Corresponding longitudes |
+
+### Worker bindings
+
+Also in Worker → Settings → Bindings:
+
+| Binding | Type | Variable name |
+|---------|------|---------------|
+| KV namespace | KV | `CACHE` |
+| Workers AI | AI | `AI` |
+
+### KV namespace
+
+The Worker caches all activity data under the key `activities_v2` with a 24-hour TTL. Force a fresh pull at any time with `?refresh=true`.
 
 ---
 
-## Redeploying after changes
+## Worker API routes
 
-**Worker (`worker.js`):** commit to `main` and push — GitHub Actions deploys automatically (once wrangler.toml and GitHub secrets are wired up; see below).
-
-**Frontend (`index.html`):** Cloudflare Pages watches the GitHub repo and redeploys on every push to `main`.
+| Route | What it does |
+|-------|-------------|
+| `GET /activities` | Returns the cached activity envelope `{ data, aiSummary, updatedAt }` |
+| `GET /activities?refresh=true` | Bypasses cache, re-fetches from Strava, regenerates AI summary |
+| `GET /auth` | Redirects to Strava OAuth — run once to get a refresh token |
+| `GET /callback` | Exchanges the OAuth code, shows the refresh token to copy |
+| `GET /debug` | Raw Strava token diagnostic |
 
 ---
 
-## GitHub Actions deployment (worker)
+## Auto-deployment
 
-Add a `wrangler.toml` (see the other projects in this repo for the pattern) and set two GitHub repository secrets:
+### Frontend (index.html)
 
-- `CF_API_TOKEN` — Cloudflare → My Profile → API Tokens → **Edit Cloudflare Workers** template
-- `CF_ACCOUNT_ID` — visible in the right sidebar on any Workers & Pages page
+Cloudflare Pages watches the GitHub repo and deploys automatically on every push to `main`. No action needed.
 
-Then every push to `main` deploys the Worker via `.github/workflows/deploy.yml`.
+### Worker (worker.js)
+
+`.github/workflows/deploy-worker.yml` runs `wrangler deploy` automatically whenever `worker.js` or `wrangler.toml` changes on `main`.
+
+**One-time setup:**
+
+1. Go to [dash.cloudflare.com](https://dash.cloudflare.com) → My Profile → API Tokens → **Create Token**
+2. Use the **Edit Cloudflare Workers** template → Create Token → copy the token
+3. In GitHub: repo → **Settings → Secrets and variables → Actions → New repository secret**
+   - Name: `CLOUDFLARE_API_TOKEN`
+   - Value: paste the token
+
+After that, every push that touches the Worker deploys automatically.
+
+---
+
+## One-time OAuth setup
+
+Only needed once (or if your token is revoked):
+
+1. Set `STRAVA_CLIENT_ID` and `STRAVA_CLIENT_SECRET` as Worker secrets.
+2. In your Strava app settings, set **Authorization Callback Domain** to `activities-api.lk-ff7.workers.dev` (bare domain, no `https://`, no path).
+3. Visit `https://activities-api.lk-ff7.workers.dev/auth` and authorise.
+4. Copy the refresh token from the confirmation page.
+5. Save it as the `STRAVA_REFRESH_TOKEN` secret.
+6. Test: `https://activities-api.lk-ff7.workers.dev/activities` should return a JSON envelope with a `data` array.
+
+---
+
+## Location pills
+
+The Summary tab shows a **Locations Found in Activities** section. This is generated dynamically:
+
+- Activities flagged `near_home: true` are excluded (they're home, not interesting).
+- Remaining activities with GPS coordinates are grouped by lat/lng rounded to 2 decimal places (~1 km grid).
+- Each unique location group is reverse-geocoded via the [Nominatim](https://nominatim.openstreetmap.org/) API at zoom level 8 (county/region level).
+- Results are cached in `localStorage` under the key `nominatim_v1` so geocoding only runs once per new location.
+- Pills are sorted by activity count and labelled with the geocoded region name.
+
+Geocoding runs in the browser with a 1.1-second delay between requests to respect Nominatim's rate limit.
+
+---
+
+## AI monthly summary
+
+The Worker aggregates the last 30 days of activity data and sends it to `@cf/meta/llama-3.2-3b-instruct` via Workers AI. The model returns a short coaching summary displayed in the Summary tab. It is regenerated on every forced refresh and cached alongside activity data.
+
+---
+
+## Design
+
+- **Font:** Plus Jakarta Sans (Google Fonts)
+- **Icons:** Material Symbols Rounded (Google Fonts)
+- **Map:** Leaflet 1.9.4 with CARTO Dark Matter tiles
+- **Charts:** Chart.js 4.4.1
+- **Accent colour:** `#ff385c`
+- **Sport colours:** Ride `#1d4ed8` · Run `#ef4444` · Walk `#eab308` · Swim `#0ea5e9` · Virtual `#60a5fa`
 
 ---
 
 ## Troubleshooting
 
 | Symptom | Fix |
-|---|---|
-| Strava OAuth redirect_uri error | Check (1) `WORKER_URL` in `worker.js` matches `https://activities-api.lk-ff7.workers.dev` exactly, and (2) Strava app → Authorization Callback Domain is `activities-api.lk-ff7.workers.dev` (bare domain, no protocol, no path) |
-| `/activities` returns an empty array | Token refresh may be failing — visit `/debug` for the raw Strava response |
-| `X-Cache: MISS` every time | KV namespace not bound; check Worker → Settings → Bindings for a `CACHE` binding |
-| After editing in the dashboard, changes not live | You must click **Deploy**, not just Save — they are different actions |
-| Frontend can't reach the Worker | CORS headers are set to `*` in the Worker; if blocked, check the browser console for the exact error |
-| HR zone splits look wrong | Expected for interval sessions — the estimation is less reliable when avg HR is much lower than peak HR. Steady efforts (long rides, tempo runs) are more accurate |
-| "Coach breakdown unavailable: 5028" | The model name has changed. Ensure you are using `@cf/meta/llama-3.2-3b-instruct` in `worker.js` |
-| AI Summary is stale | Trigger a fresh calculation by visiting `https://activities-api.lk-ff7.workers.dev/activities?refresh=true` |
-| "Summary payload empty" in UI | Verify your frontend JS is accessing `envelope.aiSummary` and not just the raw data array |
-| AI binding not found | Check Worker → Settings → Bindings for an **AI** binding, and ensure `wrangler.toml` includes `[ai]` section |
+|---------|-----|
+| Map shows nothing after sync | Worker may not have been deployed with the new code — check GitHub Actions ran successfully, then hit refresh in the app |
+| Location pills show "Sync to load" | Data in KV cache pre-dates the `near_home` field — force a refresh with the ↻ button |
+| OAuth redirect_uri error | Strava app Authorization Callback Domain must be exactly `activities-api.lk-ff7.workers.dev` (no `https://`, no `/callback`) |
+| `/activities` returns empty array | Token refresh failing — visit `/debug` for raw Strava response |
+| `X-Cache: MISS` every request | KV namespace not bound — check Worker → Settings → Bindings for a `CACHE` binding |
+| GitHub Actions deploy fails | `CLOUDFLARE_API_TOKEN` secret missing or expired — regenerate and re-add in repo Settings → Secrets |
+| AI summary stale | Force regeneration: `https://activities-api.lk-ff7.workers.dev/activities?refresh=true` |
