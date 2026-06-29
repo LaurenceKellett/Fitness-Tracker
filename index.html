@@ -1338,6 +1338,7 @@ function renderAll(){
   else if(activeTab==='social')renderSocial();
   else if(activeTab==='gear')renderGear();
   else if(activeTab==='log')renderLog();
+  else if(activeTab==='map')renderMap(getFiltered());
 }
 
 function formatUpdatedAt(isoString) {
@@ -1362,6 +1363,7 @@ function renderFromData() {
   renderSummary();
   renderRecords();
   buildLocationPills();
+  if(activeTab==='map')renderMap(getFiltered());
 }
 
 // ── LOCATION PILLS ──
