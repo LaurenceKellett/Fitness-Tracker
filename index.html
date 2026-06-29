@@ -44,7 +44,8 @@ a{color:inherit;text-decoration:none}
 .icon-btn{width:30px;height:30px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:transparent;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);font-size:15px;text-decoration:none;flex-shrink:0;transition:color .15s;font-family:inherit}
 .icon-btn:hover{color:var(--text)}
 .icon-btn:disabled{opacity:.5;cursor:not-allowed}
-.tab-btn{padding:6px 10px;font-size:12px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text-muted);border-radius:var(--radius-sm);white-space:nowrap;transition:all .15s;font-family:inherit}
+.tab-btn{padding:6px 10px;font-size:12px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text-muted);border-radius:var(--radius-sm);white-space:nowrap;transition:all .15s;font-family:inherit;display:inline-flex;align-items:center;gap:4px}
+.tab-btn .ms{font-size:14px;vertical-align:0}
 .tab-btn.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
 .tab-btn:hover:not(.active){color:var(--text)}
 .year-bar{display:flex;align-items:center;gap:5px;margin-left:auto;flex-shrink:0}
@@ -294,14 +295,14 @@ tbody td{padding:10px 14px;vertical-align:middle}
     </div>
     <!-- Row 2: tabs + year stepper -->
     <div class="hrow">
-      <button class="tab-btn active" onclick="setTab('summary')">Summary</button>
-      <button class="tab-btn" onclick="setTab('charts')">Charts</button>
-      <button class="tab-btn" onclick="setTab('heatmap')">Heatmap</button>
-      <button class="tab-btn" onclick="setTab('records')">Records</button>
-      <button class="tab-btn" onclick="setTab('social')">Social</button>
-      <button class="tab-btn" onclick="setTab('gear')">Gear</button>
-      <button class="tab-btn" onclick="setTab('log')">Activity Log</button>
-      <button class="tab-btn" onclick="setTab('map')">Map</button>
+      <button class="tab-btn active" onclick="setTab('summary')"><span class="ms">home</span>Summary</button>
+      <button class="tab-btn" onclick="setTab('map')"><span class="ms">map</span>Map</button>
+      <button class="tab-btn" onclick="setTab('charts')"><span class="ms">bar_chart</span>Charts</button>
+      <button class="tab-btn" onclick="setTab('heatmap')"><span class="ms">grid_view</span>Heatmap</button>
+      <button class="tab-btn" onclick="setTab('records')"><span class="ms">emoji_events</span>Records</button>
+      <button class="tab-btn" onclick="setTab('social')"><span class="ms">thumb_up</span>Social</button>
+      <button class="tab-btn" onclick="setTab('gear')"><span class="ms">settings</span>Gear</button>
+      <button class="tab-btn" onclick="setTab('log')"><span class="ms">format_list_bulleted</span>Activity Log</button>
       <div class="year-bar">
         <button class="year-all active" id="yearAll" onclick="setYear('All')">All</button>
         <div class="year-ctl">
@@ -319,13 +320,13 @@ tbody td{padding:10px 14px;vertical-align:middle}
     <select class="mobile-select" id="yearSelectMobile" onchange="setYear(this.value)"></select>
     <select class="mobile-tab-select" id="tabSelectMobile" onchange="setTab(this.value)">
       <option value="summary">Summary</option>
+      <option value="map">Map</option>
       <option value="charts">Charts</option>
       <option value="heatmap">Heatmap</option>
       <option value="records">Records</option>
       <option value="social">Social</option>
       <option value="gear">Gear</option>
       <option value="log">Activity Log</option>
-      <option value="map">Map</option>
     </select>
   </div>
 </div>
@@ -644,7 +645,7 @@ function setType(t){activeType=t;buildTypeFilters();renderAll();}
 
 function setTab(tab){
   activeTab=tab;
-  const tabs=['summary','charts','heatmap','records','social','gear','log','map'];
+  const tabs=['summary','map','charts','heatmap','records','social','gear','log'];
   document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',tabs[i]===tab));
   document.querySelectorAll('.tab-content').forEach(d=>d.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
