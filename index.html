@@ -363,15 +363,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
   <div class="year-table-wrap scroll-x"><table id="yearTable"></table></div>
 <!-- LOCATIONS -->
 <div class="section-header" style="margin-top:28px"><h2>Locations Found in Activities</h2></div>
-<div class="loc-row">
-  <div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch('Mallorca')"><span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span> Mallorca <strong style="margin-left:4px;color:var(--text)">35</strong></div>
-  <div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch('Girona')"><span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span> Girona <strong style="margin-left:4px;color:var(--text)">13</strong></div>
-  <div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch('Calpe')"><span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span> Calpe <strong style="margin-left:4px;color:var(--text)">9</strong></div>
-  <div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch('Alpe')"><span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span> Alpe d'Huez <strong style="margin-left:4px;color:var(--text)">9</strong></div>
-  <div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch('France')"><span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span> France <strong style="margin-left:4px;color:var(--text)">5</strong></div>
-  <div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch('Manchester')"><span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span> Manchester <strong style="margin-left:4px;color:var(--text)">4</strong></div>
-  <div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch('Paris')"><span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span> Paris <strong style="margin-left:4px;color:var(--text)">1</strong></div>
-  <div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch('Lake District')"><span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span> Lake District <strong style="margin-left:4px;color:var(--text)">1</strong></div>
+<div id="locPills" class="loc-row">
+  <span style="font-size:12px;color:var(--text-muted)">Loading…</span>
 </div>
   <div style="height:28px"></div>
   <div class="section-header"><h2>Top Gear</h2></div>
@@ -1368,6 +1361,84 @@ function renderFromData() {
   buildTypeFilters();
   renderSummary();
   renderRecords();
+  buildLocationPills();
+}
+
+// ── LOCATION PILLS ──
+const LOC_GEO_CACHE = 'nominatim_v1';
+
+async function buildLocationPills() {
+  const el = document.getElementById('locPills');
+  if (!el) return;
+
+  // Fall back gracefully if data pre-dates the near_home field
+  const hasGpsData = ALL_DATA.some(a => a.near_home !== undefined);
+  if (!hasGpsData) {
+    el.innerHTML = '<span style="font-size:12px;color:var(--text-muted)">Sync with Strava to load live locations.</span>';
+    return;
+  }
+
+  // Only away activities that have coordinates
+  const away = ALL_DATA.filter(a => a.near_home === false && a.lat && a.lng);
+  if (!away.length) {
+    el.innerHTML = '<span style="font-size:12px;color:var(--text-muted)">All activities are from home.</span>';
+    return;
+  }
+
+  // Group by lat/lng rounded to 2dp (~1 km grid)
+  const groups = {};
+  away.forEach(a => {
+    const key = `${(Math.round(a.lat * 100) / 100).toFixed(2)},${(Math.round(a.lng * 100) / 100).toFixed(2)}`;
+    if (!groups[key]) groups[key] = { count: 0, lat: Math.round(a.lat * 100) / 100, lng: Math.round(a.lng * 100) / 100 };
+    groups[key].count++;
+  });
+
+  // Load persisted geocoding cache
+  let cache = {};
+  try { cache = JSON.parse(localStorage.getItem(LOC_GEO_CACHE) || '{}'); } catch(_) {}
+
+  const uncached = Object.entries(groups).filter(([k]) => !cache[k]);
+
+  if (uncached.length) {
+    el.innerHTML = '<span style="font-size:12px;color:var(--text-muted)">Geocoding locations…</span>';
+  }
+
+  // Geocode one at a time — Nominatim allows 1 req/s
+  for (const [key, g] of uncached) {
+    try {
+      const res  = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${g.lat}&lon=${g.lng}&zoom=8&format=json`,
+        { headers: { 'User-Agent': 'FitnessTracker/1.0' } }
+      );
+      const data = await res.json();
+      const addr = data.address || {};
+      cache[key] = addr.county || addr.city || addr.town ||
+                   addr.state_district || addr.state || addr.country ||
+                   (data.display_name || '').split(',')[0] || 'Unknown';
+    } catch(_) {
+      cache[key] = 'Unknown';
+    }
+    await new Promise(r => setTimeout(r, 1100));
+  }
+
+  if (uncached.length) {
+    try { localStorage.setItem(LOC_GEO_CACHE, JSON.stringify(cache)); } catch(_) {}
+  }
+
+  // Merge groups that geocoded to the same name
+  const byName = {};
+  Object.entries(groups).forEach(([key, g]) => {
+    const name = cache[key] || 'Unknown';
+    byName[name] = (byName[name] || 0) + g.count;
+  });
+
+  const sorted = Object.entries(byName).sort((a, b) => b[1] - a[1]);
+
+  el.innerHTML = sorted.map(([name, count]) =>
+    `<div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch(${JSON.stringify(name)})">` +
+    `<span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span>` +
+    ` ${name} <strong style="margin-left:4px;color:var(--text)">${count}</strong></div>`
+  ).join('');
 }
 
 async function loadData(forceRefresh = false) {

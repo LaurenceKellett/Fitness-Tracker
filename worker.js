@@ -425,8 +425,9 @@ function transformActivity(a, zones = []) {
   // Privacy: snap start point to nearest home zone centre (3dp ≈ 100m) if within exclusion radius
   const rawLat = a.start_latlng?.[0] ?? null;
   const rawLng = a.start_latlng?.[1] ?? null;
+  const isHome = !!(zones.length && rawLat && rawLng && nearHome(rawLat, rawLng, zones));
   let lat = rawLat, lng = rawLng;
-  if (zones.length && rawLat && rawLng && nearHome(rawLat, rawLng, zones)) {
+  if (isHome) {
     const z = nearestZone(rawLat, rawLng, zones);
     lat = Math.round(z.lat * 1000) / 1000;
     lng = Math.round(z.lng * 1000) / 1000;
@@ -460,6 +461,7 @@ function transformActivity(a, zones = []) {
     polyline,
     lat,
     lng,
+    near_home:  isHome,
     score:      a.suffer_score || 0,
     z1: 0, z2: 0, z3: 0, z4: 0, z5: 0,
     pr_1km:  null,
