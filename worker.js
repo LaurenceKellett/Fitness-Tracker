@@ -149,7 +149,7 @@ async function handleActivities(request, env) {
   const accessToken = await getAccessToken(env);
 
   // Fetch every page of activities from Strava
-  const activities  = await fetchAllActivities(accessToken);
+  const activities  = await fetchAllActivities(accessToken, env);
   
   // Calculate historical metrics & request high-context AI response
   let aiSummary = "No AI summary generated.";
@@ -295,9 +295,10 @@ async function getAccessToken(env) {
 // PAGINATION
 // =============================================================================
 
-async function fetchAllActivities(accessToken) {
+async function fetchAllActivities(accessToken, env) {
   const all  = [];
   let   page = 1;
+  const zones = homeZones(env);
 
   while (true) {
     const res   = await fetch(
@@ -309,7 +310,7 @@ async function fetchAllActivities(accessToken) {
     if (!Array.isArray(batch) || batch.length === 0) break;
 
     for (const activity of batch) {
-      all.push(transformActivity(activity));
+      all.push(transformActivity(activity, zones));
     }
 
     if (batch.length < 200) break; 
@@ -410,16 +411,30 @@ function estimateZones(avgHr, maxHr, movingTime, zones) {
 
 const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
-function transformActivity(a) {
+function transformActivity(a, zones = []) {
   const date      = new Date(a.start_date_local);
   const dist_km   = (a.distance || 0) / 1000;
   const dist_mi   = dist_km * 0.621371;
-  const elv_ft    = (a.total_elevation_gain || 0) * 3.28084; 
+  const elv_ft    = (a.total_elevation_gain || 0) * 3.28084;
   const speed_ms  = a.average_speed || 0;
   const speed_kph = speed_ms * 3.6;
   const speed_mph = speed_ms * 2.23694;
   const pace_km   = speed_kph > 0 ? 3600 / speed_kph : 0;
   const pace_mi   = speed_mph > 0 ? 3600 / speed_mph : 0;
+
+  // Privacy: snap start point to nearest home zone centre (3dp ≈ 100m) if within exclusion radius
+  const rawLat = a.start_latlng?.[0] ?? null;
+  const rawLng = a.start_latlng?.[1] ?? null;
+  let lat = rawLat, lng = rawLng;
+  if (zones.length && rawLat && rawLng && nearHome(rawLat, rawLng, zones)) {
+    const z = nearestZone(rawLat, rawLng, zones);
+    lat = Math.round(z.lat * 1000) / 1000;
+    lng = Math.round(z.lng * 1000) / 1000;
+  }
+
+  // Privacy: trim polyline endpoints that fall within any home exclusion zone
+  const rawPolyline = a.map?.summary_polyline || null;
+  const polyline = zones.length ? trimPolyline(rawPolyline, zones) : rawPolyline;
 
   return {
     id:         String(a.id),
@@ -438,10 +453,13 @@ function transformActivity(a) {
     pace_km:    Math.round(pace_km),
     speed_mph:  round(speed_mph, 2),
     speed_kph:  round(speed_kph, 2),
-    gear:       null,      
+    gear:       null,
     _gear_id:   a.gear_id || null,
     kudos:      a.kudos_count || 0,
-    has_map:    !!(a.map && a.map.summary_polyline),
+    has_map:    !!polyline,
+    polyline,
+    lat,
+    lng,
     score:      a.suffer_score || 0,
     z1: 0, z2: 0, z3: 0, z4: 0, z5: 0,
     pr_1km:  null,
@@ -460,4 +478,91 @@ function transformActivity(a) {
 function round(val, dp) {
   const m = Math.pow(10, dp);
   return Math.round(val * m) / m;
+}
+
+// =============================================================================
+// HOME PRIVACY HELPERS
+// Reads HOME_LAT_1/HOME_LNG_1 … HOME_LAT_5/HOME_LNG_5 from Cloudflare secrets.
+// Activities starting within EXCLUSION_MILES of any zone have their start point
+// snapped to the zone centre (3 dp ≈ 100 m) and their polyline trimmed so the
+// route only appears once it leaves the exclusion radius.
+// =============================================================================
+
+const EXCLUSION_MILES = 0.25;
+
+function homeZones(env) {
+  if (!env) return [];
+  const zones = [];
+  for (let i = 1; i <= 5; i++) {
+    const lat = parseFloat(env[`HOME_LAT_${i}`]);
+    const lng = parseFloat(env[`HOME_LNG_${i}`]);
+    if (!isNaN(lat) && !isNaN(lng)) zones.push({ lat, lng });
+  }
+  return zones;
+}
+
+function geoDistMiles(lat1, lng1, lat2, lng2) {
+  const R = 3958.8;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function nearHome(lat, lng, zones) {
+  return zones.some(z => geoDistMiles(lat, lng, z.lat, z.lng) < EXCLUSION_MILES);
+}
+
+function nearestZone(lat, lng, zones) {
+  return zones.reduce((best, z) => {
+    const d = geoDistMiles(lat, lng, z.lat, z.lng);
+    return d < best.d ? { z, d } : best;
+  }, { z: zones[0], d: Infinity }).z;
+}
+
+function decodePolyline(str) {
+  let i = 0, lat = 0, lng = 0;
+  const pts = [];
+  while (i < str.length) {
+    let b, shift = 0, val = 0;
+    do { b = str.charCodeAt(i++) - 63; val |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lat += (val & 1) ? ~(val >> 1) : (val >> 1);
+    shift = val = 0;
+    do { b = str.charCodeAt(i++) - 63; val |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lng += (val & 1) ? ~(val >> 1) : (val >> 1);
+    pts.push([lat / 1e5, lng / 1e5]);
+  }
+  return pts;
+}
+
+function encodePolyline(pts) {
+  function enc(n) {
+    let v = Math.round(n * 1e5);
+    v = v < 0 ? ~(v << 1) : v << 1;
+    let s = '';
+    while (v >= 0x20) { s += String.fromCharCode((0x20 | (v & 0x1f)) + 63); v >>= 5; }
+    return s + String.fromCharCode(v + 63);
+  }
+  let pLat = 0, pLng = 0, s = '';
+  for (const [lat, lng] of pts) {
+    s += enc(lat - pLat) + enc(lng - pLng);
+    pLat = lat; pLng = lng;
+  }
+  return s;
+}
+
+function trimPolyline(str, zones) {
+  if (!str || !zones.length) return str;
+  const pts = decodePolyline(str);
+  // Find first point outside all home zones (trim start)
+  const startIdx = pts.findIndex(([lat, lng]) => !nearHome(lat, lng, zones));
+  if (startIdx === -1) return null; // Entire route within exclusion zone
+  // Find last point outside all home zones (trim end)
+  let endIdx = pts.length - 1;
+  while (endIdx > startIdx && nearHome(pts[endIdx][0], pts[endIdx][1], zones)) endIdx--;
+  if (endIdx <= startIdx) return null;
+  const trimmed = pts.slice(startIdx, endIdx + 1);
+  return trimmed.length >= 2 ? encodePolyline(trimmed) : null;
 }
