@@ -1,6 +1,7 @@
 name            = "activities-api"
 main            = "worker.js"
 compatibility_date = "2024-01-01"
+account_id      = "ff7d99e86c89fefa648b7c06f5447f81"
 
 # This connects your code's "env.CACHE" to an actual KV bucket
 [[kv_namespaces]]
