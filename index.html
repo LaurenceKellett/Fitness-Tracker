@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fitness Dashboard</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='5' fill='%23fc4c02'/><path fill='white' d='M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0 4 13.828h4.172'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='5' fill='%23ff385c'/><path fill='white' d='M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0 4 13.828h4.172'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20,400,0,0&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -36,8 +36,9 @@ a{color:inherit;text-decoration:none}
 .logo-wrap{display:flex;align-items:center;gap:8px}
 .logo-icon{width:26px;height:26px;background:#fc4c02;border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .logo-name{font-size:15px;font-weight:700;letter-spacing:-.3px;color:var(--text)}
-.unit-chip{display:flex;align-items:center;border:1px solid var(--border-strong);border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0}
-.unit-opt{padding:4px 8px;font-size:11px;font-weight:600;color:var(--text-muted);border:none;background:transparent;cursor:pointer;line-height:1;font-family:inherit}
+.last-updated{font-size:10px;color:var(--text-light);white-space:nowrap}
+.unit-chip{display:flex;align-items:stretch;border:1px solid var(--border-strong);border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0;height:30px}
+.unit-opt{padding:0 8px;font-size:11px;font-weight:600;color:var(--text-muted);border:none;background:transparent;cursor:pointer;line-height:1;font-family:inherit;display:flex;align-items:center}
 .unit-opt.active{background:var(--text);color:#fff}
 .icon-btn{width:30px;height:30px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:transparent;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);font-size:15px;text-decoration:none;flex-shrink:0;transition:color .15s;font-family:inherit}
 .icon-btn:hover{color:var(--text)}
@@ -399,12 +400,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <div class="chart-wrap"><canvas id="chartDonut"></canvas></div>
     </div>
   </div>
-  <div class="charts-grid">
-    <div class="chart-card">
-      <div class="chart-title">Heart Rate Zones</div>
-      <div class="chart-sub">Time in each HR zone (minutes)</div>
-      <div class="chart-wrap"><canvas id="chartHR"></canvas></div>
-    </div>
+  <div class="charts-grid wide">
     <div class="chart-card">
       <div class="chart-title">Monthly Elevation Gain</div>
       <div class="chart-sub" id="elevChartSub">Feet climbed per month</div>
@@ -665,7 +661,7 @@ function renderSummary(){
   const prevYear=String(parseInt(curYear)-1);
   const prevDist=getFilteredForYear(prevYear).reduce((s,a)=>s+(a.dist_mi||0),0);
   const curDist=(activeYear==='All'?getFilteredForYear(curYear):data).reduce((s,a)=>s+(a.dist_mi||0),0);
-  const delta=prevDist>0?(curDist-prevDist)/prevDist*100:null;
+  const delta=activeYear!=='All'&&prevDist>0?(curDist-prevDist)/prevDist*100:null;
   const deltaStr=delta!=null?(delta>=0?`↑ ${Math.abs(delta).toFixed(0)}% vs ${prevYear}`:`↓ ${Math.abs(delta).toFixed(0)}% vs ${prevYear}`):'';
 
   document.getElementById('heroStats').innerHTML=`
@@ -708,7 +704,7 @@ function renderSummary(){
   data.forEach(a=>{const g=typeGroup(a.type);if(!groups[g])groups[g]={count:0,dist:0,time:0};groups[g].count++;groups[g].dist+=a.dist_mi||0;groups[g].time+=a.mt||0;});
   document.getElementById('typeCards').innerHTML=Object.entries(groups).sort((a,b)=>b[1].dist-a[1].dist).map(([g,s])=>`
     <div class="type-card">
-      <div class="type-icon" style="background:${groupSoft(g)}">${typeEmoji(g)}</div>
+      <div class="type-icon" style="background:${groupSoft(g)};color:${groupColor(g)}">${typeEmoji(g)}</div>
       <div class="type-info">
         <div class="type-name" style="color:${groupColor(g)}">${g}</div>
         <div class="type-count">${s.count.toLocaleString('en-GB')} activities · ${fmtTime(s.time)}</div>
@@ -882,15 +878,6 @@ function renderCharts(){
       options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}}},responsive:true,maintainAspectRatio:false,cutout:'65%'}
     });
   }
-
-  // HR zones
-  const zones=[0,0,0,0,0];
-  data.forEach(a=>{[a.z1,a.z2,a.z3,a.z4,a.z5].forEach((v,i)=>{if(v)zones[i]+=v;});});
-  destroyChart('hr');
-  charts.hr=new Chart(document.getElementById('chartHR').getContext('2d'),{
-    type:'bar',data:{labels:['Z1 Recovery','Z2 Endurance','Z3 Tempo','Z4 Threshold','Z5 Max'],datasets:[{data:zones.map(v=>Math.round(v/60)),backgroundColor:['#93c5fd','#4ade80','#fbbf24','#f97316','#ef4444'],borderRadius:4}]},
-    options:{plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'#f0f0f0'},ticks:{callback:v=>v.toLocaleString()+'m',font:{size:11}}}}}
-  });
 
   // Elevation
   const elevConv=unit==='km'?0.3048:1,elevUnitStr=unit==='km'?'m':'ft';
