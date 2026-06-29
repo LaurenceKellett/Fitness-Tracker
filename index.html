@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20,400,0,0&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root {
   --bg:#f7f7f7;--surface:#fff;--border:#ebebeb;--border-strong:#dddddd;--text:#222222;--text-muted:#656565;--text-light:#9ca3af;
@@ -300,6 +301,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <button class="tab-btn" onclick="setTab('social')">Social</button>
       <button class="tab-btn" onclick="setTab('gear')">Gear</button>
       <button class="tab-btn" onclick="setTab('log')">Activity Log</button>
+      <button class="tab-btn" onclick="setTab('map')">Map</button>
       <div class="year-bar">
         <button class="year-all active" id="yearAll" onclick="setYear('All')">All</button>
         <div class="year-ctl">
@@ -323,6 +325,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <option value="social">Social</option>
       <option value="gear">Gear</option>
       <option value="log">Activity Log</option>
+      <option value="map">Map</option>
     </select>
   </div>
 </div>
@@ -521,6 +524,18 @@ tbody td{padding:10px 14px;vertical-align:middle}
   </div>
 </div>
 
+<div id="tab-map" class="tab-content">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+    <div style="font-size:13px;color:var(--text-muted)">Routes trimmed within ¼ mile of home addresses for privacy.</div>
+    <div id="mapLegend" style="display:flex;gap:10px;flex-wrap:wrap"></div>
+  </div>
+  <div id="mapContainer" style="height:600px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border)"></div>
+  <div id="mapEmpty" style="display:none;text-align:center;padding:60px 20px;color:var(--text-muted);font-size:14px">
+    <span class="ms" style="font-size:36px;display:block;margin-bottom:8px">map</span>
+    No route data yet — sync with Strava to load GPS routes.
+  </div>
+</div>
+
 </div><!-- /main -->
 
 <script>
@@ -629,11 +644,12 @@ function setType(t){activeType=t;buildTypeFilters();renderAll();}
 
 function setTab(tab){
   activeTab=tab;
-  const tabs=['summary','charts','heatmap','records','social','gear','log'];
+  const tabs=['summary','charts','heatmap','records','social','gear','log','map'];
   document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',tabs[i]===tab));
   document.querySelectorAll('.tab-content').forEach(d=>d.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
   const mts=document.getElementById('tabSelectMobile');if(mts)mts.value=tab;
+  if(tab==='map'){renderMap(getFiltered());return;}
   renderAll();
 }
 function setUnit(u){unit=u;document.querySelectorAll('.unit-opt').forEach(b=>b.classList.toggle('active',b.dataset.unit===u));renderAll();}
@@ -1439,6 +1455,88 @@ loadData();
       console.error("AI fetch failed:", err);
       document.getElementById('ai-summary-text-box').innerText = "AI summary currently unavailable.";
     });
+
+// ── MAP ──
+let _map=null,_mapLayers=[];
+
+function decodePolylinePts(str){
+  let i=0,lat=0,lng=0;const pts=[];
+  while(i<str.length){
+    let b,shift=0,val=0;
+    do{b=str.charCodeAt(i++)-63;val|=(b&0x1f)<<shift;shift+=5;}while(b>=0x20);
+    lat+=(val&1)?~(val>>1):(val>>1);shift=val=0;
+    do{b=str.charCodeAt(i++)-63;val|=(b&0x1f)<<shift;shift+=5;}while(b>=0x20);
+    lng+=(val&1)?~(val>>1):(val>>1);
+    pts.push([lat/1e5,lng/1e5]);
+  }
+  return pts;
+}
+
+function initMap(){
+  if(_map)return;
+  _map=L.map('mapContainer',{preferCanvas:true,zoomControl:true});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_matter/{z}/{x}/{y}{r}.png',{
+    attribution:'© <a href="https://www.openstreetmap.org/copyright">OSM</a> © <a href="https://carto.com/">CARTO</a>',
+    maxZoom:19
+  }).addTo(_map);
+}
+
+function renderMap(data){
+  if(!document.getElementById('mapContainer'))return;
+  initMap();
+  _mapLayers.forEach(l=>_map.removeLayer(l));
+  _mapLayers=[];
+
+  const withRoute=data.filter(a=>a.polyline);
+  const dotOnly=data.filter(a=>!a.polyline&&a.lat&&a.lng);
+  const empty=document.getElementById('mapEmpty');
+  const container=document.getElementById('mapContainer');
+
+  if(!withRoute.length&&!dotOnly.length){
+    if(empty)empty.style.display='block';
+    if(container)container.style.display='none';
+    return;
+  }
+  if(empty)empty.style.display='none';
+  if(container)container.style.display='block';
+
+  const bounds=[];
+  const renderer=L.canvas();
+
+  // Routes
+  withRoute.forEach(a=>{
+    const pts=decodePolylinePts(a.polyline);
+    if(pts.length<2)return;
+    const col=groupColor(a.type||'Other');
+    const line=L.polyline(pts,{renderer,color:col,weight:1.5,opacity:0.35});
+    line.addTo(_map);
+    _mapLayers.push(line);
+    bounds.push(...pts);
+  });
+
+  // Dot-only
+  dotOnly.forEach(a=>{
+    const col=groupColor(a.type||'Other');
+    const m=L.circleMarker([a.lat,a.lng],{renderer,radius:4,color:col,fillColor:col,fillOpacity:0.7,weight:1});
+    m.addTo(_map);
+    _mapLayers.push(m);
+    bounds.push([a.lat,a.lng]);
+  });
+
+  if(bounds.length)_map.fitBounds(bounds,{padding:[30,30]});
+  setTimeout(()=>_map.invalidateSize(),100);
+
+  // Legend
+  const legend=document.getElementById('mapLegend');
+  if(legend){
+    const types=[...new Set(data.map(a=>a.type||'Other'))];
+    legend.innerHTML=types.map(t=>`<span style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted)"><span style="width:10px;height:10px;border-radius:2px;background:${groupColor(t)};display:inline-block;opacity:.8"></span>${t}</span>`).join('');
+  }
+
+  // Invalidate after tab transition finishes
+  setTimeout(()=>_map.invalidateSize(),300);
+}
 </script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </body>
 </html>
