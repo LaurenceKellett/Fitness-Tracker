@@ -1,0 +1,10 @@
+# Personal data — keep out of version control
+activities.csv
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.claude/

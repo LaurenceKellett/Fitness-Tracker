@@ -4,66 +4,75 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fitness Dashboard</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏃</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='5' fill='%23fc4c02'/><path fill='white' d='M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0 4 13.828h4.172'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20,400,0,0&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root {
-  --bg:#f7f8fa;--surface:#fff;--border:#e8eaed;--text:#1a1a2e;--text-muted:#6b7280;--text-light:#9ca3af;
+  --bg:#f7f7f7;--surface:#fff;--border:#ebebeb;--border-strong:#dddddd;--text:#222222;--text-muted:#656565;--text-light:#9ca3af;
+  --accent:#ff385c;--accent-dark:#d70466;--accent-soft:#ffeef1;
   --hm-cell:clamp(16px,3.5vw,44px);--hm-gap:clamp(2px,0.3vw,4px);
-  --ride:#1d4ed8;--ride-soft:#eff6ff;--virtual:#60a5fa;--virtual-soft:#dbeafe;
-  --run:#ef4444;--run-soft:#fef2f2;--walk:#eab308;--walk-soft:#fefce8;
+  --ride:#1d4ed8;--ride-soft:#dbeafe;--virtual:#60a5fa;--virtual-soft:#dbeafe;
+  --run:#ef4444;--run-soft:#fee2e2;--walk:#eab308;--walk-soft:#fefce8;
   --swim:#0ea5e9;--swim-soft:#e0f2fe;--other:#94a3b8;--other-soft:#f8fafc;
-  --radius:12px;--radius-sm:8px;
-  --shadow:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);
+  --radius:8px;--radius-sm:6px;
+  --shadow:0 1px 2px rgba(15,23,42,.04),0 4px 12px rgba(15,23,42,.06);
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+body{font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.ms{font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 20;font-size:inherit;line-height:1;vertical-align:-3px;display:inline-block}
+.ms-fill{font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 20}
+.type-icon .ms{font-size:22px;vertical-align:0}
+.gear-icon .ms{font-size:22px;vertical-align:0}
+.recent-meta .ms{font-size:13px}
+.gear-type .ms{font-size:13px}
 a{color:inherit;text-decoration:none}
-.header{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+/* HEADER */
+.header{background:var(--surface);border-bottom:1px solid var(--border-strong);position:sticky;top:0;z-index:100}
 .header-inner{max-width:1200px;margin:0 auto;padding:0 24px}
-.header-top{display:flex;align-items:center;justify-content:space-between;padding:14px 0 10px;gap:16px;flex-wrap:wrap}
-.logo{display:flex;align-items:center;gap:10px}
-.logo-icon{width:36px;height:36px;background:#fc4c02;border-radius:10px;display:flex;align-items:center;justify-content:center}
-.logo h1{font-size:18px;font-weight:700;letter-spacing:-.3px}
-.logo span{color:var(--text-muted);font-weight:400;font-size:13px;margin-left:6px}
-.header-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.toggle-group{display:flex;background:var(--bg);border:1px solid var(--border);border-radius:8px;overflow:hidden}
-.toggle-btn{padding:6px 12px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text-muted);transition:all .15s}
-.toggle-btn.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow)}
-.year-select{display:flex;gap:4px;flex-wrap:wrap}
-.year-pill{padding:5px 11px;font-size:12px;font-weight:600;border-radius:20px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text-muted);transition:all .15s}
-.year-pill.active{background:var(--text);color:white;border-color:var(--text)}
-.year-pill-toggle{opacity:.65;font-size:11px}
-.tabs-bar{display:flex;gap:2px;border-top:1px solid var(--border);overflow-x:auto}
-.tab-btn{padding:10px 16px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text-muted);border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s}
-.tab-btn.active{color:var(--text);border-bottom-color:var(--text)}
+.hrow{display:flex;align-items:center;padding:8px 0;gap:6px}
+.hrow+.hrow{border-top:1px solid var(--border)}
+.logo-wrap{display:flex;align-items:center;gap:8px}
+.logo-icon{width:26px;height:26px;background:#fc4c02;border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.logo-name{font-size:15px;font-weight:700;letter-spacing:-.3px;color:var(--text)}
+.unit-chip{display:flex;align-items:center;border:1px solid var(--border-strong);border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0}
+.unit-opt{padding:4px 8px;font-size:11px;font-weight:600;color:var(--text-muted);border:none;background:transparent;cursor:pointer;line-height:1;font-family:inherit}
+.unit-opt.active{background:var(--text);color:#fff}
+.icon-btn{width:30px;height:30px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:transparent;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);font-size:15px;text-decoration:none;flex-shrink:0;transition:color .15s;font-family:inherit}
+.icon-btn:hover{color:var(--text)}
+.icon-btn:disabled{opacity:.5;cursor:not-allowed}
+.tab-btn{padding:6px 10px;font-size:12px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text-muted);border-radius:var(--radius-sm);white-space:nowrap;transition:all .15s;font-family:inherit}
+.tab-btn.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
 .tab-btn:hover:not(.active){color:var(--text)}
+.year-bar{display:flex;align-items:center;gap:5px;margin-left:auto;flex-shrink:0}
+.year-all{padding:5px 10px;font-size:11px;font-weight:600;color:var(--text-muted);border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:transparent;cursor:pointer;transition:all .15s;font-family:inherit}
+.year-all.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent-soft)}
+.year-ctl{display:flex;align-items:center;border:1px solid var(--border-strong);border-radius:var(--radius-sm);overflow:hidden}
+.year-arrow{padding:5px 8px;font-size:14px;font-weight:500;color:var(--text-muted);border:none;background:transparent;cursor:pointer;line-height:1;transition:color .15s;font-family:inherit}
+.year-arrow:hover:not(:disabled){color:var(--text)}
+.year-arrow:disabled{opacity:.35;cursor:default}
+.year-arrow:first-child{border-right:1px solid var(--border)}
+.year-arrow:last-child{border-left:1px solid var(--border)}
+.year-label{padding:5px 12px;font-size:12px;font-weight:700;color:var(--text)}
+.type-bar{display:flex;gap:2px;flex-wrap:wrap}
+.type-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;font-size:12px;font-weight:500;color:var(--text-muted);border:none;background:transparent;border-radius:var(--radius-sm);cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit}
+.type-btn:hover:not(.active){color:var(--text)}
+.type-btn.active{font-weight:600}
+.type-btn[data-type="All"].active{background:var(--accent-soft);color:var(--accent)}
+.type-btn[data-type="Ride"].active{background:var(--ride-soft);color:var(--ride)}
+.type-btn[data-type="Virtual"].active{background:var(--virtual-soft);color:#1e6fa8}
+.type-btn[data-type="Run"].active{background:var(--run-soft);color:#b91c1c}
+.type-btn[data-type="Walk"].active{background:var(--walk-soft);color:#92400e}
+.type-btn[data-type="Swim"].active{background:var(--swim-soft);color:#075985}
+.type-btn[data-type="Other"].active{background:var(--other-soft);color:#475569}
+.type-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.refresh-icon{display:inline-block;transition:transform .6s}
+.icon-btn.spinning .refresh-icon{animation:rspin .8s linear infinite}
+@keyframes rspin{to{transform:rotate(360deg)}}
+@media(max-width:640px){.year-bar{display:none}.type-bar{display:none}.mobile-select{display:block}.mobile-tab-select{display:block}}
 .main{max-width:1200px;margin:0 auto;padding:28px 24px}
 .tab-content{display:none}.tab-content.active{display:block}
-/* TYPE FILTERS */
-.type-filters{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;align-items:center}
-.type-pill{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:2px solid;transition:all .15s}
-.type-pill-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;transition:background .15s}
-.type-pill[data-type="All"]{border-color:var(--border);color:var(--text-muted)}
-.type-pill[data-type="All"].active{border-color:var(--text);background:var(--text);color:white}
-.type-pill[data-type="Ride"]{border-color:var(--ride);color:var(--ride)}
-.type-pill[data-type="Ride"].active{background:var(--ride);color:white}
-.type-pill[data-type="Ride"].active .type-pill-dot{background:white!important}
-.type-pill[data-type="Virtual"]{border-color:var(--virtual);color:var(--virtual)}
-.type-pill[data-type="Virtual"].active{background:var(--virtual);color:white}
-.type-pill[data-type="Virtual"].active .type-pill-dot{background:white!important}
-.type-pill[data-type="Run"]{border-color:var(--run);color:var(--run)}
-.type-pill[data-type="Run"].active{background:var(--run);color:white}
-.type-pill[data-type="Run"].active .type-pill-dot{background:white!important}
-.type-pill[data-type="Walk"]{border-color:var(--walk);color:var(--walk)}
-.type-pill[data-type="Walk"].active{background:var(--walk);color:white}
-.type-pill[data-type="Walk"].active .type-pill-dot{background:white!important}
-.type-pill[data-type="Swim"]{border-color:var(--swim);color:var(--swim)}
-.type-pill[data-type="Swim"].active{background:var(--swim);color:white}
-.type-pill[data-type="Swim"].active .type-pill-dot{background:white!important}
-.type-pill[data-type="Other"]{border-color:var(--other);color:var(--other)}
-.type-pill[data-type="Other"].active{background:var(--other);color:white}
-.type-pill[data-type="Other"].active .type-pill-dot{background:white!important}
 /* STATS */
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:14px;margin-bottom:24px}
 .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow)}
@@ -241,13 +250,9 @@ tbody td{padding:10px 14px;vertical-align:middle}
 /* MOBILE SELECTS */
 .mobile-select{display:none;padding:6px 28px 6px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:500;background:var(--surface);color:var(--text);cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
 .mobile-tab-select{display:none;padding:7px 28px 7px 14px;margin:10px 14px 6px;border:1px solid var(--border);border-radius:20px;font-size:13px;font-weight:600;background:var(--surface);color:var(--text);cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;width:calc(100% - 28px);box-shadow:var(--shadow)}
-@media(max-width:640px){.year-select{display:none!important}.mobile-select{display:block}.tabs-bar{display:none!important}.mobile-tab-select{display:block}}
 /* PARTNER LOG BTN */
 .partner-log-btn{width:100%;margin-top:8px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text-muted);background:transparent;cursor:pointer;transition:all .15s;font-family:inherit;text-align:center}
 .partner-log-btn:hover{background:var(--bg);color:var(--text)}
-/* STRAVA HEADER LINK */
-.strava-header-link{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;background:#fc4c02;color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;transition:opacity .15s;flex-shrink:0}
-.strava-header-link:hover{opacity:.85}
 /* SYNC INDICATOR */
 .sync-indicator{display:flex;align-items:center;gap:8px;padding:9px 14px;background:#fef9c3;border:1px solid #fde047;border-radius:var(--radius-sm);font-size:12px;color:#854d0e;margin-bottom:16px}
 /* EDDINGTON INFO ICON */
@@ -259,14 +264,6 @@ tbody td{padding:10px 14px;vertical-align:middle}
 /* TOP GEAR VIEW ALL */
 .gear-view-all{display:block;width:100%;text-align:center;padding:10px;font-size:12px;color:var(--text-muted);border:none;border-top:1px solid var(--border);cursor:pointer;transition:color .15s;background:transparent;font-family:inherit}
 .gear-view-all:hover{color:var(--text)}
-/* REFRESH BUTTON */
-.refresh-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border:1px solid var(--border);border-radius:8px;font-size:12px;font-weight:600;background:var(--surface);color:var(--text-muted);cursor:pointer;transition:all .15s;font-family:inherit;flex-shrink:0}
-.refresh-btn:hover:not(:disabled){background:var(--bg);color:var(--text);border-color:var(--text-muted)}
-.refresh-btn:disabled{opacity:.5;cursor:not-allowed}
-.refresh-btn .refresh-icon{display:inline-block;transition:transform .6s}
-.refresh-btn.spinning .refresh-icon{animation:rspin .8s linear infinite}
-@keyframes rspin{to{transform:rotate(360deg)}}
-.last-updated{font-size:11px;color:var(--text-light);white-space:nowrap;flex-shrink:0}
 
 .hm-layout-desktop{display:block}
 .hm-layout-mobile{display:none}
@@ -276,24 +273,25 @@ tbody td{padding:10px 14px;vertical-align:middle}
 <body>
 <div class="header">
   <div class="header-inner">
-    <div class="header-top">
-      <div class="logo">
-        <div class="logo-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="22" height="22"><path fill="white" d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0 4 13.828h4.172"/></svg></div>
-        <h1>Fitness<span>Dashboard</span></h1>
+    <!-- Row 1: brand bar -->
+    <div class="hrow">
+      <div class="logo-wrap">
+        <div class="logo-icon"><svg viewBox="0 0 24 24" width="15" height="15"><path fill="white" d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0 4 13.828h4.172"/></svg></div>
+        <span class="logo-name">Fitness</span>
       </div>
-      <div class="header-controls">
-        <span class="last-updated" id="lastUpdated"></span>
-        <button class="refresh-btn" id="refreshBtn" onclick="refreshData()" title="Pull latest activities from Strava"><span class="refresh-icon">↻</span> Refresh</button>
-        <a href="https://www.strava.com/athletes/263104" target="_blank" class="strava-header-link" id="stravaProfileLink"><svg viewBox="0 0 24 24" width="13" height="13" style="flex-shrink:0"><path fill="white" d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0 4 13.828h4.172"/></svg>Strava</a>
-        <div class="toggle-group" id="unitToggle">
-          <button class="toggle-btn active" data-unit="mi" onclick="setUnit('mi')">Miles</button>
-          <button class="toggle-btn" data-unit="km" onclick="setUnit('km')">KM</button>
-        </div>
-        <div class="year-select" id="yearSelect"></div>
-        <select class="mobile-select" id="yearSelectMobile" onchange="setYear(this.value)"></select>
+      <div style="flex:1"></div>
+      <span class="last-updated" id="lastUpdated"></span>
+      <div class="unit-chip">
+        <button class="unit-opt active" data-unit="mi" onclick="setUnit('mi')">mi</button>
+        <button class="unit-opt" data-unit="km" onclick="setUnit('km')">km</button>
       </div>
+      <button class="icon-btn" id="refreshBtn" onclick="refreshData()" title="Pull latest from Strava"><span class="refresh-icon">↻</span></button>
+      <a class="icon-btn" href="https://www.strava.com/athletes/263104" target="_blank" title="Strava profile">
+        <svg viewBox="0 0 24 24" width="12" height="12"><path fill="currentColor" d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0 4 13.828h4.172"/></svg>
+      </a>
     </div>
-    <div class="tabs-bar">
+    <!-- Row 2: tabs + year stepper -->
+    <div class="hrow">
       <button class="tab-btn active" onclick="setTab('summary')">Summary</button>
       <button class="tab-btn" onclick="setTab('charts')">Charts</button>
       <button class="tab-btn" onclick="setTab('heatmap')">Heatmap</button>
@@ -301,7 +299,21 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <button class="tab-btn" onclick="setTab('social')">Social</button>
       <button class="tab-btn" onclick="setTab('gear')">Gear</button>
       <button class="tab-btn" onclick="setTab('log')">Activity Log</button>
+      <div class="year-bar">
+        <button class="year-all active" id="yearAll" onclick="setYear('All')">All</button>
+        <div class="year-ctl">
+          <button class="year-arrow" id="yearPrev" onclick="stepYear(-1)">&#8249;</button>
+          <span class="year-label" id="yearDisplay">—</span>
+          <button class="year-arrow" id="yearNext" onclick="stepYear(1)">&#8250;</button>
+        </div>
+      </div>
     </div>
+    <!-- Row 3: type filter -->
+    <div class="hrow" style="padding-top:4px;padding-bottom:4px">
+      <div class="type-bar" id="headerTypeFilters"></div>
+    </div>
+    <!-- Mobile controls -->
+    <select class="mobile-select" id="yearSelectMobile" onchange="setYear(this.value)"></select>
     <select class="mobile-tab-select" id="tabSelectMobile" onchange="setTab(this.value)">
       <option value="summary">Summary</option>
       <option value="charts">Charts</option>
@@ -318,7 +330,6 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
 <!-- SUMMARY -->
 <div id="tab-summary" class="tab-content active">
-  <div class="type-filters" id="typeFilters-summary"></div>
   <div class="stats-grid" id="heroStats"></div>
   <div class="two-col">
     <div>
@@ -333,7 +344,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
   
 <!-- AI SUMMARY -->
 <div class="ai-box">
-  <div class="ai-label">✦ Monthly Summary</div>
+  <div class="ai-label"><span class="ms" style="font-size:12px">auto_awesome</span> Monthly Summary</div>
   
   <div id="ai-summary-text-box" class="ai-text">
     Analyzing your training history and calculating monthly stats...
@@ -348,14 +359,14 @@ tbody td{padding:10px 14px;vertical-align:middle}
 <!-- LOCATIONS -->
 <div class="section-header" style="margin-top:28px"><h2>Locations Found in Activities</h2></div>
 <div class="loc-row">
-  <div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch('Mallorca')">🏝️ Mallorca <strong style="margin-left:4px;color:var(--text)">35</strong></div>
-  <div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch('Girona')">🌅 Girona <strong style="margin-left:4px;color:var(--text)">13</strong></div>
-  <div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch('Calpe')">⛰️ Calpe <strong style="margin-left:4px;color:var(--text)">9</strong></div>
-  <div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch('Alpe')">🏔️ Alpe d'Huez <strong style="margin-left:4px;color:var(--text)">9</strong></div>
-  <div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch('France')">🇫🇷 France <strong style="margin-left:4px;color:var(--text)">5</strong></div>
-  <div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch('Manchester')">🏙️ Manchester <strong style="margin-left:4px;color:var(--text)">4</strong></div>
-  <div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch('Paris')">🗼 Paris <strong style="margin-left:4px;color:var(--text)">1</strong></div>
-  <div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch('Lake District')">🏞️ Lake District <strong style="margin-left:4px;color:var(--text)">1</strong></div>
+  <div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch('Mallorca')"><span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span> Mallorca <strong style="margin-left:4px;color:var(--text)">35</strong></div>
+  <div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch('Girona')"><span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span> Girona <strong style="margin-left:4px;color:var(--text)">13</strong></div>
+  <div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch('Calpe')"><span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span> Calpe <strong style="margin-left:4px;color:var(--text)">9</strong></div>
+  <div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch('Alpe')"><span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span> Alpe d'Huez <strong style="margin-left:4px;color:var(--text)">9</strong></div>
+  <div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch('France')"><span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span> France <strong style="margin-left:4px;color:var(--text)">5</strong></div>
+  <div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch('Manchester')"><span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span> Manchester <strong style="margin-left:4px;color:var(--text)">4</strong></div>
+  <div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch('Paris')"><span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span> Paris <strong style="margin-left:4px;color:var(--text)">1</strong></div>
+  <div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch('Lake District')"><span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span> Lake District <strong style="margin-left:4px;color:var(--text)">1</strong></div>
 </div>
   <div style="height:28px"></div>
   <div class="section-header"><h2>Top Gear</h2></div>
@@ -368,7 +379,6 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
 <!-- CHARTS -->
 <div id="tab-charts" class="tab-content">
-  <div class="type-filters" id="typeFilters-charts"></div>
   <div class="charts-grid wide">
     <div class="chart-card">
       <div class="chart-title" id="firstChartTitle">Monthly Distance</div>
@@ -418,7 +428,6 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
 <!-- HEATMAP -->
 <div id="tab-heatmap" class="tab-content">
-  <div class="type-filters" id="typeFilters-heatmap"></div>
   <div class="heatmap-wrap">
     <div class="heatmap-title">Activity Calendar</div>
     <div class="heatmap-sub">Each cell = one day. Darker = more distance. Click a day to see its activities below.</div>
@@ -431,16 +440,15 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
 <!-- RECORDS -->
 <div id="tab-records" class="tab-content">
-  <div class="records-section"><h3>🏃 Running Personal Bests</h3><div class="records-grid" id="runPRs"></div></div>
-  <div class="records-section"><h3>🚴 Cycling Highlights</h3><div class="records-grid" id="ridePRs"></div></div>
-  <div class="records-section"><h3>🖥️ Virtual Ride Highlights</h3><div class="records-grid" id="virtualPRs"></div></div>
-  <div class="records-section"><h3>🚶 Walk Highlights</h3><div class="records-grid" id="walkPRs"></div></div>
-  <div class="records-section"><h3>📅 All-time Milestones</h3><div class="records-grid" id="milestones"></div></div>
+  <div class="records-section"><h3><span class="ms" style="font-size:16px;vertical-align:-3px">directions_run</span> Running Personal Bests</h3><div class="records-grid" id="runPRs"></div></div>
+  <div class="records-section"><h3><span class="ms" style="font-size:16px;vertical-align:-3px">directions_bike</span> Cycling Highlights</h3><div class="records-grid" id="ridePRs"></div></div>
+  <div class="records-section"><h3><span class="ms" style="font-size:16px;vertical-align:-3px">computer</span> Virtual Ride Highlights</h3><div class="records-grid" id="virtualPRs"></div></div>
+  <div class="records-section"><h3><span class="ms" style="font-size:16px;vertical-align:-3px">directions_walk</span> Walk Highlights</h3><div class="records-grid" id="walkPRs"></div></div>
+  <div class="records-section"><h3><span class="ms" style="font-size:16px;vertical-align:-3px">emoji_events</span> All-time Milestones</h3><div class="records-grid" id="milestones"></div></div>
 </div>
 
 <!-- SOCIAL -->
 <div id="tab-social" class="tab-content">
-  <div class="type-filters" id="typeFilters-social"></div>
   <div class="section-header"><h2>Top Activity Partners</h2><span class="badge" id="socialBadge"></span></div>
   <div class="partner-grid" id="partnerCards"></div>
   <div class="charts-grid">
@@ -466,8 +474,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
 <!-- GEAR -->
 <div id="tab-gear" class="tab-content">
-  <div class="type-filters" id="typeFilters-gear"></div>
-  <div class="sync-indicator" id="gearSyncIndicator" style="display:none">⚠️ Sync needed — last sync <strong class="sync-days"></strong> days ago. <span style="opacity:.7;font-size:11px">Export a new CSV from Strava to update.</span></div>
+  <div class="sync-indicator" id="gearSyncIndicator" style="display:none"><span class="ms" style="font-size:15px;vertical-align:-3px;color:#d97706">warning</span> Sync needed — last sync <strong class="sync-days"></strong> days ago. <span style="opacity:.7;font-size:11px">Export a new CSV from Strava to update.</span></div>
   <div class="section-header"><h2>Gear Summary</h2><span class="badge" id="gearBadge"></span></div>
   <div class="gear-grid" id="gearCards"></div>
   <div class="charts-grid">
@@ -486,7 +493,6 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
 <!-- LOG -->
 <div id="tab-log" class="tab-content">
-  <div class="type-filters" id="typeFilters-log"></div>
   <div class="log-controls">
     <input type="text" class="log-search" id="logSearch" placeholder="Search activities, gear, names…" oninput="filterLog()">
     <span class="log-count" id="logCount"></span>
@@ -524,7 +530,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 <script>
 let ALL_DATA = [];
 
-let unit='mi',activeYear='All',activeType='All',activeTab='summary',yearPillsShowOlder=false;
+let unit='mi',activeYear='All',activeType='All',activeTab='summary';
 let logPage=1;const LOG_PAGE_SIZE=50;
 let hmShowAll=false;let recentShowAll=false;
 let logSort={col:'date',dir:-1};let logSearch='';let charts={};
@@ -553,14 +559,12 @@ function typeGroup(t){
   return'Other';
 }
 function groupColor(g){return{Ride:'#1d4ed8',Virtual:'#60a5fa',Run:'#ef4444',Walk:'#eab308',Swim:'#0ea5e9',Other:'#94a3b8'}[g]||'#94a3b8';}
-function groupSoft(g){return{Ride:'#eff6ff',Virtual:'#dbeafe',Run:'#fef2f2',Walk:'#fefce8',Swim:'#e0f2fe',Other:'#f8fafc'}[g]||'#f8fafc';}
-function typeEmoji(g){return{Ride:'🚴',Virtual:'🖥️',Run:'🏃',Walk:'🚶',Swim:'🏊',Other:'⚡'}[g]||'⚡';}
+function groupSoft(g){return{Ride:'#dbeafe',Virtual:'#dbeafe',Run:'#fee2e2',Walk:'#fefce8',Swim:'#e0f2fe',Other:'#f8fafc'}[g]||'#f8fafc';}
+function typeEmoji(g){const i={Ride:'directions_bike',Virtual:'computer',Run:'directions_run',Walk:'directions_walk',Swim:'pool',Other:'bolt'}[g]||'bolt';return`<span class="ms">${i}</span>`;}
 function gearEmoji(name){
   const n=name.toLowerCase();
-  if(n.includes('bike')||n.includes('rose')||n.includes('eddy')||n.includes('forme')||n.includes('merckx')||n.includes('carrera')||n.includes('rented'))return'🚴';
-  if(n.includes('zwift'))return'🖥️';
-  if(n.includes('boot')||n.includes('wellie'))return'🥾';
-  return'👟';
+  const i=n.includes('bike')||n.includes('rose')||n.includes('eddy')||n.includes('forme')||n.includes('merckx')||n.includes('carrera')||n.includes('rented')?'directions_bike':n.includes('zwift')?'computer':n.includes('boot')||n.includes('wellie')?'hiking':'directions_run';
+  return`<span class="ms">${i}</span>`;
 }
 
 function extractPartners(name){
@@ -591,41 +595,41 @@ function getFilteredForYear(year){
   });
 }
 
-function buildYearPills(){
-  const years=[...new Set(ALL_DATA.map(a=>a.date.slice(0,4)))].sort().reverse();
-  const recent=years.filter(y=>parseInt(y)>=2020);
-  const older=years.filter(y=>parseInt(y)<2020);
-  const visibleYears=['All',...recent];
-  let html=visibleYears.map(y=>`<button class="year-pill${y===activeYear?' active':''}" onclick="setYear('${y}')">${y}</button>`).join('');
-  if(older.length){
-    if(yearPillsShowOlder){
-      html+=older.map(y=>`<button class="year-pill${y===activeYear?' active':''}" onclick="setYear('${y}')">${y}</button>`).join('');
-      html+=`<button class="year-pill year-pill-toggle" onclick="yearPillsShowOlder=false;buildYearPills()">▲ Less</button>`;
-    } else {
-      html+=`<button class="year-pill year-pill-toggle" onclick="yearPillsShowOlder=true;buildYearPills()">▶ ${older[older.length-1]}–${older[0]}</button>`;
-    }
-  }
-  document.getElementById('yearSelect').innerHTML=html;
-  const allYearOpts=['All',...years];
+function buildYearStepper(){
+  const years=[...new Set(ALL_DATA.map(a=>a.date.slice(0,4)))].sort();
+  const mostRecent=years[years.length-1];
+  const displayYear=activeYear==='All'?mostRecent:activeYear;
+  const idx=years.indexOf(displayYear);
+  const allBtn=document.getElementById('yearAll');
+  const display=document.getElementById('yearDisplay');
+  const prev=document.getElementById('yearPrev');
+  const next=document.getElementById('yearNext');
+  if(allBtn)allBtn.classList.toggle('active',activeYear==='All');
+  if(display)display.textContent=displayYear||'—';
+  if(prev)prev.disabled=activeYear!=='All'&&idx===0;
+  if(next)next.disabled=activeYear!=='All'&&idx===years.length-1;
   const msel=document.getElementById('yearSelectMobile');
-  if(msel)msel.innerHTML=allYearOpts.map(y=>`<option value="${y}"${y===activeYear?' selected':''}>${y}</option>`).join('');
+  const allOpts=['All',...years.slice().reverse()];
+  if(msel)msel.innerHTML=allOpts.map(y=>`<option value="${y}"${y===activeYear?' selected':''}>${y}</option>`).join('');
 }
-function setYear(y){activeYear=y;buildYearPills();renderAll();}
+function stepYear(dir){
+  const years=[...new Set(ALL_DATA.map(a=>a.date.slice(0,4)))].sort();
+  let idx=activeYear==='All'?years.length-1+dir:years.indexOf(activeYear)+dir;
+  idx=Math.max(0,Math.min(years.length-1,idx));
+  setYear(years[idx]);
+}
+function setYear(y){activeYear=y;buildYearStepper();renderAll();}
 
 const TYPE_GROUPS=['All','Ride','Virtual','Run','Walk','Swim','Other'];
-function buildTypeFilters(tabId){
-  const el=document.getElementById('typeFilters-'+tabId);
+function buildTypeFilters(){
+  const el=document.getElementById('headerTypeFilters');
   if(!el)return;
   el.innerHTML=TYPE_GROUPS.map(t=>{
-    const dot=t!=='All'?`<span class="type-pill-dot" style="background:${groupColor(t)}"></span>`:'';
-    return`<span class="type-pill${t===activeType?' active':''}" data-type="${t}" onclick="setType('${t}')">${dot}${t}</span>`;
+    const dot=t!=='All'?`<span class="type-dot" style="background:${groupColor(t)}"></span>`:'';
+    return`<button class="type-btn${t===activeType?' active':''}" data-type="${t}" onclick="setType('${t}')">${dot}${t}</button>`;
   }).join('');
 }
-function setType(t){
-  activeType=t;
-  ['summary','charts','heatmap','social','gear','log'].forEach(buildTypeFilters);
-  renderAll();
-}
+function setType(t){activeType=t;buildTypeFilters();renderAll();}
 
 function setTab(tab){
   activeTab=tab;
@@ -636,7 +640,7 @@ function setTab(tab){
   const mts=document.getElementById('tabSelectMobile');if(mts)mts.value=tab;
   renderAll();
 }
-function setUnit(u){unit=u;document.querySelectorAll('.toggle-btn').forEach(b=>b.classList.toggle('active',b.dataset.unit===u));renderAll();}
+function setUnit(u){unit=u;document.querySelectorAll('.unit-opt').forEach(b=>b.classList.toggle('active',b.dataset.unit===u));renderAll();}
 
 // ── SUMMARY ──
 function renderSummary(){
@@ -767,7 +771,7 @@ function renderSummary(){
       <div class="recent-dot" style="background:${groupColor(g)}"></div>
       <div class="recent-info">
         <div class="recent-name">${a.name||a.type}</div>
-        <div class="recent-meta">${fmtDate(a.date)} · ${typeEmoji(g)} ${g}${a.hr?' · ❤️ '+Math.round(a.hr)+' bpm':''}${a.gear&&a.gear!=='n/a'?' · '+a.gear.split(' ').slice(0,2).join(' '):''}</div>
+        <div class="recent-meta">${fmtDate(a.date)} · ${typeEmoji(g)} ${g}${a.hr?' · <span class="ms ms-fill" style="font-size:13px;color:#ef4444">favorite</span> '+Math.round(a.hr)+' bpm':''}${a.gear&&a.gear!=='n/a'?' · '+a.gear.split(' ').slice(0,2).join(' '):''}</div>
       </div>
       <div class="recent-stats">
         <div class="recent-dist">${a.dist_mi?fmtDist(a.dist_mi)+' '+distUnit():'—'}</div>
@@ -1321,7 +1325,7 @@ function showDashTooltip(event,date){
   if(!acts.length)return;
   const el=document.getElementById('dashTooltip');
   el.innerHTML=`<div style="font-weight:700;margin-bottom:4px;font-size:11px;opacity:.7">${fmtDate(date)}</div>`+
-    acts.map(a=>`<div style="margin-top:3px">${typeEmoji(typeGroup(a.type))} <strong>${a.name||a.type}</strong><br><span style="opacity:.75">${a.dist_mi?fmtDist(a.dist_mi)+' '+distUnit():'—'}${a.hr?' · ❤️ '+Math.round(a.hr)+'bpm':''}</span></div>`).join('');
+    acts.map(a=>`<div style="margin-top:3px">${typeEmoji(typeGroup(a.type))} <strong>${a.name||a.type}</strong><br><span style="opacity:.75">${a.dist_mi?fmtDist(a.dist_mi)+' '+distUnit():'—'}${a.hr?' · <span class="ms ms-fill" style="font-size:12px;color:#ef4444">favorite</span> '+Math.round(a.hr)+'bpm':''}</span></div>`).join('');
   el.style.display='block';
   const x=Math.min(event.clientX+14,window.innerWidth-280);
   const y=Math.max(event.clientY-10,10);
@@ -1356,8 +1360,8 @@ function setUpdatedAt(isoString) {
 const CACHE_KEY = 'fitness_dashboard_v1';
 
 function renderFromData() {
-  buildYearPills();
-  ['summary','charts','heatmap','social','gear','log'].forEach(buildTypeFilters);
+  buildYearStepper();
+  buildTypeFilters();
   renderSummary();
   renderRecords();
 }
