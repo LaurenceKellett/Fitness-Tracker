@@ -643,7 +643,7 @@ function setTab(tab){
   document.querySelectorAll('.tab-content').forEach(d=>d.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
   const mts=document.getElementById('tabSelectMobile');if(mts)mts.value=tab;
-  if(tab==='map'){renderMap(getFiltered());return;}
+  if(tab==='map'){renderMap(activeType==='All'?ALL_DATA:ALL_DATA.filter(a=>(a.type||'Other')===activeType));return;}
   renderAll();
 }
 function setUnit(u){unit=u;document.querySelectorAll('.unit-opt').forEach(b=>b.classList.toggle('active',b.dataset.unit===u));renderAll();}
@@ -1338,7 +1338,7 @@ function renderAll(){
   else if(activeTab==='social')renderSocial();
   else if(activeTab==='gear')renderGear();
   else if(activeTab==='log')renderLog();
-  else if(activeTab==='map')renderMap(getFiltered());
+  else if(activeTab==='map')renderMap(activeType==='All'?ALL_DATA:ALL_DATA.filter(a=>(a.type||'Other')===activeType));
 }
 
 function formatUpdatedAt(isoString) {
@@ -1363,7 +1363,7 @@ function renderFromData() {
   renderSummary();
   renderRecords();
   buildLocationPills();
-  if(activeTab==='map')renderMap(getFiltered());
+  if(activeTab==='map')renderMap(activeType==='All'?ALL_DATA:ALL_DATA.filter(a=>(a.type||'Other')===activeType));
 }
 
 // ── LOCATION PILLS ──
