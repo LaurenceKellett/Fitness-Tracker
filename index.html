@@ -73,7 +73,7 @@ a{color:inherit;text-decoration:none}
 .refresh-icon{display:inline-block;transition:transform .6s}
 .icon-btn.spinning .refresh-icon{animation:rspin .8s linear infinite}
 @keyframes rspin{to{transform:rotate(360deg)}}
-@media(max-width:640px){.year-bar{display:none}.type-bar{display:none}.mobile-select{display:block}.mobile-tab-select{display:block}}
+@media(max-width:640px){.year-bar{display:none}.type-bar{display:none}.mobile-select{display:block}.mobile-tab-select{display:none}.tab-label{display:none}.tab-btn{padding:6px 8px}}
 .main{max-width:1200px;margin:0 auto;padding:28px 24px}
 .tab-content{display:none}.tab-content.active{display:block}
 /* STATS */
@@ -295,14 +295,14 @@ tbody td{padding:10px 14px;vertical-align:middle}
     </div>
     <!-- Row 2: tabs + year stepper -->
     <div class="hrow">
-      <button class="tab-btn active" onclick="setTab('summary')"><span class="ms">home</span>Summary</button>
-      <button class="tab-btn" onclick="setTab('map')"><span class="ms">map</span>Map</button>
-      <button class="tab-btn" onclick="setTab('charts')"><span class="ms">bar_chart</span>Charts</button>
-      <button class="tab-btn" onclick="setTab('heatmap')"><span class="ms">grid_view</span>Heatmap</button>
-      <button class="tab-btn" onclick="setTab('records')"><span class="ms">emoji_events</span>Records</button>
-      <button class="tab-btn" onclick="setTab('social')"><span class="ms">thumb_up</span>Social</button>
-      <button class="tab-btn" onclick="setTab('gear')"><span class="ms">settings</span>Gear</button>
-      <button class="tab-btn" onclick="setTab('log')"><span class="ms">format_list_bulleted</span>Activity Log</button>
+      <button class="tab-btn active" onclick="setTab('summary')"><span class="ms">home</span><span class="tab-label">Summary</span></button>
+      <button class="tab-btn" onclick="setTab('map')"><span class="ms">map</span><span class="tab-label">Map</span></button>
+      <button class="tab-btn" onclick="setTab('charts')"><span class="ms">bar_chart</span><span class="tab-label">Charts</span></button>
+      <button class="tab-btn" onclick="setTab('heatmap')"><span class="ms">grid_view</span><span class="tab-label">Heatmap</span></button>
+      <button class="tab-btn" onclick="setTab('records')"><span class="ms">emoji_events</span><span class="tab-label">Records</span></button>
+      <button class="tab-btn" onclick="setTab('social')"><span class="ms">thumb_up</span><span class="tab-label">Social</span></button>
+      <button class="tab-btn" onclick="setTab('gear')"><span class="ms">settings</span><span class="tab-label">Gear</span></button>
+      <button class="tab-btn" onclick="setTab('log')"><span class="ms">format_list_bulleted</span><span class="tab-label">Activity Log</span></button>
       <div class="year-bar">
         <button class="year-all active" id="yearAll" onclick="setYear('All')">All</button>
         <div class="year-ctl">
