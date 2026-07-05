@@ -563,6 +563,14 @@ function typeGroup(t){
   if(['Swim','Kayaking'].includes(t))return'Swim';
   return'Other';
 }
+// Map tab only: Ride folds in Virtual, everything not Ride/Walk/Run/Swim is Other
+function mapTypeGroup(t){
+  if(t==='Ride'||t==='VirtualRide')return'Ride';
+  if(t==='Walk')return'Walk';
+  if(t==='Run')return'Run';
+  if(t==='Swim')return'Swim';
+  return'Other';
+}
 function groupColor(g){return{Ride:'#1d4ed8',Virtual:'#60a5fa',Run:'#ef4444',Walk:'#eab308',Swim:'#0ea5e9',Other:'#94a3b8'}[g]||'#94a3b8';}
 function groupSoft(g){return{Ride:'#dbeafe',Virtual:'#dbeafe',Run:'#fee2e2',Walk:'#fefce8',Swim:'#e0f2fe',Other:'#f8fafc'}[g]||'#f8fafc';}
 function typeEmoji(g){const i={Ride:'directions_bike',Virtual:'computer',Run:'directions_run',Walk:'directions_walk',Swim:'pool',Other:'bolt'}[g]||'bolt';return`<span class="ms">${i}</span>`;}
@@ -1549,10 +1557,11 @@ function decodePolylinePts(str){
 function initMap(){
   if(_map)return;
   _map=L.map('mapContainer',{preferCanvas:true,zoomControl:true});
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_matter/{z}/{x}/{y}{r}.png',{
+  const tiles=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_matter/{z}/{x}/{y}{r}.png',{
     attribution:'© <a href="https://www.openstreetmap.org/copyright">OSM</a> © <a href="https://carto.com/">CARTO</a>',
     maxZoom:19
   }).addTo(_map);
+  tiles.on('tileerror',e=>console.error('Map tile failed to load:',e.tile?.src,e.error));
 }
 
 function renderMap(data){
@@ -1561,8 +1570,9 @@ function renderMap(data){
   _mapLayers.forEach(l=>_map.removeLayer(l));
   _mapLayers=[];
 
-  const withRoute=data.filter(a=>a.polyline);
-  const dotOnly=data.filter(a=>!a.polyline&&a.lat&&a.lng);
+  const segsOf=a=>a.polylines||(a.polyline?[a.polyline]:[]); // polyline: pre-migration cache fallback
+  const withRoute=data.filter(a=>segsOf(a).length);
+  const dotOnly=data.filter(a=>!segsOf(a).length&&a.lat&&a.lng);
   const empty=document.getElementById('mapEmpty');
   const container=document.getElementById('mapContainer');
 
@@ -1579,36 +1589,40 @@ function renderMap(data){
 
   // Routes
   withRoute.forEach(a=>{
-    const pts=decodePolylinePts(a.polyline);
-    if(pts.length<2)return;
-    const col=groupColor(a.type||'Other');
-    const line=L.polyline(pts,{renderer,color:col,weight:1.5,opacity:0.35});
-    line.addTo(_map);
-    _mapLayers.push(line);
-    bounds.push(...pts);
+    const col=groupColor(mapTypeGroup(a.type));
+    segsOf(a).forEach(seg=>{
+      const pts=decodePolylinePts(seg);
+      if(pts.length<2)return;
+      const line=L.polyline(pts,{renderer,color:col,weight:1.5,opacity:0.35});
+      line.addTo(_map);
+      _mapLayers.push(line);
+      bounds.push(...pts);
+    });
   });
 
   // Dot-only
   dotOnly.forEach(a=>{
-    const col=groupColor(a.type||'Other');
+    const col=groupColor(mapTypeGroup(a.type));
     const m=L.circleMarker([a.lat,a.lng],{renderer,radius:4,color:col,fillColor:col,fillOpacity:0.7,weight:1});
     m.addTo(_map);
     _mapLayers.push(m);
     bounds.push([a.lat,a.lng]);
   });
 
-  if(bounds.length)_map.fitBounds(bounds,{padding:[30,30]});
-  setTimeout(()=>_map.invalidateSize(),100);
+  // Wait for the tab's display:none->block change to be laid out before
+  // measuring the container, otherwise Leaflet fits bounds against a stale
+  // (often zero) size and ends up more zoomed out than the data warrants.
+  requestAnimationFrame(()=>{
+    _map.invalidateSize();
+    if(bounds.length)_map.fitBounds(bounds,{padding:[30,30]});
+  });
 
   // Legend
   const legend=document.getElementById('mapLegend');
   if(legend){
-    const types=[...new Set(data.map(a=>a.type||'Other'))];
+    const types=[...new Set(data.map(a=>mapTypeGroup(a.type)))];
     legend.innerHTML=types.map(t=>`<span style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted)"><span style="width:10px;height:10px;border-radius:2px;background:${groupColor(t)};display:inline-block;opacity:.8"></span>${t}</span>`).join('');
   }
-
-  // Invalidate after tab transition finishes
-  setTimeout(()=>_map.invalidateSize(),300);
 }
 </script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
