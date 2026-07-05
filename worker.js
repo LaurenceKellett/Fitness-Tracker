@@ -319,17 +319,7 @@ async function fetchAllActivities(accessToken, env) {
 
   const gearIds = [...new Set(all.map(a => a._gear_id).filter(Boolean))];
   const gearMap  = {};
-  await Promise.all(gearIds.map(async id => {
-    try {
-      const res  = await fetch(`https://www.strava.com/api/v3/gear/${id}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      const data = await res.json();
-      gearMap[id] = data.name || id;
-    } catch (_) {
-      gearMap[id] = id;
-    }
-  }));
+  await fetchGearNames(gearIds, accessToken, gearMap);
 
   for (const a of all) {
     a.gear    = a._gear_id ? (gearMap[a._gear_id] || null) : null;
@@ -348,6 +338,61 @@ async function fetchAllActivities(accessToken, env) {
   }
 
   return all.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// =============================================================================
+// GEAR NAME LOOKUP
+// Strava rate-limits short bursts fairly aggressively, and a full history
+// re-sync can already burn through most of that quota on pagination alone.
+// Fetching every distinct gear ID in one Promise.all burst risks 429s that
+// were previously swallowed silently (falling back to the raw gear ID with
+// no way to tell why). This fetches in small batches with a retry on 429
+// and logs any failure that survives retries.
+// =============================================================================
+
+const GEAR_BATCH_SIZE   = 5;
+const GEAR_MAX_RETRIES  = 3;
+
+async function fetchGearNames(gearIds, accessToken, gearMap) {
+  for (let i = 0; i < gearIds.length; i += GEAR_BATCH_SIZE) {
+    const batch = gearIds.slice(i, i + GEAR_BATCH_SIZE);
+    await Promise.all(batch.map(id => fetchGearName(id, accessToken, gearMap)));
+  }
+}
+
+async function fetchGearName(id, accessToken, gearMap) {
+  for (let attempt = 0; attempt <= GEAR_MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch(`https://www.strava.com/api/v3/gear/${id}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      if (res.status === 429) {
+        const retryAfter = parseFloat(res.headers.get('Retry-After')) || 2 * (attempt + 1);
+        if (attempt < GEAR_MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, retryAfter * 1000));
+          continue;
+        }
+        console.error(`Gear lookup for ${id} rate-limited after ${attempt + 1} attempts, falling back to raw ID`);
+        gearMap[id] = id;
+        return;
+      }
+
+      if (!res.ok) {
+        console.error(`Gear lookup for ${id} failed: ${res.status} ${await res.text()}`);
+        gearMap[id] = id;
+        return;
+      }
+
+      const data = await res.json();
+      gearMap[id] = data.name || id;
+      return;
+    } catch (err) {
+      console.error(`Gear lookup for ${id} threw: ${err.message}`);
+      gearMap[id] = id;
+      return;
+    }
+  }
 }
 
 // =============================================================================
