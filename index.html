@@ -523,8 +523,13 @@ tbody td{padding:10px 14px;vertical-align:middle}
     <div style="font-size:13px;color:var(--text-muted)">Routes trimmed within ¼ mile of home addresses for privacy.</div>
     <div id="mapLegend" style="display:flex;gap:10px;flex-wrap:wrap"></div>
   </div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:12px;color:var(--text-muted)">
+    <span class="ms" style="font-size:16px">contrast</span>
+    <span>Map fade</span>
+    <input type="range" min="0" max="90" value="0" oninput="setMapWhiteout(this.value)" style="width:140px">
+  </div>
   <div id="mapJumpRow" class="loc-row"></div>
-  <div id="mapContainer" style="height:600px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border)"></div>
+  <div id="mapContainer" style="height:600px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);background:#fff"></div>
   <div id="mapEmpty" style="display:none;text-align:center;padding:60px 20px;color:var(--text-muted);font-size:14px">
     <span class="ms" style="font-size:36px;display:block;margin-bottom:8px">map</span>
     No route data yet — sync with Strava to load GPS routes.
@@ -1595,30 +1600,22 @@ function decodePolylinePts(str){
   return pts;
 }
 
+let _tileLayer=null;
+
 function initMap(){
   if(_map)return;
   _map=L.map('mapContainer',{preferCanvas:true,zoomControl:true});
-  const tiles=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_matter/{z}/{x}/{y}{r}.png',{
-    attribution:'© <a href="https://www.openstreetmap.org/copyright">OSM</a> © <a href="https://carto.com/">CARTO</a>',
+  _tileLayer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom:19
   }).addTo(_map);
+  _tileLayer.on('tileerror',e=>console.error('Map tile failed to load:',e.tile?.src,e.error));
+}
 
-  // If CARTO tiles are unreachable (ad/content-blocker, outage, etc.) fall
-  // back to OSM's own tile server — a different domain, so whatever's
-  // blocking cartocdn.com is unlikely to also block this one — rather than
-  // leaving the map background blank.
-  let tileErrors=0, fellBack=false;
-  tiles.on('tileerror',e=>{
-    console.error('Map tile failed to load:',e.tile?.src,e.error);
-    if(fellBack||++tileErrors<3)return;
-    fellBack=true;
-    console.warn('CARTO tiles are failing — falling back to OpenStreetMap standard tiles.');
-    _map.removeLayer(tiles);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-      attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom:19
-    }).addTo(_map);
-  });
+// Slider fades the tiles toward the map's white background instead of
+// layering something on top, so routes stand out more against a plainer map
+function setMapWhiteout(pct){
+  if(_tileLayer)_tileLayer.setOpacity(1-pct/100);
 }
 
 function renderMap(data){
