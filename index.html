@@ -1602,7 +1602,23 @@ function initMap(){
     attribution:'© <a href="https://www.openstreetmap.org/copyright">OSM</a> © <a href="https://carto.com/">CARTO</a>',
     maxZoom:19
   }).addTo(_map);
-  tiles.on('tileerror',e=>console.error('Map tile failed to load:',e.tile?.src,e.error));
+
+  // If CARTO tiles are unreachable (ad/content-blocker, outage, etc.) fall
+  // back to OSM's own tile server — a different domain, so whatever's
+  // blocking cartocdn.com is unlikely to also block this one — rather than
+  // leaving the map background blank.
+  let tileErrors=0, fellBack=false;
+  tiles.on('tileerror',e=>{
+    console.error('Map tile failed to load:',e.tile?.src,e.error);
+    if(fellBack||++tileErrors<3)return;
+    fellBack=true;
+    console.warn('CARTO tiles are failing — falling back to OpenStreetMap standard tiles.');
+    _map.removeLayer(tiles);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom:19
+    }).addTo(_map);
+  });
 }
 
 function renderMap(data){
