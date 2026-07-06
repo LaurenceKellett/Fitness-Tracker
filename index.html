@@ -523,6 +523,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
     <div style="font-size:13px;color:var(--text-muted)">Routes trimmed within ¼ mile of home addresses for privacy.</div>
     <div id="mapLegend" style="display:flex;gap:10px;flex-wrap:wrap"></div>
   </div>
+  <div id="mapJumpRow" class="loc-row"></div>
   <div id="mapContainer" style="height:600px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border)"></div>
   <div id="mapEmpty" style="display:none;text-align:center;padding:60px 20px;color:var(--text-muted);font-size:14px">
     <span class="ms" style="font-size:36px;display:block;margin-bottom:8px">map</span>
@@ -1377,30 +1378,21 @@ function renderFromData() {
 // ── LOCATION PILLS ──
 const LOC_GEO_CACHE = 'nominatim_v1';
 
-async function buildLocationPills() {
-  const el = document.getElementById('locPills');
-  if (!el) return;
-
-  // Fall back gracefully if data pre-dates the near_home field
-  const hasGpsData = ALL_DATA.some(a => a.near_home !== undefined);
-  if (!hasGpsData) {
-    el.innerHTML = '<span style="font-size:12px;color:var(--text-muted)">Sync with Strava to load live locations.</span>';
-    return;
-  }
-
-  // Only away activities that have coordinates
+// Groups "away" activities (near_home===false) into named clusters, reverse-
+// geocoding each ~1km grid cell via Nominatim (cached in localStorage) and
+// merging cells that resolve to the same name. Shared by the location pills
+// (Summary tab) and the map jump buttons (Map tab).
+async function getLocationGroups() {
   const away = ALL_DATA.filter(a => a.near_home === false && a.lat && a.lng);
-  if (!away.length) {
-    el.innerHTML = '<span style="font-size:12px;color:var(--text-muted)">All activities are from home.</span>';
-    return;
-  }
+  if (!away.length) return [];
 
   // Group by lat/lng rounded to 2dp (~1 km grid)
   const groups = {};
   away.forEach(a => {
     const key = `${(Math.round(a.lat * 100) / 100).toFixed(2)},${(Math.round(a.lng * 100) / 100).toFixed(2)}`;
-    if (!groups[key]) groups[key] = { count: 0, lat: Math.round(a.lat * 100) / 100, lng: Math.round(a.lng * 100) / 100 };
+    if (!groups[key]) groups[key] = { count: 0, pts: [] };
     groups[key].count++;
+    groups[key].pts.push([a.lat, a.lng]);
   });
 
   // Load persisted geocoding cache
@@ -1409,15 +1401,12 @@ async function buildLocationPills() {
 
   const uncached = Object.entries(groups).filter(([k]) => !cache[k]);
 
-  if (uncached.length) {
-    el.innerHTML = '<span style="font-size:12px;color:var(--text-muted)">Geocoding locations…</span>';
-  }
-
   // Geocode one at a time — Nominatim allows 1 req/s
   for (const [key, g] of uncached) {
+    const [lat, lng] = key.split(',').map(Number);
     try {
       const res  = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${g.lat}&lon=${g.lng}&zoom=8&format=json`,
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&zoom=8&format=json`,
         { headers: { 'User-Agent': 'FitnessTracker/1.0' } }
       );
       const data = await res.json();
@@ -1435,19 +1424,50 @@ async function buildLocationPills() {
     try { localStorage.setItem(LOC_GEO_CACHE, JSON.stringify(cache)); } catch(_) {}
   }
 
-  // Merge groups that geocoded to the same name
+  // Merge groups that geocoded to the same name, keeping every point so we
+  // can fit the map to that name's actual spread rather than guessing a zoom
   const byName = {};
   Object.entries(groups).forEach(([key, g]) => {
     const name = cache[key] || 'Unknown';
-    byName[name] = (byName[name] || 0) + g.count;
+    if (!byName[name]) byName[name] = { count: 0, pts: [] };
+    byName[name].count += g.count;
+    byName[name].pts.push(...g.pts);
   });
 
-  const sorted = Object.entries(byName).sort((a, b) => b[1] - a[1]);
+  return Object.entries(byName).map(([name, v]) => {
+    const lats = v.pts.map(p => p[0]), lngs = v.pts.map(p => p[1]);
+    return {
+      name,
+      count: v.count,
+      bounds: [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]],
+    };
+  }).sort((a, b) => b.count - a.count);
+}
 
-  el.innerHTML = sorted.map(([name, count]) =>
-    `<div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch(${JSON.stringify(name)})">` +
+async function buildLocationPills() {
+  const el = document.getElementById('locPills');
+  if (!el) return;
+
+  // Fall back gracefully if data pre-dates the near_home field
+  const hasGpsData = ALL_DATA.some(a => a.near_home !== undefined);
+  if (!hasGpsData) {
+    el.innerHTML = '<span style="font-size:12px;color:var(--text-muted)">Sync with Strava to load live locations.</span>';
+    return;
+  }
+
+  const away = ALL_DATA.filter(a => a.near_home === false && a.lat && a.lng);
+  if (!away.length) {
+    el.innerHTML = '<span style="font-size:12px;color:var(--text-muted)">All activities are from home.</span>';
+    return;
+  }
+
+  el.innerHTML = '<span style="font-size:12px;color:var(--text-muted)">Loading locations…</span>';
+  const groups = await getLocationGroups();
+
+  el.innerHTML = groups.map(g =>
+    `<div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch(${JSON.stringify(g.name)})">` +
     `<span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span>` +
-    ` ${name} <strong style="margin-left:4px;color:var(--text)">${count}</strong></div>`
+    ` ${g.name} <strong style="margin-left:4px;color:var(--text)">${g.count}</strong></div>`
   ).join('');
 }
 
@@ -1472,6 +1492,7 @@ async function loadData(forceRefresh = false) {
     ? 'https://activities-api.lk-ff7.workers.dev/activities?refresh=true'
     : 'https://activities-api.lk-ff7.workers.dev/activities';
 
+  let updatedAt;
   try {
     const res  = await fetch(url);
     const json = await res.json();
@@ -1479,13 +1500,12 @@ async function loadData(forceRefresh = false) {
     // Handle both the new envelope {data, updatedAt} and the old raw-array format
     if (Array.isArray(json)) {
       ALL_DATA = json;
-      setUpdatedAt(null);
-      localStorage.setItem(CACHE_KEY, JSON.stringify({ data: json, updatedAt: new Date().toISOString() }));
+      updatedAt = new Date().toISOString();
     } else {
       ALL_DATA = json.data;
-      setUpdatedAt(json.updatedAt);
-      localStorage.setItem(CACHE_KEY, JSON.stringify({ data: json.data, updatedAt: json.updatedAt }));
+      updatedAt = json.updatedAt;
     }
+    setUpdatedAt(updatedAt);
   } catch (e) {
     console.error('Could not load activities from Strava Worker:', e);
     // If we already rendered from cache, leave it as-is
@@ -1494,6 +1514,14 @@ async function loadData(forceRefresh = false) {
       if (lu) lu.textContent = lu.textContent.replace(' · Syncing…', ' · (offline)');
     }
     return;
+  }
+
+  // Caching is best-effort: a full history can exceed the per-origin quota
+  // (QuotaExceededError), which must not stop the fresh data from rendering
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ data: ALL_DATA, updatedAt }));
+  } catch (e) {
+    console.error('Could not cache activities locally:', e);
   }
 
   renderFromData();
@@ -1540,6 +1568,8 @@ loadData();
 
 // ── MAP ──
 let _map=null,_mapLayers=[];
+const HOME_CENTER=[53.8362,-2.5964]; // Longridge, Preston, Lancashire, UK
+const HOME_ZOOM=13;
 
 function decodePolylinePts(str){
   let i=0,lat=0,lng=0;const pts=[];
@@ -1572,7 +1602,9 @@ function renderMap(data){
 
   const segsOf=a=>a.polylines||(a.polyline?[a.polyline]:[]); // polyline: pre-migration cache fallback
   const withRoute=data.filter(a=>segsOf(a).length);
-  const dotOnly=data.filter(a=>!segsOf(a).length&&a.lat&&a.lng);
+  // near_home activities keep a (zone-centre-snapped) lat/lng even with no surviving
+  // route segments — never plot those as a dot, or the marker gives the address away
+  const dotOnly=data.filter(a=>!segsOf(a).length&&a.lat&&a.lng&&!a.near_home);
   const empty=document.getElementById('mapEmpty');
   const container=document.getElementById('mapContainer');
 
@@ -1584,7 +1616,6 @@ function renderMap(data){
   if(empty)empty.style.display='none';
   if(container)container.style.display='block';
 
-  const bounds=[];
   const renderer=L.canvas();
 
   // Routes
@@ -1596,7 +1627,6 @@ function renderMap(data){
       const line=L.polyline(pts,{renderer,color:col,weight:1.5,opacity:0.35});
       line.addTo(_map);
       _mapLayers.push(line);
-      bounds.push(...pts);
     });
   });
 
@@ -1606,16 +1636,19 @@ function renderMap(data){
     const m=L.circleMarker([a.lat,a.lng],{renderer,radius:4,color:col,fillColor:col,fillOpacity:0.7,weight:1});
     m.addTo(_map);
     _mapLayers.push(m);
-    bounds.push([a.lat,a.lng]);
   });
 
+  // Default view is always Longridge/Preston at a fixed close-in zoom rather
+  // than fitting to every activity's bounds — trips abroad (Mallorca, Girona,
+  // Calpe…) sit thousands of km from home and would otherwise drag the zoom
+  // out to fit them all. Use the jump buttons to see those instead.
   // Wait for the tab's display:none->block change to be laid out before
-  // measuring the container, otherwise Leaflet fits bounds against a stale
-  // (often zero) size and ends up more zoomed out than the data warrants.
+  // measuring the container, otherwise invalidateSize sees a stale size.
   requestAnimationFrame(()=>{
     _map.invalidateSize();
-    if(bounds.length)_map.fitBounds(bounds,{padding:[30,30]});
+    _map.setView(HOME_CENTER,HOME_ZOOM);
   });
+  buildMapJumpButtons();
 
   // Legend
   const legend=document.getElementById('mapLegend');
@@ -1623,6 +1656,21 @@ function renderMap(data){
     const types=[...new Set(data.map(a=>mapTypeGroup(a.type)))];
     legend.innerHTML=types.map(t=>`<span style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted)"><span style="width:10px;height:10px;border-radius:2px;background:${groupColor(t)};display:inline-block;opacity:.8"></span>${t}</span>`).join('');
   }
+}
+
+function mapJumpHome(){if(_map)_map.flyTo(HOME_CENTER,HOME_ZOOM);}
+function mapJumpToBounds(bounds){if(_map)_map.flyToBounds(bounds,{padding:[40,40],maxZoom:13});}
+
+async function buildMapJumpButtons(){
+  const el=document.getElementById('mapJumpRow');
+  if(!el)return;
+  el.innerHTML=`<div class="loc-pill" style="cursor:pointer" onclick="mapJumpHome()">`+
+    `<span class="ms ms-fill" style="font-size:13px;color:var(--accent)">home</span> Home</div>`;
+  const groups=await getLocationGroups();
+  el.innerHTML+=groups.map(g=>
+    `<div class="loc-pill" style="cursor:pointer" onclick='mapJumpToBounds(${JSON.stringify(g.bounds)})'>`+
+    `<span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span> ${g.name}</div>`
+  ).join('');
 }
 </script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
