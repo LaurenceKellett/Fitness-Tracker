@@ -519,14 +519,16 @@ tbody td{padding:10px 14px;vertical-align:middle}
 </div>
 
 <div id="tab-map" class="tab-content">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
     <div style="font-size:13px;color:var(--text-muted)">Routes trimmed within ¼ mile of home addresses for privacy.</div>
-    <div id="mapLegend" style="display:flex;gap:10px;flex-wrap:wrap"></div>
-  </div>
-  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:12px;color:var(--text-muted)">
-    <span class="ms" style="font-size:16px">contrast</span>
-    <span>Map fade</span>
-    <input type="range" min="0" max="90" value="0" oninput="setMapWhiteout(this.value)" style="width:140px">
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+      <div id="mapLegend" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end"></div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted)">
+        <span class="ms" style="font-size:16px">contrast</span>
+        <span>Map fade</span>
+        <input type="range" min="0" max="90" value="0" oninput="setMapWhiteout(this.value)" style="width:140px">
+      </div>
+    </div>
   </div>
   <div id="mapJumpRow" class="loc-row"></div>
   <div id="mapContainer" style="height:600px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);background:#fff"></div>
@@ -1682,18 +1684,43 @@ function renderMap(data){
   }
 }
 
+// Always-available jump pills regardless of whether they've been auto-discovered
+// yet. Coordinates are approximate town/region centres, not exact addresses.
+const POPULAR_LOCATIONS=[
+  {name:'Girona',   lat:41.9794, lng:2.8214,  zoom:11},
+  {name:'Mallorca', lat:39.5696, lng:2.6502,  zoom:10},
+  {name:'Chorley',  lat:53.6544, lng:-2.6310, zoom:12},
+  {name:'Calpe',    lat:38.6447, lng:0.0443,  zoom:12},
+];
+
 function mapJumpHome(){if(_map)_map.flyTo(HOME_CENTER,HOME_ZOOM);}
-function mapJumpToBounds(bounds){if(_map)_map.flyToBounds(bounds,{padding:[40,40],maxZoom:13});}
+function mapJumpToBounds(bounds,maxZoom){if(_map)_map.flyToBounds(bounds,{padding:[40,40],maxZoom:maxZoom||13});}
 
 async function buildMapJumpButtons(){
   const el=document.getElementById('mapJumpRow');
   if(!el)return;
   el.innerHTML=`<div class="loc-pill" style="cursor:pointer" onclick="mapJumpHome()">`+
     `<span class="ms ms-fill" style="font-size:13px;color:var(--accent)">home</span> Home</div>`;
-  const groups=await getLocationGroups();
-  el.innerHTML+=groups.map(g=>
-    `<div class="loc-pill" style="cursor:pointer" onclick='mapJumpToBounds(${JSON.stringify(g.bounds)})'>`+
-    `<span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span> ${g.name}</div>`
+
+  const discovered=await getLocationGroups();
+  const byName={};
+  discovered.forEach(g=>byName[g.name.toLowerCase()]=g);
+
+  // Popular locations first — using the real discovered bounds if we have
+  // activities there already, otherwise a fixed fallback zoom on the pin
+  const pills=POPULAR_LOCATIONS.map(p=>{
+    const match=byName[p.name.toLowerCase()];
+    if(match)delete byName[p.name.toLowerCase()];
+    return match
+      ? {name:p.name, bounds:match.bounds}
+      : {name:p.name, bounds:[[p.lat,p.lng],[p.lat,p.lng]], zoom:p.zoom};
+  });
+  // Then any other discovered location not already covered above
+  Object.values(byName).forEach(g=>pills.push({name:g.name, bounds:g.bounds}));
+
+  el.innerHTML+=pills.map(p=>
+    `<div class="loc-pill" style="cursor:pointer" onclick='mapJumpToBounds(${JSON.stringify(p.bounds)},${p.zoom||13})'>`+
+    `<span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span> ${p.name}</div>`
   ).join('');
 }
 </script>
