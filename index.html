@@ -1378,11 +1378,20 @@ function renderFromData() {
 // ── LOCATION PILLS ──
 const LOC_GEO_CACHE = 'nominatim_v1';
 
-// Groups "away" activities (near_home===false) into named clusters, reverse-
-// geocoding each ~1km grid cell via Nominatim (cached in localStorage) and
-// merging cells that resolve to the same name. Shared by the location pills
-// (Summary tab) and the map jump buttons (Map tab).
-async function getLocationGroups() {
+// buildLocationPills() and buildMapJumpButtons() both need this, and
+// renderFromData() runs once from local cache and again after the fresh
+// fetch — without sharing one in-flight computation, those callers each
+// start their own sequential Nominatim geocoding loop at the same time,
+// and the concurrent bursts trip Nominatim's ~1req/s rate limit (which
+// shows up in the browser as a CORS failure, since its error responses
+// don't carry CORS headers). Reset only by a forced refresh.
+let _locationGroupsPromise = null;
+function getLocationGroups() {
+  if (!_locationGroupsPromise) _locationGroupsPromise = computeLocationGroups();
+  return _locationGroupsPromise;
+}
+
+async function computeLocationGroups() {
   const away = ALL_DATA.filter(a => a.near_home === false && a.lat && a.lng);
   if (!away.length) return [];
 
@@ -1472,6 +1481,8 @@ async function buildLocationPills() {
 }
 
 async function loadData(forceRefresh = false) {
+  if (forceRefresh) _locationGroupsPromise = null; // let a manual refresh re-derive location clusters
+
   // Render from cache immediately so the page isn't blank on first load
   if (!forceRefresh) {
     try {
