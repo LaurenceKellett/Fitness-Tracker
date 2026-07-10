@@ -213,8 +213,17 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .zwift-detail-info tr td:last-child{text-align:right;color:var(--text)}
 .zwift-detail-info a{color:var(--accent);margin-left:10px}
 .zwift-directions{margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
-.zwift-directions-title{font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px}
-.zwift-directions-body{font-size:12px;color:var(--text);white-space:pre-wrap;line-height:1.6}
+.zwift-directions-title{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px}
+.zwift-turn-progress{font-weight:600;text-transform:none;letter-spacing:0}
+.zwift-reset-btn{margin-left:auto;font-size:11px;font-weight:500;text-transform:none;letter-spacing:0;padding:2px 9px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text-muted);cursor:pointer;transition:all .15s}
+.zwift-reset-btn:hover{color:var(--text);border-color:var(--border-strong)}
+.zwift-directions-leadin{font-size:12px;color:var(--text);margin-bottom:10px;line-height:1.6}
+.zwift-turn-list{display:flex;flex-direction:column;gap:1px}
+.zwift-turn-row{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text);padding:4px 2px;cursor:pointer;border-radius:var(--radius-sm)}
+.zwift-turn-row:hover{background:var(--surface)}
+.zwift-turn-row input{margin-top:3px;flex-shrink:0;cursor:pointer}
+.zwift-turn-row input:checked+span{text-decoration:line-through;color:var(--text-muted)}
+.zwift-directions-trailing{margin-top:8px;font-size:11px;color:var(--text-muted);font-style:italic}
 /* LAYOUT */
 .section-header{display:flex;align-items:center;gap:12px;margin-bottom:16px;margin-top:4px}
 .section-header h2{font-size:15px;font-weight:700}
@@ -619,6 +628,9 @@ let logSort={col:'date',dir:-1};let logSearch='';let charts={};
 let ZWIFT_DATA=[];let zwiftLoaded=false;let zwiftSearch='';let zwiftStatusFilter='All';
 let zwiftEditingId=null;let zwiftSaving=false;let zwiftGroupOpen={};
 const ZWIFT_CACHE_KEY='zwift_routes_v1';
+const ZWIFT_CHECKLIST_KEY='zwift_checklist_v1';
+let zwiftChecklists={};
+try{zwiftChecklists=JSON.parse(localStorage.getItem(ZWIFT_CHECKLIST_KEY)||'{}');}catch(e){zwiftChecklists={};}
 const ZWIFT_WORKER_BASE='https://activities-api.lk-ff7.workers.dev';
 const MAP_ORDER=['Watopia','Makuri Island','Jarvis Island','Scotland','London','Yorkshire','Richmond','France','New York','Innsbruck','Bologna','Gravel Mountain','Crit City','KOM','Rebel Routes','Event Only'];
 const MAP_COLOR={'Watopia':'#d9730d','Makuri Island':'#d9730d','Jarvis Island':'#d9730d','Scotland':'#cb912f','London':'#cb912f','Yorkshire':'#cb912f','Richmond':'#cb912f','France':'#cb912f','New York':'#cb912f','Innsbruck':'#cb912f','Bologna':'#9f6b53','Gravel Mountain':'#9f6b53','Crit City':'#9f6b53','KOM':'#c14c8a','Rebel Routes':'#c14c8a','Event Only':'#9b9a97'};
@@ -1627,6 +1639,42 @@ function cancelZwiftEdit(){
   renderZwiftTable();
 }
 
+function parseZwiftDirections(text){
+  const idx=text.indexOf('Turn by Turn:');
+  if(idx===-1)return{leadIn:text.replace(/^Getting Started:\s*/,'').trim(),turns:[],trailing:''};
+  const leadIn=text.slice(0,idx).replace(/^Getting Started:\s*/,'').trim();
+  const rest=text.slice(idx+'Turn by Turn:'.length);
+  const turns=[];const trailing=[];
+  rest.split('\n').forEach(line=>{
+    const t=line.trim();
+    if(!t)return;
+    const m=t.match(/^(\d+)\.\s*(.+)$/);
+    if(m)turns.push(m[2]);else trailing.push(t);
+  });
+  return{leadIn,turns,trailing:trailing.join(' ')};
+}
+
+function saveZwiftChecklists(){
+  try{localStorage.setItem(ZWIFT_CHECKLIST_KEY,JSON.stringify(zwiftChecklists));}catch(e){}
+}
+
+function onZwiftTurnToggle(routeId,idx,checked,total){
+  if(!zwiftChecklists[routeId])zwiftChecklists[routeId]={};
+  if(checked)zwiftChecklists[routeId][idx]=true;
+  else delete zwiftChecklists[routeId][idx];
+  saveZwiftChecklists();
+  const progressEl=document.getElementById('zwift-progress-'+routeId);
+  if(progressEl)progressEl.textContent=Object.keys(zwiftChecklists[routeId]).length+'/'+total;
+}
+
+function resetZwiftChecklist(routeId,total){
+  delete zwiftChecklists[routeId];
+  saveZwiftChecklists();
+  document.querySelectorAll(`.zwift-turn-check[data-route="${routeId}"]`).forEach(cb=>cb.checked=false);
+  const progressEl=document.getElementById('zwift-progress-'+routeId);
+  if(progressEl)progressEl.textContent='0/'+total;
+}
+
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -1637,10 +1685,26 @@ function renderZwiftDetail(r){
     r.link_strava?`<a href="${r.link_strava}" target="_blank" onclick="event.stopPropagation()">Strava</a>`:'',
     r.link_zh?`<a href="${r.link_zh}" target="_blank" onclick="event.stopPropagation()">ZwiftHacks</a>`:'',
   ].filter(Boolean).join('');
-  const directions=r.directions?`<div class="zwift-directions">
-    <div class="zwift-directions-title">Directions</div>
-    <div class="zwift-directions-body">${escapeHtml(r.directions)}</div>
-  </div>`:'';
+  let directions='';
+  if(r.directions){
+    const parsed=parseZwiftDirections(r.directions);
+    const checked=zwiftChecklists[r.id]||{};
+    const doneCount=Object.keys(checked).length;
+    const turnsHtml=parsed.turns.map((t,i)=>`<label class="zwift-turn-row">
+      <input type="checkbox" class="zwift-turn-check" data-route="${r.id}" ${checked[i]?'checked':''} onchange="onZwiftTurnToggle('${r.id}',${i},this.checked,${parsed.turns.length})">
+      <span>${escapeHtml(t)}</span>
+    </label>`).join('');
+    directions=`<div class="zwift-directions">
+      <div class="zwift-directions-title">
+        Directions
+        ${parsed.turns.length?`<span class="zwift-turn-progress" id="zwift-progress-${r.id}">${doneCount}/${parsed.turns.length}</span>`:''}
+        ${parsed.turns.length?`<button class="zwift-reset-btn" type="button" onclick="resetZwiftChecklist('${r.id}',${parsed.turns.length})">Reset</button>`:''}
+      </div>
+      ${parsed.leadIn?`<div class="zwift-directions-leadin">${escapeHtml(parsed.leadIn)}</div>`:''}
+      ${turnsHtml?`<div class="zwift-turn-list">${turnsHtml}</div>`:''}
+      ${parsed.trailing?`<div class="zwift-directions-trailing">${escapeHtml(parsed.trailing)}</div>`:''}
+    </div>`;
+  }
   return`<div class="zwift-detail" onclick="event.stopPropagation()">
     <div class="zwift-edit-form">
       <label>Status<select id="ze-status-${r.id}" onchange="handleZwiftStatusChange('${r.id}','${r.status}')">
