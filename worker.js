@@ -564,17 +564,7 @@ async function fetchAllActivities(accessToken, env) {
 
   const gearIds = [...new Set(all.map(a => a._gear_id).filter(Boolean))];
   const gearMap  = {};
-  await Promise.all(gearIds.map(async id => {
-    try {
-      const res  = await fetch(`https://www.strava.com/api/v3/gear/${id}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      const data = await res.json();
-      gearMap[id] = data.name || id;
-    } catch (_) {
-      gearMap[id] = id;
-    }
-  }));
+  await fetchGearNames(gearIds, accessToken, gearMap);
 
   for (const a of all) {
     a.gear    = a._gear_id ? (gearMap[a._gear_id] || null) : null;
@@ -593,6 +583,61 @@ async function fetchAllActivities(accessToken, env) {
   }
 
   return all.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// =============================================================================
+// GEAR NAME LOOKUP
+// Strava rate-limits short bursts fairly aggressively, and a full history
+// re-sync can already burn through most of that quota on pagination alone.
+// Fetching every distinct gear ID in one Promise.all burst risks 429s that
+// were previously swallowed silently (falling back to the raw gear ID with
+// no way to tell why). This fetches in small batches with a retry on 429
+// and logs any failure that survives retries.
+// =============================================================================
+
+const GEAR_BATCH_SIZE   = 5;
+const GEAR_MAX_RETRIES  = 3;
+
+async function fetchGearNames(gearIds, accessToken, gearMap) {
+  for (let i = 0; i < gearIds.length; i += GEAR_BATCH_SIZE) {
+    const batch = gearIds.slice(i, i + GEAR_BATCH_SIZE);
+    await Promise.all(batch.map(id => fetchGearName(id, accessToken, gearMap)));
+  }
+}
+
+async function fetchGearName(id, accessToken, gearMap) {
+  for (let attempt = 0; attempt <= GEAR_MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch(`https://www.strava.com/api/v3/gear/${id}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      if (res.status === 429) {
+        const retryAfter = parseFloat(res.headers.get('Retry-After')) || 2 * (attempt + 1);
+        if (attempt < GEAR_MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, retryAfter * 1000));
+          continue;
+        }
+        console.error(`Gear lookup for ${id} rate-limited after ${attempt + 1} attempts, falling back to raw ID`);
+        gearMap[id] = id;
+        return;
+      }
+
+      if (!res.ok) {
+        console.error(`Gear lookup for ${id} failed: ${res.status} ${await res.text()}`);
+        gearMap[id] = id;
+        return;
+      }
+
+      const data = await res.json();
+      gearMap[id] = data.name || id;
+      return;
+    } catch (err) {
+      console.error(`Gear lookup for ${id} threw: ${err.message}`);
+      gearMap[id] = id;
+      return;
+    }
+  }
 }
 
 // =============================================================================
@@ -678,9 +723,10 @@ function transformActivity(a, zones = []) {
     lng = Math.round(z.lng * 1000) / 1000;
   }
 
-  // Privacy: trim polyline endpoints that fall within any home exclusion zone
+  // Privacy: drop any part of the route (start, end, or mid-route pass-through)
+  // that falls within a home exclusion zone
   const rawPolyline = a.map?.summary_polyline || null;
-  const polyline = zones.length ? trimPolyline(rawPolyline, zones) : rawPolyline;
+  const polylines = rawPolyline ? (zones.length ? splitPolylineExcludingZones(rawPolyline, zones) : [rawPolyline]) : [];
 
   return {
     id:         String(a.id),
@@ -702,8 +748,8 @@ function transformActivity(a, zones = []) {
     gear:       null,
     _gear_id:   a.gear_id || null,
     kudos:      a.kudos_count || 0,
-    has_map:    !!polyline,
-    polyline,
+    has_map:    polylines.length > 0,
+    polylines,
     lat,
     lng,
     near_home:  isHome,
@@ -731,8 +777,9 @@ function round(val, dp) {
 // HOME PRIVACY HELPERS
 // Reads HOME_LAT_1/HOME_LNG_1 … HOME_LAT_5/HOME_LNG_5 from Cloudflare secrets.
 // Activities starting within EXCLUSION_MILES of any zone have their start point
-// snapped to the zone centre (3 dp ≈ 100 m) and their polyline trimmed so the
-// route only appears once it leaves the exclusion radius.
+// snapped to the zone centre (3 dp ≈ 100 m). Any point of the route — start,
+// end, or a mid-route pass-through — within that radius of any zone is
+// dropped, splitting the route into separate segments where needed.
 // =============================================================================
 
 const EXCLUSION_MILES = 0.25;
@@ -800,16 +847,23 @@ function encodePolyline(pts) {
   return s;
 }
 
-function trimPolyline(str, zones) {
-  if (!str || !zones.length) return str;
+// Drops every point that falls within a home exclusion zone — not just a
+// contiguous run at the start/end — so a route that merely passes through
+// (a commute, a through-road) never draws a line near home either. What's
+// left is split into one or more disconnected segments.
+function splitPolylineExcludingZones(str, zones) {
+  if (!str || !zones.length) return [str];
   const pts = decodePolyline(str);
-  // Find first point outside all home zones (trim start)
-  const startIdx = pts.findIndex(([lat, lng]) => !nearHome(lat, lng, zones));
-  if (startIdx === -1) return null; // Entire route within exclusion zone
-  // Find last point outside all home zones (trim end)
-  let endIdx = pts.length - 1;
-  while (endIdx > startIdx && nearHome(pts[endIdx][0], pts[endIdx][1], zones)) endIdx--;
-  if (endIdx <= startIdx) return null;
-  const trimmed = pts.slice(startIdx, endIdx + 1);
-  return trimmed.length >= 2 ? encodePolyline(trimmed) : null;
+  const segments = [];
+  let current = [];
+  for (const [lat, lng] of pts) {
+    if (nearHome(lat, lng, zones)) {
+      if (current.length >= 2) segments.push(current);
+      current = [];
+    } else {
+      current.push([lat, lng]);
+    }
+  }
+  if (current.length >= 2) segments.push(current);
+  return segments.map(encodePolyline);
 }
