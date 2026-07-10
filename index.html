@@ -166,8 +166,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .page-btn{padding:5px 10px;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12px;background:var(--surface);transition:all .15s}
 .page-btn:hover:not(:disabled){background:var(--bg)}.page-btn:disabled{opacity:.4;cursor:default}
 .zwift-controls{display:flex;gap:10px;margin-bottom:6px;align-items:center;flex-wrap:wrap}
-.zwift-status-bar{display:flex;gap:2px;flex-wrap:wrap}
-.zwift-status-bar .type-btn{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;font-size:12px;font-weight:500;color:var(--text-muted);border:1px solid transparent;background:transparent;border-radius:20px;cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit}
+.zwift-status-bar{display:flex;gap:2px;flex-wrap:wrap;margin-bottom:10px}
+.zwift-status-bar .type-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;font-size:12px;font-weight:500;color:var(--text-muted);border:none;background:transparent;border-radius:var(--radius-sm);cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit}
 .zwift-status-bar .type-btn:hover:not(.active){color:var(--text)}
 .zwift-status-bar .type-btn.active{font-weight:600}
 .zwift-group{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;box-shadow:var(--shadow);overflow:hidden}
@@ -568,14 +568,12 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
 <!-- ZWIFT ROUTES -->
 <div id="tab-zwift" class="tab-content">
+  <div class="zwift-status-bar" id="zwiftStatusFilters"></div>
   <div class="zwift-controls">
     <input type="text" class="log-search" id="zwiftSearch" placeholder="Search routes…" oninput="filterZwiftRoutes()">
-    <div class="zwift-status-bar" id="zwiftStatusFilters"></div>
-    <span class="log-count" id="zwiftCount"></span>
     <button class="page-btn" onclick="toggleAllZwiftGroups(true)">Expand all</button>
     <button class="page-btn" onclick="toggleAllZwiftGroups(false)">Collapse all</button>
   </div>
-  <div id="zwiftSyncNote" style="font-size:11px;color:var(--text-light);margin-bottom:10px"></div>
   <div id="zwiftCalendar" style="display:none"></div>
   <div id="zwiftGroups"></div>
   <div id="zwiftEmpty" style="display:none;text-align:center;padding:60px 20px;color:var(--text-muted);font-size:14px">
@@ -1422,8 +1420,6 @@ async function loadZwiftRoutes(forceRefresh=false){
         zwiftLoaded=true;
         buildZwiftStatusFilters();
         renderZwiftTable();
-        const note=document.getElementById('zwiftSyncNote');
-        if(note)note.textContent='Syncing…';
       }
     }catch(e){ /* bad cache, ignore */ }
   }
@@ -1438,15 +1434,12 @@ async function loadZwiftRoutes(forceRefresh=false){
     ZWIFT_DATA=json.data;
     zwiftLoaded=true;
     localStorage.setItem(ZWIFT_CACHE_KEY,JSON.stringify({data:json.data,updatedAt:json.updatedAt}));
-    const note=document.getElementById('zwiftSyncNote');
-    if(note)note.textContent=json.updatedAt?('Synced with Notion · '+formatUpdatedAt(json.updatedAt)):'';
     buildZwiftStatusFilters();
     renderZwiftTable();
   }catch(e){
     console.error('Could not load Zwift routes from Notion:',e);
     if(ZWIFT_DATA.length){
-      const note=document.getElementById('zwiftSyncNote');
-      if(note)note.textContent='(offline — showing cached data)';
+      console.warn('Zwift routes: showing cached data (offline)');
     }else{
       document.getElementById('zwiftEmpty').style.display='block';
       document.getElementById('zwiftGroups').innerHTML='';
@@ -1460,7 +1453,7 @@ function buildZwiftStatusFilters(){
   el.innerHTML=['All',...ZWIFT_STATUS_ORDER].map(s=>{
     const active=s===zwiftStatusFilter;
     const color=s==='All'?'#ff385c':zwiftStatusColor(s);
-    const style=active?` style="color:${color};border-color:${color};background:${color}1a"`:'';
+    const style=active?` style="color:${color};background:${color}1a"`:'';
     return`<button class="type-btn${active?' active':''}"${style} onclick="setZwiftStatusFilter('${s}')">${s}</button>`;
   }).join('');
 }
@@ -1499,8 +1492,8 @@ function renderZwiftTable(){
   const totalShown=groups.reduce((n,g)=>n+g.routes.length,0);
   const totalComplete=ZWIFT_DATA.filter(r=>r.status==='Complete').length;
   const pct=ZWIFT_DATA.length?Math.round(totalComplete/ZWIFT_DATA.length*100):0;
-  const countEl=document.getElementById('zwiftCount');
-  if(countEl)countEl.textContent=`${totalShown.toLocaleString('en-GB')} shown · ${ZWIFT_DATA.length.toLocaleString('en-GB')} routes · ${totalComplete} complete (${pct}%)`;
+  const searchEl=document.getElementById('zwiftSearch');
+  if(searchEl)searchEl.placeholder=`${totalShown.toLocaleString('en-GB')} shown · ${ZWIFT_DATA.length.toLocaleString('en-GB')} routes · ${totalComplete} complete (${pct}%)`;
 
   document.getElementById('zwiftEmpty').style.display=ZWIFT_DATA.length?'none':(zwiftLoaded?'block':'none');
 
@@ -1508,7 +1501,7 @@ function renderZwiftTable(){
     const complete=g.routes.filter(r=>r.status==='Complete').length;
     const rowsHtml=g.routes.map(r=>{
       const open=zwiftEditingId===r.id;
-      const stats=[r.distance_mi!=null?r.distance_mi+' mi':null,r.elevation_ft!=null?Math.round(r.elevation_ft)+' ft':null].filter(Boolean).join(' · ');
+      const stats=[r.distance_mi!=null?fmtDist(r.distance_mi)+' '+distUnit():null,r.elevation_ft!=null?fmtElv(r.elevation_ft):null].filter(Boolean).join(' · ');
       return`<div id="zwift-row-${r.id}">
         <div class="zwift-list-row" onclick="toggleZwiftEdit('${r.id}')">
           <span class="zwift-dot" style="background:${zwiftStatusColor(r.status)}"></span>
