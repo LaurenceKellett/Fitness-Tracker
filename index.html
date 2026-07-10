@@ -212,6 +212,9 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .zwift-detail-info tr td{padding:4px 0;color:var(--text-muted)}
 .zwift-detail-info tr td:last-child{text-align:right;color:var(--text)}
 .zwift-detail-info a{color:var(--accent);margin-left:10px}
+.zwift-directions{margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.zwift-directions-title{font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px}
+.zwift-directions-body{font-size:12px;color:var(--text);white-space:pre-wrap;line-height:1.6}
 /* LAYOUT */
 .section-header{display:flex;align-items:center;gap:12px;margin-bottom:16px;margin-top:4px}
 .section-header h2{font-size:15px;font-weight:700}
@@ -1624,12 +1627,20 @@ function cancelZwiftEdit(){
   renderZwiftTable();
 }
 
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 function renderZwiftDetail(r){
   const links=[
     r.link_zi?`<a href="${r.link_zi}" target="_blank" onclick="event.stopPropagation()">Zwift Insider</a>`:'',
     r.link_strava?`<a href="${r.link_strava}" target="_blank" onclick="event.stopPropagation()">Strava</a>`:'',
     r.link_zh?`<a href="${r.link_zh}" target="_blank" onclick="event.stopPropagation()">ZwiftHacks</a>`:'',
   ].filter(Boolean).join('');
+  const directions=r.directions?`<div class="zwift-directions">
+    <div class="zwift-directions-title">Directions</div>
+    <div class="zwift-directions-body">${escapeHtml(r.directions)}</div>
+  </div>`:'';
   return`<div class="zwift-detail" onclick="event.stopPropagation()">
     <div class="zwift-edit-form">
       <label>Status<select id="ze-status-${r.id}" onchange="handleZwiftStatusChange('${r.id}','${r.status}')">
@@ -1647,6 +1658,7 @@ function renderZwiftDetail(r){
       <tr><td>In route list?</td><td>${r.in_route_list?'Yes':'No'}</td></tr>
       <tr><td>Links</td><td>${links||'—'}</td></tr>
     </table>
+    ${directions}
   </div>`;
 }
 

@@ -502,6 +502,7 @@ function transformNotionRoute(page) {
     link_strava:    p['Link (Strava)']?.url || null,
     link_zh:        p['Link (ZH)']?.url || null,
     in_route_list:  !!p['In route list?']?.checkbox,
+    directions:     (p['Directions']?.rich_text || []).map(t => t.plain_text).join('') || null,
     last_edited:    page.last_edited_time || null,
   };
 }
