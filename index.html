@@ -182,6 +182,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .zwift-row-main{display:flex;align-items:baseline;gap:8px;min-width:0;flex:1}
 .zwift-row-name{font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .zwift-row-stats{font-size:12px;color:var(--text-muted);white-space:nowrap;flex-shrink:0}
+.zwift-cat-badge{font-size:10px;font-weight:700;padding:1px 6px;border-radius:20px;white-space:nowrap;flex-shrink:0}
 .zwift-row-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
 .zwift-row-status{font-size:12px;font-weight:600}
 .zwift-chevron{color:var(--text-light);display:inline-flex;transition:transform .15s}
@@ -619,6 +620,8 @@ const ZWIFT_WORKER_BASE='https://activities-api.lk-ff7.workers.dev';
 const MAP_ORDER=['Watopia','Makuri Island','Jarvis Island','Scotland','London','Yorkshire','Richmond','France','New York','Innsbruck','Bologna','Gravel Mountain','Crit City','KOM','Rebel Routes','Event Only'];
 const MAP_COLOR={'Watopia':'#d9730d','Makuri Island':'#d9730d','Jarvis Island':'#d9730d','Scotland':'#cb912f','London':'#cb912f','Yorkshire':'#cb912f','Richmond':'#cb912f','France':'#cb912f','New York':'#cb912f','Innsbruck':'#cb912f','Bologna':'#9f6b53','Gravel Mountain':'#9f6b53','Crit City':'#9f6b53','KOM':'#c14c8a','Rebel Routes':'#c14c8a','Event Only':'#9b9a97'};
 function mapDotColor(name){return MAP_COLOR[name]||'#9b9a97';}
+const ZWIFT_CATEGORY_TAGS=['Event Only','Rebel Routes','KOM'];
+const ZWIFT_CATEGORY_LABEL={'Event Only':'Event','Rebel Routes':'Rebel','KOM':'KOM'};
 const ZWIFT_STATUS_ORDER=['Not started','Blocked','Planned','Complete'];
 let zwiftCalDate=new Date();zwiftCalDate.setDate(1);
 let zwiftCalSelected=null;
@@ -1502,11 +1505,15 @@ function renderZwiftTable(){
     const rowsHtml=g.routes.map(r=>{
       const open=zwiftEditingId===r.id;
       const stats=[r.distance_mi!=null?fmtDist(r.distance_mi)+' '+distUnit():null,r.elevation_ft!=null?fmtElv(r.elevation_ft):null].filter(Boolean).join(' · ');
+      const catBadges=(r.maps||[]).filter(m=>ZWIFT_CATEGORY_TAGS.includes(m)&&m!==g.name).map(m=>
+        `<span class="zwift-cat-badge" style="background:${mapDotColor(m)}1a;color:${mapDotColor(m)}">${ZWIFT_CATEGORY_LABEL[m]}</span>`
+      ).join('');
       return`<div id="zwift-row-${r.id}">
         <div class="zwift-list-row" onclick="toggleZwiftEdit('${r.id}')">
           <span class="zwift-dot" style="background:${zwiftStatusColor(r.status)}"></span>
           <div class="zwift-row-main">
             <span class="zwift-row-name">${r.route}</span>
+            ${catBadges}
             <span class="zwift-row-stats">${stats}</span>
           </div>
           <div class="zwift-row-right">
