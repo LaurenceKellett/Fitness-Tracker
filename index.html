@@ -184,7 +184,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .zwift-row-stats{font-size:12px;color:var(--text-muted);white-space:nowrap;flex-shrink:0}
 .zwift-row-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
 .zwift-row-status{font-size:12px;font-weight:600}
-.zwift-chevron{color:var(--text-light);font-size:12px;transition:transform .15s;display:inline-block}
+.zwift-chevron{color:var(--text-light);display:inline-flex;transition:transform .15s}
 .zwift-chevron.open{transform:rotate(180deg)}
 .zwift-row-saved{background:#dcfce7!important;transition:background 1s}
 .zwift-cal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;margin-bottom:14px}
@@ -615,7 +615,7 @@ let hmShowAll=false;let recentShowAll=false;
 let logSort={col:'date',dir:-1};let logSearch='';let charts={};
 
 let ZWIFT_DATA=[];let zwiftLoaded=false;let zwiftSearch='';let zwiftStatusFilter='All';
-let zwiftEditingId=null;let zwiftSaving=false;
+let zwiftEditingId=null;let zwiftSaving=false;let zwiftGroupOpen={};
 const ZWIFT_CACHE_KEY='zwift_routes_v1';
 const ZWIFT_WORKER_BASE='https://activities-api.lk-ff7.workers.dev';
 const MAP_ORDER=['Watopia','Makuri Island','Jarvis Island','Scotland','London','Yorkshire','Richmond','France','New York','Innsbruck','Bologna','Gravel Mountain','Crit City','KOM','Rebel Routes','Event Only'];
@@ -1491,7 +1491,10 @@ function sortZwiftRoutes(routes){
 const ZWIFT_STATUS_COLOR={'Complete':'#16a34a','Planned':'#1e6fa8','Not started':'#94a3b8','Blocked':'#dc2626'};
 function zwiftStatusColor(status){return ZWIFT_STATUS_COLOR[status]||ZWIFT_STATUS_COLOR['Not started'];}
 
+const ZWIFT_CHEVRON_SVG='<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
 function renderZwiftTable(){
+  const scrollY=window.scrollY;
   const groups=getZwiftGroups();
   const totalShown=groups.reduce((n,g)=>n+g.routes.length,0);
   const totalComplete=ZWIFT_DATA.filter(r=>r.status==='Complete').length;
@@ -1515,22 +1518,29 @@ function renderZwiftTable(){
           </div>
           <div class="zwift-row-right">
             <span class="zwift-row-status" style="color:${zwiftStatusColor(r.status)}">${r.status}</span>
-            <span class="zwift-chevron${open?' open':''}">⌄</span>
+            <span class="zwift-chevron${open?' open':''}">${ZWIFT_CHEVRON_SVG}</span>
           </div>
         </div>
         ${open?renderZwiftDetail(r):''}
       </div>`;
     }).join('');
-    return`<details class="zwift-group" open>
+    const groupOpen=zwiftGroupOpen[g.name]!==false;
+    return`<details class="zwift-group"${groupOpen?' open':''} ontoggle="onZwiftGroupToggle('${g.name}',this.open)">
       <summary><span class="zwift-summary-left"><span class="zwift-map-dot" style="background:${mapDotColor(g.name)}"></span>${g.name}</span><span class="zwift-group-count">${complete}/${g.routes.length} complete</span></summary>
       ${rowsHtml}
     </details>`;
   }).join('');
 
   renderZwiftCalendar();
+  window.scrollTo(0,scrollY);
+}
+
+function onZwiftGroupToggle(name,isOpen){
+  zwiftGroupOpen[name]=isOpen;
 }
 
 function toggleAllZwiftGroups(open){
+  getZwiftGroups().forEach(g=>zwiftGroupOpen[g.name]=open);
   document.querySelectorAll('.zwift-group').forEach(d=>d.open=open);
 }
 
