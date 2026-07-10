@@ -165,6 +165,52 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .log-pagination{display:flex;align-items:center;gap:8px;padding:14px 16px;border-top:1px solid var(--border);font-size:13px;color:var(--text-muted)}
 .page-btn{padding:5px 10px;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12px;background:var(--surface);transition:all .15s}
 .page-btn:hover:not(:disabled){background:var(--bg)}.page-btn:disabled{opacity:.4;cursor:default}
+.zwift-controls{display:flex;gap:10px;margin-bottom:6px;align-items:center;flex-wrap:wrap}
+.zwift-status-bar{display:flex;gap:2px;flex-wrap:wrap}
+.zwift-status-bar .type-btn{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;font-size:12px;font-weight:500;color:var(--text-muted);border:1px solid transparent;background:transparent;border-radius:20px;cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit}
+.zwift-status-bar .type-btn:hover:not(.active){color:var(--text)}
+.zwift-status-bar .type-btn.active{font-weight:600}
+.zwift-group{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;box-shadow:var(--shadow);overflow:hidden}
+.zwift-group summary{padding:12px 16px;font-weight:700;font-size:13px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center}
+.zwift-group summary::-webkit-details-marker{display:none}
+.zwift-group-count{font-size:11px;font-weight:500;color:var(--text-muted)}
+.zwift-summary-left{display:flex;align-items:center}
+.zwift-map-dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:8px;flex-shrink:0}
+.zwift-list-row{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;border-top:1px solid var(--border);transition:background .1s}
+.zwift-list-row:hover{background:var(--bg)}
+.zwift-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.zwift-row-main{display:flex;align-items:baseline;gap:8px;min-width:0;flex:1}
+.zwift-row-name{font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.zwift-row-stats{font-size:12px;color:var(--text-muted);white-space:nowrap;flex-shrink:0}
+.zwift-row-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.zwift-row-status{font-size:12px;font-weight:600}
+.zwift-chevron{color:var(--text-light);font-size:12px;transition:transform .15s;display:inline-block}
+.zwift-chevron.open{transform:rotate(180deg)}
+.zwift-row-saved{background:#dcfce7!important;transition:background 1s}
+.zwift-cal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;margin-bottom:14px}
+.zwift-cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.zwift-cal-title{font-size:13px;font-weight:700}
+.zwift-cal-nav{display:flex;gap:4px}
+.zwift-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
+.zwift-cal-dow{font-size:10px;color:var(--text-muted);font-weight:600;padding-bottom:4px}
+.zwift-cal-day{position:relative;padding:6px 0;font-size:12px;border-radius:var(--radius-sm);cursor:default;color:var(--text)}
+.zwift-cal-day.has-routes{cursor:pointer}
+.zwift-cal-day.has-routes:hover{background:var(--bg)}
+.zwift-cal-day.selected{background:var(--virtual-soft)}
+.zwift-cal-day.empty{visibility:hidden}
+.zwift-cal-dot{width:5px;height:5px;border-radius:50%;background:#1e6fa8;margin:2px auto 0}
+.zwift-cal-detail{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:12px}
+.zwift-cal-detail-item{display:flex;justify-content:space-between;align-items:center;padding:4px 0;cursor:pointer}
+.zwift-cal-detail-item:hover{color:var(--accent)}
+.zwift-detail{padding:14px 16px;background:var(--bg);border-top:1px solid var(--border)}
+.zwift-edit-form{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+.zwift-edit-form label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--text-muted);font-weight:600}
+.zwift-edit-form select,.zwift-edit-form input{padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;background:var(--surface)}
+.zwift-edit-error{color:#dc2626;font-size:12px;margin-top:6px;width:100%}
+.zwift-detail-info{font-size:12px}
+.zwift-detail-info tr td{padding:4px 0;color:var(--text-muted)}
+.zwift-detail-info tr td:last-child{text-align:right;color:var(--text)}
+.zwift-detail-info a{color:var(--accent);margin-left:10px}
 /* LAYOUT */
 .section-header{display:flex;align-items:center;gap:12px;margin-bottom:16px;margin-top:4px}
 .section-header h2{font-size:15px;font-weight:700}
@@ -303,6 +349,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <button class="tab-btn" onclick="setTab('social')"><span class="ms">thumb_up</span><span class="tab-label">Social</span></button>
       <button class="tab-btn" onclick="setTab('gear')"><span class="ms">settings</span><span class="tab-label">Gear</span></button>
       <button class="tab-btn" onclick="setTab('log')"><span class="ms">format_list_bulleted</span><span class="tab-label">Activity Log</span></button>
+      <button class="tab-btn" onclick="setTab('zwift')"><span class="ms">route</span><span class="tab-label">Zwift Routes</span></button>
       <div class="year-bar">
         <button class="year-all active" id="yearAll" onclick="setYear('All')">All</button>
         <div class="year-ctl">
@@ -327,6 +374,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <option value="social">Social</option>
       <option value="gear">Gear</option>
       <option value="log">Activity Log</option>
+      <option value="zwift">Zwift Routes</option>
     </select>
   </div>
 </div>
@@ -518,6 +566,24 @@ tbody td{padding:10px 14px;vertical-align:middle}
   </div>
 </div>
 
+<!-- ZWIFT ROUTES -->
+<div id="tab-zwift" class="tab-content">
+  <div class="zwift-controls">
+    <input type="text" class="log-search" id="zwiftSearch" placeholder="Search routes…" oninput="filterZwiftRoutes()">
+    <div class="zwift-status-bar" id="zwiftStatusFilters"></div>
+    <span class="log-count" id="zwiftCount"></span>
+    <button class="page-btn" onclick="toggleAllZwiftGroups(true)">Expand all</button>
+    <button class="page-btn" onclick="toggleAllZwiftGroups(false)">Collapse all</button>
+  </div>
+  <div id="zwiftSyncNote" style="font-size:11px;color:var(--text-light);margin-bottom:10px"></div>
+  <div id="zwiftCalendar" style="display:none"></div>
+  <div id="zwiftGroups"></div>
+  <div id="zwiftEmpty" style="display:none;text-align:center;padding:60px 20px;color:var(--text-muted);font-size:14px">
+    <span class="ms" style="font-size:36px;display:block;margin-bottom:8px">route</span>
+    Could not load Zwift routes.
+  </div>
+</div>
+
 <div id="tab-map" class="tab-content">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
     <div style="font-size:13px;color:var(--text-muted)">Routes trimmed within ¼ mile of home addresses for privacy.</div>
@@ -539,6 +605,17 @@ let unit='mi',activeYear='All',activeType='All',activeTab='summary';
 let logPage=1;const LOG_PAGE_SIZE=50;
 let hmShowAll=false;let recentShowAll=false;
 let logSort={col:'date',dir:-1};let logSearch='';let charts={};
+
+let ZWIFT_DATA=[];let zwiftLoaded=false;let zwiftSearch='';let zwiftStatusFilter='All';
+let zwiftEditingId=null;let zwiftSaving=false;
+const ZWIFT_CACHE_KEY='zwift_routes_v1';
+const ZWIFT_WORKER_BASE='https://activities-api.lk-ff7.workers.dev';
+const MAP_ORDER=['Watopia','Makuri Island','Jarvis Island','Scotland','London','Yorkshire','Richmond','France','New York','Innsbruck','Bologna','Gravel Mountain','Crit City','KOM','Rebel Routes','Event Only'];
+const MAP_COLOR={'Watopia':'#d9730d','Makuri Island':'#d9730d','Jarvis Island':'#d9730d','Scotland':'#cb912f','London':'#cb912f','Yorkshire':'#cb912f','Richmond':'#cb912f','France':'#cb912f','New York':'#cb912f','Innsbruck':'#cb912f','Bologna':'#9f6b53','Gravel Mountain':'#9f6b53','Crit City':'#9f6b53','KOM':'#c14c8a','Rebel Routes':'#c14c8a','Event Only':'#9b9a97'};
+function mapDotColor(name){return MAP_COLOR[name]||'#9b9a97';}
+const ZWIFT_STATUS_ORDER=['Not started','Blocked','Planned','Complete'];
+let zwiftCalDate=new Date();zwiftCalDate.setDate(1);
+let zwiftCalSelected=null;
 
 const ACCENT_COLORS={All:'#22c55e',Ride:'#1d4ed8',Virtual:'#60a5fa',Run:'#ef4444',Walk:'#eab308',Swim:'#0ea5e9',Other:'#94a3b8'};
 function getAccentColor(){return ACCENT_COLORS[activeType]||'#22c55e';}
@@ -638,12 +715,13 @@ function setType(t){activeType=t;buildTypeFilters();renderAll();}
 
 function setTab(tab){
   activeTab=tab;
-  const tabs=['summary','map','charts','heatmap','records','social','gear','log'];
+  const tabs=['summary','map','charts','heatmap','records','social','gear','log','zwift'];
   document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',tabs[i]===tab));
   document.querySelectorAll('.tab-content').forEach(d=>d.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
   const mts=document.getElementById('tabSelectMobile');if(mts)mts.value=tab;
   if(tab==='map'){renderMap(activeType==='All'?ALL_DATA:ALL_DATA.filter(a=>(a.type||'Other')===activeType));return;}
+  if(tab==='zwift'){loadZwiftRoutes();return;}
   renderAll();
 }
 function setUnit(u){unit=u;document.querySelectorAll('.unit-opt').forEach(b=>b.classList.toggle('active',b.dataset.unit===u));renderAll();}
@@ -1316,6 +1394,291 @@ function renderLog(){
   }).join('');
 }
 
+// ── ZWIFT ROUTES ──
+
+async function loadZwiftRoutes(forceRefresh=false){
+  if(!forceRefresh){
+    try{
+      const cached=localStorage.getItem(ZWIFT_CACHE_KEY);
+      if(cached){
+        const parsed=JSON.parse(cached);
+        ZWIFT_DATA=parsed.data||[];
+        zwiftLoaded=true;
+        buildZwiftStatusFilters();
+        renderZwiftTable();
+        const note=document.getElementById('zwiftSyncNote');
+        if(note)note.textContent='Syncing…';
+      }
+    }catch(e){ /* bad cache, ignore */ }
+  }
+
+  const url=ZWIFT_WORKER_BASE+'/zwift-routes'+(forceRefresh?'?refresh=true':'');
+  try{
+    const res=await fetch(url);
+    const json=await res.json();
+    if(!res.ok||json.error){
+      throw new Error(json.message||'Failed to load Zwift routes');
+    }
+    ZWIFT_DATA=json.data;
+    zwiftLoaded=true;
+    localStorage.setItem(ZWIFT_CACHE_KEY,JSON.stringify({data:json.data,updatedAt:json.updatedAt}));
+    const note=document.getElementById('zwiftSyncNote');
+    if(note)note.textContent=json.updatedAt?('Synced with Notion · '+formatUpdatedAt(json.updatedAt)):'';
+    buildZwiftStatusFilters();
+    renderZwiftTable();
+  }catch(e){
+    console.error('Could not load Zwift routes from Notion:',e);
+    if(ZWIFT_DATA.length){
+      const note=document.getElementById('zwiftSyncNote');
+      if(note)note.textContent='(offline — showing cached data)';
+    }else{
+      document.getElementById('zwiftEmpty').style.display='block';
+      document.getElementById('zwiftGroups').innerHTML='';
+    }
+  }
+}
+
+function buildZwiftStatusFilters(){
+  const el=document.getElementById('zwiftStatusFilters');
+  if(!el)return;
+  el.innerHTML=['All',...ZWIFT_STATUS_ORDER].map(s=>{
+    const active=s===zwiftStatusFilter;
+    const color=s==='All'?'#ff385c':zwiftStatusColor(s);
+    const style=active?` style="color:${color};border-color:${color};background:${color}1a"`:'';
+    return`<button class="type-btn${active?' active':''}"${style} onclick="setZwiftStatusFilter('${s}')">${s}</button>`;
+  }).join('');
+}
+function setZwiftStatusFilter(s){zwiftStatusFilter=s;buildZwiftStatusFilters();renderZwiftTable();}
+function filterZwiftRoutes(){zwiftSearch=document.getElementById('zwiftSearch').value.toLowerCase();renderZwiftTable();}
+
+function getZwiftGroups(){
+  let rows=ZWIFT_DATA;
+  if(zwiftStatusFilter!=='All')rows=rows.filter(r=>r.status===zwiftStatusFilter);
+  if(zwiftSearch)rows=rows.filter(r=>r.route.toLowerCase().includes(zwiftSearch)||(r.maps||[]).some(m=>m.toLowerCase().includes(zwiftSearch)));
+
+  const groups=[];
+  MAP_ORDER.forEach(mapName=>{
+    const matches=rows.filter(r=>(r.maps||[]).includes(mapName));
+    if(matches.length)groups.push({name:mapName,routes:sortZwiftRoutes(matches)});
+  });
+  const unassigned=rows.filter(r=>!(r.maps||[]).length);
+  if(unassigned.length)groups.push({name:'Unassigned',routes:sortZwiftRoutes(unassigned)});
+  return groups;
+}
+function sortZwiftRoutes(routes){
+  return[...routes].sort((a,b)=>{
+    const s=ZWIFT_STATUS_ORDER.indexOf(a.status)-ZWIFT_STATUS_ORDER.indexOf(b.status);
+    return s!==0?s:a.route.localeCompare(b.route);
+  });
+}
+
+const ZWIFT_STATUS_COLOR={'Complete':'#16a34a','Planned':'#1e6fa8','Not started':'#94a3b8','Blocked':'#dc2626'};
+function zwiftStatusColor(status){return ZWIFT_STATUS_COLOR[status]||ZWIFT_STATUS_COLOR['Not started'];}
+
+function renderZwiftTable(){
+  const groups=getZwiftGroups();
+  const totalShown=groups.reduce((n,g)=>n+g.routes.length,0);
+  const totalComplete=ZWIFT_DATA.filter(r=>r.status==='Complete').length;
+  const pct=ZWIFT_DATA.length?Math.round(totalComplete/ZWIFT_DATA.length*100):0;
+  const countEl=document.getElementById('zwiftCount');
+  if(countEl)countEl.textContent=`${totalShown.toLocaleString('en-GB')} shown · ${ZWIFT_DATA.length.toLocaleString('en-GB')} routes · ${totalComplete} complete (${pct}%)`;
+
+  document.getElementById('zwiftEmpty').style.display=ZWIFT_DATA.length?'none':(zwiftLoaded?'block':'none');
+
+  document.getElementById('zwiftGroups').innerHTML=groups.map(g=>{
+    const complete=g.routes.filter(r=>r.status==='Complete').length;
+    const rowsHtml=g.routes.map(r=>{
+      const open=zwiftEditingId===r.id;
+      const stats=[r.distance_mi!=null?r.distance_mi+' mi':null,r.elevation_ft!=null?Math.round(r.elevation_ft)+' ft':null].filter(Boolean).join(' · ');
+      return`<div id="zwift-row-${r.id}">
+        <div class="zwift-list-row" onclick="toggleZwiftEdit('${r.id}')">
+          <span class="zwift-dot" style="background:${zwiftStatusColor(r.status)}"></span>
+          <div class="zwift-row-main">
+            <span class="zwift-row-name">${r.route}</span>
+            <span class="zwift-row-stats">${stats}</span>
+          </div>
+          <div class="zwift-row-right">
+            <span class="zwift-row-status" style="color:${zwiftStatusColor(r.status)}">${r.status}</span>
+            <span class="zwift-chevron${open?' open':''}">⌄</span>
+          </div>
+        </div>
+        ${open?renderZwiftDetail(r):''}
+      </div>`;
+    }).join('');
+    return`<details class="zwift-group" open>
+      <summary><span class="zwift-summary-left"><span class="zwift-map-dot" style="background:${mapDotColor(g.name)}"></span>${g.name}</span><span class="zwift-group-count">${complete}/${g.routes.length} complete</span></summary>
+      ${rowsHtml}
+    </details>`;
+  }).join('');
+
+  renderZwiftCalendar();
+}
+
+function toggleAllZwiftGroups(open){
+  document.querySelectorAll('.zwift-group').forEach(d=>d.open=open);
+}
+
+function getZwiftPlannedByDate(){
+  const map={};
+  ZWIFT_DATA.forEach(r=>{
+    if(!r.planned_ride)return;
+    (map[r.planned_ride]=map[r.planned_ride]||[]).push(r);
+  });
+  return map;
+}
+
+function stepZwiftCalMonth(dir){
+  zwiftCalDate.setMonth(zwiftCalDate.getMonth()+dir);
+  zwiftCalSelected=null;
+  renderZwiftCalendar();
+}
+
+function selectZwiftCalDay(dateStr){
+  zwiftCalSelected=zwiftCalSelected===dateStr?null:dateStr;
+  renderZwiftCalendar();
+}
+
+function goToZwiftRoute(id){
+  zwiftEditingId=id;
+  renderZwiftTable();
+  const el=document.getElementById('zwift-row-'+id);
+  if(el)el.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+function renderZwiftCalendar(){
+  const el=document.getElementById('zwiftCalendar');
+  if(!el)return;
+  if(zwiftStatusFilter!=='Planned'){el.style.display='none';el.innerHTML='';return;}
+  el.style.display='block';
+
+  const planned=getZwiftPlannedByDate();
+  const year=zwiftCalDate.getFullYear(),month=zwiftCalDate.getMonth();
+  const firstDow=new Date(year,month,1).getDay();
+  const daysInMonth=new Date(year,month+1,0).getDate();
+  const monthLabel=zwiftCalDate.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+
+  const dowRow=['S','M','T','W','T','F','S'].map(d=>`<div class="zwift-cal-dow">${d}</div>`).join('');
+  const blanks=Array.from({length:firstDow},()=>`<div class="zwift-cal-day empty"></div>`).join('');
+  const days=Array.from({length:daysInMonth},(_,i)=>{
+    const day=i+1;
+    const dateStr=`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const routes=planned[dateStr]||[];
+    const has=routes.length>0;
+    const sel=zwiftCalSelected===dateStr;
+    return`<div class="zwift-cal-day${has?' has-routes':''}${sel?' selected':''}" ${has?`onclick="selectZwiftCalDay('${dateStr}')"`:''}>${day}${has?'<div class="zwift-cal-dot"></div>':''}</div>`;
+  }).join('');
+
+  const selRoutes=zwiftCalSelected?(planned[zwiftCalSelected]||[]):[];
+  const detail=zwiftCalSelected?`<div class="zwift-cal-detail">
+    <div style="font-weight:600;margin-bottom:4px">${fmtDate(zwiftCalSelected)}</div>
+    ${selRoutes.map(r=>`<div class="zwift-cal-detail-item" onclick="goToZwiftRoute('${r.id}')">
+      <span>${r.route}</span><span style="color:var(--text-muted)">${(r.maps||[]).join(', ')}</span>
+    </div>`).join('')}
+  </div>`:'';
+
+  el.innerHTML=`<div class="zwift-cal">
+    <div class="zwift-cal-head">
+      <span class="zwift-cal-title">${monthLabel}</span>
+      <div class="zwift-cal-nav">
+        <button class="page-btn" onclick="stepZwiftCalMonth(-1)">‹</button>
+        <button class="page-btn" onclick="stepZwiftCalMonth(1)">›</button>
+      </div>
+    </div>
+    <div class="zwift-cal-grid">${dowRow}${blanks}${days}</div>
+    ${detail}
+  </div>`;
+}
+
+function toggleZwiftEdit(id){
+  zwiftEditingId=zwiftEditingId===id?null:id;
+  renderZwiftTable();
+}
+function cancelZwiftEdit(){
+  zwiftEditingId=null;
+  renderZwiftTable();
+}
+
+function renderZwiftDetail(r){
+  const links=[
+    r.link_zi?`<a href="${r.link_zi}" target="_blank" onclick="event.stopPropagation()">Zwift Insider</a>`:'',
+    r.link_strava?`<a href="${r.link_strava}" target="_blank" onclick="event.stopPropagation()">Strava</a>`:'',
+    r.link_zh?`<a href="${r.link_zh}" target="_blank" onclick="event.stopPropagation()">ZwiftHacks</a>`:'',
+  ].filter(Boolean).join('');
+  return`<div class="zwift-detail" onclick="event.stopPropagation()">
+    <div class="zwift-edit-form">
+      <label>Status<select id="ze-status-${r.id}" onchange="handleZwiftStatusChange('${r.id}','${r.status}')">
+        ${ZWIFT_STATUS_ORDER.map(s=>`<option value="${s}"${s===r.status?' selected':''}>${s}</option>`).join('')}
+      </select></label>
+      <label>Date completed<input type="date" id="ze-date-${r.id}" value="${r.date_completed||''}"></label>
+      <label>Time (HH:MM:SS)<input type="text" id="ze-time-${r.id}" placeholder="00:00:00" value="${r.time||''}"></label>
+      <button class="page-btn" onclick="saveZwiftEdit('${r.id}')" id="ze-save-${r.id}">Save</button>
+      <button class="page-btn" onclick="cancelZwiftEdit()">Cancel</button>
+      <div class="zwift-edit-error" id="ze-error-${r.id}"></div>
+    </div>
+    <table class="zwift-detail-info">
+      <tr><td>Est. duration</td><td>${r.est_duration||'—'}</td></tr>
+      <tr><td>Planned ride</td><td>${fmtDate(r.planned_ride)}</td></tr>
+      <tr><td>In route list?</td><td>${r.in_route_list?'Yes':'No'}</td></tr>
+      <tr><td>Links</td><td>${links||'—'}</td></tr>
+    </table>
+  </div>`;
+}
+
+function todayLocalISO(){
+  const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+function handleZwiftStatusChange(id,originalStatus){
+  const sel=document.getElementById('ze-status-'+id);
+  if(sel&&sel.value==='Complete'&&originalStatus!=='Complete'){
+    const dateInput=document.getElementById('ze-date-'+id);
+    if(dateInput)dateInput.value=todayLocalISO();
+  }
+}
+
+async function saveZwiftEdit(id){
+  if(zwiftSaving)return;
+  const errorEl=document.getElementById('ze-error-'+id);
+  errorEl.textContent='';
+
+  const status=document.getElementById('ze-status-'+id).value;
+  const dateVal=document.getElementById('ze-date-'+id).value;
+  const timeVal=document.getElementById('ze-time-'+id).value.trim();
+
+  if(timeVal&&!/^\d{2}:\d{2}:\d{2}$/.test(timeVal)){
+    errorEl.textContent='Time must be in HH:MM:SS format.';
+    return;
+  }
+
+  zwiftSaving=true;
+  const saveBtn=document.getElementById('ze-save-'+id);
+  if(saveBtn){saveBtn.disabled=true;saveBtn.textContent='Saving…';}
+
+  try{
+    const res=await fetch(`${ZWIFT_WORKER_BASE}/zwift-routes/${id}`,{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({status,date_completed:dateVal||null,time:timeVal||null}),
+    });
+    const json=await res.json();
+    if(!res.ok||json.error){
+      throw new Error(json.message||'Save failed');
+    }
+    const idx=ZWIFT_DATA.findIndex(r=>r.id===id);
+    if(idx!==-1)ZWIFT_DATA[idx]=json.data;
+    localStorage.setItem(ZWIFT_CACHE_KEY,JSON.stringify({data:ZWIFT_DATA,updatedAt:new Date().toISOString()}));
+    zwiftEditingId=null;
+    renderZwiftTable();
+    const row=document.getElementById('zwift-row-'+id);
+    if(row){row.classList.add('zwift-row-saved');setTimeout(()=>row.classList.remove('zwift-row-saved'),1000);}
+  }catch(e){
+    errorEl.textContent=e.message||'Could not save — try again.';
+    if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='Save';}
+  }finally{
+    zwiftSaving=false;
+  }
+}
 
 function showDashTooltip(event,date){
   const acts=getFiltered().filter(a=>a.date===date);
@@ -1339,6 +1702,7 @@ function renderAll(){
   else if(activeTab==='gear')renderGear();
   else if(activeTab==='log')renderLog();
   else if(activeTab==='map')renderMap(activeType==='All'?ALL_DATA:ALL_DATA.filter(a=>(a.type||'Other')===activeType));
+  else if(activeTab==='zwift')renderZwiftTable();
 }
 
 function formatUpdatedAt(isoString) {

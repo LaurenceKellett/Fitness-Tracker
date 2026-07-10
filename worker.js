@@ -6,18 +6,25 @@
 //   GET /callback    → exchanges code, shows you your refresh token to copy
 //   GET /activities  → returns data & AI summary in cached envelope
 //   GET /activities?refresh=true → forces a fresh pull & completely regenerates AI
+//   GET /zwift-routes → returns all Zwift routes from Notion in a cached envelope
+//   GET /zwift-routes?refresh=true → forces a fresh pull from Notion
+//   PATCH /zwift-routes/{pageId} → updates Status/Date completed/Time on one route
 // =============================================================================
 
 // ---- IMPORTANT: replace this with your actual Worker URL ------------------
 const WORKER_URL = 'https://activities-api.lk-ff7.workers.dev/';
 // ---------------------------------------------------------------------------
 
-const CACHE_KEY  = 'activities_v2'; 
+const CACHE_KEY  = 'activities_v2';
 const CACHE_TTL  = 60 * 60 * 24; // 24 hours in seconds
+
+const ZWIFT_DATA_SOURCE_ID = '13b81faa-c3d2-4f94-83ca-bc782626f1e3';
+const ZWIFT_CACHE_KEY      = 'zwift_routes_v1';
+const ZWIFT_CACHE_TTL      = 120; // 2 minutes — writes invalidate this immediately anyway
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, PATCH, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
@@ -34,11 +41,17 @@ export default {
     }
 
     switch (url.pathname) {
-      case '/auth':       return handleAuth(env);
-      case '/callback':   return handleCallback(request, env);
-      case '/activities': return handleActivities(request, env);
-      case '/debug':      return handleDebug(env);
-      default:            return new Response('Not found', { status: 404 });
+      case '/auth':         return handleAuth(env);
+      case '/callback':     return handleCallback(request, env);
+      case '/activities':   return handleActivities(request, env);
+      case '/debug':        return handleDebug(env);
+      case '/zwift-routes': return handleZwiftRoutes(request, env);
+      default:
+        if (url.pathname.startsWith('/zwift-routes/') && request.method === 'PATCH') {
+          const pageId = url.pathname.slice('/zwift-routes/'.length);
+          return handleZwiftRouteUpdate(request, env, pageId);
+        }
+        return new Response('Not found', { status: 404 });
     }
   }
 };
@@ -267,6 +280,238 @@ async function handleDebug(env) {
   return new Response(JSON.stringify(out, null, 2), {
     headers: { ...CORS, 'Content-Type': 'application/json' },
   });
+}
+
+// =============================================================================
+// ZWIFT ROUTES — NOTION INTEGRATION
+// =============================================================================
+// Notion is the single source of truth. The Worker proxies live reads/writes;
+// there is no local database and no sync/reconciliation logic. Reads are
+// cached briefly in KV to absorb repeated tab opens/rerenders; writes delete
+// that cache key immediately so the next read is never stale.
+// =============================================================================
+
+const ZWIFT_STATUS_VALUES = ['Not started', 'Blocked', 'Planned', 'Complete'];
+
+async function handleZwiftRoutes(request, env) {
+  if (!env.NOTION_API_KEY) {
+    return new Response(JSON.stringify({ error: true, message: 'NOTION_API_KEY not configured' }), {
+      status: 500,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const url          = new URL(request.url);
+  const forceRefresh = url.searchParams.get('refresh') === 'true';
+
+  if (!forceRefresh && env.CACHE) {
+    const cached = await env.CACHE.get(ZWIFT_CACHE_KEY);
+    if (cached) {
+      return new Response(cached, {
+        headers: { ...CORS, 'Content-Type': 'application/json', 'X-Cache': 'HIT' },
+      });
+    }
+  }
+
+  try {
+    const data     = await fetchAllZwiftRoutes(env);
+    const envelope = JSON.stringify({ data, updatedAt: new Date().toISOString() });
+
+    if (env.CACHE) {
+      await env.CACHE.put(ZWIFT_CACHE_KEY, envelope, { expirationTtl: ZWIFT_CACHE_TTL });
+    }
+
+    return new Response(envelope, {
+      headers: { ...CORS, 'Content-Type': 'application/json', 'X-Cache': 'MISS' },
+    });
+  } catch (err) {
+    return notionErrorResponse(err);
+  }
+}
+
+async function handleZwiftRouteUpdate(request, env, pageId) {
+  if (!env.NOTION_API_KEY) {
+    return new Response(JSON.stringify({ error: true, message: 'NOTION_API_KEY not configured' }), {
+      status: 500,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (!pageId) {
+    return new Response(JSON.stringify({ error: true, code: 'validation', message: 'Missing route id' }), {
+      status: 400,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch (_) {
+    return new Response(JSON.stringify({ error: true, code: 'validation', message: 'Invalid JSON body' }), {
+      status: 400,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const { status, date_completed, time } = body;
+  const properties = {};
+
+  if (status !== undefined) {
+    if (!ZWIFT_STATUS_VALUES.includes(status)) {
+      return new Response(JSON.stringify({ error: true, code: 'validation', message: `status must be one of ${ZWIFT_STATUS_VALUES.join(', ')}` }), {
+        status: 400,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
+    properties['Status'] = { status: { name: status } };
+  }
+
+  if (date_completed !== undefined) {
+    if (date_completed !== null && !/^\d{4}-\d{2}-\d{2}$/.test(date_completed)) {
+      return new Response(JSON.stringify({ error: true, code: 'validation', message: 'date_completed must be YYYY-MM-DD or null' }), {
+        status: 400,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
+    properties['Date completed'] = date_completed ? { date: { start: date_completed } } : { date: null };
+  }
+
+  if (time !== undefined) {
+    if (time !== null && !/^\d{2}:\d{2}:\d{2}$/.test(time)) {
+      return new Response(JSON.stringify({ error: true, code: 'validation', message: 'time must be HH:MM:SS or null' }), {
+        status: 400,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
+    properties['Time'] = time ? { rich_text: [{ type: 'text', text: { content: time } }] } : { rich_text: [] };
+  }
+
+  if (Object.keys(properties).length === 0) {
+    return new Response(JSON.stringify({ error: true, code: 'validation', message: 'No updatable fields provided' }), {
+      status: 400,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+
+  try {
+    const page = await notionRequest(`/v1/pages/${pageId}`, env, {
+      method: 'PATCH',
+      body:   JSON.stringify({ properties }),
+    });
+
+    if (env.CACHE) {
+      await env.CACHE.delete(ZWIFT_CACHE_KEY);
+    }
+
+    return new Response(JSON.stringify({ data: transformNotionRoute(page) }), {
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  } catch (err) {
+    return notionErrorResponse(err);
+  }
+}
+
+function notionErrorResponse(err) {
+  const status  = err.status;
+  let httpStatus = 502;
+  let code       = 'network';
+  let message    = 'Could not reach Notion.';
+
+  if (status === 401) {
+    httpStatus = 502; code = 'notion_auth';
+    message = 'Notion credentials are invalid or expired — check the NOTION_API_KEY Worker secret.';
+  } else if (status === 404) {
+    httpStatus = 404; code = 'notion_not_found';
+    message = 'Route not found, or the integration lost access to it — check the database is connected to the integration in Notion.';
+  } else if (status === 400) {
+    httpStatus = 400; code = 'notion_validation';
+    message = err.message || 'Notion rejected the request.';
+  } else if (status === 429) {
+    httpStatus = 503; code = 'rate_limited';
+    message = 'Notion is rate-limiting requests — try again in a moment.';
+  }
+
+  return new Response(JSON.stringify({ error: true, code, message }), {
+    status: httpStatus,
+    headers: { ...CORS, 'Content-Type': 'application/json' },
+  });
+}
+
+async function notionRequest(path, env, options = {}) {
+  const res = await fetch(`https://api.notion.com${path}`, {
+    ...options,
+    headers: {
+      'Authorization':  `Bearer ${env.NOTION_API_KEY}`,
+      'Notion-Version': '2025-09-03',
+      'Content-Type':   'application/json',
+      ...(options.headers || {}),
+    },
+  });
+
+  if (res.status === 429) {
+    const retryAfter = parseFloat(res.headers.get('Retry-After') || '1');
+    await new Promise(r => setTimeout(r, retryAfter * 1000));
+    return notionRequest(path, env, options); // single retry
+  }
+
+  const json = await res.json();
+  if (!res.ok) {
+    const err = new Error(json.message || `Notion API error ${res.status}`);
+    err.status = res.status;
+    err.code   = json.code;
+    throw err;
+  }
+  return json;
+}
+
+async function fetchAllZwiftRoutes(env) {
+  const results = [];
+  let   cursor  = undefined;
+
+  do {
+    const body = { page_size: 100, ...(cursor ? { start_cursor: cursor } : {}) };
+    const res  = await notionRequest(`/v1/data_sources/${ZWIFT_DATA_SOURCE_ID}/query`, env, {
+      method: 'POST',
+      body:   JSON.stringify(body),
+    });
+    results.push(...res.results);
+    cursor = res.has_more ? res.next_cursor : null;
+  } while (cursor);
+
+  return results.map(transformNotionRoute);
+}
+
+function transformNotionRoute(page) {
+  const p = page.properties;
+  const timeStr = (p['Time']?.rich_text || []).map(t => t.plain_text).join('') || null;
+
+  return {
+    id:             page.id,
+    route:          (p['Route']?.title || []).map(t => t.plain_text).join('') || '',
+    maps:           (p['Map']?.multi_select || []).map(m => m.name),
+    distance_mi:    p['Distance']?.number ?? null,
+    elevation_ft:   p['Elevation']?.number ?? null,
+    est_duration:   (p['Est. Duration']?.rich_text || []).map(t => t.plain_text).join('') || null,
+    date_completed: p['Date completed']?.date?.start || null,
+    time:           timeStr,
+    time_sec:       parseTimeToSeconds(timeStr),
+    status:         p['Status']?.status?.name || 'Not started',
+    planned_ride:   p['Planned Ride']?.date?.start || null,
+    link_zi:        p['Link (ZI)']?.url || null,
+    link_strava:    p['Link (Strava)']?.url || null,
+    link_zh:        p['Link (ZH)']?.url || null,
+    in_route_list:  !!p['In route list?']?.checkbox,
+    last_edited:    page.last_edited_time || null,
+  };
+}
+
+function parseTimeToSeconds(t) {
+  if (!t) return null;
+  const parts = t.split(':').map(Number);
+  if (parts.length !== 3 || parts.some(isNaN)) return null;
+  const [h, m, s] = parts;
+  return h * 3600 + m * 60 + s;
 }
 
 // =============================================================================

@@ -49,6 +49,7 @@ The Worker holds all secrets and does all the heavy work. The Pages frontend is 
 | Social | Kudos leaderboard |
 | Gear | Bike and shoe mileage |
 | Activity Log | Searchable, sortable full activity table |
+| Zwift Routes | Live two-way view of the "Zwift Routes" Notion database, grouped by map. Route catalog (name, map, distance, elevation, links) is read-only, managed in Notion; Status/Date completed/Time can be edited from the app and are written straight back to Notion |
 
 ---
 
@@ -81,6 +82,7 @@ Set these in the Cloudflare dashboard under **Workers & Pages → activities-api
 | `HOME_LNG_2` | Longitude of home location 2 (optional) |
 | `HOME_LAT_3` … `HOME_LAT_5` | Additional home locations (optional) |
 | `HOME_LNG_3` … `HOME_LNG_5` | Corresponding longitudes |
+| `NOTION_API_KEY` | Internal integration secret from a Notion integration (`notion.so/my-integrations`) with Read + Update content capabilities, shared with the "Zwift Routes" database via its `•••` → Connections menu |
 
 ### Worker bindings
 
@@ -95,6 +97,8 @@ Also in Worker → Settings → Bindings:
 
 The Worker caches all activity data under the key `activities_v2` with a 24-hour TTL. Force a fresh pull at any time with `?refresh=true`.
 
+Zwift route data is cached under `zwift_routes_v1` with a short 2-minute TTL (Notion is the source of truth, so this cache only absorbs repeated tab opens — it's deleted immediately on every successful edit).
+
 ---
 
 ## Worker API routes
@@ -106,6 +110,9 @@ The Worker caches all activity data under the key `activities_v2` with a 24-hour
 | `GET /auth` | Redirects to Strava OAuth — run once to get a refresh token |
 | `GET /callback` | Exchanges the OAuth code, shows the refresh token to copy |
 | `GET /debug` | Raw Strava token diagnostic |
+| `GET /zwift-routes` | Returns the cached Zwift routes envelope `{ data, updatedAt }`, proxied live from Notion |
+| `GET /zwift-routes?refresh=true` | Bypasses cache, re-fetches all routes from Notion |
+| `PATCH /zwift-routes/{pageId}` | Updates `status`/`date_completed`/`time` on one route, writes straight to Notion |
 
 ---
 
@@ -186,3 +193,5 @@ The Worker aggregates the last 30 days of activity data and sends it to `@cf/met
 | `X-Cache: MISS` every request | KV namespace not bound — check Worker → Settings → Bindings for a `CACHE` binding |
 | GitHub Actions deploy fails | `CLOUDFLARE_API_TOKEN` secret missing or expired — regenerate and re-add in repo Settings → Secrets |
 | AI summary stale | Force regeneration: `https://activities-api.lk-ff7.workers.dev/activities?refresh=true` |
+| Zwift Routes tab shows "Could not load Zwift routes" | Check `NOTION_API_KEY` is set as a Worker secret, and that the Notion integration is connected to the "Zwift Routes" database (`•••` → Connections in Notion) — a valid key with no database access still 404s |
+| Zwift route edit fails to save | Error message shows inline on the still-open edit row; check the Worker logs for the Notion error code (401 = bad/expired key, 404 = integration not connected, 429 = rate-limited, try again) |
