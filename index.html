@@ -596,18 +596,15 @@ tbody td{padding:10px 14px;vertical-align:middle}
 </div>
 
 <div id="tab-map" class="tab-content">
-  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-    <div style="font-size:13px;color:var(--text-muted)">Routes trimmed within ¼ mile of home addresses for privacy.</div>
-    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-      <div id="mapLegend" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end"></div>
-      <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted)">
-        <span class="ms" style="font-size:16px">contrast</span>
-        <span>Map fade</span>
-        <input type="range" min="0" max="90" value="0" oninput="setMapWhiteout(this.value)" style="width:140px">
-      </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:12px;flex-wrap:wrap">
+    <div id="mapLegend" style="display:flex;gap:10px;flex-wrap:wrap"></div>
+    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+      <span class="ms" style="font-size:15px;color:var(--text-muted)">contrast</span>
+      <span style="font-size:12px;color:var(--text-muted)">Fade</span>
+      <input type="range" min="0" max="90" value="0" oninput="setMapWhiteout(this.value)" style="width:110px;accent-color:var(--accent)">
     </div>
   </div>
-  <div id="mapJumpRow" class="loc-row"></div>
+  <div id="mapJumpRow" class="loc-row" style="margin-bottom:8px"></div>
   <div id="mapContainer" style="height:600px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);background:#fff"></div>
   <div id="mapEmpty" style="display:none;text-align:center;padding:60px 20px;color:var(--text-muted);font-size:14px">
     <span class="ms" style="font-size:36px;display:block;margin-bottom:8px">map</span>
@@ -1857,7 +1854,7 @@ function getLocationGroups() {
 }
 
 async function computeLocationGroups() {
-  const away = ALL_DATA.filter(a => a.near_home === false && a.lat && a.lng);
+  const away = ALL_DATA.filter(a => a.near_home === false && a.lat && a.lng && typeGroup(a.type) !== 'Virtual');
   if (!away.length) return [];
 
   // Group by lat/lng rounded to 2dp (~1 km grid)
@@ -1938,11 +1935,20 @@ async function buildLocationPills() {
   el.innerHTML = '<span style="font-size:12px;color:var(--text-muted)">Loading locations…</span>';
   const groups = await getLocationGroups();
 
-  el.innerHTML = groups.map(g =>
+  const shown = groups.filter(g => g.count >= 5);
+  const hiddenCount = groups.length - shown.length;
+
+  let html = shown.map(g =>
     `<div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch(${JSON.stringify(g.name)})">` +
     `<span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span>` +
     ` ${g.name} <strong style="margin-left:4px;color:var(--text)">${g.count}</strong></div>`
   ).join('');
+
+  if (hiddenCount > 0) {
+    html += `<span style="font-size:11px;color:var(--text-muted);align-self:center;margin-left:4px">+${hiddenCount} location${hiddenCount > 1 ? 's' : ''} with fewer than 5 activities not shown</span>`;
+  }
+
+  el.innerHTML = html;
 }
 
 async function loadData(forceRefresh = false) {
@@ -2144,12 +2150,6 @@ function renderMap(data){
 
 // Always-available jump pills regardless of whether they've been auto-discovered
 // yet. Coordinates are approximate town/region centres, not exact addresses.
-const POPULAR_LOCATIONS=[
-  {name:'Girona',   lat:41.9794, lng:2.8214,  zoom:11},
-  {name:'Mallorca', lat:39.5696, lng:2.6502,  zoom:10},
-  {name:'Chorley',  lat:53.6544, lng:-2.6310, zoom:12},
-  {name:'Calpe',    lat:38.6447, lng:0.0443,  zoom:12},
-];
 
 function mapJumpHome(){if(_map)_map.flyTo(HOME_CENTER,HOME_ZOOM);}
 function mapJumpToBounds(bounds,maxZoom){if(_map)_map.flyToBounds(bounds,{padding:[40,40],maxZoom:maxZoom||13});}
@@ -2161,24 +2161,9 @@ async function buildMapJumpButtons(){
     `<span class="ms ms-fill" style="font-size:13px;color:var(--accent)">home</span> Home</div>`;
 
   const discovered=await getLocationGroups();
-  const byName={};
-  discovered.forEach(g=>byName[g.name.toLowerCase()]=g);
-
-  // Popular locations first — using the real discovered bounds if we have
-  // activities there already, otherwise a fixed fallback zoom on the pin
-  const pills=POPULAR_LOCATIONS.map(p=>{
-    const match=byName[p.name.toLowerCase()];
-    if(match)delete byName[p.name.toLowerCase()];
-    return match
-      ? {name:p.name, bounds:match.bounds}
-      : {name:p.name, bounds:[[p.lat,p.lng],[p.lat,p.lng]], zoom:p.zoom};
-  });
-  // Then any other discovered location not already covered above
-  Object.values(byName).forEach(g=>pills.push({name:g.name, bounds:g.bounds}));
-
-  el.innerHTML+=pills.map(p=>
-    `<div class="loc-pill" style="cursor:pointer" onclick='mapJumpToBounds(${JSON.stringify(p.bounds)},${p.zoom||13})'>`+
-    `<span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span> ${p.name}</div>`
+  el.innerHTML+=discovered.slice(0,5).map(g=>
+    `<div class="loc-pill" style="cursor:pointer" onclick='mapJumpToBounds(${JSON.stringify(g.bounds)},13)'>`+
+    `<span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span> ${g.name}</div>`
   ).join('');
 }
 </script>
