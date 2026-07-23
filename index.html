@@ -635,6 +635,7 @@ const ZWIFT_WORKER_BASE='https://activities-api.lk-ff7.workers.dev';
 const MAP_ORDER=['Watopia','Makuri Island','Jarvis Island','Scotland','London','Yorkshire','Richmond','France','New York','Innsbruck','Bologna','Gravel Mountain','Crit City','KOM','Rebel Routes','Event Only'];
 const MAP_COLOR={'Watopia':'#d9730d','Makuri Island':'#d9730d','Jarvis Island':'#d9730d','Scotland':'#cb912f','London':'#cb912f','Yorkshire':'#cb912f','Richmond':'#cb912f','France':'#cb912f','New York':'#cb912f','Innsbruck':'#cb912f','Bologna':'#9f6b53','Gravel Mountain':'#9f6b53','Crit City':'#9f6b53','KOM':'#c14c8a','Rebel Routes':'#c14c8a','Event Only':'#9b9a97'};
 function mapDotColor(name){return MAP_COLOR[name]||'#9b9a97';}
+function mapSoftBg(name){const h=MAP_COLOR[name]||'#9b9a97';const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return`rgba(${r},${g},${b},0.07)`;}
 const ZWIFT_CATEGORY_TAGS=['Event Only','Rebel Routes','KOM'];
 const ZWIFT_CATEGORY_LABEL={'Event Only':'Event','Rebel Routes':'Rebel','KOM':'KOM'};
 const ZWIFT_STATUS_ORDER=['Not started','Blocked','Planned','Complete'];
@@ -1541,7 +1542,7 @@ function renderZwiftTable(){
     }).join('');
     const groupOpen=zwiftGroupOpen[g.name]!==false;
     return`<details class="zwift-group"${groupOpen?' open':''} ontoggle="onZwiftGroupToggle('${g.name}',this.open)">
-      <summary><span class="zwift-summary-left"><span class="zwift-map-dot" style="background:${mapDotColor(g.name)}"></span>${g.name}</span><span class="zwift-group-count">${complete}/${g.routes.length} complete</span></summary>
+      <summary style="background:${mapSoftBg(g.name)}"><span class="zwift-summary-left"><span class="zwift-map-dot" style="background:${mapDotColor(g.name)}"></span>${g.name}</span><span class="zwift-group-count">${complete}/${g.routes.length} complete</span></summary>
       ${rowsHtml}
     </details>`;
   }).join('');
