@@ -267,7 +267,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .partner-type{font-size:10px;color:var(--text-muted)}
 /* GEAR */
 .gear-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:24px}
-.gear-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow)}
+.gear-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);cursor:pointer;transition:transform .1s,box-shadow .1s}
+.gear-card:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(15,23,42,.06),0 8px 20px rgba(15,23,42,.09)}
 .gear-photo{width:100%;height:110px;object-fit:cover;border-radius:calc(var(--radius) - 4px);margin-bottom:8px;display:block;background:var(--bg)}
 .gear-icon{font-size:22px;margin-bottom:8px}
 .top-gear-photo{width:28px;height:28px;object-fit:cover;border-radius:6px;flex:none}
@@ -275,6 +276,29 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .gear-type{font-size:11px;font-weight:600;margin-bottom:8px}
 .gear-stat{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--bg)}
 .gear-stat-label{color:var(--text-muted)}.gear-stat-value{font-weight:600}
+.gear-modal-backdrop{display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1000;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 16px}
+.gear-modal-backdrop.open{display:flex}
+.gear-modal{background:var(--surface);border-radius:var(--radius);box-shadow:0 12px 40px rgba(15,23,42,.25);width:100%;max-width:640px;margin:auto}
+.gear-modal-photo{width:100%;height:200px;object-fit:cover;border-radius:var(--radius) var(--radius) 0 0;display:block;background:var(--bg)}
+.gear-modal-head{display:flex;align-items:flex-start;justify-content:space-between;padding:20px 22px 0}
+.gear-modal-head.no-photo{padding-top:20px}
+.gear-modal-title{font-size:18px;font-weight:700}
+.gear-modal-sub{font-size:12px;font-weight:600;margin-top:4px}
+.gear-modal-close{width:28px;height:28px;border:1px solid var(--border-strong);border-radius:50%;background:transparent;color:var(--text-muted);cursor:pointer;font-family:inherit;font-size:14px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.gear-modal-close:hover{color:var(--text)}
+.gear-modal-body{padding:18px 22px 22px}
+.gear-modal-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;margin-bottom:20px}
+.gear-modal-stat-label{font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+.gear-modal-stat-value{font-size:15px;font-weight:700}
+.gear-modal-section-title{font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.gear-modal-types{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
+.gear-modal-type-chip{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;background:var(--bg)}
+.gear-modal-acts{max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm)}
+.gear-modal-act-row{display:flex;align-items:center;gap:10px;padding:8px 12px;font-size:12px;border-bottom:1px solid var(--bg)}
+.gear-modal-act-row:last-child{border-bottom:none}
+.gear-modal-act-date{color:var(--text-muted);width:72px;flex-shrink:0}
+.gear-modal-act-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gear-modal-act-dist{font-weight:600;flex-shrink:0}
 /* TOP GEAR in summary */
 .top-gear-list{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
 .top-gear-row{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border);font-size:13px}
@@ -547,6 +571,11 @@ tbody td{padding:10px 14px;vertical-align:middle}
   </div>
 </div>
 
+<!-- GEAR DETAIL MODAL -->
+<div class="gear-modal-backdrop" id="gearModalBackdrop" onclick="if(event.target===this)closeGearModal()">
+  <div class="gear-modal" id="gearModal"></div>
+</div>
+
 <!-- LOG -->
 <div id="tab-log" class="tab-content">
   <div class="log-controls">
@@ -651,6 +680,7 @@ const GEAR_IMAGES={
   // 'Trek Emonda SL6':'https://example.com/photos/emonda.jpg',
   // 'Nike Pegasus 40':'https://example.com/photos/pegasus.jpg',
 };
+let GEAR_DATA={};
 
 function fmtDist(v){if(v==null)return'—';const d=unit==='mi'?v:v*1.60934;return parseFloat(d>=100?d.toFixed(0):d.toFixed(1)).toLocaleString('en-GB');}
 function distUnit(){return unit;}
@@ -663,6 +693,8 @@ function fmtPace(s_per_mi){if(!s_per_mi||s_per_mi<=0||s_per_mi>3600)return'—';
 function fmtDate(d){if(!d)return'—';const[y,m,dn]=d.split('-');return dn+'/'+m+'/'+y;}
 function fmtNum(n){return n!=null?Math.round(n).toLocaleString('en-GB'):'—';}
 function fmtCal(c){return c?c.toLocaleString('en-GB'):'—';}
+function escapeAttr(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;');}
+function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 function typeGroup(t){
   if(t==='VirtualRide')return'Virtual';
@@ -1331,10 +1363,14 @@ function renderGear(){
   const gm={};
   data.forEach(a=>{
     const g=a.gear;if(!g||g==='n/a')return;
-    if(!gm[g])gm[g]={count:0,dist:0,time:0,elv:0,types:{}};
-    gm[g].count++;gm[g].dist+=a.dist_mi||0;gm[g].time+=a.mt||0;gm[g].elv+=a.elv||0;
-    const t=typeGroup(a.type);gm[g].types[t]=(gm[g].types[t]||0)+1;
+    if(!gm[g])gm[g]={count:0,dist:0,time:0,elv:0,cal:0,types:{},typeDist:{},first:a.date,last:a.date,acts:[]};
+    gm[g].count++;gm[g].dist+=a.dist_mi||0;gm[g].time+=a.mt||0;gm[g].elv+=a.elv||0;gm[g].cal+=a.cal||0;
+    const t=typeGroup(a.type);gm[g].types[t]=(gm[g].types[t]||0)+1;gm[g].typeDist[t]=(gm[g].typeDist[t]||0)+(a.dist_mi||0);
+    if(a.date<gm[g].first)gm[g].first=a.date;
+    if(a.date>gm[g].last)gm[g].last=a.date;
+    gm[g].acts.push(a);
   });
+  GEAR_DATA=gm;
   const sorted=Object.entries(gm).sort((a,b)=>b[1].dist-a[1].dist);
   document.getElementById('gearBadge').textContent=sorted.length+' items';
   const GEAR_COLORS=['#1d4ed8','#ef4444','#eab308','#0ea5e9','#8b5cf6','#22c55e','#f97316','#14b8a6','#84cc16','#a855f7'];
@@ -1343,7 +1379,7 @@ function renderGear(){
     const topType=s.types?Object.entries(s.types).sort((a,b)=>b[1]-a[1])[0][0]:'?';
     const col=groupColor(topType);
     const img=GEAR_IMAGES[name];
-    return`<div class="gear-card" style="border-top:3px solid ${col}">
+    return`<div class="gear-card" style="border-top:3px solid ${col}" data-gear="${escapeAttr(name)}">
       ${img?`<img class="gear-photo" src="${img}" alt="${name}" loading="lazy" onerror="this.remove()">`:`<div class="gear-icon">${gearEmoji(name)}</div>`}
       <div class="gear-name" title="${name}">${name}</div>
       <div class="gear-type" style="color:${col}">${typeEmoji(topType)} ${topType}</div>
@@ -1351,6 +1387,8 @@ function renderGear(){
       <div class="gear-stat"><span class="gear-stat-label">Activities</span><span class="gear-stat-value">${s.count.toLocaleString('en-GB')}</span></div>
       <div class="gear-stat"><span class="gear-stat-label">Moving time</span><span class="gear-stat-value">${fmtTime(s.time)}</span></div>
       <div class="gear-stat"><span class="gear-stat-label">Elevation</span><span class="gear-stat-value">${fmtElv(s.elv)}</span></div>
+      <div class="gear-stat"><span class="gear-stat-label">First used</span><span class="gear-stat-value">${fmtDate(s.first)}</span></div>
+      <div class="gear-stat"><span class="gear-stat-label">Last used</span><span class="gear-stat-value">${fmtDate(s.last)}</span></div>
     </div>`;
   }).join('');
   // Chart: by distance
@@ -1362,6 +1400,63 @@ function renderGear(){
   const top10c=Object.entries(gm).sort((a,b)=>b[1].count-a[1].count).slice(0,10);
   destroyChart('gearCount');
   charts.gearCount=new Chart(document.getElementById('chartGearCount').getContext('2d'),{type:'bar',data:{labels:top10c.map(([n])=>n.length>22?n.slice(0,22)+'…':n),datasets:[{data:top10c.map(([,s])=>s.count),backgroundColor:GEAR_COLORS,borderRadius:4}]},options:{indexAxis:'y',plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()}},y:{grid:{display:false},ticks:{font:{size:11}}}}}});
+}
+
+document.getElementById('gearCards').addEventListener('click',e=>{
+  const card=e.target.closest('.gear-card');
+  if(card)openGearModal(card.dataset.gear);
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeGearModal();});
+
+function daysBetween(d1,d2){return Math.round((new Date(d2)-new Date(d1))/86400000)+1;}
+
+function openGearModal(name){
+  const s=GEAR_DATA[name];
+  if(!s)return;
+  const topType=s.types?Object.entries(s.types).sort((a,b)=>b[1]-a[1])[0][0]:'?';
+  const col=groupColor(topType);
+  const img=GEAR_IMAGES[name];
+  const avgDist=s.count?s.dist/s.count:0;
+  const avgTime=s.count?s.time/s.count:0;
+  const typeRows=Object.entries(s.types).sort((a,b)=>b[1]-a[1]).map(([t,c])=>
+    `<div class="gear-modal-type-chip" style="color:${groupColor(t)}">${typeEmoji(t)} ${t} · ${c} · ${fmtDist(s.typeDist[t]||0)} ${distUnit()}</div>`
+  ).join('');
+  const actsSorted=[...s.acts].sort((a,b)=>b.date.localeCompare(a.date));
+  const actRows=actsSorted.map(a=>
+    `<div class="gear-modal-act-row"><span class="gear-modal-act-date">${fmtDate(a.date)}</span>${typeEmoji(typeGroup(a.type))}<span class="gear-modal-act-name" title="${escapeAttr(a.name||'')}">${escapeHtml(a.name||a.type)}</span><span class="gear-modal-act-dist">${fmtDist(a.dist_mi||0)} ${distUnit()}</span></div>`
+  ).join('');
+  const stats=[
+    {label:'Total distance',value:fmtDist(s.dist)+' '+distUnit()},
+    {label:'Activities',value:s.count.toLocaleString('en-GB')},
+    {label:'Moving time',value:fmtTime(s.time)},
+    {label:'Elevation',value:fmtElv(s.elv)},
+    {label:'Calories',value:fmtCal(s.cal)},
+    {label:'Avg distance',value:fmtDist(avgDist)+' '+distUnit()},
+    {label:'Avg duration',value:fmtTime(avgTime)},
+    {label:'First used',value:fmtDate(s.first)},
+    {label:'Last used',value:fmtDate(s.last)},
+    {label:'In use',value:daysBetween(s.first,s.last).toLocaleString('en-GB')+' days'},
+  ];
+  document.getElementById('gearModal').innerHTML=`
+    ${img?`<img class="gear-modal-photo" src="${img}" alt="${escapeAttr(name)}" onerror="this.remove()">`:''}
+    <div class="gear-modal-head${img?'':' no-photo'}">
+      <div><div class="gear-modal-title">${escapeHtml(name)}</div><div class="gear-modal-sub" style="color:${col}">${typeEmoji(topType)} Mostly ${topType.toLowerCase()}</div></div>
+      <button class="gear-modal-close" onclick="closeGearModal()">✕</button>
+    </div>
+    <div class="gear-modal-body">
+      <div class="gear-modal-stats">${stats.map(s=>`<div><div class="gear-modal-stat-label">${s.label}</div><div class="gear-modal-stat-value">${s.value}</div></div>`).join('')}</div>
+      <div class="gear-modal-section-title">Activity breakdown</div>
+      <div class="gear-modal-types">${typeRows}</div>
+      <div class="gear-modal-section-title">All activities (${s.acts.length})</div>
+      <div class="gear-modal-acts">${actRows}</div>
+    </div>`;
+  document.getElementById('gearModalBackdrop').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+
+function closeGearModal(){
+  document.getElementById('gearModalBackdrop').classList.remove('open');
+  document.body.style.overflow='';
 }
 
 // ── LOG ──
