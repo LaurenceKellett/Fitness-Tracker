@@ -675,10 +675,32 @@ function getAccentColor(){return ACCENT_COLORS[activeType]||'#22c55e';}
 
 // Strava's API doesn't expose gear photos, so pictures are supplied manually here.
 // Key must match the gear's exact name/nickname as it comes through from Strava
-// (the same string shown on the gear card). Paste a direct image URL as the value.
+// (the same string shown on the gear card). Sourced from the Notion Gear database —
+// if a Strava nickname doesn't exactly match a key below, add/adjust the entry.
 const GEAR_IMAGES={
-  // 'Trek Emonda SL6':'https://example.com/photos/emonda.jpg',
-  // 'Nike Pegasus 40':'https://example.com/photos/pegasus.jpg',
+  'Carrera Virtuoso':'gear-images/carrera-virtuoso.jpg',
+  'Forme Axe Edge':'gear-images/forme-axe-edge.jpg',
+  'Gelert Hiking Boot':'gear-images/gelert-hiking-boot.jpg',
+  'Goggles':'gear-images/goggles.jpg',
+  'Karrimor Skiddaw Hiking Boots':'gear-images/karrimor-skiddaw-hiking-boots.jpg',
+  'Merckx EMX-3':'gear-images/merckx-emx-3.jpg',
+  'Nike Air Zoom Pegasus 36':'gear-images/nike-air-zoom-pegasus-36.jpg',
+  'Nike Air Zoom Pegasus 38':'gear-images/nike-air-zoom-pegasus-38.jpg',
+  'Nike Air Zoom Pegasus 40':'gear-images/nike-air-zoom-pegasus-40.jpg',
+  'Nike Juniper Trail 2':'gear-images/nike-juniper-trail-2.jpg',
+  'Nike React Pegasus Trail 3':'gear-images/nike-react-pegasus-trail-3.jpg',
+  'Nike React Pegasus Trail 4 GORE-TEX':'gear-images/nike-react-pegasus-trail-4-goretex.jpg',
+  'Nike ReactX Pegasus Trail 5':'gear-images/nike-reactx-pegasus-trail-5.jpg',
+  'Nike ReactX Pegasus Trail 5 GORE-TEX':'gear-images/nike-reactx-pegasus-trail-5-goretex.jpg',
+  'Rented Mountain Bike':'gear-images/rented-mountain-bike.jpg',
+  'Rented Road Bike':'gear-images/rented-road-bike.jpg',
+  'Salomon Alphacross 4 Gore-Tex':'gear-images/salomon-alphacross-4-goretex.jpg',
+  'Salomon S-LAB 2':'gear-images/salomon-slab-2.jpg',
+  'Storck Aernario':'gear-images/storck-aernario.jpg',
+  'Unbranded/Work Shoe':'gear-images/unbranded-work-shoe.jpg',
+  'Winter Bike':'gear-images/winter-bike.jpg',
+  'Zwift Bike':'gear-images/zwift-bike.jpg',
+  // 'Barbour Wellies' and 'Under Armour UA Thrill 3' have no photo in Notion.
 };
 let GEAR_DATA={};
 
