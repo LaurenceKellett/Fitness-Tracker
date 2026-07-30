@@ -268,7 +268,9 @@ tbody td{padding:10px 14px;vertical-align:middle}
 /* GEAR */
 .gear-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:24px}
 .gear-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow)}
+.gear-photo{width:100%;height:110px;object-fit:cover;border-radius:calc(var(--radius) - 4px);margin-bottom:8px;display:block;background:var(--bg)}
 .gear-icon{font-size:22px;margin-bottom:8px}
+.top-gear-photo{width:28px;height:28px;object-fit:cover;border-radius:6px;flex:none}
 .gear-name{font-size:13px;font-weight:700;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gear-type{font-size:11px;font-weight:600;margin-bottom:8px}
 .gear-stat{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--bg)}
@@ -642,6 +644,14 @@ let zwiftCalSelected=null;
 const ACCENT_COLORS={All:'#22c55e',Ride:'#1d4ed8',Virtual:'#60a5fa',Run:'#ef4444',Walk:'#eab308',Swim:'#0ea5e9',Other:'#94a3b8'};
 function getAccentColor(){return ACCENT_COLORS[activeType]||'#22c55e';}
 
+// Strava's API doesn't expose gear photos, so pictures are supplied manually here.
+// Key must match the gear's exact name/nickname as it comes through from Strava
+// (the same string shown on the gear card). Paste a direct image URL as the value.
+const GEAR_IMAGES={
+  // 'Trek Emonda SL6':'https://example.com/photos/emonda.jpg',
+  // 'Nike Pegasus 40':'https://example.com/photos/pegasus.jpg',
+};
+
 function fmtDist(v){if(v==null)return'—';const d=unit==='mi'?v:v*1.60934;return parseFloat(d>=100?d.toFixed(0):d.toFixed(1)).toLocaleString('en-GB');}
 function distUnit(){return unit;}
 function fmtElv(ft){if(!ft&&ft!==0)return'—';if(unit==='km')return Math.round(ft*0.3048).toLocaleString('en-GB')+'m';return Math.round(ft).toLocaleString('en-GB')+'ft';}
@@ -867,13 +877,15 @@ function renderSummary(){
   const gearMap={};
   data.forEach(a=>{const g=a.gear;if(!g||g==='n/a')return;if(!gearMap[g])gearMap[g]={dist:0,count:0};gearMap[g].dist+=a.dist_mi||0;gearMap[g].count++;});
   const topGear=Object.entries(gearMap).sort((a,b)=>b[1].dist-a[1].dist).slice(0,10);
-  document.getElementById('topGearList').innerHTML=topGear.map(([name,s],i)=>`
+  document.getElementById('topGearList').innerHTML=topGear.map(([name,s],i)=>{
+    const img=GEAR_IMAGES[name];
+    return`
     <div class="top-gear-row">
       <div class="top-gear-rank">${i+1}</div>
-      <div style="font-size:16px">${gearEmoji(name)}</div>
+      ${img?`<img class="top-gear-photo" src="${img}" alt="${name}" loading="lazy" onerror="this.remove()">`:`<div style="font-size:16px">${gearEmoji(name)}</div>`}
       <div class="top-gear-name">${name}</div>
       <div class="top-gear-dist">${fmtDist(s.dist)} ${distUnit()} · ${s.count.toLocaleString('en-GB')} acts</div>
-    </div>`).join('')+'<button class="gear-view-all" onclick="setTab(\"gear\")">View all gear →</button>';
+    </div>`;}).join('')+'<button class="gear-view-all" onclick="setTab(\"gear\")">View all gear →</button>';
 
   // Recent
   const recentAll=[...data].reverse();
@@ -1330,8 +1342,9 @@ function renderGear(){
   document.getElementById('gearCards').innerHTML=sorted.map(([name,s],i)=>{
     const topType=s.types?Object.entries(s.types).sort((a,b)=>b[1]-a[1])[0][0]:'?';
     const col=groupColor(topType);
+    const img=GEAR_IMAGES[name];
     return`<div class="gear-card" style="border-top:3px solid ${col}">
-      <div class="gear-icon">${gearEmoji(name)}</div>
+      ${img?`<img class="gear-photo" src="${img}" alt="${name}" loading="lazy" onerror="this.remove()">`:`<div class="gear-icon">${gearEmoji(name)}</div>`}
       <div class="gear-name" title="${name}">${name}</div>
       <div class="gear-type" style="color:${col}">${typeEmoji(topType)} ${topType}</div>
       <div class="gear-stat"><span class="gear-stat-label">Distance</span><span class="gear-stat-value">${fmtDist(s.dist)} ${distUnit()}</span></div>
