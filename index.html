@@ -38,10 +38,11 @@ a{color:inherit;text-decoration:none}
 .logo-icon{width:26px;height:26px;background:#fc4c02;border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .logo-name{font-size:15px;font-weight:700;letter-spacing:-.3px;color:var(--text)}
 .last-updated{font-size:10px;color:var(--text-light);white-space:nowrap}
-.unit-chip{display:flex;align-items:stretch;border:1px solid var(--border-strong);border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0;height:30px}
-.unit-opt{padding:0 8px;font-size:11px;font-weight:600;color:var(--text-muted);border:none;background:transparent;cursor:pointer;line-height:1;font-family:inherit;display:flex;align-items:center}
+.header-toolbar{display:flex;align-items:stretch;border:1px solid var(--border-strong);border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0;height:30px}
+.toolbar-divider{width:1px;background:var(--border-strong);flex-shrink:0}
+.unit-opt{padding:0 9px;font-size:11px;font-weight:600;color:var(--text-muted);border:none;background:transparent;cursor:pointer;line-height:1;font-family:inherit;display:flex;align-items:center}
 .unit-opt.active{background:var(--text);color:#fff}
-.icon-btn{width:30px;height:30px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:transparent;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);font-size:15px;text-decoration:none;flex-shrink:0;transition:color .15s;font-family:inherit}
+.icon-btn{width:32px;border:none;background:transparent;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);font-size:15px;text-decoration:none;flex-shrink:0;transition:color .15s;font-family:inherit}
 .icon-btn:hover{color:var(--text)}
 .icon-btn:disabled{opacity:.5;cursor:not-allowed}
 .tab-btn{padding:6px 10px;font-size:12px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text-muted);border-radius:var(--radius-sm);white-space:nowrap;transition:all .15s;font-family:inherit;display:inline-flex;align-items:center;gap:4px}
@@ -75,6 +76,10 @@ a{color:inherit;text-decoration:none}
 @keyframes rspin{to{transform:rotate(360deg)}}
 .main{max-width:1200px;margin:0 auto;padding:28px 24px}
 .tab-content{display:none}.tab-content.active{display:block}
+@keyframes enterFromRight{from{transform:translateX(28px);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes enterFromLeft{from{transform:translateX(-28px);opacity:0}to{transform:translateX(0);opacity:1}}
+.tab-content.enter-from-right{animation:enterFromRight .22s ease}
+.tab-content.enter-from-left{animation:enterFromLeft .22s ease}
 /* STATS */
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:14px;margin-bottom:24px}
 .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow)}
@@ -335,9 +340,10 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .top-gear-name{flex:1;font-weight:500}
 .top-gear-dist{font-weight:700;color:var(--text-muted);font-size:12px}
 /* MOBILE SELECTS */
-.mobile-select{display:none;padding:6px 28px 6px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:500;background:var(--surface);color:var(--text);cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
-.mobile-tab-select{display:none;padding:7px 28px 7px 14px;margin:10px 14px 6px;border:1px solid var(--border);border-radius:20px;font-size:13px;font-weight:600;background:var(--surface);color:var(--text);cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;width:calc(100% - 28px);box-shadow:var(--shadow)}
-@media(max-width:640px){#tabRow{display:none}#typeRow{display:none}.mobile-select{display:block}.mobile-tab-select{display:block}}
+.mobile-select-row{display:none;gap:8px;padding:10px 14px 0}
+.mobile-select{display:none;flex:1;min-width:0;padding:6px 28px 6px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:500;background:var(--surface);color:var(--text);cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+.mobile-tab-select{display:none;padding:7px 28px 7px 14px;margin:6px 14px;border:1px solid var(--border);border-radius:20px;font-size:13px;font-weight:600;background:var(--surface);color:var(--text);cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;width:calc(100% - 28px);box-shadow:var(--shadow)}
+@media(max-width:640px){#tabRow{display:none}#typeRow{display:none}.last-updated{display:none}.mobile-select-row{display:flex}.mobile-select{display:block}.mobile-tab-select{display:block}}
 /* PARTNER LOG BTN */
 .partner-log-btn{width:100%;margin-top:8px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text-muted);background:transparent;cursor:pointer;transition:all .15s;font-family:inherit;text-align:center}
 .partner-log-btn:hover{background:var(--bg);color:var(--text)}
@@ -369,14 +375,16 @@ tbody td{padding:10px 14px;vertical-align:middle}
       </div>
       <div style="flex:1"></div>
       <span class="last-updated" id="lastUpdated"></span>
-      <div class="unit-chip">
+      <div class="header-toolbar">
         <button class="unit-opt active" data-unit="mi" onclick="setUnit('mi')">mi</button>
         <button class="unit-opt" data-unit="km" onclick="setUnit('km')">km</button>
+        <span class="toolbar-divider"></span>
+        <button class="icon-btn" id="refreshBtn" onclick="refreshData()" title="Pull latest from Strava"><span class="refresh-icon">↻</span></button>
+        <span class="toolbar-divider"></span>
+        <a class="icon-btn" href="https://www.strava.com/athletes/263104" target="_blank" title="Strava profile">
+          <svg viewBox="0 0 24 24" width="12" height="12"><path fill="currentColor" d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0 4 13.828h4.172"/></svg>
+        </a>
       </div>
-      <button class="icon-btn" id="refreshBtn" onclick="refreshData()" title="Pull latest from Strava"><span class="refresh-icon">↻</span></button>
-      <a class="icon-btn" href="https://www.strava.com/athletes/263104" target="_blank" title="Strava profile">
-        <svg viewBox="0 0 24 24" width="12" height="12"><path fill="currentColor" d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0 4 13.828h4.172"/></svg>
-      </a>
     </div>
     <!-- Row 2: tabs + year stepper -->
     <div class="hrow" id="tabRow">
@@ -403,7 +411,10 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <div class="type-bar" id="headerTypeFilters"></div>
     </div>
     <!-- Mobile controls -->
-    <select class="mobile-select" id="yearSelectMobile" onchange="setYear(this.value)"></select>
+    <div class="mobile-select-row">
+      <select class="mobile-select" id="yearSelectMobile" onchange="setYear(this.value)"></select>
+      <select class="mobile-select" id="typeSelectMobile" onchange="setType(this.value)"></select>
+    </div>
     <select class="mobile-tab-select" id="tabSelectMobile" onchange="setTab(this.value)">
       <option value="summary">Summary</option>
       <option value="map">Map</option>
@@ -799,26 +810,61 @@ function setYear(y){activeYear=y;buildYearStepper();renderAll();}
 const TYPE_GROUPS=['All','Ride','Virtual','Run','Walk','Swim','Other'];
 function buildTypeFilters(){
   const el=document.getElementById('headerTypeFilters');
-  if(!el)return;
-  el.innerHTML=TYPE_GROUPS.map(t=>{
+  if(el)el.innerHTML=TYPE_GROUPS.map(t=>{
     const dot=t!=='All'?`<span class="type-dot" style="background:${groupColor(t)}"></span>`:'';
     return`<button class="type-btn${t===activeType?' active':''}" data-type="${t}" onclick="setType('${t}')">${dot}${t}</button>`;
   }).join('');
+  const tsel=document.getElementById('typeSelectMobile');
+  if(tsel)tsel.innerHTML=TYPE_GROUPS.map(t=>`<option value="${t}"${t===activeType?' selected':''}>${t}</option>`).join('');
 }
 function setType(t){activeType=t;buildTypeFilters();renderAll();}
 
-function setTab(tab){
+const TAB_ORDER=['summary','map','charts','heatmap','records','social','gear','log','zwift'];
+function setTab(tab,dir){
   activeTab=tab;
-  const tabs=['summary','map','charts','heatmap','records','social','gear','log','zwift'];
-  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',tabs[i]===tab));
-  document.querySelectorAll('.tab-content').forEach(d=>d.classList.remove('active'));
-  document.getElementById('tab-'+tab).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',TAB_ORDER[i]===tab));
+  document.querySelectorAll('.tab-content').forEach(d=>d.classList.remove('active','enter-from-left','enter-from-right'));
+  const el=document.getElementById('tab-'+tab);
+  el.classList.add('active');
+  if(dir){
+    const cls=dir==='next'?'enter-from-right':'enter-from-left';
+    el.classList.add(cls);
+    el.addEventListener('animationend',()=>el.classList.remove(cls),{once:true});
+  }
   const mts=document.getElementById('tabSelectMobile');if(mts)mts.value=tab;
   if(tab==='map'){renderMap(activeType==='All'?ALL_DATA:ALL_DATA.filter(a=>(a.type||'Other')===activeType));return;}
   if(tab==='zwift'){loadZwiftRoutes();return;}
   renderAll();
 }
 function setUnit(u){unit=u;document.querySelectorAll('.unit-opt').forEach(b=>b.classList.toggle('active',b.dataset.unit===u));renderAll();}
+
+// ── SWIPE BETWEEN TABS ──
+(function(){
+  const main=document.querySelector('.main');
+  if(!main)return;
+  function insideHorizontalScroller(el){
+    while(el&&el!==main){
+      if(el.scrollWidth>el.clientWidth+2&&/(auto|scroll)/.test(getComputedStyle(el).overflowX))return true;
+      el=el.parentElement;
+    }
+    return false;
+  }
+  let sx=0,sy=0,tracking=false;
+  main.addEventListener('touchstart',e=>{
+    if(e.touches.length!==1||insideHorizontalScroller(e.target)){tracking=false;return;}
+    sx=e.touches[0].clientX;sy=e.touches[0].clientY;tracking=true;
+  },{passive:true});
+  main.addEventListener('touchend',e=>{
+    if(!tracking)return;
+    tracking=false;
+    const dx=e.changedTouches[0].clientX-sx;
+    const dy=e.changedTouches[0].clientY-sy;
+    if(Math.abs(dx)<60||Math.abs(dx)<Math.abs(dy)*1.5)return;
+    const idx=TAB_ORDER.indexOf(activeTab);
+    if(dx<0&&idx<TAB_ORDER.length-1)setTab(TAB_ORDER[idx+1],'next');
+    else if(dx>0&&idx>0)setTab(TAB_ORDER[idx-1],'prev');
+  },{passive:true});
+})();
 
 // ── SUMMARY ──
 function renderSummary(){
