@@ -9,6 +9,9 @@
 //   GET /zwift-routes → returns all Zwift routes from Notion in a cached envelope
 //   GET /zwift-routes?refresh=true → forces a fresh pull from Notion
 //   PATCH /zwift-routes/{pageId} → updates Status/Date completed/Time on one route
+//   GET /sync-training-log → pulls recent Strava activities into the Notion
+//                             Training Log database (also runs on a schedule —
+//                             see the `crons` entry in wrangler.toml)
 // =============================================================================
 
 // ---- IMPORTANT: replace this with your actual Worker URL ------------------
@@ -41,11 +44,12 @@ export default {
     }
 
     switch (url.pathname) {
-      case '/auth':         return handleAuth(env);
-      case '/callback':     return handleCallback(request, env);
-      case '/activities':   return handleActivities(request, env);
-      case '/debug':        return handleDebug(env);
-      case '/zwift-routes': return handleZwiftRoutes(request, env);
+      case '/auth':               return handleAuth(env);
+      case '/callback':           return handleCallback(request, env);
+      case '/activities':         return handleActivities(request, env);
+      case '/debug':              return handleDebug(env);
+      case '/zwift-routes':       return handleZwiftRoutes(request, env);
+      case '/sync-training-log':  return handleSyncTrainingLog(env);
       default:
         if (url.pathname.startsWith('/zwift-routes/') && request.method === 'PATCH') {
           const pageId = url.pathname.slice('/zwift-routes/'.length);
@@ -53,7 +57,12 @@ export default {
         }
         return new Response('Not found', { status: 404 });
     }
-  }
+  },
+
+  // Fires on the schedule configured in wrangler.toml's `[triggers] crons`.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(syncActivitiesToNotion(env));
+  },
 };
 
 // =============================================================================
@@ -513,6 +522,172 @@ function parseTimeToSeconds(t) {
   if (parts.length !== 3 || parts.some(isNaN)) return null;
   const [h, m, s] = parts;
   return h * 3600 + m * 60 + s;
+}
+
+// =============================================================================
+// TRAINING LOG SYNC — REPLACES THE OLD ZAPIER STRAVA→NOTION AUTOMATION
+// Zapier stopped firing, so this pulls the job in-house: on each run (manual
+// hit or scheduled), it looks back a few days over Strava activities and
+// creates a matching Training Log row for anything not already there.
+// Matching/dedup is done against the "userDefined:URL" property, which
+// already holds the Strava activity link on every row Zapier ever created —
+// no schema change needed. Existing rows are left untouched (never patched),
+// so a manual edit you make in Notion is never clobbered by a later re-run.
+// Fields that need real judgement (the Gear/Diary/Events relations) are
+// intentionally left for you to link by hand, exactly as they were before.
+// =============================================================================
+
+const TRAINING_LOG_DATA_SOURCE_ID = '65bc3d80-a789-4c41-8107-3ba633df1672';
+const TRAINING_LOG_LOOKBACK_DAYS  = 3; // safety margin for late GPS-watch syncs
+
+async function handleSyncTrainingLog(env) {
+  if (!env.NOTION_API_KEY) {
+    return new Response(JSON.stringify({ error: true, message: 'NOTION_API_KEY not configured' }), {
+      status: 500,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+
+  try {
+    const summary = await syncActivitiesToNotion(env);
+    return new Response(JSON.stringify({ ...summary, syncedAt: new Date().toISOString() }), {
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  } catch (err) {
+    return notionErrorResponse(err);
+  }
+}
+
+async function syncActivitiesToNotion(env) {
+  const accessToken = await getAccessToken(env);
+  const afterEpoch   = Math.floor(Date.now() / 1000) - TRAINING_LOG_LOOKBACK_DAYS * 86400;
+  const activities   = await fetchRecentStravaActivities(accessToken, afterEpoch);
+
+  let created = 0, skipped = 0, failed = 0;
+  const errors = [];
+
+  for (const a of activities) {
+    const stravaUrl = `https://www.strava.com/activities/${a.id}`;
+    try {
+      const existing = await findTrainingLogPageByUrl(stravaUrl, env);
+      if (existing) { skipped++; continue; }
+
+      await notionRequest('/v1/pages', env, {
+        method: 'POST',
+        body: JSON.stringify({
+          parent:     { type: 'data_source_id', data_source_id: TRAINING_LOG_DATA_SOURCE_ID },
+          properties: buildTrainingLogProperties(a, stravaUrl),
+        }),
+      });
+      created++;
+    } catch (err) {
+      failed++;
+      errors.push({ id: a.id, name: a.name, message: err.message });
+      console.error(`Training Log sync failed for activity ${a.id} (${a.name}): ${err.message}`);
+    }
+  }
+
+  return { checked: activities.length, created, skipped, failed, errors };
+}
+
+async function fetchRecentStravaActivities(accessToken, afterEpoch) {
+  const all  = [];
+  let   page = 1;
+
+  while (true) {
+    const res = await fetch(
+      `https://www.strava.com/api/v3/athlete/activities?after=${afterEpoch}&per_page=100&page=${page}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const batch = await res.json();
+    if (!Array.isArray(batch) || batch.length === 0) break;
+
+    all.push(...batch);
+    if (batch.length < 100) break;
+    page++;
+  }
+
+  return all;
+}
+
+async function findTrainingLogPageByUrl(stravaUrl, env) {
+  const res = await notionRequest(`/v1/data_sources/${TRAINING_LOG_DATA_SOURCE_ID}/query`, env, {
+    method: 'POST',
+    body: JSON.stringify({
+      filter:    { property: 'userDefined:URL', url: { equals: stravaUrl } },
+      page_size: 1,
+    }),
+  });
+  return res.results && res.results.length > 0 ? res.results[0] : null;
+}
+
+// Ride cadence is reported in RPM; foot-sport cadence is per-leg strides/min,
+// so it's doubled into SPM (total steps/min) alongside the raw per-leg value —
+// matching how these two cadence fields were already being used in Notion.
+const TRAINING_LOG_RIDE_TYPES = ['Ride', 'VirtualRide', 'EBikeRide', 'Handcycle'];
+const TRAINING_LOG_FOOT_TYPES = ['Run', 'TrailRun', 'Walk', 'Hike'];
+
+function paceSecondsToNotion(sec) {
+  if (!sec || sec <= 0) return null;
+  let m = Math.floor(sec / 60);
+  let s = Math.round(sec % 60);
+  if (s === 60) { m += 1; s = 0; }
+  return m * 100 + s;
+}
+
+function buildTrainingLogProperties(a, stravaUrl) {
+  const sportType  = a.sport_type || a.type || 'Workout';
+  const distKm     = (a.distance || 0) / 1000;
+  const distMi     = distKm * 0.621371;
+  const elevM      = a.total_elevation_gain || 0;
+  const elevFt     = elevM * 3.28084;
+  const speedMs    = a.average_speed || 0;
+  const speedKph   = speedMs * 3.6;
+  const speedMph   = speedMs * 2.23694;
+  const paceKmSec  = speedKph > 0 ? 3600 / speedKph : 0;
+  const paceMiSec  = speedMph > 0 ? 3600 / speedMph : 0;
+  const hasPartner = /\bw\/\s*(.+)/i.test(a.name || '');
+
+  const props = {
+    'Activity':        { title: [{ text: { content: a.name || 'Untitled activity' } }] },
+    'Start time':       { date: { start: a.start_date_local } },
+    'Type':            { multi_select: [{ name: sportType }] },
+    'Distance (mi)':   { number: round(distMi, 2) },
+    'Distance (Km)':   { number: round(distKm, 2) },
+    'Elevation (Ft)':  { number: round(elevFt, 1) },
+    'Elevation (m)':   { number: round(elevM, 1) },
+    'userDefined:URL': { url: stravaUrl },
+    'w/':              { select: { name: hasPartner ? 'Joint Activity' : 'Solo Activity' } },
+  };
+
+  if (speedMph > 0) {
+    props['Avg (MPH)'] = { number: round(speedMph, 2) };
+    props['Avg (KPH)'] = { number: round(speedKph, 2) };
+    props['Pace/m']    = { number: paceSecondsToNotion(paceMiSec) };
+    props['Pace/k']    = { number: paceSecondsToNotion(paceKmSec) };
+  }
+
+  if (a.average_heartrate) props['HR (Avg)'] = { number: round(a.average_heartrate, 1) };
+  if (a.max_heartrate)     props['HR (Max)'] = { number: a.max_heartrate };
+
+  if (a.average_cadence) {
+    if (TRAINING_LOG_RIDE_TYPES.includes(sportType)) {
+      props['Cad'] = { number: round(a.average_cadence, 1) };
+    } else if (TRAINING_LOG_FOOT_TYPES.includes(sportType)) {
+      props['Cadence'] = { number: round(a.average_cadence, 1) };
+      props['SPM']     = { number: round(a.average_cadence * 2, 1) };
+    }
+  }
+
+  if (a.gear_id) props['Gear ID'] = { rich_text: [{ text: { content: a.gear_id } }] };
+
+  // Best-effort guess — flag any Walk whose name mentions "dog". Not
+  // authoritative; if it's wrong for a given entry just fix it in Notion.
+  if (sportType === 'Walk' && /dog/i.test(a.name || '')) {
+    props['Dog Walk'] = { select: { name: 'Dog Walk' } };
+  }
+
+  return props;
 }
 
 // =============================================================================

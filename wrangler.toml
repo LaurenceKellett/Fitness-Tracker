@@ -11,3 +11,11 @@ id      = "1d4eb3dfbeeb4e7a90468052225dcfec"
 # Add this line to unlock out-of-the-box AI
 [ai]
 binding = "AI"
+
+# Runs the Strava → Notion Training Log sync 3x/day at 10am, 4pm, 11pm UK time.
+# Cloudflare cron is UTC-only and doesn't shift for daylight saving, so the
+# hours below (9,15,22) are for BST (UTC+1, roughly late Mar–late Oct).
+# Switch to "0 10,16,23 * * *" once the clocks go back to GMT, and back again
+# in spring — or just accept the feed landing an hour off for a few weeks.
+[triggers]
+crons = ["0 9,15,22 * * *"]
