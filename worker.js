@@ -727,7 +727,14 @@ function buildTrainingLogProperties(a, stravaUrl) {
 
   const props = {
     'Activity':        { title: [{ text: { content: a.name || 'Untitled activity' } }] },
-    'Start time':       { date: { start: a.start_date_local } },
+    // start_date, not start_date_local. Strava returns start_date_local as
+    // local time carrying a fake Z suffix ("2026-08-31T07:56:41Z" for an 07:56
+    // BST run), so handing it to Notion stores it as 07:56 UTC and displays it
+    // as 08:56 — an hour late for half the year. start_date is the honest UTC
+    // instant, which is what every Zapier-era row holds and what makes Notion
+    // render the right local time. The local date is still what decides the
+    // diary day; that is read off start_date_local in the sync loop.
+    'Start time':      { date: { start: a.start_date || a.start_date_local } },
     'Type':            { multi_select: [{ name: sportType }] },
     'Distance (mi)':   { number: round(distMi, 2) },
     'Distance (Km)':   { number: round(distKm, 2) },

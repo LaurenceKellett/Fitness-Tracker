@@ -168,6 +168,19 @@ once you've written the day. The run summary reports these as `relinked`.
   sending the prefixed form is an unknown-property validation error. If you
   ever regenerate this mapping from an MCP schema dump, strip the prefix.
 
+### Start times
+
+`Start time` is written from Strava's `start_date`, the true UTC instant — not
+`start_date_local`. Strava returns `start_date_local` as local time carrying a
+fake `Z` suffix (`2026-08-31T07:56:41Z` for an 07:56 BST run), so passing it
+straight to Notion stores 07:56 UTC and renders **08:56** in a UK workspace: an
+hour late for the whole of BST, and correct only in winter. Every Zapier-era row
+holds true UTC, which is what makes Notion display the right local time.
+
+The local date is still what decides which diary day a row belongs to, and that
+is read off `start_date_local` in the sync loop — the one place the local field
+is the right one.
+
 ### Sport types
 
 The Training Log's `Type` property has eight options: Swim, Run, TrailRun,
