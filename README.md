@@ -110,7 +110,7 @@ Zwift route data is cached under `zwift_routes_v1` with a short 2-minute TTL (No
 | `GET /auth` | Redirects to Strava OAuth — run once to get a refresh token |
 | `GET /callback` | Exchanges the OAuth code, stores the refresh token in KV, and shows it for the secret |
 | `GET /debug` | Strava connection diagnostic — reports whether the token refresh worked and returns five activities. Never echoes the token response itself: this route has no auth |
-| `GET /sync-training-log` | Runs the Strava → Notion Training Log sync now, and returns `{ checked, created, skipped, failed, errors }`. Also runs automatically on the cron |
+| `GET /sync-training-log` | Runs the Strava → Notion Training Log sync now, and returns `{ checked, created, skipped, relinked, failed, errors }`. Also runs automatically on the cron |
 | `GET /zwift-routes` | Returns the cached Zwift routes envelope `{ data, updatedAt }`, proxied live from Notion |
 | `GET /zwift-routes?refresh=true` | Bypasses cache, re-fetches all routes from Notion |
 | `PATCH /zwift-routes/{pageId}` | Updates `status`/`date_completed`/`time` on one route, writes straight to Notion |
@@ -129,8 +129,31 @@ matched on the **URL** property, which holds the Strava activity link on every
 row Zapier ever created, so re-running is safe: anything already there is
 skipped and **never patched**. Edits you make in Notion are never overwritten.
 
-`Gear`, `Diary` and `Events` are relations that need real judgement, so the
-sync leaves them empty for you to link by hand, exactly as before.
+`Gear` and `Events` are relations that need real judgement, so the sync leaves
+them empty for you to link by hand, exactly as before.
+
+### The Diary relation
+
+Each row's `Diary` relation is pointed at the diary page for the day the
+activity actually happened, matched on the Diary database's `Date` property
+against Strava's `start_date_local`. It is also **re-checked on every pass**,
+and corrected if it disagrees — the one place the sync writes to a row it did
+not just create.
+
+That exception is load-bearing, for two reasons that both defeat setting it
+once at creation:
+
+- The diary page for a day usually doesn't exist yet when the activity syncs.
+  You run at 07:00 and write the day up at 22:00, so a link set at creation
+  would be empty far more often than not.
+- A Notion automation on this database attaches **today's** diary page to every
+  newly created row, whatever day the activity is from. A backfill run
+  therefore lands three days of activities all pointing at today.
+
+A row is only written when its current link disagrees with its own date, so a
+link you set by hand is never touched, and a day with no diary page yet is left
+alone rather than cleared — the next run inside the lookback window picks it up
+once you've written the day. The run summary reports these as `relinked`.
 
 ### Two things that will silently stop it
 

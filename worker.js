@@ -549,12 +549,58 @@ function parseTimeToSeconds(t) {
 // api.notion.com, which knows it only as "URL" — sending the prefixed form is
 // an unknown-property validation error on both the filter and the create. Existing rows are left untouched (never patched),
 // so a manual edit you make in Notion is never clobbered by a later re-run.
-// Fields that need real judgement (the Gear/Diary/Events relations) are
-// intentionally left for you to link by hand, exactly as they were before.
+// The Diary relation is set from the activity's OWN local date, and re-checked
+// on every pass — see repairDiaryLink for why that has to be a patch. Gear and
+// Events still need real judgement, so they are left for you to link by hand.
 // =============================================================================
 
 const TRAINING_LOG_DATA_SOURCE_ID = '65bc3d80-a789-4c41-8107-3ba633df1672';
 const TRAINING_LOG_LOOKBACK_DAYS  = 3; // safety margin for late GPS-watch syncs
+const DIARY_DATA_SOURCE_ID        = '5276333e-fb61-47fd-8ab6-710d8bb8a656';
+
+// The diary page for one day, looked up by its Date property. Cached per sync
+// run rather than module-level: a Worker isolate outlives a request, and a day
+// that had no diary page at 09:00 usually has one by 22:00 — a cache that
+// survived between runs would keep insisting it doesn't exist.
+async function findDiaryPageForDate(isoDate, env, cache) {
+  if (cache.has(isoDate)) return cache.get(isoDate);
+  const res = await notionRequest(`/v1/data_sources/${DIARY_DATA_SOURCE_ID}/query`, env, {
+    method:  'POST',
+    body:    JSON.stringify({ filter: { property: 'Date', date: { equals: isoDate } }, page_size: 1 }),
+  });
+  const id = (res.results && res.results[0] && res.results[0].id) || null;
+  cache.set(isoDate, id);
+  return id;
+}
+
+// Points an existing row's Diary relation at the day the activity actually
+// happened, and returns whether it had to change anything.
+//
+// This is the one place the sync patches a row it did not just create, and it
+// earns the exception. Two things conspire against setting Diary once at
+// creation and leaving it: the diary page for a day usually does not exist yet
+// when the activity syncs (you run at 07:00 and write the day up at 22:00), and
+// a Notion automation on this database attaches TODAY'S diary page to every new
+// row regardless of when the activity happened — so a backfilled row lands
+// pointing at the wrong day and stays there. Re-checking each pass fixes both,
+// and a row only gets written when its current link disagrees with its own
+// date, so a correct link is never touched.
+//
+// A day with no diary page yet is left alone rather than cleared: the next run
+// inside the lookback window will pick it up once the day is written.
+async function repairDiaryLink(page, isoDate, env, cache) {
+  if (!isoDate) return false;
+  const want = await findDiaryPageForDate(isoDate, env, cache);
+  if (!want) return false;
+  const bare = id => String(id).replace(/-/g, '');
+  const have = ((page.properties && page.properties.Diary && page.properties.Diary.relation) || []).map(r => bare(r.id));
+  if (have.length === 1 && have[0] === bare(want)) return false;
+  await notionRequest(`/v1/pages/${page.id}`, env, {
+    method: 'PATCH',
+    body:   JSON.stringify({ properties: { Diary: { relation: [{ id: want }] } } }),
+  });
+  return true;
+}
 
 async function handleSyncTrainingLog(env) {
   if (!env.NOTION_API_KEY) {
@@ -579,20 +625,35 @@ async function syncActivitiesToNotion(env) {
   const afterEpoch   = Math.floor(Date.now() / 1000) - TRAINING_LOG_LOOKBACK_DAYS * 86400;
   const activities   = await fetchRecentStravaActivities(accessToken, afterEpoch);
 
-  let created = 0, skipped = 0, failed = 0;
+  let created = 0, skipped = 0, relinked = 0, failed = 0;
   const errors = [];
+  // Shared across the whole run so a day with several activities costs one
+  // diary lookup, not one per activity. Worth caring about: a Worker has a
+  // hard cap on subrequests per invocation.
+  const diaryCache = new Map();
 
   for (const a of activities) {
     const stravaUrl = `https://www.strava.com/activities/${a.id}`;
+    // Strava returns start_date_local with a Z suffix even though it is local
+    // time, so the first ten characters are the day it happened where you were.
+    const localDate = (a.start_date_local || '').slice(0, 10);
     try {
       const existing = await findTrainingLogPageByUrl(stravaUrl, env);
-      if (existing) { skipped++; continue; }
+      if (existing) {
+        if (await repairDiaryLink(existing, localDate, env, diaryCache)) relinked++;
+        else skipped++;
+        continue;
+      }
+
+      const props = buildTrainingLogProperties(a, stravaUrl);
+      const diaryPageId = await findDiaryPageForDate(localDate, env, diaryCache);
+      if (diaryPageId) props['Diary'] = { relation: [{ id: diaryPageId }] };
 
       await notionRequest('/v1/pages', env, {
         method: 'POST',
         body: JSON.stringify({
           parent:     { type: 'data_source_id', data_source_id: TRAINING_LOG_DATA_SOURCE_ID },
-          properties: buildTrainingLogProperties(a, stravaUrl),
+          properties: props,
         }),
       });
       created++;
@@ -603,7 +664,7 @@ async function syncActivitiesToNotion(env) {
     }
   }
 
-  return { checked: activities.length, created, skipped, failed, errors };
+  return { checked: activities.length, created, skipped, relinked, failed, errors };
 }
 
 async function fetchRecentStravaActivities(accessToken, afterEpoch) {
