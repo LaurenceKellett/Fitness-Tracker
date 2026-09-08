@@ -115,6 +115,11 @@ async function handleCallback(request, env) {
     );
   }
 
+  // Written here as well as shown, so re-running /auth actually recovers a
+  // dead token: getAccessToken() reads KV first, and a value left there would
+  // otherwise keep overriding whatever you paste into the secret.
+  if (env.CACHE) await env.CACHE.put(STRAVA_REFRESH_KEY, data.refresh_token);
+
   const html = `<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"><title>Connected!</title>
@@ -130,9 +135,12 @@ async function handleCallback(request, env) {
 </head>
 <body>
   <h2>✅ Connected to Strava!</h2>
-  <p>Copy the refresh token below, then go to your Worker in the Cloudflare dashboard
-     → <strong>Settings → Variables and Secrets</strong> → add a secret called
-     <code>STRAVA_REFRESH_TOKEN</code> and paste it in.</p>
+  <p>This token is already live — it has been written to the Worker's KV store,
+     so the feed and the Training Log sync work from now on with nothing else to do.</p>
+  <p>Optional, for a clean rebuild: copy it below and set it as the
+     <code>STRAVA_REFRESH_TOKEN</code> secret under
+     <strong>Settings → Variables and Secrets</strong>. That secret is only ever
+     the seed for an empty KV store.</p>
   <textarea readonly onclick="this.select()">${data.refresh_token}</textarea>
   <div class="step">
     <strong>Once saved:</strong> visit <code>${WORKER_URL}/activities</code> to test the live feed.
@@ -257,23 +265,26 @@ async function generateAiSummary(activities, env) {
 // DEBUG ROUTE
 // =============================================================================
 
+// This route has no auth and CORS is open to *, so it must never echo Strava's
+// raw token response: that carries the access token AND the refresh token, and
+// the refresh token is indefinite read access to the account. It reports
+// whether the refresh worked, not what it returned — and goes through
+// getAccessToken() rather than re-implementing it, so there is one token path
+// to keep right instead of two.
+function redactTokens(text) {
+  return String(text).replace(/\b[0-9a-f]{40}\b/gi, '<redacted>');
+}
+
 async function handleDebug(env) {
   const out = {};
 
-  const tokenRes = await fetch('https://www.strava.com/oauth/token', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({
-      client_id:     env.STRAVA_CLIENT_ID,
-      client_secret: env.STRAVA_CLIENT_SECRET,
-      refresh_token: env.STRAVA_REFRESH_TOKEN,
-      grant_type:    'refresh_token',
-    }),
-  });
-  const tokenData = await tokenRes.json();
-  out.token_response = tokenData;
-
-  if (!tokenData.access_token) {
+  let accessToken;
+  try {
+    accessToken = await getAccessToken(env);
+    out.token = 'ok';
+  } catch (err) {
+    out.token = 'failed';
+    out.token_error = redactTokens(err.message);
     return new Response(JSON.stringify(out, null, 2), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });
@@ -281,7 +292,7 @@ async function handleDebug(env) {
 
   const actRes = await fetch(
     'https://www.strava.com/api/v3/athlete/activities?per_page=5&page=1',
-    { headers: { Authorization: `Bearer ${tokenData.access_token}` } }
+    { headers: { Authorization: `Bearer ${accessToken}` } }
   );
   out.activities_status = actRes.status;
   out.activities_response = await actRes.json();
@@ -529,9 +540,14 @@ function parseTimeToSeconds(t) {
 // Zapier stopped firing, so this pulls the job in-house: on each run (manual
 // hit or scheduled), it looks back a few days over Strava activities and
 // creates a matching Training Log row for anything not already there.
-// Matching/dedup is done against the "userDefined:URL" property, which
-// already holds the Strava activity link on every row Zapier ever created —
-// no schema change needed. Existing rows are left untouched (never patched),
+// Matching/dedup is done against the "URL" property, which already holds the
+// Strava activity link on every row Zapier ever created — no schema change
+// needed. Note the plain name: Notion's MCP server displays this property as
+// "userDefined:URL" because it namespaces any user property that collides
+// with one of its own system columns, and a property called URL collides with
+// the page's own url. That alias is an MCP display detail and means nothing to
+// api.notion.com, which knows it only as "URL" — sending the prefixed form is
+// an unknown-property validation error on both the filter and the create. Existing rows are left untouched (never patched),
 // so a manual edit you make in Notion is never clobbered by a later re-run.
 // Fields that need real judgement (the Gear/Diary/Events relations) are
 // intentionally left for you to link by hand, exactly as they were before.
@@ -614,7 +630,7 @@ async function findTrainingLogPageByUrl(stravaUrl, env) {
   const res = await notionRequest(`/v1/data_sources/${TRAINING_LOG_DATA_SOURCE_ID}/query`, env, {
     method: 'POST',
     body: JSON.stringify({
-      filter:    { property: 'userDefined:URL', url: { equals: stravaUrl } },
+      filter:    { property: 'URL', url: { equals: stravaUrl } },
       page_size: 1,
     }),
   });
@@ -656,7 +672,7 @@ function buildTrainingLogProperties(a, stravaUrl) {
     'Distance (Km)':   { number: round(distKm, 2) },
     'Elevation (Ft)':  { number: round(elevFt, 1) },
     'Elevation (m)':   { number: round(elevM, 1) },
-    'userDefined:URL': { url: stravaUrl },
+    'URL':             { url: stravaUrl },
     'w/':              { select: { name: hasPartner ? 'Joint Activity' : 'Solo Activity' } },
   };
 
@@ -694,20 +710,39 @@ function buildTrainingLogProperties(a, stravaUrl) {
 // TOKEN REFRESH
 // =============================================================================
 
+// Strava's refresh response may hand back a NEW refresh token, and the old one
+// stops working when it does. A Worker secret is read-only at runtime, so the
+// replacement would have nowhere to go and the next run would fail — which,
+// on a cron nobody watches, is a silent death months from now. KV is the one
+// place this Worker can write, so the live token lives there: the secret is
+// only ever the seed for a cold start.
+//
+// Nothing deletes the stored value on failure. A transient Strava error would
+// otherwise throw away a perfectly good token and fall back to a secret that
+// is by definition older; re-running /auth is the recovery path instead, and
+// the callback now writes to KV too so that actually fixes it.
+const STRAVA_REFRESH_KEY = 'strava_refresh_token';
+
 async function getAccessToken(env) {
+  const stored  = env.CACHE ? await env.CACHE.get(STRAVA_REFRESH_KEY) : null;
+  const current = stored || env.STRAVA_REFRESH_TOKEN;
+
   const res  = await fetch('https://www.strava.com/oauth/token', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({
       client_id:     env.STRAVA_CLIENT_ID,
       client_secret: env.STRAVA_CLIENT_SECRET,
-      refresh_token: env.STRAVA_REFRESH_TOKEN,
+      refresh_token: current,
       grant_type:    'refresh_token',
     }),
   });
   const data = await res.json();
   if (!data.access_token) {
     throw new Error(`Token refresh failed: ${JSON.stringify(data)}`);
+  }
+  if (env.CACHE && data.refresh_token && data.refresh_token !== current) {
+    await env.CACHE.put(STRAVA_REFRESH_KEY, data.refresh_token);
   }
   return data.access_token;
 }
