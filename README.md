@@ -29,7 +29,7 @@ The Worker holds all secrets and does all the heavy work. The Pages frontend is 
 
 | File | Purpose |
 |------|---------|
-| `worker.js` | Cloudflare Worker — OAuth, Strava fetch, GPS privacy trimming, KV caching, AI summary |
+| `worker.js` | Cloudflare Worker — OAuth, Strava fetch, GPS privacy trimming, KV caching, AI summary, Zwift Routes proxy, and the scheduled Strava → Notion Training Log sync |
 | `index.html` | Full dashboard frontend — all CSS, HTML, and JS in one file |
 | `wrangler.toml` | Wrangler config for the Worker |
 | `.github/workflows/deploy-worker.yml` | Auto-deploys the Worker to Cloudflare on every push that touches `worker.js` or `wrangler.toml` |
@@ -82,7 +82,7 @@ Set these in the Cloudflare dashboard under **Workers & Pages → activities-api
 | `HOME_LNG_2` | Longitude of home location 2 (optional) |
 | `HOME_LAT_3` … `HOME_LAT_5` | Additional home locations (optional) |
 | `HOME_LNG_3` … `HOME_LNG_5` | Corresponding longitudes |
-| `NOTION_API_KEY` | Internal integration secret from a Notion integration (`notion.so/my-integrations`) with Read + Update content capabilities, shared with the "Zwift Routes" database via its `•••` → Connections menu |
+| `NOTION_API_KEY` | Internal integration secret from a Notion integration (`notion.so/my-integrations`). Needs **Read**, **Update** *and* **Insert** content capabilities — Insert is what lets the Training Log sync create rows, and without it every sync fails with a permission error. Share it with **both** the "Zwift Routes" **and** the "Training Log" databases via each one's `•••` → Connections menu |
 
 ### Worker bindings
 
@@ -108,11 +108,53 @@ Zwift route data is cached under `zwift_routes_v1` with a short 2-minute TTL (No
 | `GET /activities` | Returns the cached activity envelope `{ data, aiSummary, updatedAt }` |
 | `GET /activities?refresh=true` | Bypasses cache, re-fetches from Strava, regenerates AI summary |
 | `GET /auth` | Redirects to Strava OAuth — run once to get a refresh token |
-| `GET /callback` | Exchanges the OAuth code, shows the refresh token to copy |
-| `GET /debug` | Raw Strava token diagnostic |
+| `GET /callback` | Exchanges the OAuth code, stores the refresh token in KV, and shows it for the secret |
+| `GET /debug` | Strava connection diagnostic — reports whether the token refresh worked and returns five activities. Never echoes the token response itself: this route has no auth |
+| `GET /sync-training-log` | Runs the Strava → Notion Training Log sync now, and returns `{ checked, created, skipped, failed, errors }`. Also runs automatically on the cron |
 | `GET /zwift-routes` | Returns the cached Zwift routes envelope `{ data, updatedAt }`, proxied live from Notion |
 | `GET /zwift-routes?refresh=true` | Bypasses cache, re-fetches all routes from Notion |
 | `PATCH /zwift-routes/{pageId}` | Updates `status`/`date_completed`/`time` on one route, writes straight to Notion |
+
+---
+
+## Training Log sync
+
+Strava activities are written into the **Training Log** Notion database three
+times a day (`[triggers] crons` in `wrangler.toml`, plus `GET /sync-training-log`
+to run it on demand). This replaced a Zapier automation that stopped firing.
+
+Each run looks back three days — a generous margin so a late GPS-watch upload,
+or a missed cron, is picked up on the next pass rather than lost. Rows are
+matched on the **URL** property, which holds the Strava activity link on every
+row Zapier ever created, so re-running is safe: anything already there is
+skipped and **never patched**. Edits you make in Notion are never overwritten.
+
+`Gear`, `Diary` and `Events` are relations that need real judgement, so the
+sync leaves them empty for you to link by hand, exactly as before.
+
+### Two things that will silently stop it
+
+- **Notion capabilities.** Creating a row needs the integration's **Insert
+  content** capability, and the integration has to be shared with the Training
+  Log database itself. Neither is implied by the Zwift Routes setup. Symptom: a
+  sync where `created` is 0 and `failed` equals `checked`.
+- **Property names are the plain ones.** Notion's MCP server displays the URL
+  property as `userDefined:URL`, because it namespaces any user property whose
+  name collides with one of its own system columns. That prefix is an MCP
+  display detail; `api.notion.com` knows the property only as `URL`, and
+  sending the prefixed form is an unknown-property validation error. If you
+  ever regenerate this mapping from an MCP schema dump, strip the prefix.
+
+### Sport types
+
+The Training Log's `Type` property has eight options: Swim, Run, TrailRun,
+Ride, VirtualRide, Walk, Workout, Rowing. Strava's `sport_type` vocabulary is
+much larger, and Notion **creates** a select option for any name it doesn't
+recognise rather than rejecting it — so a Hike or a WeightTraining session adds
+a new option to the property and shows up in the Diary app with the generic
+icon (it maps types by name). Nothing breaks; the list just grows. Fold new
+sports onto an existing option in `buildTrainingLogProperties` if you'd rather
+it didn't.
 
 ---
 
