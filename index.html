@@ -85,7 +85,8 @@ a{color:inherit;text-decoration:none}
 /* STATS */
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:14px;margin-bottom:24px}
 .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:18px 20px;box-shadow:var(--shadow)}
-.stat-card.highlight{border-top:3px solid #22c55e}
+.stat-card-link{cursor:pointer;transition:box-shadow .1s}
+.stat-card-link:hover{box-shadow:0 2px 4px rgba(15,23,42,.06),0 8px 20px rgba(15,23,42,.09)}
 .stat-label{font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:6px}
 .stat-value{font-size:24px;font-weight:700;letter-spacing:-.5px;line-height:1}
 .stat-unit{font-size:13px;font-weight:400;color:var(--text-muted);margin-left:3px}
@@ -275,6 +276,12 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .dow-label{font-size:10px;color:var(--text-muted)}.dow-count{font-size:9px;color:var(--text-muted)}
 .two-col{display:grid;grid-template-columns:2fr 1fr;gap:18px;margin-bottom:24px}
 @media(max-width:700px){.two-col{grid-template-columns:1fr}}
+/* Summary only: let Most Active Days grow to the height of the Activity Breakdown cards
+   beside it, instead of sitting at its natural height with a gap underneath. */
+.two-col-fill>div{display:flex;flex-direction:column;min-width:0}
+.two-col-fill .type-row{margin-bottom:0}
+.two-col-fill .dow-card{flex:1;display:flex;flex-direction:column}
+.two-col-fill .dow-bars{flex:1;height:auto;min-height:90px}
 .scroll-x{overflow-x:auto}
 /* EARLY YEARS TOGGLE */
 .early-years-toggle{cursor:pointer;color:var(--text-muted);font-size:12px;padding:10px 14px;background:var(--bg);border-top:1px solid var(--border);text-align:left;transition:color .15s}
@@ -290,7 +297,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
 /* RECENT */
 .recent-list{display:flex;flex-direction:column;gap:8px}
 .recent-item{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:12px 16px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow)}
-.recent-dot{width:10px;height:10px;border-radius:0;flex-shrink:0}
+/* The sport colour rides on the row's left edge rather than a separate swatch. */
+.recent-item{border-left-width:3px;border-left-style:solid}
 .recent-info{flex:1;min-width:0}
 .recent-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .recent-meta{font-size:11px;color:var(--text-muted);margin-top:2px}
@@ -360,10 +368,6 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .streak-dot{width:8px;height:8px;border-radius:0;background:#22c55e;display:inline-block;animation:sdot 1.4s ease-in-out infinite}
 @keyframes sdot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.7)}}
 /* AI SUMMARY */
-.ai-box{background:var(--surface);border:1px solid var(--border);border-top:3px solid #a855f7;border-radius:0;padding:20px 24px;margin-bottom:24px;box-shadow:var(--shadow-callout)}
-.ai-label{font-size:11px;font-weight:700;color:#a855f7;margin-bottom:8px;display:flex;align-items:center;gap:5px}
-.ai-text{font-size:14px;line-height:1.7;color:var(--text)}
-.ai-byline{font-size:11px;color:var(--text-muted);margin-top:8px;font-style:italic}
 /* LOCATIONS */
 .loc-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
 .loc-pill{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;background:var(--surface);border:1px solid var(--border);border-radius:0;font-size:12px;font-weight:500;color:var(--text-muted);transition:background .15s,border-color .15s}
@@ -487,7 +491,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 <!-- SUMMARY -->
 <div id="tab-summary" class="tab-content active">
   <div class="stats-grid" id="heroStats"></div>
-  <div class="two-col">
+  <div class="two-col two-col-fill">
     <div>
       <div class="section-header"><h2>Activity Breakdown</h2></div>
       <div class="type-row" id="typeCards"></div>
@@ -498,18 +502,6 @@ tbody td{padding:10px 14px;vertical-align:middle}
     </div>
   </div>
   
-<!-- AI SUMMARY -->
-<div class="ai-box">
-  <div class="ai-label"><span class="ms" style="font-size:12px">auto_awesome</span> Monthly Summary</div>
-  
-  <div id="ai-summary-text-box" class="ai-text">
-    Analyzing your training history and calculating monthly stats...
-  </div>
-  
-  <div id="ai-summary-date" class="ai-byline">
-    Generating fresh insights from your full Strava export...
-  </div>
-</div>
 <div class="section-header"><h2>Year by Year</h2></div>
   <div class="year-table-wrap scroll-x"><table id="yearTable"></table></div>
 <!-- LOCATIONS -->
@@ -863,8 +855,7 @@ function recentItemHtml(a,showDate){
   const g=typeGroup(a.type);
   const hr=a.hr?' · <span class="ms ms-fill" style="font-size:13px;color:#ef4444">favorite</span> '+Math.round(a.hr)+' bpm':'';
   const gear=a.gear?' · <span class="ms" style="font-size:13px">'+gearIconName(g)+'</span> '+escapeHtml(gearLabel(a.gear).split(' ').slice(0,2).join(' ')):'';
-  return`<div class="recent-item">
-      <div class="recent-dot" style="background:${groupColor(g)}"></div>
+  return`<div class="recent-item" style="border-left-color:${groupColor(g)}">
       <div class="recent-info">
         <div class="recent-name">${escapeHtml(a.name||a.type)}</div>
         <div class="recent-meta">${showDate?fmtDate(a.date)+' · ':''}${typeEmoji(g)} ${g}${hr}${gear}</div>
@@ -1014,9 +1005,11 @@ function renderSummary(){
   const curDist=(activeYear==='All'?getFilteredForYear(curYear):data).reduce((s,a)=>s+(a.dist_mi||0),0);
   const delta=activeYear!=='All'&&prevDist>0?(curDist-prevDist)/prevDist*100:null;
   const deltaStr=delta!=null?(delta>=0?`↑ ${Math.abs(delta).toFixed(0)}% vs ${prevYear}`:`↓ ${Math.abs(delta).toFixed(0)}% vs ${prevYear}`):'';
+  // Same figure the Mex tab shows, over the same filtered set, so the two never disagree.
+  const summaryMex=mexOf(mexBuckets(data));
 
   document.getElementById('heroStats').innerHTML=`
-    <div class="stat-card highlight" style="border-left-color:${accent}">
+    <div class="stat-card">
       <div class="stat-label">Total Distance</div>
       <div class="stat-value">${fmtDist(totalDist)}<span class="stat-unit">${distUnit()}</span></div>
       ${delta!=null?`<div class="stat-delta ${delta>=0?'up':'down'}">${deltaStr}</div>`:'<div class="stat-sub">No prior year data</div>'}
@@ -1048,6 +1041,7 @@ function renderSummary(){
     ${longestRide?`<div class="stat-card"><div class="stat-label">Longest Ride</div><div class="stat-value">${fmtDist(longestRide.dist_mi)}<span class="stat-unit">${distUnit()}</span></div><div class="stat-sub">${fmtDate(longestRide.date)}</div></div>`:''}
     ${longestRun?`<div class="stat-card"><div class="stat-label">Longest Run</div><div class="stat-value">${fmtDist(longestRun.dist_mi)}<span class="stat-unit">${distUnit()}</span></div><div class="stat-sub">${fmtDate(longestRun.date)}</div></div>`:''}
     <div class="stat-card"><div class="stat-label">Eddington №<span class="edd-info-wrap"><span class="edd-info-icon">?</span><span class="edd-tooltip-box">The largest number E where you've had at least E days with E or more ${distUnit()} of activity. For example E=74 means 74 days where you did 74+ ${distUnit()}. A tough benchmark that only grows harder to improve.</span></span></div><div class="stat-value">${eddington}</div><div class="stat-sub">${eddington} days ≥${eddington} ${distUnit()}</div></div>
+    <div class="stat-card stat-card-link" onclick="setTab('mex')" title="Open the Mex tab"><div class="stat-label">Mex Score<span class="edd-info-wrap"><span class="edd-info-icon">?</span><span class="edd-tooltip-box">One activity at every whole ${distUnit()} in ascending order. Your Mex is the highest unbroken rung before the first gap, so one missing distance caps it however far you have gone. Eddington's opposite in temperament: it rewards a single short outing, where Eddington only ever moves on long ones.</span></span></div><div class="stat-value">${summaryMex}<span class="stat-unit">${distUnit()}</span></div><div class="stat-sub">First gap at ${summaryMex+1} ${distUnit()}</div></div>
   `;
 
   // Type cards
@@ -2482,32 +2476,6 @@ async function refreshData() {
 
 loadData();
   
-// 2. THE NEW AI FETCH LOGIC
-  fetch('https://activities-api.lk-ff7.workers.dev/activities')
-    .then(response => response.json())
-    .then(envelope => {
-      
-      // Update your AI Summary text
-      if (envelope.aiSummary) {
-        document.getElementById('ai-summary-text-box').innerText = envelope.aiSummary;
-      }
-
-      // Update the byline date
-      if (envelope.updatedAt) {
-        const formattedDate = new Date(envelope.updatedAt).toLocaleDateString('en-GB', {
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric'
-        });
-        document.getElementById('ai-summary-date').innerText = 
-          `This summary was generated by AI on ${formattedDate}, looking at a rolling 30 days worth of data.`;
-      }
-    })
-    .catch(err => {
-      console.error("AI fetch failed:", err);
-      document.getElementById('ai-summary-text-box').innerText = "AI summary currently unavailable.";
-    });
-
 // ── MAP ──
 let _map=null,_mapLayers=[];
 const HOME_CENTER=[53.8362,-2.5964]; // Longridge, Preston, Lancashire, UK
