@@ -12,7 +12,10 @@ id      = "1d4eb3dfbeeb4e7a90468052225dcfec"
 [ai]
 binding = "AI"
 
-# Runs the Strava → Notion Training Log sync 3x/day at 10am, 4pm, 11pm UK time.
+# Runs the Strava → Notion Training Log sync AND warms the activities cache
+# 3x/day at 10am, 4pm, 11pm UK time. The cache TTL is 24h and the gap between
+# fires is at most 9h, so in normal running the cache never actually expires —
+# the TTL is the safety net, not the refresh mechanism.
 # Cloudflare cron is UTC-only and doesn't shift for daylight saving, so the
 # hours below (9,15,22) are for BST (UTC+1, roughly late Mar–late Oct).
 # Switch to "0 10,16,23 * * *" once the clocks go back to GMT, and back again

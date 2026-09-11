@@ -98,6 +98,17 @@ Also in Worker → Settings → Bindings:
 
 The Worker caches all activity data under the key `activities_v2` with a 24-hour TTL. Force a fresh pull at any time with `?refresh=true`.
 
+**The cron keeps it warm.** Each scheduled run refreshes that cache after the Notion
+sync, so the dashboard is current when you open it rather than serving up-to-24-hour-old
+data — and you never land on the slow first visit that pays a full Strava pull because the
+TTL lapsed. Fires run at most 9 hours apart against a 24-hour TTL, so in normal operation
+the entry never actually expires; the TTL is the safety net, not the refresh mechanism.
+
+The scheduled refresh does **not** regenerate the AI summary. The dashboard no longer
+renders it, so regenerating three times a day would be paying Workers AI for output nobody
+reads; the existing summary is carried forward rather than overwritten with the
+placeholder, so a `?refresh=true` from the ↻ button is still the thing that renews it.
+
 Zwift route data is cached under `zwift_routes_v1` with a short 2-minute TTL (Notion is the source of truth, so this cache only absorbs repeated tab opens — it's deleted immediately on every successful edit).
 
 ---
@@ -123,6 +134,11 @@ Zwift route data is cached under `zwift_routes_v1` with a short 2-minute TTL (No
 Strava activities are written into the **Training Log** Notion database three
 times a day (`[triggers] crons` in `wrangler.toml`, plus `GET /sync-training-log`
 to run it on demand). This replaced a Zapier automation that stopped firing.
+
+The same cron then warms the activities cache (see **KV namespace** above). The two run
+**in sequence, not in parallel** — both talk to Strava, whose rate limit is per-15-minutes,
+so firing them together is the one reliable way to trip it. Each is wrapped separately, so
+a failure in the sync still leaves the refresh to run, and vice versa.
 
 Each run looks back three days — a generous margin so a late GPS-watch upload,
 or a missed cron, is picked up on the next pass rather than lost. Rows are

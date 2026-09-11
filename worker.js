@@ -12,6 +12,10 @@
 //   GET /sync-training-log → pulls recent Strava activities into the Notion
 //                             Training Log database (also runs on a schedule —
 //                             see the `crons` entry in wrangler.toml)
+//
+// The cron does two things: the Notion sync above, and a warm-up of the
+// activities cache so the dashboard is current on arrival instead of paying a
+// full Strava pull on the first visit after the 24h TTL lapses.
 // =============================================================================
 
 // ---- IMPORTANT: replace this with your actual Worker URL ------------------
@@ -61,7 +65,24 @@ export default {
 
   // Fires on the schedule configured in wrangler.toml's `[triggers] crons`.
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(syncActivitiesToNotion(env));
+    ctx.waitUntil((async () => {
+      // Sequential, not parallel. Both of these talk to Strava, and its rate
+      // limit is per-15-minutes, so firing them together is the one reliable
+      // way to trip it. Each is guarded so a failure in one still leaves the
+      // other to run.
+      try {
+        await syncActivitiesToNotion(env);
+      } catch (err) {
+        console.error('Scheduled Notion sync failed:', err.message);
+      }
+      try {
+        await refreshActivitiesCache(env, { regenerateAi: false });
+      } catch (err) {
+        // The previous cache entry stays put, so a failed refresh serves stale
+        // data rather than none.
+        console.error('Scheduled activity refresh failed:', err.message);
+      }
+    })());
   },
 };
 
@@ -175,29 +196,7 @@ async function handleActivities(request, env) {
     }
   }
 
-  // Get a fresh access token using the stored refresh token
-  const accessToken = await getAccessToken(env);
-
-  // Fetch every page of activities from Strava
-  const activities  = await fetchAllActivities(accessToken, env);
-  
-  // Calculate historical metrics & request high-context AI response
-  let aiSummary = "No AI summary generated.";
-  if (env.AI) {
-    aiSummary = await generateAiSummary(activities, env);
-  }
-
-  // Combine raw list data alongside the AI response into the response envelope
-  const envelope = JSON.stringify({ 
-    data: activities, 
-    aiSummary: aiSummary,
-    updatedAt: new Date().toISOString() 
-  });
-
-  // Save to KV cache
-  if (env.CACHE) {
-    await env.CACHE.put(CACHE_KEY, envelope, { expirationTtl: CACHE_TTL });
-  }
+  const envelope = await refreshActivitiesCache(env);
 
   return new Response(envelope, {
     headers: {
@@ -206,6 +205,44 @@ async function handleActivities(request, env) {
       'X-Cache':       'MISS',
     },
   });
+}
+
+// Pulls everything from Strava, writes the envelope to KV and returns it.
+// Shared by the request path and the cron, so a visitor and a scheduled warm-up
+// produce exactly the same cache entry.
+//
+// `regenerateAi` is false on the cron. The dashboard no longer renders the AI
+// summary, so regenerating it three times a day would be paying Workers AI for
+// output nobody reads — but a scheduled refresh should not be the thing that
+// destroys the last good summary either, so it carries the existing one
+// forward rather than writing the placeholder over it.
+async function refreshActivitiesCache(env, { regenerateAi = true } = {}) {
+  const accessToken = await getAccessToken(env);
+  const activities  = await fetchAllActivities(accessToken, env);
+
+  let aiSummary = 'No AI summary generated.';
+  if (regenerateAi && env.AI) {
+    aiSummary = await generateAiSummary(activities, env);
+  } else if (env.CACHE) {
+    try {
+      const previous = await env.CACHE.get(CACHE_KEY);
+      if (previous) aiSummary = JSON.parse(previous).aiSummary ?? aiSummary;
+    } catch {
+      // A corrupt or half-written cache entry is not worth failing a refresh for.
+    }
+  }
+
+  const envelope = JSON.stringify({
+    data: activities,
+    aiSummary: aiSummary,
+    updatedAt: new Date().toISOString(),
+  });
+
+  if (env.CACHE) {
+    await env.CACHE.put(CACHE_KEY, envelope, { expirationTtl: CACHE_TTL });
+  }
+
+  return envelope;
 }
 
 // =============================================================================
