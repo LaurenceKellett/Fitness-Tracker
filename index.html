@@ -124,6 +124,10 @@ a{color:inherit;text-decoration:none}
 .hm-cell{width:var(--hm-cell);height:var(--hm-cell);border-radius:0;cursor:default;flex-shrink:0;transition:opacity .1s}
 .hm-cell.active{cursor:pointer}.hm-cell.active:hover{opacity:.75}
 .heatmap-legend{display:flex;align-items:center;gap:4px;margin-top:10px;font-size:11px;color:var(--text-muted)}
+.hm-prior{margin-top:24px;padding-top:20px;border-top:1px solid var(--border)}
+.hm-prior-head{display:flex;align-items:baseline;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.hm-prior-year{font-size:15px;font-weight:700}
+.hm-prior-meta{font-size:11px;color:var(--text-muted)}
 .heatmap-legend-cells{display:flex;gap:2px}
 .heatmap-legend-cell{width:11px;height:11px;border-radius:0}
 /* RECORDS */
@@ -570,10 +574,11 @@ tbody td{padding:10px 14px;vertical-align:middle}
 <div id="tab-heatmap" class="tab-content">
   <div class="heatmap-wrap">
     <div class="heatmap-title">Activity Calendar</div>
-    <div class="heatmap-sub">Each cell = one day. Darker = more distance. Click a day to see its activities below.</div>
+    <div class="heatmap-sub">Each cell = one day. Darker = more distance. Click a day to see its activities below. Every earlier year is listed underneath, all on one shared colour scale so they can be read against each other.</div>
     <div class="heatmap-year-nav" id="heatmapYearNav"></div>
     <div id="heatmapContainer"></div>
     <div class="heatmap-legend"><span>Less</span><div class="heatmap-legend-cells" id="heatmapLegend"></div><span>More</span></div>
+    <div id="heatmapPriorYears"></div>
   </div>
   <div id="heatmapDayDetail" style="display:none"></div>
 </div>
@@ -1292,7 +1297,16 @@ function renderYearCalendarChart(year,data){
 
 // ── HEATMAP ──
 function renderHeatmap(){
-  const data=getFiltered();
+  // The year filter is deliberately not applied here. This tab lists every year at once,
+  // and one colour scale shared across all of them is what lets them be read against each
+  // other — a per-year scale would make a quiet year look as busy as a big one. The sport
+  // filter still applies, and the year stepper still chooses which year sits at the top.
+  const data=ALL_DATA.filter(a=>{
+    const g=typeGroup(a.type);
+    if(activeType==='All')return true;
+    if(activeType==='Ride')return g==='Ride'||g==='Virtual';
+    return g===activeType;
+  });
   const byDay={};
   data.forEach(a=>{if(!byDay[a.date])byDay[a.date]={dist:0,types:{}};byDay[a.date].dist+=a.dist_mi||0;const g=typeGroup(a.type);byDay[a.date].types[g]=(byDay[a.date].types[g]||0)+1;});
   const maxDist=Math.max(...Object.values(byDay).map(d=>d.dist),1);
@@ -1404,6 +1418,23 @@ function renderHeatmap(){
   }
 
   document.getElementById('heatmapContainer').innerHTML=renderHeatYear(displayYear);
+
+  // Every earlier year, newest first, underneath the one in the stepper.
+  const priorEl=document.getElementById('heatmapPriorYears');
+  if(priorEl){
+    const prior=allDataYears.filter(y=>y<displayYear).sort().reverse();
+    priorEl.innerHTML=prior.map(y=>{
+      const days=Object.keys(byDay).filter(d=>d.slice(0,4)===y);
+      const dist=days.reduce((s,d)=>s+byDay[d].dist,0);
+      return`<div class="hm-prior">
+        <div class="hm-prior-head">
+          <span class="hm-prior-year">${y}</span>
+          <span class="hm-prior-meta">${days.length.toLocaleString('en-GB')} active days · ${fmtDist(dist)} ${distUnit()}</span>
+        </div>
+        ${renderHeatYear(y)}
+      </div>`;
+    }).join('');
+  }
 
   // Legend
   const steps=[0,.2,.4,.6,.8,1];
