@@ -46,6 +46,7 @@ The Worker holds all secrets and does all the heavy work. The Pages frontend is 
 | Charts | Monthly distance, elevation, year-on-year bar chart, activity type doughnut |
 | Heatmap | GitHub-style activity calendar |
 | Records | Personal bests and highlights by sport type |
+| Mex | Mex Score — the ladder of whole-unit distance buckets, the first gap, and which gaps are worth most (see below) |
 | Social | Kudos leaderboard |
 | Gear | Bike and shoe mileage |
 | Activity Log | Searchable, sortable full activity table |
@@ -194,6 +195,42 @@ it didn't.
 
 ---
 
+## Mex Score
+
+A Mex is one activity at **every whole-unit distance in ascending order**. Your Mex is the
+highest unbroken rung before the first gap: if you have something at 1, 2, 3 … 17 but
+nothing between 18.0 and 18.9, your Mex is 17.
+
+Three rules decide the number:
+
+- **Rounded down, never to nearest.** A 14.7 mi run fills bucket 14, not 15.
+- **One activity fills one bucket.** A second 12 mi ride adds nothing.
+- **The low end governs everything.** A single missing bucket caps you however far you
+  have ridden. This is the point of the challenge, and it is why the tab leads with the
+  gap list rather than the number — the number alone is not something you can act on.
+
+The **Fill these in order** panel is the useful part. Filling one gap raises your Mex to
+*(the next gap above it) − 1*, so gaps are worth wildly different amounts: clearing 18
+might be worth +7 while clearing 37 is worth +1. Each row assumes every gap above it is
+already filled.
+
+### Unit, filters and scope
+
+Mex **follows the mi/km switch in the header**, so it is a different number in each — only
+the km figure is comparable with other riders, and the tab says so. The year and sport
+filters narrow it; all time, all sports is the headline figure.
+
+**Mex by sport** uses strict groups — Virtual is kept out of Ride, unlike the header
+filter, which folds them together. Expect low numbers there: a sport reads 0 until it has
+an activity in every bucket from 1 up, and hardly anyone rides 1 mile.
+
+Everything is computed in the browser from the existing `dist_mi` / `dist_km` fields. No
+Worker change was needed. One caveat: `dist_km` is stored to two decimals, so an activity
+of 6.996 km is saved as `7.00` and fills bucket 7 rather than 6 — roughly one activity in
+a thousand, only ever at a boundary.
+
+---
+
 ## Auto-deployment
 
 ### Frontend (index.html)
@@ -257,6 +294,10 @@ The Worker aggregates the last 30 days of activity data and sends it to `@cf/met
 - **Charts:** Chart.js 4.4.1
 - **Accent colour:** `#ff385c`
 - **Sport colours:** Ride `#1d4ed8` · Run `#ef4444` · Walk `#eab308` · Swim `#0ea5e9` · Virtual `#60a5fa`
+- **Corners:** square everywhere. `--radius` and `--radius-sm` are both `0`; nothing in the app rounds, including pills, dots and the favicon. Keep new work sharp.
+- **Shadows:** `--shadow` is the standard card lift. `--shadow-callout` is heavier and reserved for call-out boxes — the AI summary and the sync warning — so they lift off the page without needing a colour fill.
+- **Labels:** sentence case. No `text-transform: uppercase` and no letter-spacing on labels, per the house rule across the tools.
+- **Card colour:** one rule — a 3px `border-top` in the relevant colour. Not a left border, not a `::before` bar. An uncoloured card uses `var(--border)` so it keeps the same height.
 
 ---
 

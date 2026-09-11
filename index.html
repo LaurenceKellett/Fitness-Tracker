@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fitness Dashboard</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='5' fill='%23ff385c'/><path fill='white' d='M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0 4 13.828h4.172'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='0' fill='%23ff385c'/><path fill='white' d='M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0 4 13.828h4.172'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20,400,0,0&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -17,15 +17,17 @@
   --ride:#1d4ed8;--ride-soft:#dbeafe;--virtual:#60a5fa;--virtual-soft:#dbeafe;
   --run:#ef4444;--run-soft:#fee2e2;--walk:#eab308;--walk-soft:#fefce8;
   --swim:#0ea5e9;--swim-soft:#e0f2fe;--other:#94a3b8;--other-soft:#f8fafc;
-  --radius:8px;--radius-sm:6px;
+  --radius:0;--radius-sm:0;
   --shadow:0 1px 2px rgba(15,23,42,.04),0 4px 12px rgba(15,23,42,.06);
+  /* Reserved for call-out boxes only — the AI summary, sync warnings, the Mex ceiling. */
+  --shadow-callout:0 2px 4px rgba(15,23,42,.06),0 10px 28px rgba(15,23,42,.13);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 .ms{font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 20;font-size:inherit;line-height:1;vertical-align:-3px;display:inline-block}
 .ms-fill{font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 20}
 .type-icon .ms{font-size:22px;vertical-align:0}
-.gear-icon .ms{font-size:22px;vertical-align:0}
+.gear-icon-tile .ms,.gear-icon-inline .ms{vertical-align:0}
 .recent-meta .ms{font-size:13px}
 .gear-type .ms{font-size:13px}
 a{color:inherit;text-decoration:none}
@@ -35,24 +37,24 @@ a{color:inherit;text-decoration:none}
 .hrow{display:flex;align-items:center;padding:8px 0;gap:6px}
 .hrow+.hrow{border-top:1px solid var(--border)}
 .logo-wrap{display:flex;align-items:center;gap:8px}
-.logo-icon{width:26px;height:26px;background:#fc4c02;border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.logo-icon{width:26px;height:26px;background:#fc4c02;border-radius:0;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .logo-name{font-size:15px;font-weight:700;letter-spacing:-.3px;color:var(--text)}
 .last-updated{font-size:10px;color:var(--text-light);white-space:nowrap}
-.header-toolbar{display:flex;align-items:stretch;border:1px solid var(--border-strong);border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0;height:30px}
+.header-toolbar{display:flex;align-items:stretch;border:1px solid var(--border-strong);border-radius:0;overflow:hidden;flex-shrink:0;height:30px}
 .toolbar-divider{width:1px;background:var(--border-strong);flex-shrink:0}
 .unit-opt{padding:0 9px;font-size:11px;font-weight:600;color:var(--text-muted);border:none;background:transparent;cursor:pointer;line-height:1;font-family:inherit;display:flex;align-items:center}
 .unit-opt.active{background:var(--text);color:#fff}
 .icon-btn{width:32px;border:none;background:transparent;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);font-size:15px;text-decoration:none;flex-shrink:0;transition:color .15s;font-family:inherit}
 .icon-btn:hover{color:var(--text)}
 .icon-btn:disabled{opacity:.5;cursor:not-allowed}
-.tab-btn{padding:6px 10px;font-size:12px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text-muted);border-radius:var(--radius-sm);white-space:nowrap;transition:all .15s;font-family:inherit;display:inline-flex;align-items:center;gap:4px}
+.tab-btn{padding:6px 10px;font-size:12px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text-muted);border-radius:0;white-space:nowrap;transition:all .15s;font-family:inherit;display:inline-flex;align-items:center;gap:4px}
 .tab-btn .ms{font-size:14px;vertical-align:0}
 .tab-btn.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
 .tab-btn:hover:not(.active){color:var(--text)}
 .year-bar{display:flex;align-items:center;gap:5px;margin-left:auto;flex-shrink:0}
-.year-all{padding:5px 10px;font-size:11px;font-weight:600;color:var(--text-muted);border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:transparent;cursor:pointer;transition:all .15s;font-family:inherit}
+.year-all{padding:5px 10px;font-size:11px;font-weight:600;color:var(--text-muted);border:1px solid var(--border-strong);border-radius:0;background:transparent;cursor:pointer;transition:all .15s;font-family:inherit}
 .year-all.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent-soft)}
-.year-ctl{display:flex;align-items:center;border:1px solid var(--border-strong);border-radius:var(--radius-sm);overflow:hidden}
+.year-ctl{display:flex;align-items:center;border:1px solid var(--border-strong);border-radius:0;overflow:hidden}
 .year-arrow{padding:5px 8px;font-size:14px;font-weight:500;color:var(--text-muted);border:none;background:transparent;cursor:pointer;line-height:1;transition:color .15s;font-family:inherit}
 .year-arrow:hover:not(:disabled){color:var(--text)}
 .year-arrow:disabled{opacity:.35;cursor:default}
@@ -60,7 +62,7 @@ a{color:inherit;text-decoration:none}
 .year-arrow:last-child{border-left:1px solid var(--border)}
 .year-label{padding:5px 12px;font-size:12px;font-weight:700;color:var(--text)}
 .type-bar{display:flex;gap:2px;flex-wrap:wrap}
-.type-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;font-size:12px;font-weight:500;color:var(--text-muted);border:none;background:transparent;border-radius:var(--radius-sm);cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit}
+.type-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;font-size:12px;font-weight:500;color:var(--text-muted);border:none;background:transparent;border-radius:0;cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit}
 .type-btn:hover:not(.active){color:var(--text)}
 .type-btn.active{font-weight:600}
 .type-btn[data-type="All"].active{background:var(--accent-soft);color:var(--accent)}
@@ -70,7 +72,7 @@ a{color:inherit;text-decoration:none}
 .type-btn[data-type="Walk"].active{background:var(--walk-soft);color:#92400e}
 .type-btn[data-type="Swim"].active{background:var(--swim-soft);color:#075985}
 .type-btn[data-type="Other"].active{background:var(--other-soft);color:#475569}
-.type-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.type-dot{width:7px;height:7px;border-radius:0;flex-shrink:0}
 .refresh-icon{display:inline-block;transition:transform .6s}
 .icon-btn.spinning .refresh-icon{animation:rspin .8s linear infinite}
 @keyframes rspin{to{transform:rotate(360deg)}}
@@ -82,9 +84,9 @@ a{color:inherit;text-decoration:none}
 .tab-content.enter-from-left{animation:enterFromLeft .22s ease}
 /* STATS */
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:14px;margin-bottom:24px}
-.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow)}
-.stat-card.highlight{border-left:4px solid #22c55e}
-.stat-label{font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:18px 20px;box-shadow:var(--shadow)}
+.stat-card.highlight{border-top:3px solid #22c55e}
+.stat-label{font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:6px}
 .stat-value{font-size:24px;font-weight:700;letter-spacing:-.5px;line-height:1}
 .stat-unit{font-size:13px;font-weight:400;color:var(--text-muted);margin-left:3px}
 .stat-sub{font-size:12px;color:var(--text-muted);margin-top:5px}
@@ -93,7 +95,7 @@ a{color:inherit;text-decoration:none}
 /* CHARTS */
 .charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
 .charts-grid.wide{grid-template-columns:1fr}
-.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;box-shadow:var(--shadow)}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:20px 22px;box-shadow:var(--shadow)}
 .chart-title{font-size:13px;font-weight:600;margin-bottom:4px}
 .chart-sub{font-size:11px;color:var(--text-muted);margin-bottom:16px}
 .chart-wrap{position:relative;height:240px}.chart-wrap.tall{height:320px}
@@ -101,39 +103,39 @@ a{color:inherit;text-decoration:none}
 /* YEAR CAL */
 .year-cal-grid{display:flex;gap:2px;overflow-x:auto;padding-bottom:4px}
 .year-cal-col{display:flex;flex-direction:column;gap:2px}
-.year-cal-cell{width:14px;height:14px;border-radius:2px;cursor:pointer;transition:opacity .1s}
+.year-cal-cell{width:14px;height:14px;border-radius:0;cursor:pointer;transition:opacity .1s}
 .year-cal-cell:hover{opacity:.75}
 .year-cal-months{display:flex;gap:2px;margin-bottom:3px;min-height:14px}
 .year-cal-dows{display:flex;flex-direction:column;gap:2px;margin-right:4px;padding-top:17px}
 .year-cal-dow-lbl{height:14px;font-size:9px;color:var(--text-light);line-height:14px}
 .year-cal-wrap{display:flex;margin-top:8px}
 /* HEATMAP */
-.heatmap-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow)}
+.heatmap-wrap{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:24px;box-shadow:var(--shadow)}
 .heatmap-title{font-size:14px;font-weight:600;margin-bottom:4px}
 .heatmap-sub{font-size:12px;color:var(--text-muted);margin-bottom:16px}
 .heatmap-year-nav{display:flex;align-items:center;gap:12px;margin-bottom:16px}
-.hm-nav-btn{padding:4px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;background:var(--surface);color:var(--text-muted);transition:all .15s}
+.hm-nav-btn{padding:4px 10px;border:1px solid var(--border);border-radius:0;font-size:12px;font-weight:600;cursor:pointer;background:var(--surface);color:var(--text-muted);transition:all .15s}
 .hm-nav-btn:hover{background:var(--bg);color:var(--text)}
 .hm-nav-year{font-size:15px;font-weight:700;min-width:48px;text-align:center}
 .hm-grid-outer{display:inline-block}
 .hm-row{display:flex;align-items:center;gap:var(--hm-gap)}
 .hm-month-lbl{width:clamp(26px,3.2vw,38px);font-size:clamp(9px,0.9vw,12px);color:var(--text-light);text-align:right;padding-right:4px;flex-shrink:0;line-height:1}
 .hm-dow-hdr{width:var(--hm-cell);font-size:clamp(9px,0.85vw,12px);color:var(--text-light);text-align:center;flex-shrink:0;padding-bottom:2px}
-.hm-cell{width:var(--hm-cell);height:var(--hm-cell);border-radius:2px;cursor:default;flex-shrink:0;transition:opacity .1s}
+.hm-cell{width:var(--hm-cell);height:var(--hm-cell);border-radius:0;cursor:default;flex-shrink:0;transition:opacity .1s}
 .hm-cell.active{cursor:pointer}.hm-cell.active:hover{opacity:.75}
 .heatmap-legend{display:flex;align-items:center;gap:4px;margin-top:10px;font-size:11px;color:var(--text-muted)}
 .heatmap-legend-cells{display:flex;gap:2px}
-.heatmap-legend-cell{width:11px;height:11px;border-radius:2px}
+.heatmap-legend-cell{width:11px;height:11px;border-radius:0}
 /* RECORDS */
 .records-section{margin-bottom:28px}
 .records-section h3{font-size:14px;font-weight:700;margin-bottom:14px}
 .records-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:12px}
-.record-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.record-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:16px;box-shadow:var(--shadow);position:relative;overflow:hidden}
 .record-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
 .record-card.run::before{background:var(--run)}.record-card.ride::before{background:var(--ride)}
 .record-card.virtual::before{background:var(--virtual)}.record-card.walk::before{background:var(--walk)}
 .record-card.swim::before{background:var(--swim)}
-.record-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text-muted);margin-bottom:6px}
+.record-label{font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:6px}
 .record-value{font-size:22px;font-weight:700;letter-spacing:-.3px}
 .record-date{font-size:11px;color:var(--text-muted);margin-top:4px}
 .record-name{font-size:11px;color:var(--text-muted);margin-top:2px;font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -141,18 +143,18 @@ a{color:inherit;text-decoration:none}
 .record-strava:hover{opacity:1}
 /* LOG */
 .log-controls{display:flex;gap:10px;margin-bottom:12px;align-items:center;flex-wrap:wrap}
-.log-search{padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;outline:none;flex:1;min-width:180px;background:var(--surface)}
+.log-search{padding:8px 12px;border:1px solid var(--border);border-radius:0;font-size:13px;outline:none;flex:1;min-width:180px;background:var(--surface)}
 .log-search:focus{border-color:var(--ride)}
 .log-count{font-size:12px;color:var(--text-muted);white-space:nowrap}
 /* SEARCH SUMMARY */
-.search-summary{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:16px;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
-.search-summary-label{font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.search-summary{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:16px;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:0;box-shadow:var(--shadow)}
+.search-summary-label{font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:4px}
 .search-summary-value{font-size:18px;font-weight:700;letter-spacing:-.3px}
 .search-summary-unit{font-size:12px;font-weight:400;color:var(--text-muted);margin-left:2px}
 /* LOG TABLE */
-.log-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+.log-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:0;overflow:hidden;box-shadow:var(--shadow)}
 table{width:100%;border-collapse:collapse;font-size:13px}
-thead th{padding:11px 14px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);background:var(--bg);border-bottom:1px solid var(--border);cursor:pointer;white-space:nowrap;user-select:none}
+thead th{padding:11px 14px;text-align:left;font-size:12px;font-weight:600;color:var(--text-muted);background:var(--bg);border-bottom:1px solid var(--border);cursor:pointer;white-space:nowrap;user-select:none}
 thead th:hover{color:var(--text)}
 thead th .sort-icon{margin-left:4px;opacity:.4}
 thead th.sorted .sort-icon{opacity:1}
@@ -160,84 +162,112 @@ tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
 tbody tr:last-child{border-bottom:none}
 tbody tr:hover{background:var(--bg)}
 tbody td{padding:10px 14px;vertical-align:middle}
-.type-badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.type-badge{display:inline-block;padding:2px 8px;border-radius:0;font-size:11px;font-weight:600}
 .badge-ride{background:var(--ride-soft);color:var(--ride)}.badge-virtual{background:var(--virtual-soft);color:var(--virtual)}
 .badge-run{background:var(--run-soft);color:var(--run)}.badge-walk{background:var(--walk-soft);color:var(--walk)}
 .badge-swim{background:var(--swim-soft);color:var(--swim)}.badge-other{background:var(--other-soft);color:var(--other)}
-.strava-link{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:#fc4c02;color:white;border-radius:5px;font-size:10px;font-weight:700;transition:opacity .15s}
+.strava-link{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:#fc4c02;color:white;border-radius:0;font-size:10px;font-weight:700;transition:opacity .15s}
 .strava-link:hover{opacity:.85}
 .log-pagination{display:flex;align-items:center;gap:8px;padding:14px 16px;border-top:1px solid var(--border);font-size:13px;color:var(--text-muted)}
-.page-btn{padding:5px 10px;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12px;background:var(--surface);transition:all .15s}
+.page-btn{padding:5px 10px;border:1px solid var(--border);border-radius:0;cursor:pointer;font-size:12px;background:var(--surface);transition:all .15s}
 .page-btn:hover:not(:disabled){background:var(--bg)}.page-btn:disabled{opacity:.4;cursor:default}
 .zwift-controls{display:flex;gap:10px;margin-bottom:6px;align-items:center;flex-wrap:wrap}
 .zwift-status-bar{display:flex;gap:2px;flex-wrap:wrap;margin-bottom:10px}
-.zwift-status-bar .type-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;font-size:12px;font-weight:500;color:var(--text-muted);border:none;background:transparent;border-radius:var(--radius-sm);cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit}
+.zwift-status-bar .type-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;font-size:12px;font-weight:500;color:var(--text-muted);border:none;background:transparent;border-radius:0;cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit}
 .zwift-status-bar .type-btn:hover:not(.active){color:var(--text)}
 .zwift-status-bar .type-btn.active{font-weight:600}
-.zwift-group{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;box-shadow:var(--shadow);overflow:hidden}
+.zwift-group{background:var(--surface);border:1px solid var(--border);border-radius:0;margin-bottom:12px;box-shadow:var(--shadow);overflow:hidden}
 .zwift-group summary{padding:12px 16px;font-weight:700;font-size:13px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center}
 .zwift-group summary::-webkit-details-marker{display:none}
 .zwift-group-count{font-size:11px;font-weight:500;color:var(--text-muted)}
 .zwift-summary-left{display:flex;align-items:center}
-.zwift-map-dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:8px;flex-shrink:0}
+.zwift-map-dot{width:9px;height:9px;border-radius:0;display:inline-block;margin-right:8px;flex-shrink:0}
 .zwift-list-row{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;border-top:1px solid var(--border);transition:background .1s}
 .zwift-list-row:hover{background:var(--bg)}
-.zwift-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.zwift-dot{width:9px;height:9px;border-radius:0;flex-shrink:0}
 .zwift-row-main{display:flex;align-items:baseline;gap:8px;min-width:0;flex:1}
 .zwift-row-name{font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .zwift-row-stats{font-size:12px;color:var(--text-muted);white-space:nowrap;flex-shrink:0}
-.zwift-cat-badge{font-size:10px;font-weight:700;padding:1px 6px;border-radius:20px;white-space:nowrap;flex-shrink:0}
+.zwift-cat-badge{font-size:10px;font-weight:700;padding:1px 6px;border-radius:0;white-space:nowrap;flex-shrink:0}
 .zwift-row-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
 .zwift-row-status{font-size:12px;font-weight:600}
 .zwift-chevron{color:var(--text-light);display:inline-flex;transition:transform .15s}
 .zwift-chevron.open{transform:rotate(180deg)}
 .zwift-row-saved{background:#dcfce7!important;transition:background 1s}
-.zwift-cal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;margin-bottom:14px}
+.zwift-cal{background:var(--surface);border:1px solid var(--border);border-radius:0;box-shadow:var(--shadow);padding:14px 16px;margin-bottom:14px}
 .zwift-cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .zwift-cal-title{font-size:13px;font-weight:700}
 .zwift-cal-nav{display:flex;gap:4px}
 .zwift-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
 .zwift-cal-dow{font-size:10px;color:var(--text-muted);font-weight:600;padding-bottom:4px}
-.zwift-cal-day{position:relative;padding:6px 0;font-size:12px;border-radius:var(--radius-sm);cursor:default;color:var(--text)}
+.zwift-cal-day{position:relative;padding:6px 0;font-size:12px;border-radius:0;cursor:default;color:var(--text)}
 .zwift-cal-day.has-routes{cursor:pointer}
 .zwift-cal-day.has-routes:hover{background:var(--bg)}
 .zwift-cal-day.selected{background:var(--virtual-soft)}
 .zwift-cal-day.empty{visibility:hidden}
-.zwift-cal-dot{width:5px;height:5px;border-radius:50%;background:#1e6fa8;margin:2px auto 0}
+.zwift-cal-dot{width:5px;height:5px;border-radius:0;background:#1e6fa8;margin:2px auto 0}
 .zwift-cal-detail{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:12px}
 .zwift-cal-detail-item{display:flex;justify-content:space-between;align-items:center;padding:4px 0;cursor:pointer}
 .zwift-cal-detail-item:hover{color:var(--accent)}
 .zwift-detail{padding:14px 16px;background:var(--bg);border-top:1px solid var(--border)}
 .zwift-edit-form{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
 .zwift-edit-form label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--text-muted);font-weight:600}
-.zwift-edit-form select,.zwift-edit-form input{padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;background:var(--surface)}
+.zwift-edit-form select,.zwift-edit-form input{padding:6px 8px;border:1px solid var(--border);border-radius:0;font-size:13px;font-family:inherit;background:var(--surface)}
 .zwift-edit-error{color:#dc2626;font-size:12px;margin-top:6px;width:100%}
 .zwift-detail-info{font-size:12px}
 .zwift-detail-info tr td{padding:4px 0;color:var(--text-muted)}
 .zwift-detail-info tr td:last-child{text-align:right;color:var(--text)}
 .zwift-detail-info a{color:var(--accent);margin-left:10px}
 .zwift-directions{margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
-.zwift-directions-title{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px}
+.zwift-directions-title{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:8px}
 .zwift-turn-progress{font-weight:600;text-transform:none;letter-spacing:0}
-.zwift-reset-btn{margin-left:auto;font-size:11px;font-weight:500;text-transform:none;letter-spacing:0;padding:2px 9px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text-muted);cursor:pointer;transition:all .15s}
+.zwift-reset-btn{margin-left:auto;font-size:11px;font-weight:500;text-transform:none;letter-spacing:0;padding:2px 9px;border:1px solid var(--border);border-radius:0;background:var(--surface);color:var(--text-muted);cursor:pointer;transition:all .15s}
 .zwift-reset-btn:hover{color:var(--text);border-color:var(--border-strong)}
 .zwift-directions-leadin{font-size:12px;color:var(--text);margin-bottom:10px;line-height:1.6}
 .zwift-turn-list{display:flex;flex-direction:column;gap:1px}
-.zwift-turn-row{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text);padding:4px 2px;cursor:pointer;border-radius:var(--radius-sm)}
+.zwift-turn-row{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text);padding:4px 2px;cursor:pointer;border-radius:0}
 .zwift-turn-row:hover{background:var(--surface)}
 .zwift-turn-row input{margin-top:3px;flex-shrink:0;cursor:pointer}
 .zwift-turn-row input:checked+span{text-decoration:line-through;color:var(--text-muted)}
 .zwift-directions-trailing{margin-top:8px;font-size:11px;color:var(--text-muted);font-style:italic}
+/* MEX */
+.mex-ladder{display:flex;flex-direction:column;gap:6px}
+.mex-row{display:flex;align-items:flex-start;gap:12px}
+.mex-row-label{width:56px;font-size:10px;font-weight:600;color:var(--text-light);text-align:right;flex-shrink:0;line-height:34px}
+.mex-cells{display:flex;gap:6px;flex-wrap:wrap}
+/* border-box matters: an empty cell carries a 1px border and the gap cell a 2px one, so
+   without it the rows come out different widths and the columns stop lining up. */
+.mex-cell{width:46px;height:34px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.mex-cell.empty{background:var(--surface);border:1px dashed var(--border-strong);color:var(--text-light);font-weight:500}
+.mex-cell.gap{background:var(--accent-soft);border:2px solid var(--accent);color:var(--accent);font-weight:800}
+.mex-legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);font-size:11px;color:var(--text-muted)}
+.mex-legend-item{display:flex;align-items:center;gap:6px}
+.mex-swatch{width:12px;height:12px;box-sizing:border-box;flex-shrink:0}
+.mex-plan-row{display:flex;align-items:center;gap:14px;padding:11px 16px;border-bottom:1px solid var(--border)}
+.mex-plan-row:last-child{border-bottom:none}
+.mex-plan-n{width:20px;font-size:12px;font-weight:700;color:var(--text-light);flex-shrink:0}
+.mex-plan-main{flex:1;min-width:0}
+.mex-plan-title{font-size:13px;font-weight:700}
+.mex-plan-sub{font-size:11px;color:var(--text-muted);margin-top:2px}
+.mex-plan-delta{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.mex-plan-to{font-size:15px;font-weight:800}
+.mex-gain{font-size:11px;font-weight:700;color:#166534;background:#dcfce7;padding:2px 7px}
+.mex-sports{display:flex;flex-wrap:wrap;gap:8px}
+.mex-sport-chip{display:flex;align-items:baseline;gap:6px;padding:5px 11px;font-size:11px;font-weight:600}
+.mex-sport-chip strong{font-size:13px;font-weight:700}
+.mex-note{font-size:11px;color:var(--text-muted);line-height:1.55}
+.mex-empty{text-align:center;padding:60px 20px;color:var(--text-muted);font-size:14px}
+@media(max-width:700px){.mex-row-label{display:none}.mex-cell{width:40px;height:30px;font-size:10px}}
 /* LAYOUT */
 .section-header{display:flex;align-items:center;gap:12px;margin-bottom:16px;margin-top:4px}
 .section-header h2{font-size:15px;font-weight:700}
-.section-header .badge{background:var(--bg);border:1px solid var(--border);padding:2px 8px;border-radius:20px;font-size:11px;color:var(--text-muted)}
-.year-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);margin-bottom:24px}
-.dow-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow)}
+.section-header .badge{background:var(--bg);border:1px solid var(--border);padding:2px 8px;border-radius:0;font-size:11px;color:var(--text-muted)}
+.year-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:0;overflow:hidden;box-shadow:var(--shadow);margin-bottom:24px}
+.dow-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:18px 20px;box-shadow:var(--shadow)}
 .dow-bars{display:flex;gap:8px;align-items:flex-end;height:90px}
 .dow-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end}
 .dow-bar-wrap{flex:1;display:flex;align-items:flex-end;width:100%}
-.dow-bar{width:100%;border-radius:3px 3px 0 0;min-height:3px;transition:height .3s}
+.dow-bar{width:100%;border-radius:0;min-height:3px;transition:height .3s}
 .dow-label{font-size:10px;color:var(--text-muted)}.dow-count{font-size:9px;color:var(--text-muted)}
 .two-col{display:grid;grid-template-columns:2fr 1fr;gap:18px;margin-bottom:24px}
 @media(max-width:700px){.two-col{grid-template-columns:1fr}}
@@ -247,16 +277,16 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .early-years-toggle:hover{color:var(--text)}
 /* TYPE ROW */
 .type-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:12px;margin-bottom:24px}
-.type-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);display:flex;gap:14px;align-items:flex-start}
-.type-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.type-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:16px 18px;box-shadow:var(--shadow);display:flex;gap:14px;align-items:flex-start}
+.type-icon{width:40px;height:40px;border-radius:0;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
 .type-info .type-name{font-size:13px;font-weight:700;margin-bottom:2px}
 .type-info .type-count{font-size:12px;color:var(--text-muted)}
 .type-info .type-dist{font-size:18px;font-weight:700;letter-spacing:-.3px;margin-top:4px}
 .type-info .type-dist small{font-size:12px;font-weight:400;color:var(--text-muted)}
 /* RECENT */
 .recent-list{display:flex;flex-direction:column;gap:8px}
-.recent-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow)}
-.recent-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.recent-item{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:12px 16px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow)}
+.recent-dot{width:10px;height:10px;border-radius:0;flex-shrink:0}
 .recent-info{flex:1;min-width:0}
 .recent-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .recent-meta{font-size:11px;color:var(--text-muted);margin-top:2px}
@@ -264,47 +294,53 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .recent-dist{font-size:14px;font-weight:700}.recent-time{font-size:11px;color:var(--text-muted)}
 /* SOCIAL */
 .partner-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px;margin-bottom:20px}
-.partner-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;box-shadow:var(--shadow);text-align:center}
-.partner-avatar{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:white;margin:0 auto 8px}
+.partner-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:14px;box-shadow:var(--shadow);text-align:center}
+.partner-avatar{width:38px;height:38px;border-radius:0;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:white;margin:0 auto 8px}
 .partner-name{font-size:13px;font-weight:700;margin-bottom:2px}
 .partner-count{font-size:12px;color:var(--text-muted)}.partner-dist{font-size:14px;font-weight:700;margin-top:4px}
 .partner-type{font-size:10px;color:var(--text-muted)}
 /* GEAR */
 .gear-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:24px}
-.gear-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);cursor:pointer;transition:transform .1s,box-shadow .1s}
+.gear-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:16px 18px;box-shadow:var(--shadow);cursor:pointer;transition:transform .1s,box-shadow .1s}
 .gear-card:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(15,23,42,.06),0 8px 20px rgba(15,23,42,.09)}
-.gear-photo{width:100%;height:110px;object-fit:cover;border-radius:calc(var(--radius) - 4px);margin-bottom:8px;display:block;background:var(--bg)}
-.gear-icon{font-size:22px;margin-bottom:8px}
-.top-gear-photo{width:28px;height:28px;object-fit:cover;border-radius:6px;flex:none}
+.gear-photo{width:100%;height:110px;object-fit:cover;border-radius:0;margin-bottom:8px;display:block;background:var(--bg)}
+/* Same 110px block whether or not the item has a photo, so a row of cards stays level. */
+.gear-icon-tile{width:100%;height:110px;margin-bottom:8px;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+.gear-icon-tile .ms{font-size:34px}
+.gear-icon-inline{width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:var(--bg);flex:none}
+.gear-icon-inline .ms{font-size:17px}
+.gear-unresolved{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;color:var(--text-light);margin-bottom:6px}
+.top-gear-photo{width:28px;height:28px;object-fit:cover;border-radius:0;flex:none}
 .gear-name{font-size:13px;font-weight:700;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gear-type{font-size:11px;font-weight:600;margin-bottom:8px}
 .gear-stat{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--bg)}
 .gear-stat-label{color:var(--text-muted)}.gear-stat-value{font-weight:600}
 .gear-modal-backdrop{display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1000;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 16px}
 .gear-modal-backdrop.open{display:flex}
-.gear-modal{background:var(--surface);border-radius:var(--radius);box-shadow:0 12px 40px rgba(15,23,42,.25);width:100%;max-width:640px;margin:auto}
-.gear-modal-photo{width:100%;height:200px;object-fit:cover;border-radius:var(--radius) var(--radius) 0 0;display:block;background:var(--bg)}
+.gear-modal{background:var(--surface);border-radius:0;box-shadow:0 12px 40px rgba(15,23,42,.25);width:100%;max-width:640px;margin:auto}
+.gear-modal-photo{width:100%;height:200px;object-fit:cover;border-radius:0;display:block;background:var(--bg)}
 .gear-modal-head{display:flex;align-items:flex-start;justify-content:space-between;padding:20px 22px 0}
-.gear-modal-head.no-photo{padding-top:20px}
+.gear-modal-icon{width:100%;height:200px;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+.gear-modal-icon .ms{font-size:56px;vertical-align:0}
 .gear-modal-title{font-size:18px;font-weight:700}
 .gear-modal-sub{font-size:12px;font-weight:600;margin-top:4px}
-.gear-modal-close{width:28px;height:28px;border:1px solid var(--border-strong);border-radius:50%;background:transparent;color:var(--text-muted);cursor:pointer;font-family:inherit;font-size:14px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.gear-modal-close{width:28px;height:28px;border:1px solid var(--border-strong);border-radius:0;background:transparent;color:var(--text-muted);cursor:pointer;font-family:inherit;font-size:14px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
 .gear-modal-close:hover{color:var(--text)}
 .gear-modal-body{padding:18px 22px 22px}
 .gear-modal-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;margin-bottom:20px}
-.gear-modal-stat-label{font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+.gear-modal-stat-label{font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:3px}
 .gear-modal-stat-value{font-size:15px;font-weight:700}
-.gear-modal-section-title{font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.gear-modal-section-title{font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:8px}
 .gear-modal-types{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
-.gear-modal-type-chip{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;background:var(--bg)}
-.gear-modal-acts{max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm)}
+.gear-modal-type-chip{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:5px 10px;border-radius:0;background:var(--bg)}
+.gear-modal-acts{max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:0}
 .gear-modal-act-row{display:flex;align-items:center;gap:10px;padding:8px 12px;font-size:12px;border-bottom:1px solid var(--bg)}
 .gear-modal-act-row:last-child{border-bottom:none}
 .gear-modal-act-date{color:var(--text-muted);width:72px;flex-shrink:0}
 .gear-modal-act-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gear-modal-act-dist{font-weight:600;flex-shrink:0}
 /* TOP GEAR in summary */
-.top-gear-list{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+.top-gear-list{background:var(--surface);border:1px solid var(--border);border-radius:0;overflow:hidden;box-shadow:var(--shadow)}
 .top-gear-row{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border);font-size:13px}
 .top-gear-row:last-child{border-bottom:none}
 .top-gear-rank{font-size:12px;font-weight:700;color:var(--text-muted);width:20px;flex-shrink:0}
@@ -314,27 +350,27 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .ycal-month-label{font-size:9px;color:var(--text-light);width:26px;flex-shrink:0;text-align:right;padding-right:4px;line-height:14px}
 .ycal-dow-hdr{font-size:9px;color:var(--text-light);width:14px;height:14px;text-align:center;line-height:14px;flex-shrink:0}
 /* TOOLTIP */
-.dash-tooltip{position:fixed;background:rgba(20,20,30,.92);color:#fff;border-radius:8px;padding:8px 12px;font-size:12px;pointer-events:none;z-index:9999;max-width:260px;line-height:1.5;display:none;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+.dash-tooltip{position:fixed;background:rgba(20,20,30,.92);color:#fff;border-radius:0;padding:8px 12px;font-size:12px;pointer-events:none;z-index:9999;max-width:260px;line-height:1.5;display:none;box-shadow:0 4px 12px rgba(0,0,0,.25)}
 /* STREAK PILL */
-.streak-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:#dcfce7;color:#166534;border-radius:20px;font-size:11px;font-weight:700;margin-top:6px}
-.streak-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;animation:sdot 1.4s ease-in-out infinite}
+.streak-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:#dcfce7;color:#166534;border-radius:0;font-size:11px;font-weight:700;margin-top:6px}
+.streak-dot{width:8px;height:8px;border-radius:0;background:#22c55e;display:inline-block;animation:sdot 1.4s ease-in-out infinite}
 @keyframes sdot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.7)}}
 /* AI SUMMARY */
-.ai-box{background:var(--surface);border:1px solid var(--border);border-left:4px solid #a855f7;border-radius:var(--radius);padding:20px 24px;margin-bottom:24px;box-shadow:var(--shadow)}
-.ai-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#a855f7;margin-bottom:8px;display:flex;align-items:center;gap:5px}
+.ai-box{background:var(--surface);border:1px solid var(--border);border-top:3px solid #a855f7;border-radius:0;padding:20px 24px;margin-bottom:24px;box-shadow:var(--shadow-callout)}
+.ai-label{font-size:11px;font-weight:700;color:#a855f7;margin-bottom:8px;display:flex;align-items:center;gap:5px}
 .ai-text{font-size:14px;line-height:1.7;color:var(--text)}
 .ai-byline{font-size:11px;color:var(--text-muted);margin-top:8px;font-style:italic}
 /* LOCATIONS */
 .loc-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
-.loc-pill{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;background:var(--surface);border:1px solid var(--border);border-radius:20px;font-size:12px;font-weight:500;color:var(--text-muted);transition:background .15s,border-color .15s}
+.loc-pill{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;background:var(--surface);border:1px solid var(--border);border-radius:0;font-size:12px;font-weight:500;color:var(--text-muted);transition:background .15s,border-color .15s}
 .loc-pill:hover{background:var(--bg);border-color:var(--text-muted)}
 /* HEATMAP MORE */
 .hm-more-toggle{text-align:center;padding:10px 0;cursor:pointer;font-size:12px;color:var(--text-muted);border-top:1px dashed var(--border);margin-top:10px}
 .hm-more-toggle:hover{color:var(--text)}
 /* VIEW MORE RECENT */
-.view-more-btn{width:100%;padding:10px;border:1px dashed var(--border);border-radius:var(--radius-sm);font-size:12px;color:var(--text-muted);cursor:pointer;background:transparent;margin-top:8px;transition:all .15s}
+.view-more-btn{width:100%;padding:10px;border:1px dashed var(--border);border-radius:0;font-size:12px;color:var(--text-muted);cursor:pointer;background:transparent;margin-top:8px;transition:all .15s}
 .view-more-btn:hover{background:var(--bg);color:var(--text)}
-.go-log-btn{width:100%;padding:10px 16px;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:600;color:white;background:var(--text);cursor:pointer;margin-top:8px;transition:opacity .15s}
+.go-log-btn{width:100%;padding:10px 16px;border:none;border-radius:0;font-size:13px;font-weight:600;color:white;background:var(--text);cursor:pointer;margin-top:8px;transition:opacity .15s}
 .go-log-btn:hover{opacity:.85}
 
 .top-gear-name{flex:1;font-weight:500}
@@ -344,17 +380,17 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .mobile-select-wrap{position:relative;flex:1;min-width:0}
 .mobile-select-wrap-tab{display:none;margin:8px 0 6px}
 .mobile-select-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--text-muted);pointer-events:none}
-.mobile-select,.mobile-tab-select{display:none;width:100%;height:36px;padding:0 28px 0 34px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-weight:600;background:var(--surface);color:var(--text);cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;box-shadow:var(--shadow);box-sizing:border-box}
+.mobile-select,.mobile-tab-select{display:none;width:100%;height:36px;padding:0 28px 0 34px;border:1px solid var(--border);border-radius:0;font-size:13px;font-weight:600;background:var(--surface);color:var(--text);cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;box-shadow:var(--shadow);box-sizing:border-box}
 @media(max-width:640px){#tabRow{display:none}#typeRow{display:none}.last-updated{display:none}.mobile-select-row{display:flex}.mobile-select-wrap-tab{display:block}.mobile-select,.mobile-tab-select{display:block}}
 /* PARTNER LOG BTN */
-.partner-log-btn{width:100%;margin-top:8px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text-muted);background:transparent;cursor:pointer;transition:all .15s;font-family:inherit;text-align:center}
+.partner-log-btn{width:100%;margin-top:8px;padding:5px 8px;border:1px solid var(--border);border-radius:0;font-size:11px;color:var(--text-muted);background:transparent;cursor:pointer;transition:all .15s;font-family:inherit;text-align:center}
 .partner-log-btn:hover{background:var(--bg);color:var(--text)}
 /* SYNC INDICATOR */
-.sync-indicator{display:flex;align-items:center;gap:8px;padding:9px 14px;background:#fef9c3;border:1px solid #fde047;border-radius:var(--radius-sm);font-size:12px;color:#854d0e;margin-bottom:16px}
+.sync-indicator{display:flex;align-items:center;gap:8px;padding:9px 14px;background:#fef9c3;border:1px solid #fde047;border-radius:0;font-size:12px;color:#854d0e;margin-bottom:16px;box-shadow:var(--shadow-callout)}
 /* EDDINGTON INFO ICON */
 .edd-info-wrap{position:relative;display:inline-block;margin-left:5px;vertical-align:middle;top:-1px}
-.edd-info-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--border);color:var(--text-muted);font-size:9px;font-weight:700;cursor:help;line-height:1}
-.edd-tooltip-box{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:rgba(20,20,30,.95);color:#fff;border-radius:8px;padding:9px 12px;font-size:11px;font-weight:400;white-space:normal;width:220px;line-height:1.6;z-index:9999;text-align:left;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.3);text-transform:none;letter-spacing:0}
+.edd-info-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:0;background:var(--border);color:var(--text-muted);font-size:9px;font-weight:700;cursor:help;line-height:1}
+.edd-tooltip-box{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:rgba(20,20,30,.95);color:#fff;border-radius:0;padding:9px 12px;font-size:11px;font-weight:400;white-space:normal;width:220px;line-height:1.6;z-index:9999;text-align:left;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.3);text-transform:none;letter-spacing:0}
 .edd-tooltip-box::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:rgba(20,20,30,.95)}
 .edd-info-wrap:hover .edd-tooltip-box{display:block}
 /* TOP GEAR VIEW ALL */
@@ -395,6 +431,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <button class="tab-btn" onclick="setTab('charts')"><span class="ms">bar_chart</span><span class="tab-label">Charts</span></button>
       <button class="tab-btn" onclick="setTab('heatmap')"><span class="ms">grid_view</span><span class="tab-label">Heatmap</span></button>
       <button class="tab-btn" onclick="setTab('records')"><span class="ms">emoji_events</span><span class="tab-label">Records</span></button>
+      <button class="tab-btn" onclick="setTab('mex')"><span class="ms">stairs</span><span class="tab-label">Mex</span></button>
       <button class="tab-btn" onclick="setTab('social')"><span class="ms">thumb_up</span><span class="tab-label">Social</span></button>
       <button class="tab-btn" onclick="setTab('gear')"><span class="ms">settings</span><span class="tab-label">Gear</span></button>
       <button class="tab-btn" onclick="setTab('log')"><span class="ms">format_list_bulleted</span><span class="tab-label">Activity Log</span></button>
@@ -431,6 +468,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
         <option value="charts">Charts</option>
         <option value="heatmap">Heatmap</option>
         <option value="records">Records</option>
+        <option value="mex">Mex</option>
         <option value="social">Social</option>
         <option value="gear">Gear</option>
         <option value="log">Activity Log</option>
@@ -549,6 +587,9 @@ tbody td{padding:10px 14px;vertical-align:middle}
   <div class="records-section"><h3><span class="ms" style="font-size:16px;vertical-align:-3px">emoji_events</span> All-time Milestones</h3><div class="records-grid" id="milestones"></div></div>
 </div>
 
+<!-- MEX -->
+<div id="tab-mex" class="tab-content"></div>
+
 <!-- SOCIAL -->
 <div id="tab-social" class="tab-content">
   <div class="section-header"><h2>Top Activity Partners</h2><span class="badge" id="socialBadge"></span></div>
@@ -576,7 +617,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
 <!-- GEAR -->
 <div id="tab-gear" class="tab-content">
-  <div class="sync-indicator" id="gearSyncIndicator" style="display:none"><span class="ms" style="font-size:15px;vertical-align:-3px;color:#d97706">warning</span> Sync needed — last sync <strong class="sync-days"></strong> days ago. <span style="opacity:.7;font-size:11px">Export a new CSV from Strava to update.</span></div>
+  <div class="sync-indicator" id="gearSyncIndicator" style="display:none"><span class="ms" style="font-size:15px;vertical-align:-3px;color:#d97706">warning</span> Strava data is <strong class="sync-days"></strong> days old. <span style="opacity:.7;font-size:11px">Use the ↻ button in the header to pull the latest.</span></div>
   <div class="section-header"><h2>Gear Summary</h2><span class="badge" id="gearBadge"></span></div>
   <div class="gear-grid" id="gearCards"></div>
   <div class="charts-grid">
@@ -658,7 +699,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
     </div>
   </div>
   <div id="mapJumpRow" class="loc-row" style="margin-bottom:8px"></div>
-  <div id="mapContainer" style="height:600px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);background:#fff"></div>
+  <div id="mapContainer" style="height:600px;border-radius:0;overflow:hidden;border:1px solid var(--border);background:#fff"></div>
   <div id="mapEmpty" style="display:none;text-align:center;padding:60px 20px;color:var(--text-muted);font-size:14px">
     <span class="ms" style="font-size:36px;display:block;margin-bottom:8px">map</span>
     No route data yet — sync with Strava to load GPS routes.
@@ -759,10 +800,60 @@ function mapTypeGroup(t){
 function groupColor(g){return{Ride:'#1d4ed8',Virtual:'#60a5fa',Run:'#ef4444',Walk:'#eab308',Swim:'#0ea5e9',Other:'#94a3b8'}[g]||'#94a3b8';}
 function groupSoft(g){return{Ride:'#dbeafe',Virtual:'#dbeafe',Run:'#fee2e2',Walk:'#fefce8',Swim:'#e0f2fe',Other:'#f8fafc'}[g]||'#f8fafc';}
 function typeEmoji(g){const i={Ride:'directions_bike',Virtual:'computer',Run:'directions_run',Walk:'directions_walk',Swim:'pool',Other:'bolt'}[g]||'bolt';return`<span class="ms">${i}</span>`;}
-function gearEmoji(name){
-  const n=name.toLowerCase();
-  const i=n.includes('bike')||n.includes('rose')||n.includes('eddy')||n.includes('forme')||n.includes('merckx')||n.includes('carrera')||n.includes('rented')?'directions_bike':n.includes('zwift')?'computer':n.includes('boot')||n.includes('wellie')?'hiking':'directions_run';
-  return`<span class="ms">${i}</span>`;
+// Gear icons come from the sport an item is actually used for, never from its name.
+// Both gear views already tally each item's activity types, so a new bike is right on
+// its first ride with no edit here — which the old name-matching version could not do.
+const GEAR_TYPE_ICON={Ride:'directions_bike',Virtual:'computer',Run:'directions_run',Walk:'directions_walk',Swim:'pool',Other:'bolt'};
+function gearIconName(g){return GEAR_TYPE_ICON[g]||'bolt';}
+function dominantType(types){
+  const e=Object.entries(types||{});
+  return e.length?e.sort((a,b)=>b[1]-a[1])[0][0]:'Other';
+}
+function gearIconTile(group,cls){
+  return`<div class="${cls}" style="background:${groupSoft(group)}"><span class="ms" style="color:${groupColor(group)}">${gearIconName(group)}</span></div>`;
+}
+// GEAR_IMAGES is hand-keyed on the Strava nickname, so any rename, case change or stray
+// punctuation used to drop the photo silently. Match on a normalised key instead.
+function gearKey(s){return String(s).toLowerCase().replace(/[^a-z0-9]/g,'');}
+const GEAR_IMAGE_INDEX={};
+Object.entries(GEAR_IMAGES).forEach(([k,v])=>{GEAR_IMAGE_INDEX[gearKey(k)]=v;});
+function gearPhoto(name){return GEAR_IMAGE_INDEX[gearKey(name)]||null;}
+// Strava gear ids look like b1234567 / g1234567. The Worker falls back to the raw id when
+// the name lookup fails, and cached activity data can still carry one.
+function isUnresolvedGear(name){return /^[bg]\d{5,}$/i.test(String(name||''));}
+function gearLabel(name){return isUnresolvedGear(name)?'Unidentified gear':name;}
+// Swap a failed photo for its icon tile rather than removing it and collapsing the card.
+function gearPhotoFailed(img){
+  const d=document.createElement('div');
+  d.className=img.dataset.tile||'gear-icon-tile';
+  d.style.background=img.dataset.soft||'var(--bg)';
+  const s=document.createElement('span');
+  s.className='ms';
+  s.style.color=img.dataset.colour||'#94a3b8';
+  s.textContent=img.dataset.icon||'bolt';
+  d.appendChild(s);
+  img.replaceWith(d);
+}
+
+// One renderer for both the Summary list and the heatmap day detail. They were written
+// separately and drifted: one used Material Symbols for heart and gear, the other literal
+// emoji, so the icons changed under you depending on which list you were looking at.
+function recentItemHtml(a,showDate){
+  const g=typeGroup(a.type);
+  const hr=a.hr?' · <span class="ms ms-fill" style="font-size:13px;color:#ef4444">favorite</span> '+Math.round(a.hr)+' bpm':'';
+  const gear=a.gear?' · <span class="ms" style="font-size:13px">'+gearIconName(g)+'</span> '+escapeHtml(gearLabel(a.gear).split(' ').slice(0,2).join(' ')):'';
+  return`<div class="recent-item">
+      <div class="recent-dot" style="background:${groupColor(g)}"></div>
+      <div class="recent-info">
+        <div class="recent-name">${escapeHtml(a.name||a.type)}</div>
+        <div class="recent-meta">${showDate?fmtDate(a.date)+' · ':''}${typeEmoji(g)} ${g}${hr}${gear}</div>
+      </div>
+      <div class="recent-stats">
+        <div class="recent-dist">${a.dist_mi?fmtDist(a.dist_mi)+' '+distUnit():'—'}</div>
+        <div class="recent-time">${fmtTime(a.mt)}</div>
+      </div>
+      ${a.id&&a.has_map?`<a href="https://www.strava.com/activities/${a.id}" target="_blank" class="strava-link">Strava</a>`:''}
+    </div>`;
 }
 
 function extractPartners(name){
@@ -830,7 +921,7 @@ function buildTypeFilters(){
 }
 function setType(t){activeType=t;buildTypeFilters();renderAll();}
 
-const TAB_ORDER=['summary','map','charts','heatmap','records','social','gear','log','zwift'];
+const TAB_ORDER=['summary','map','charts','heatmap','records','mex','social','gear','log','zwift'];
 function setTab(tab,dir){
   activeTab=tab;
   document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',TAB_ORDER[i]===tab));
@@ -973,7 +1064,7 @@ function renderSummary(){
     return`<tr><td style="font-weight:700">${y}</td><td>${yd.length.toLocaleString('en-GB')}</td>${typeKeys.map(t=>`<td>${byType[t]?fmtDist(byType[t]):'—'}</td>`).join('')}<td>${fmtTime(totalT)}</td><td>${fmtElv(totalE)}</td><td>${fmtNum(totalC)}</td></tr>`;
   }
   const typeDotColors={Ride:'#1d4ed8',Virtual:'#60a5fa',Run:'#ef4444',Walk:'#eab308',Swim:'#0ea5e9',Other:'#94a3b8'};
-  const th=`<tr><th>Year</th><th>Acts</th>${typeKeys.map(t=>`<th><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${typeDotColors[t]||'#94a3b8'};margin-right:4px;vertical-align:middle"></span>${t} (${distUnit()})</th>`).join('')}<th>Time</th><th>Elev</th><th>Cal</th></tr>`;
+  const th=`<tr><th>Year</th><th>Acts</th>${typeKeys.map(t=>`<th><span style="display:inline-block;width:8px;height:8px;border-radius:0;background:${typeDotColors[t]||'#94a3b8'};margin-right:4px;vertical-align:middle"></span>${t} (${distUnit()})</th>`).join('')}<th>Time</th><th>Elev</th><th>Cal</th></tr>`;
   const earlyHtml=earlyYears.length?`
     <tbody id="earlyYearsBody" style="display:none">${earlyYears.map(yearRow).join('')}</tbody>
     <tbody><tr><td colspan="${typeKeys.length+5}" class="early-years-toggle" onclick="toggleEarlyYears()" id="earlyYearsToggleRow">▶ Show earlier years (2013–2018)</td></tr></tbody>`:'';
@@ -986,15 +1077,16 @@ function renderSummary(){
 
   // Top gear
   const gearMap={};
-  data.forEach(a=>{const g=a.gear;if(!g||g==='n/a')return;if(!gearMap[g])gearMap[g]={dist:0,count:0};gearMap[g].dist+=a.dist_mi||0;gearMap[g].count++;});
+  data.forEach(a=>{const g=a.gear;if(!g)return;if(!gearMap[g])gearMap[g]={dist:0,count:0,types:{}};gearMap[g].dist+=a.dist_mi||0;gearMap[g].count++;const t=typeGroup(a.type);gearMap[g].types[t]=(gearMap[g].types[t]||0)+1;});
   const topGear=Object.entries(gearMap).sort((a,b)=>b[1].dist-a[1].dist).slice(0,10);
   document.getElementById('topGearList').innerHTML=topGear.map(([name,s],i)=>{
-    const img=GEAR_IMAGES[name];
+    const grp=dominantType(s.types);
+    const img=gearPhoto(name);
     return`
     <div class="top-gear-row">
       <div class="top-gear-rank">${i+1}</div>
-      ${img?`<img class="top-gear-photo" src="${img}" alt="${name}" loading="lazy" onerror="this.remove()">`:`<div style="font-size:16px">${gearEmoji(name)}</div>`}
-      <div class="top-gear-name">${name}</div>
+      ${img?`<img class="top-gear-photo" src="${img}" alt="${escapeAttr(name)}" loading="lazy" data-tile="gear-icon-inline" data-soft="${groupSoft(grp)}" data-colour="${groupColor(grp)}" data-icon="${gearIconName(grp)}" onerror="gearPhotoFailed(this)">`:gearIconTile(grp,'gear-icon-inline')}
+      <div class="top-gear-name">${escapeHtml(gearLabel(name))}</div>
       <div class="top-gear-dist">${fmtDist(s.dist)} ${distUnit()} · ${s.count.toLocaleString('en-GB')} acts</div>
     </div>`;}).join('')+'<button class="gear-view-all" onclick="setTab(\"gear\")">View all gear →</button>';
 
@@ -1002,21 +1094,7 @@ function renderSummary(){
   const recentAll=[...data].reverse();
   const recentCount=recentShowAll?30:15;
   const recent=recentAll.slice(0,recentCount);
-  document.getElementById('recentList').innerHTML=recent.map(a=>{
-    const g=typeGroup(a.type);
-    return`<div class="recent-item">
-      <div class="recent-dot" style="background:${groupColor(g)}"></div>
-      <div class="recent-info">
-        <div class="recent-name">${a.name||a.type}</div>
-        <div class="recent-meta">${fmtDate(a.date)} · ${typeEmoji(g)} ${g}${a.hr?' · <span class="ms ms-fill" style="font-size:13px;color:#ef4444">favorite</span> '+Math.round(a.hr)+' bpm':''}${a.gear&&a.gear!=='n/a'?' · '+a.gear.split(' ').slice(0,2).join(' '):''}</div>
-      </div>
-      <div class="recent-stats">
-        <div class="recent-dist">${a.dist_mi?fmtDist(a.dist_mi)+' '+distUnit():'—'}</div>
-        <div class="recent-time">${fmtTime(a.mt)}</div>
-      </div>
-      ${a.id&&a.has_map?`<a href="https://www.strava.com/activities/${a.id}" target="_blank" class="strava-link">Strava</a>`:''}
-    </div>`;
-  }).join('');
+  document.getElementById('recentList').innerHTML=recent.map(a=>recentItemHtml(a,true)).join('');
   // View more / go to log
   const recentMoreHtml=recentAll.length>15?(
     !recentShowAll?
@@ -1077,7 +1155,7 @@ function renderCharts(){
       data:{labels:monthKeys.map(monthLabel),datasets:typeKeys.map((t,i)=>{
         const visible=!isSpecificType||(activeType==='Ride'?(t==='Ride'||t==='Virtual'):t===activeType);
         return{label:t,data:monthKeys.map(m=>{const v=(monthDist[m]||{})[t]||0;return unit==='mi'?+v.toFixed(1):+(v*1.60934).toFixed(1);})
-          ,backgroundColor:colorFull[i],borderRadius:2,borderSkipped:false,hidden:!visible};
+          ,backgroundColor:colorFull[i],borderRadius:0,borderSkipped:false,hidden:!visible};
       })},
       options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}}},responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:true,grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v+' '+distUnit()}}},interaction:{mode:'index'}}
     });
@@ -1096,12 +1174,12 @@ function renderCharts(){
       const y=a.date.slice(0,4);
       yoyTypeDist[y]=(yoyTypeDist[y]||0)+(a.dist_mi||0);
     });
-    yoyDatasets=[{label:activeType,data:allYears.map(y=>unit==='mi'?+(yoyTypeDist[y]||0).toFixed(0):+((yoyTypeDist[y]||0)*1.60934).toFixed(0)),backgroundColor:groupColor(activeType),borderRadius:4}];
+    yoyDatasets=[{label:activeType,data:allYears.map(y=>unit==='mi'?+(yoyTypeDist[y]||0).toFixed(0):+((yoyTypeDist[y]||0)*1.60934).toFixed(0)),backgroundColor:groupColor(activeType),borderRadius:0}];
     document.getElementById('yoyChartSub').textContent=activeType+' distance per year';
   }else{
     const yoyDist={};
     ALL_DATA.forEach(a=>{const y=a.date.slice(0,4),g=typeGroup(a.type);if(!yoyDist[y])yoyDist[y]={};yoyDist[y][g]=(yoyDist[y][g]||0)+(a.dist_mi||0);});
-    yoyDatasets=typeKeys.map((t,i)=>{return{label:t,data:allYears.map(y=>unit==='mi'?+((yoyDist[y]||{})[t]||0).toFixed(0):+(((yoyDist[y]||{})[t]||0)*1.60934).toFixed(0)),backgroundColor:colorFull[i],borderRadius:2,borderSkipped:false};});
+    yoyDatasets=typeKeys.map((t,i)=>{return{label:t,data:allYears.map(y=>unit==='mi'?+((yoyDist[y]||{})[t]||0).toFixed(0):+(((yoyDist[y]||{})[t]||0)*1.60934).toFixed(0)),backgroundColor:colorFull[i],borderRadius:0,borderSkipped:false};});
     document.getElementById('yoyChartSub').textContent='Total distance per year by type';
   }
   charts.yoy=new Chart(document.getElementById('chartYoY').getContext('2d'),{
@@ -1126,7 +1204,7 @@ function renderCharts(){
   const monthElv={};data.forEach(a=>{const m=a.date.slice(0,7);if(!monthElv[m])monthElv[m]=0;monthElv[m]+=(a.elv||0)*elevConv;});
   destroyChart('elev');
   charts.elev=new Chart(document.getElementById('chartElev').getContext('2d'),{
-    type:'bar',data:{labels:monthKeys.map(monthLabel),datasets:[{data:monthKeys.map(m=>Math.round(monthElv[m]||0)),backgroundColor:'#6366f1',borderRadius:2}]},
+    type:'bar',data:{labels:monthKeys.map(monthLabel),datasets:[{data:monthKeys.map(m=>Math.round(monthElv[m]||0)),backgroundColor:'#6366f1',borderRadius:0}]},
     options:{plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'#f0f0f0'},ticks:{callback:v=>v.toLocaleString()+elevUnitStr,font:{size:11}}}}}
   });
 
@@ -1152,7 +1230,7 @@ function renderCharts(){
   const monthCal={};data.forEach(a=>{const m=a.date.slice(0,7);if(!monthCal[m])monthCal[m]=0;monthCal[m]+=(a.cal||0);});
   destroyChart('cals');
   charts.cals=new Chart(document.getElementById('chartCals').getContext('2d'),{
-    type:'bar',data:{labels:monthKeys.map(monthLabel),datasets:[{data:monthKeys.map(m=>Math.round(monthCal[m]||0)),backgroundColor:'#ec4899',borderRadius:2}]},
+    type:'bar',data:{labels:monthKeys.map(monthLabel),datasets:[{data:monthKeys.map(m=>Math.round(monthCal[m]||0)),backgroundColor:'#ec4899',borderRadius:0}]},
     options:{plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'#f0f0f0'},ticks:{callback:v=>v.toLocaleString(),font:{size:11}}}}}
   });
 }
@@ -1258,11 +1336,11 @@ function renderHeatmap(){
       return`rgb(${Math.round(r1+(r2-r1)*intensity)},${Math.round(g1+(g2-g1)*intensity)},${Math.round(b1+(b2-b1)*intensity)})`;
     }
     function cellDiv(day){
-      if(!day.inY)return`<div style="width:${C}px;height:${C}px;border-radius:2px;"></div>`;
+      if(!day.inY)return`<div style="width:${C}px;height:${C}px;border-radius:0;"></div>`;
       const bg=cellBg(day.dd);
       const cls=day.dd?'hm-cell active':'hm-cell';
       const ev=day.dd?`onmouseenter="showDashTooltip(event,'${day.ds}')" onmouseleave="hideDashTooltip()" onclick="showDayDetail('${day.ds}')"`:''
-      return`<div class="${cls}" style="width:${C}px;height:${C}px;border-radius:2px;background:${bg}" ${ev}></div>`;
+      return`<div class="${cls}" style="width:${C}px;height:${C}px;border-radius:0;background:${bg}" ${ev}></div>`;
     }
 
     // ── DESKTOP: horizontal GitHub strip ──
@@ -1331,7 +1409,7 @@ function showDayDetail(date){
   if(!data.length){detail.style.display='none';return;}
   detail.style.display='block';detail.style.marginTop='20px';
   detail.innerHTML=`<div class="heatmap-wrap"><div class="heatmap-title">${fmtDate(date)}</div><div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">`+
-    data.map(a=>{const g=typeGroup(a.type);return`<div class="recent-item"><div class="recent-dot" style="background:${groupColor(g)}"></div><div class="recent-info"><div class="recent-name">${a.name||a.type}</div><div class="recent-meta">${typeEmoji(g)} ${g}${a.hr?' · ❤️ '+Math.round(a.hr)+'bpm':''}${a.gear&&a.gear!=='n/a'?' · 🚲 '+a.gear.split(' ').slice(0,2).join(' '):''}</div></div><div class="recent-stats"><div class="recent-dist">${a.dist_mi?fmtDist(a.dist_mi)+' '+distUnit():'—'}</div><div class="recent-time">${fmtTime(a.mt)}</div></div>${a.id&&a.has_map?`<a href="https://www.strava.com/activities/${a.id}" target="_blank" class="strava-link">Strava</a>`:''}</div>`;}).join('')+
+    data.map(a=>recentItemHtml(a,false)).join('')+
   '</div></div>';
 }
 
@@ -1406,6 +1484,152 @@ function renderRecords(){
 
 // ── SOCIAL ──
 function goToLogSearch(name){logSearch=name;const el=document.getElementById('logSearch');if(el)el.value=name;logPage=1;setTab('log');}
+// ── MEX ──────────────────────────────────────────────────────────────────────
+// One activity at every whole unit in ascending order; your Mex is the highest unbroken
+// rung before the first gap. It is governed by the LOW end by design — one missing bucket
+// caps you however far you have ridden — so the gap list, not the number, is the part you
+// can act on. Follows the mi/km switch, which means it is a different number in each.
+const MEX_ROW=20;
+const MEX_MAX=400;
+function actDistIn(a){
+  if(unit==='mi')return a.dist_mi||0;
+  return a.dist_km!=null?a.dist_km:(a.dist_mi||0)*1.60934;
+}
+// Rounded DOWN, never to nearest: a 14.7 run fills 14, not 15. One activity fills one
+// bucket, so a second 12-unit ride adds nothing.
+function mexBuckets(acts){
+  const b=new Map();
+  acts.forEach(a=>{
+    const d=actDistIn(a);
+    if(!(d>=1))return;
+    const n=Math.floor(d),g=typeGroup(a.type);
+    const cur=b.get(n)||{counts:{}};
+    cur.counts[g]=(cur.counts[g]||0)+1;
+    b.set(n,cur);
+  });
+  return b;
+}
+function mexOf(buckets){let n=1;while(buckets.has(n))n++;return n-1;}
+
+function renderMex(){
+  const u=unit,el=document.getElementById('tab-mex');
+  const buckets=mexBuckets(getFiltered());
+  if(!buckets.size){
+    el.innerHTML='<div class="mex-empty"><span class="ms" style="font-size:36px;display:block;margin-bottom:8px">stairs</span>No activities match this filter.</div>';
+    return;
+  }
+  const mex=mexOf(buckets),firstGap=mex+1;
+  const longest=Math.max(...buckets.keys());
+  const ceiling=Math.min(MEX_MAX,Math.max(MEX_ROW,Math.ceil(Math.max(longest,firstGap+9)/MEX_ROW)*MEX_ROW));
+  const filled=[...buckets.keys()].filter(n=>n<=ceiling).length;
+
+  let ladder='';
+  for(let start=1;start<=ceiling;start+=MEX_ROW){
+    let cells='';
+    for(let n=start;n<start+MEX_ROW;n++){
+      const b=buckets.get(n);
+      if(b){
+        const g=dominantType(b.counts);
+        cells+=`<div class="mex-cell" style="background:${groupColor(g)}" title="${n} ${u} · mostly ${g}">${n}</div>`;
+      }else{
+        cells+=`<div class="mex-cell ${n===firstGap?'gap':'empty'}" title="Nothing between ${n}.0 and ${n}.9 ${u}">${n}</div>`;
+      }
+    }
+    ladder+=`<div class="mex-row"><div class="mex-row-label">${start}–${start+MEX_ROW-1}</div><div class="mex-cells">${cells}</div></div>`;
+  }
+
+  // Each row assumes every gap above it has already been filled.
+  const plan=[];let running=mex;
+  for(let g=firstGap;g<=ceiling&&plan.length<5;g++){
+    if(buckets.has(g))continue;
+    let next=g+1;while(buckets.has(next))next++;
+    plan.push({gap:g,from:running,to:next-1});
+    running=next-1;
+  }
+
+  // Strict sport groups here — Virtual stays out of Ride, unlike the header filter.
+  const yearData=ALL_DATA.filter(a=>activeYear==='All'||a.date.slice(0,4)===activeYear);
+  const chips=[{g:'All',m:mexOf(mexBuckets(yearData)),col:'#ff385c',soft:'#ffeef1'}];
+  ['Ride','Virtual','Run','Walk','Swim','Other'].forEach(g=>{
+    const acts=yearData.filter(a=>typeGroup(a.type)===g);
+    if(acts.length)chips.push({g,m:mexOf(mexBuckets(acts)),col:groupColor(g),soft:groupSoft(g)});
+  });
+
+  const scope=(activeYear==='All'?'All time':activeYear)+' · '+(activeType==='All'?'all sports':activeType.toLowerCase())+' · '+u;
+
+  el.innerHTML=`
+  <div class="section-header"><h2>Mex Score</h2><span class="badge">${scope}</span></div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Your Mex</div>
+      <div class="stat-value">${mex}<span class="stat-unit">${u}</span></div>
+      <div class="stat-sub">${mex?`One activity at every ${u} from 1 to ${mex}`:`Nothing logged between 1.0 and 1.9 ${u} yet`}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">First gap</div>
+      <div class="stat-value">${firstGap}<span class="stat-unit">${u}</span></div>
+      <div class="stat-sub">Nothing between ${firstGap}.0 and ${firstGap}.9</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Buckets filled</div>
+      <div class="stat-value">${filled}<span class="stat-unit">of ${ceiling}</span></div>
+      <div class="stat-sub">Longest single activity: ${longest} ${u}</div>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-bottom:18px">
+    <div class="chart-title">The ladder</div>
+    <div class="chart-sub">Each cell is one whole-${u} bucket. An activity counts for the ${u} it lands in, rounded down. Where several sports fill the same bucket, the cell takes the colour of whichever has the most activities in it.</div>
+    <div class="mex-ladder">${ladder}</div>
+    <div class="mex-legend">
+      ${['Ride','Virtual','Run','Walk','Swim'].map(g=>`<div class="mex-legend-item"><div class="mex-swatch" style="background:${groupColor(g)}"></div><span>${g}</span></div>`).join('')}
+      <div class="mex-legend-item"><div class="mex-swatch" style="background:var(--accent-soft);border:2px solid var(--accent)"></div><span>First gap — your ceiling</span></div>
+      <div class="mex-legend-item"><div class="mex-swatch" style="background:var(--surface);border:1px dashed var(--border-strong)"></div><span>Empty bucket</span></div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="log-table-wrap">
+      <div style="padding:18px 20px 12px">
+        <div class="chart-title">Fill these in order</div>
+        <div class="chart-sub" style="margin-bottom:0">Each row assumes every gap above it is already filled. One awkward distance can be worth several ${u} of Mex.</div>
+      </div>
+      ${plan.length?`<div style="border-top:1px solid var(--border)">${plan.map((p,i)=>`
+        <div class="mex-plan-row">
+          <div class="mex-plan-n">${i+1}</div>
+          <div class="mex-plan-main">
+            <div class="mex-plan-title">Anything ${p.gap}.0–${p.gap}.9 ${u}</div>
+            <div class="mex-plan-sub">Currently the ${i?'next':'first'} empty bucket${i?' after that':''}</div>
+          </div>
+          <div class="mex-plan-delta">
+            <span style="font-size:12px;color:var(--text-muted)">${p.from}</span>
+            <span class="ms" style="font-size:14px;color:var(--text-light)">arrow_forward</span>
+            <span class="mex-plan-to">${p.to}</span>
+            <span class="mex-gain">+${p.to-p.from}</span>
+          </div>
+        </div>`).join('')}</div>`:`<div style="padding:0 20px 20px;font-size:12px;color:var(--text-muted)">No gaps below ${ceiling} ${u} — the ladder is unbroken to the top of this view.</div>`}
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:18px">
+      <div class="chart-card">
+        <div class="chart-title">Mex by sport</div>
+        <div class="chart-sub">Counted within each sport alone, so every one sits at or below the overall figure.</div>
+        <div class="mex-sports">${chips.map(c=>`<div class="mex-sport-chip" style="background:${c.soft};color:${c.col}">${c.g} <strong>${c.m}</strong></div>`).join('')}</div>
+        <div class="mex-note" style="margin-top:10px">A sport reads 0 until it has an activity in every bucket from 1 upwards. Hardly anyone rides 1 ${u}, so low figures here are normal — it is the combined ladder that moves.</div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">How it's counted</div>
+        <div style="display:flex;flex-direction:column;gap:9px;margin-top:10px">
+          <div class="mex-note">Distance is rounded <strong>down</strong> to the whole ${u}. One activity fills one bucket — a second ${mex>0?mex:longest} ${u} ride adds nothing.</div>
+          <div class="mex-note">Mex follows the <strong>mi / km</strong> switch, so it is a different number in each. Only the km figure is comparable with other riders.</div>
+          <div class="mex-note">The year and sport filters narrow it. All time, all sports is the headline figure.</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderSocial(){
   const data=getFiltered();
   const pm={};
@@ -1420,15 +1644,15 @@ function renderSocial(){
   }).join('');
   const top12=sorted.slice(0,12);
   destroyChart('partnerCount');
-  if(top12.length)charts.partnerCount=new Chart(document.getElementById('chartPartnerCount').getContext('2d'),{type:'bar',data:{labels:top12.map(([n])=>n),datasets:[{data:top12.map(([,d])=>d.count),backgroundColor:top12.map((_,i)=>AC[i%AC.length]),borderRadius:4}]},options:{indexAxis:'y',plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()}},y:{grid:{display:false},ticks:{font:{size:12}}}}}});
+  if(top12.length)charts.partnerCount=new Chart(document.getElementById('chartPartnerCount').getContext('2d'),{type:'bar',data:{labels:top12.map(([n])=>n),datasets:[{data:top12.map(([,d])=>d.count),backgroundColor:top12.map((_,i)=>AC[i%AC.length]),borderRadius:0}]},options:{indexAxis:'y',plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()}},y:{grid:{display:false},ticks:{font:{size:12}}}}}});
   const top12d=Object.entries(pm).sort((a,b)=>b[1].dist-a[1].dist).slice(0,12);
   document.getElementById('partnerDistSub').textContent='Top 12 by distance ('+distUnit()+')';
   destroyChart('partnerDist');
-  if(top12d.length)charts.partnerDist=new Chart(document.getElementById('chartPartnerDist').getContext('2d'),{type:'bar',data:{labels:top12d.map(([n])=>n),datasets:[{data:top12d.map(([,d])=>+(unit==='mi'?d.dist:d.dist*1.60934).toFixed(1)),backgroundColor:top12d.map((_,i)=>AC[i%AC.length]),borderRadius:4}]},options:{indexAxis:'y',plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()}},y:{grid:{display:false},ticks:{font:{size:12}}}}}});
+  if(top12d.length)charts.partnerDist=new Chart(document.getElementById('chartPartnerDist').getContext('2d'),{type:'bar',data:{labels:top12d.map(([n])=>n),datasets:[{data:top12d.map(([,d])=>+(unit==='mi'?d.dist:d.dist*1.60934).toFixed(1)),backgroundColor:top12d.map((_,i)=>AC[i%AC.length]),borderRadius:0}]},options:{indexAxis:'y',plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()}},y:{grid:{display:false},ticks:{font:{size:12}}}}}});
   const mk=getMonthKeys(),sbm={},slm={};
   data.forEach(a=>{const m=a.date.slice(0,7);if(extractPartners(a.name).length>0)sbm[m]=(sbm[m]||0)+1;else slm[m]=(slm[m]||0)+1;});
   destroyChart('socialTime');
-  charts.socialTime=new Chart(document.getElementById('chartSocialTime').getContext('2d'),{type:'bar',data:{labels:mk.map(monthLabel),datasets:[{label:'With others',data:mk.map(m=>sbm[m]||0),backgroundColor:'#1d4ed8',borderRadius:2,borderSkipped:false},{label:'Solo',data:mk.map(m=>slm[m]||0),backgroundColor:'#e2e8f0',borderRadius:2,borderSkipped:false}]},options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}}},responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:true,grid:{color:'#f0f0f0'},ticks:{font:{size:11}}}},interaction:{mode:'index'}}});
+  charts.socialTime=new Chart(document.getElementById('chartSocialTime').getContext('2d'),{type:'bar',data:{labels:mk.map(monthLabel),datasets:[{label:'With others',data:mk.map(m=>sbm[m]||0),backgroundColor:'#1d4ed8',borderRadius:0,borderSkipped:false},{label:'Solo',data:mk.map(m=>slm[m]||0),backgroundColor:'#e2e8f0',borderRadius:0,borderSkipped:false}]},options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}}},responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:true,grid:{color:'#f0f0f0'},ticks:{font:{size:11}}}},interaction:{mode:'index'}}});
 }
 
 // ── GEAR ──
@@ -1441,7 +1665,7 @@ function renderGear(){
   if(_syncEl){if(_daysSince!==null&&_daysSince>2){_syncEl.style.display='flex';const _sd=_syncEl.querySelector('.sync-days');if(_sd)_sd.textContent=_daysSince;}else _syncEl.style.display='none';}
   const gm={};
   data.forEach(a=>{
-    const g=a.gear;if(!g||g==='n/a')return;
+    const g=a.gear;if(!g)return;
     if(!gm[g])gm[g]={count:0,dist:0,time:0,elv:0,cal:0,types:{},typeDist:{},first:a.date,last:a.date,acts:[]};
     gm[g].count++;gm[g].dist+=a.dist_mi||0;gm[g].time+=a.mt||0;gm[g].elv+=a.elv||0;gm[g].cal+=a.cal||0;
     const t=typeGroup(a.type);gm[g].types[t]=(gm[g].types[t]||0)+1;gm[g].typeDist[t]=(gm[g].typeDist[t]||0)+(a.dist_mi||0);
@@ -1455,12 +1679,13 @@ function renderGear(){
   const GEAR_COLORS=['#1d4ed8','#ef4444','#eab308','#0ea5e9','#8b5cf6','#22c55e','#f97316','#14b8a6','#84cc16','#a855f7'];
   // Gear cards (top 8)
   document.getElementById('gearCards').innerHTML=sorted.map(([name,s],i)=>{
-    const topType=s.types?Object.entries(s.types).sort((a,b)=>b[1]-a[1])[0][0]:'?';
+    const topType=dominantType(s.types);
     const col=groupColor(topType);
-    const img=GEAR_IMAGES[name];
+    const img=gearPhoto(name);
     return`<div class="gear-card" style="border-top:3px solid ${col}" data-gear="${escapeAttr(name)}">
-      ${img?`<img class="gear-photo" src="${img}" alt="${name}" loading="lazy" onerror="this.remove()">`:`<div class="gear-icon">${gearEmoji(name)}</div>`}
-      <div class="gear-name" title="${name}">${name}</div>
+      ${img?`<img class="gear-photo" src="${img}" alt="${escapeAttr(name)}" loading="lazy" data-tile="gear-icon-tile" data-soft="${groupSoft(topType)}" data-colour="${col}" data-icon="${gearIconName(topType)}" onerror="gearPhotoFailed(this)">`:gearIconTile(topType,'gear-icon-tile')}
+      <div class="gear-name" title="${escapeAttr(gearLabel(name))}">${escapeHtml(gearLabel(name))}</div>
+      ${isUnresolvedGear(name)?`<div class="gear-unresolved">${escapeHtml(name)}</div>`:''}
       <div class="gear-type" style="color:${col}">${typeEmoji(topType)} ${topType}</div>
       <div class="gear-stat"><span class="gear-stat-label">Distance</span><span class="gear-stat-value">${fmtDist(s.dist)} ${distUnit()}</span></div>
       <div class="gear-stat"><span class="gear-stat-label">Activities</span><span class="gear-stat-value">${s.count.toLocaleString('en-GB')}</span></div>
@@ -1474,11 +1699,11 @@ function renderGear(){
   const top10d=sorted.slice(0,10);
   document.getElementById('gearDistSub').textContent=(unit==='mi'?'Miles':'Kilometres')+' logged per item';
   destroyChart('gearDist');
-  charts.gearDist=new Chart(document.getElementById('chartGearDist').getContext('2d'),{type:'bar',data:{labels:top10d.map(([n])=>n.length>22?n.slice(0,22)+'…':n),datasets:[{data:top10d.map(([,s])=>+(unit==='mi'?s.dist:s.dist*1.60934).toFixed(0)),backgroundColor:GEAR_COLORS,borderRadius:4}]},options:{indexAxis:'y',plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()+' '+distUnit()}},y:{grid:{display:false},ticks:{font:{size:11}}}}}});
+  charts.gearDist=new Chart(document.getElementById('chartGearDist').getContext('2d'),{type:'bar',data:{labels:top10d.map(([n])=>n.length>22?n.slice(0,22)+'…':n),datasets:[{data:top10d.map(([,s])=>+(unit==='mi'?s.dist:s.dist*1.60934).toFixed(0)),backgroundColor:GEAR_COLORS,borderRadius:0}]},options:{indexAxis:'y',plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()+' '+distUnit()}},y:{grid:{display:false},ticks:{font:{size:11}}}}}});
   // Chart: by count
   const top10c=Object.entries(gm).sort((a,b)=>b[1].count-a[1].count).slice(0,10);
   destroyChart('gearCount');
-  charts.gearCount=new Chart(document.getElementById('chartGearCount').getContext('2d'),{type:'bar',data:{labels:top10c.map(([n])=>n.length>22?n.slice(0,22)+'…':n),datasets:[{data:top10c.map(([,s])=>s.count),backgroundColor:GEAR_COLORS,borderRadius:4}]},options:{indexAxis:'y',plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()}},y:{grid:{display:false},ticks:{font:{size:11}}}}}});
+  charts.gearCount=new Chart(document.getElementById('chartGearCount').getContext('2d'),{type:'bar',data:{labels:top10c.map(([n])=>n.length>22?n.slice(0,22)+'…':n),datasets:[{data:top10c.map(([,s])=>s.count),backgroundColor:GEAR_COLORS,borderRadius:0}]},options:{indexAxis:'y',plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()}},y:{grid:{display:false},ticks:{font:{size:11}}}}}});
 }
 
 document.getElementById('gearCards').addEventListener('click',e=>{
@@ -1492,9 +1717,9 @@ function daysBetween(d1,d2){return Math.round((new Date(d2)-new Date(d1))/864000
 function openGearModal(name){
   const s=GEAR_DATA[name];
   if(!s)return;
-  const topType=s.types?Object.entries(s.types).sort((a,b)=>b[1]-a[1])[0][0]:'?';
+  const topType=dominantType(s.types);
   const col=groupColor(topType);
-  const img=GEAR_IMAGES[name];
+  const img=gearPhoto(name);
   const avgDist=s.count?s.dist/s.count:0;
   const avgTime=s.count?s.time/s.count:0;
   const typeRows=Object.entries(s.types).sort((a,b)=>b[1]-a[1]).map(([t,c])=>
@@ -1517,9 +1742,9 @@ function openGearModal(name){
     {label:'In use',value:daysBetween(s.first,s.last).toLocaleString('en-GB')+' days'},
   ];
   document.getElementById('gearModal').innerHTML=`
-    ${img?`<img class="gear-modal-photo" src="${img}" alt="${escapeAttr(name)}" onerror="this.remove()">`:''}
-    <div class="gear-modal-head${img?'':' no-photo'}">
-      <div><div class="gear-modal-title">${escapeHtml(name)}</div><div class="gear-modal-sub" style="color:${col}">${typeEmoji(topType)} Mostly ${topType.toLowerCase()}</div></div>
+    ${img?`<img class="gear-modal-photo" src="${img}" alt="${escapeAttr(name)}" data-tile="gear-modal-icon" data-soft="${groupSoft(topType)}" data-colour="${col}" data-icon="${gearIconName(topType)}" onerror="gearPhotoFailed(this)">`:gearIconTile(topType,'gear-modal-icon')}
+    <div class="gear-modal-head">
+      <div><div class="gear-modal-title">${escapeHtml(gearLabel(name))}</div><div class="gear-modal-sub" style="color:${col}">${typeEmoji(topType)} Mostly ${topType.toLowerCase()}</div>${isUnresolvedGear(name)?`<div class="gear-unresolved" style="margin-top:4px">Strava id ${escapeHtml(name)} — name could not be fetched</div>`:''}</div>
       <button class="gear-modal-close" onclick="closeGearModal()">✕</button>
     </div>
     <div class="gear-modal-body">
@@ -1594,7 +1819,7 @@ function renderLog(){
     const bc={Ride:'badge-ride',Virtual:'badge-virtual',Run:'badge-run',Walk:'badge-walk',Swim:'badge-swim',Other:'badge-other'}[g]||'badge-other';
     // Show specific sport for Other activities
     const displayType=(g==='Other'&&activeType==='Other')?(a.sport||a.type):g;
-    const gearShort=a.gear&&a.gear!=='n/a'?a.gear.split(' ').slice(0,2).join(' '):'—';
+    const gearShort=a.gear?gearLabel(a.gear).split(' ').slice(0,2).join(' '):'—';
     return`<tr>
       <td style="white-space:nowrap;color:var(--text-muted);font-size:12px">${fmtDate(a.date)}</td>
       <td><span class="type-badge ${bc}">${displayType}</span></td>
@@ -1992,6 +2217,7 @@ function renderAll(){
   else if(activeTab==='charts')renderCharts();
   else if(activeTab==='heatmap')renderHeatmap();
   else if(activeTab==='records')renderRecords();
+  else if(activeTab==='mex')renderMex();
   else if(activeTab==='social')renderSocial();
   else if(activeTab==='gear')renderGear();
   else if(activeTab==='log')renderLog();
@@ -2331,7 +2557,7 @@ function renderMap(data){
   const legend=document.getElementById('mapLegend');
   if(legend){
     const types=[...new Set(data.map(a=>mapTypeGroup(a.type)))];
-    legend.innerHTML=types.map(t=>`<span style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted)"><span style="width:10px;height:10px;border-radius:2px;background:${groupColor(t)};display:inline-block;opacity:.8"></span>${t}</span>`).join('');
+    legend.innerHTML=types.map(t=>`<span style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted)"><span style="width:10px;height:10px;border-radius:0;background:${groupColor(t)};display:inline-block;opacity:.8"></span>${t}</span>`).join('');
   }
 }
 
