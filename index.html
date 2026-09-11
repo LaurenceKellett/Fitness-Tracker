@@ -262,7 +262,15 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .mex-sport-chip strong{font-size:13px;font-weight:700}
 .mex-note{font-size:11px;color:var(--text-muted);line-height:1.55}
 .mex-empty{text-align:center;padding:60px 20px;color:var(--text-muted);font-size:14px}
-@media(max-width:700px){.mex-row-label{display:none}.mex-cell{width:40px;height:30px;font-size:10px}}
+/* On a phone a 20-wide row wraps into ragged sixes and the ladder stops being
+   readable, so the row becomes a labelled block of two tidy tens instead. */
+@media(max-width:700px){
+  .mex-row{flex-direction:column;align-items:stretch;gap:4px}
+  .mex-row-label{width:auto;text-align:left;line-height:1.4}
+  .mex-cells{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:4px;flex-wrap:nowrap}
+  .mex-cell{width:auto;height:30px;font-size:11px}
+  .mex-row-label{font-size:11px}
+}
 /* LAYOUT */
 .section-header{display:flex;align-items:center;gap:12px;margin-bottom:16px;margin-top:4px}
 .section-header h2{font-size:15px;font-weight:700}
@@ -408,6 +416,48 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .hm-layout-desktop{display:block}
 .hm-layout-mobile{display:none}
 @media(max-width:640px){.hm-layout-desktop{display:none}.hm-layout-mobile{display:block}}
+
+/* ── PHONE ──────────────────────────────────────────────────────────────────
+   Measured at 390px. Three problems this fixes: almost every control was
+   24–37px tall against a 44px minimum touch target, a dozen labels sat at
+   9–10px, and the stats grid fell to a single column by two pixels. */
+@media(max-width:640px){
+  /* minmax(165px) needs 344px for two columns and the pane offers 342, so every
+     stat card was going full width. Ask for two explicitly. */
+  .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stat-value{font-size:21px}
+
+  /* 44px touch targets */
+  .loc-pill,.hm-nav-btn,.page-btn,.zwift-status-bar .type-btn,
+  .partner-log-btn,.gear-view-all,.view-more-btn,.go-log-btn,
+  .early-years-toggle,.zwift-reset-btn{min-height:44px}
+  .loc-pill,.hm-nav-btn,.page-btn,.zwift-status-bar .type-btn,.partner-log-btn{
+    display:inline-flex;align-items:center;justify-content:center}
+  .log-search{height:44px}
+  .unit-opt,.icon-btn{min-height:40px}
+  .header-toolbar{height:40px}
+  .zwift-list-row{min-height:44px}
+  input[type=range]{height:34px}
+  .record-strava,.strava-link{min-height:32px;display:inline-flex;align-items:center}
+  thead th{padding:15px 14px}
+
+  /* nothing below 11px */
+  .dow-count,.dow-label,.edd-info-icon,.gear-unresolved,.partner-type,
+  .strava-link,.record-label,.zwift-cat-badge,.hm-month-lbl,.hm-dow-hdr{font-size:11px}
+
+  /* The log is 11 columns wide on a 390px screen, so the only things visible
+     without scrolling sideways were date, type and name — every actual metric
+     was off-screen with nothing to say so. Drop the five least-used columns
+     and distance, time and the Strava link come into view. */
+  .log-table-wrap th:nth-child(5),.log-table-wrap td:nth-child(5),
+  .log-table-wrap th:nth-child(7),.log-table-wrap td:nth-child(7),
+  .log-table-wrap th:nth-child(8),.log-table-wrap td:nth-child(8),
+  .log-table-wrap th:nth-child(9),.log-table-wrap td:nth-child(9),
+  .log-table-wrap th:nth-child(10),.log-table-wrap td:nth-child(10){display:none}
+  .log-table-wrap td,.log-table-wrap th{padding-left:10px;padding-right:10px}
+}
+/* A stubbed or slow-loading chart canvas can sit a few px past its card. */
+.chart-wrap canvas{max-width:100%}
 </style>
 </head>
 <body>
@@ -810,6 +860,13 @@ function mapTypeGroup(t){
   if(t==='Swim')return'Swim';
   return'Other';
 }
+// The Map used to match the raw Strava type, so choosing Ride silently excluded
+// VirtualRide and EBikeRide while every other tab folded them in.
+function mapFilterMatches(a){
+  const g=typeGroup(a.type);
+  if(activeType==='Ride')return g==='Ride'||g==='Virtual';
+  return g===activeType;
+}
 function groupColor(g){return{Ride:'#1d4ed8',Virtual:'#60a5fa',Run:'#ef4444',Walk:'#eab308',Swim:'#0ea5e9',Other:'#94a3b8'}[g]||'#94a3b8';}
 function groupSoft(g){return{Ride:'#dbeafe',Virtual:'#dbeafe',Run:'#fee2e2',Walk:'#fefce8',Swim:'#e0f2fe',Other:'#f8fafc'}[g]||'#f8fafc';}
 function typeEmoji(g){const i={Ride:'directions_bike',Virtual:'computer',Run:'directions_run',Walk:'directions_walk',Swim:'pool',Other:'bolt'}[g]||'bolt';return`<span class="ms">${i}</span>`;}
@@ -946,7 +1003,7 @@ function setTab(tab,dir){
     el.addEventListener('animationend',()=>el.classList.remove(cls),{once:true});
   }
   const mts=document.getElementById('tabSelectMobile');if(mts)mts.value=tab;
-  if(tab==='map'){renderMap(activeType==='All'?ALL_DATA:ALL_DATA.filter(a=>(a.type||'Other')===activeType));return;}
+  if(tab==='map'){renderMap(activeType==='All'?ALL_DATA:ALL_DATA.filter(a=>mapFilterMatches(a)));return;}
   if(tab==='zwift'){loadZwiftRoutes();return;}
   renderAll();
 }
@@ -1353,18 +1410,21 @@ function renderHeatmap(){
     const _ctr=document.getElementById('heatmapContainer');
     const _avail=(_ctr?_ctr.offsetWidth:700)-24;
     const C=Math.min(16,Math.max(10,Math.floor((_avail-18-(weeks.length-1)*G)/weeks.length)));
+    // The mobile strip lays days out seven across rather than fifty-odd weeks across,
+    // so it can afford a tappable cell instead of reusing the desktop's 10px one.
+    const CM=Math.min(44,Math.max(C,Math.floor((_avail-34-6*G)/7)));
 
     function cellBg(dd){
       if(!dd)return'var(--hm-empty,#f0f0f0)';
       const intensity=Math.pow(Math.min(dd.dist/(maxDist*0.6),1),.5);
       return`rgb(${Math.round(r1+(r2-r1)*intensity)},${Math.round(g1+(g2-g1)*intensity)},${Math.round(b1+(b2-b1)*intensity)})`;
     }
-    function cellDiv(day){
-      if(!day.inY)return`<div style="width:${C}px;height:${C}px;border-radius:0;"></div>`;
+    function cellDiv(day,sz){
+      if(!day.inY)return`<div style="width:${sz}px;height:${sz}px;border-radius:0;"></div>`;
       const bg=cellBg(day.dd);
       const cls=day.dd?'hm-cell active':'hm-cell';
       const ev=day.dd?`onmouseenter="showDashTooltip(event,'${day.ds}')" onmouseleave="hideDashTooltip()" onclick="showDayDetail('${day.ds}')"`:''
-      return`<div class="${cls}" style="width:${C}px;height:${C}px;border-radius:0;background:${bg}" ${ev}></div>`;
+      return`<div class="${cls}" style="width:${sz}px;height:${sz}px;border-radius:0;background:${bg}" ${ev}></div>`;
     }
 
     // ── DESKTOP: horizontal GitHub strip ──
@@ -1390,14 +1450,14 @@ function renderHeatmap(){
     });
     dHtml+=`</div>`;
     dHtml+=`<div style="display:grid;grid-template-rows:repeat(7,${C}px);grid-auto-flow:column;grid-auto-columns:${C}px;gap:${G}px;">`;
-    weeks.forEach(wk=>wk.forEach(day=>{ dHtml+=cellDiv(day); }));
+    weeks.forEach(wk=>wk.forEach(day=>{ dHtml+=cellDiv(day,C); }));
     dHtml+=`</div></div></div></div>`;
 
     // ── MOBILE: vertical strip (weeks as rows) ──
     let mHtml=`<div>`;
     mHtml+=`<div style="display:flex;gap:${G}px;margin-bottom:${G}px;padding-left:30px;">`;
     ['M','T','W','T','F','S','S'].forEach(d=>{
-      mHtml+=`<div style="width:${C}px;font-size:9px;color:var(--color-text-secondary,#6b7280);text-align:center;">${d}</div>`;
+      mHtml+=`<div style="width:${CM}px;font-size:11px;color:var(--color-text-secondary,#6b7280);text-align:center;">${d}</div>`;
     });
     mHtml+=`</div>`;
     let lastMoM=-1;
@@ -1406,8 +1466,8 @@ function renderHeatmap(){
       let mo='';
       if(f&&f.mo!==lastMoM){mo=MNAMES[f.mo];lastMoM=f.mo;}
       mHtml+=`<div style="display:flex;align-items:center;gap:${G}px;margin-bottom:${G}px;">`;
-      mHtml+=`<div style="width:26px;font-size:9px;color:var(--color-text-secondary,#6b7280);text-align:right;flex-shrink:0;">${mo}</div>`;
-      wk.forEach(day=>{ mHtml+=cellDiv(day); });
+      mHtml+=`<div style="width:30px;font-size:11px;color:var(--color-text-secondary,#6b7280);text-align:right;flex-shrink:0;">${mo}</div>`;
+      wk.forEach(day=>{ mHtml+=cellDiv(day,CM); });
       mHtml+=`</div>`;
     });
     mHtml+=`</div>`;
@@ -2262,7 +2322,7 @@ function renderAll(){
   else if(activeTab==='social')renderSocial();
   else if(activeTab==='gear')renderGear();
   else if(activeTab==='log')renderLog();
-  else if(activeTab==='map')renderMap(activeType==='All'?ALL_DATA:ALL_DATA.filter(a=>(a.type||'Other')===activeType));
+  else if(activeTab==='map')renderMap(activeType==='All'?ALL_DATA:ALL_DATA.filter(a=>mapFilterMatches(a)));
   else if(activeTab==='zwift')renderZwiftTable();
 }
 
@@ -2288,7 +2348,7 @@ function renderFromData() {
   renderSummary();
   renderRecords();
   buildLocationPills();
-  if(activeTab==='map')renderMap(activeType==='All'?ALL_DATA:ALL_DATA.filter(a=>(a.type||'Other')===activeType));
+  if(activeTab==='map')renderMap(activeType==='All'?ALL_DATA:ALL_DATA.filter(a=>mapFilterMatches(a)));
 }
 
 // ── LOCATION PILLS ──
