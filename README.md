@@ -208,6 +208,10 @@ no longer silently drops the photo. It is not fuzzy, though: `Karrimor Skiddaw` 
 `Karrimor Skiddaw Hiking Boots` are still different keys. The key must match the nickname
 Strava actually returns.
 
+Where one item is known by two names, add both keys pointing at the same file rather than
+picking a winner — `Eddy Merckx` and `Merckx EMX-3` are one bike and share
+`merckx-emx-3.jpg`.
+
 An item with no entry, or whose picture fails to load, falls back to a tile carrying its
 sport icon — derived from the activities logged against it, not from its name. The tile is
 the same 110px block as a photo, so cards stay level either way.

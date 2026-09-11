@@ -747,6 +747,10 @@ function getAccentColor(){return ACCENT_COLORS[activeType]||'#22c55e';}
 // if a Strava nickname doesn't exactly match a key below, add/adjust the entry.
 const GEAR_IMAGES={
   'Carrera Virtuoso':'gear-images/carrera-virtuoso.jpg',
+  // Same bike as 'Merckx EMX-3', under the name the Product photos sheet uses. Matching is
+  // normalised, not fuzzy, so the two spellings need separate keys — both point at the one
+  // local file rather than at the sheet's remote URL.
+  'Eddy Merckx':'gear-images/merckx-emx-3.jpg',
   'Forme Axe Edge':'gear-images/forme-axe-edge.jpg',
   'Gelert Hiking Boot':'gear-images/gelert-hiking-boot.jpg',
   'Goggles':'gear-images/goggles.jpg',
