@@ -195,6 +195,48 @@ it didn't.
 
 ---
 
+## Gear photos
+
+Strava's API does not expose gear pictures, so `GEAR_IMAGES` in `index.html` maps each
+item's Strava nickname to an image by hand. The provenance for those files is the
+**Product photos** sheet in Drive, which lists each item beside the page its picture came
+from.
+
+Matching is **normalised** — lowercased with punctuation and spaces stripped — so
+`Salomon S-LAB 2` and `Salomon S/Lab 2` resolve to the same entry and a rename in Strava
+no longer silently drops the photo. It is not fuzzy, though: `Karrimor Skiddaw` and
+`Karrimor Skiddaw Hiking Boots` are still different keys. The key must match the nickname
+Strava actually returns.
+
+An item with no entry, or whose picture fails to load, falls back to a tile carrying its
+sport icon — derived from the activities logged against it, not from its name. The tile is
+the same 110px block as a photo, so cards stay level either way.
+
+### The three remote entries
+
+`Rose`, `Barbour Wellies` and `Under Armour UA Thrill 3` currently **hotlink to
+third-party CDNs** rather than sitting in `gear-images/`. That is a stopgap: those URLs
+are someone else's bandwidth, they rotate without notice, and some hosts refuse requests
+carrying a foreign `Referer`. The Under Armour one is a Google Images thumbnail-cache
+address and is the least durable of the three.
+
+To finish the job properly, download each into `gear-images/` and move its entry up into
+the local block:
+
+```sh
+curl -L -o gear-images/rose.jpg \
+  'https://www.cycleexchange.co.uk/cdn/shop/files/70959481-001.jpg?v=1733400261'
+curl -L -o gear-images/barbour-wellies.jpg \
+  'https://media.johnlewiscontent.com/i/JohnLewis/004999350alt1?fmt=auto'
+curl -L -o gear-images/under-armour-ua-thrill-3.jpg \
+  'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS5wY6VS80V-woI10KU9YfYvQYc9oN0iPfqP-tDacNOiQ&s'
+```
+
+Then check each file is actually an image (`file gear-images/*.jpg`) — a hotlink refusal
+often arrives as an HTML error page with a `.jpg` name.
+
+---
+
 ## Mex Score
 
 A Mex is one activity at **every whole-unit distance in ascending order**. Your Mex is the

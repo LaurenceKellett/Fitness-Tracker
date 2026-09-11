@@ -763,7 +763,19 @@ const GEAR_IMAGES={
   'Unbranded/Work Shoe':'gear-images/unbranded-work-shoe.jpg',
   'Winter Bike':'gear-images/winter-bike.jpg',
   'Zwift Bike':'gear-images/zwift-bike.jpg',
-  // 'Barbour Wellies' and 'Under Armour UA Thrill 3' have no photo in Notion.
+  // ── Remote, pending local copies ───────────────────────────────────────────
+  // The three items above that had no picture, filled from the "Product photos"
+  // sheet in Drive. These hotlink to third-party CDNs rather than sitting in
+  // gear-images/, which is a stopgap, not the pattern: they are someone else's
+  // bandwidth, they rotate without warning, and some hosts refuse requests that
+  // carry a foreign Referer. When one goes, the card falls back to its sport
+  // icon rather than breaking — but it should still be downloaded into
+  // gear-images/ and moved up into the block above. See the README.
+  'Rose':'https://www.cycleexchange.co.uk/cdn/shop/files/70959481-001.jpg?v=1733400261',
+  'Barbour Wellies':'https://media.johnlewiscontent.com/i/JohnLewis/004999350alt1?fmt=auto&$background-off-white$',
+  // Weakest of the three: a Google Images thumbnail-cache URL. Low resolution and
+  // the token is not a stable address — expect this one to go first.
+  'Under Armour UA Thrill 3':'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS5wY6VS80V-woI10KU9YfYvQYc9oN0iPfqP-tDacNOiQ&s',
 };
 let GEAR_DATA={};
 
@@ -1085,7 +1097,7 @@ function renderSummary(){
     return`
     <div class="top-gear-row">
       <div class="top-gear-rank">${i+1}</div>
-      ${img?`<img class="top-gear-photo" src="${img}" alt="${escapeAttr(name)}" loading="lazy" data-tile="gear-icon-inline" data-soft="${groupSoft(grp)}" data-colour="${groupColor(grp)}" data-icon="${gearIconName(grp)}" onerror="gearPhotoFailed(this)">`:gearIconTile(grp,'gear-icon-inline')}
+      ${img?`<img class="top-gear-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" loading="lazy" data-tile="gear-icon-inline" data-soft="${groupSoft(grp)}" data-colour="${groupColor(grp)}" data-icon="${gearIconName(grp)}" onerror="gearPhotoFailed(this)">`:gearIconTile(grp,'gear-icon-inline')}
       <div class="top-gear-name">${escapeHtml(gearLabel(name))}</div>
       <div class="top-gear-dist">${fmtDist(s.dist)} ${distUnit()} · ${s.count.toLocaleString('en-GB')} acts</div>
     </div>`;}).join('')+'<button class="gear-view-all" onclick="setTab(\"gear\")">View all gear →</button>';
@@ -1683,7 +1695,7 @@ function renderGear(){
     const col=groupColor(topType);
     const img=gearPhoto(name);
     return`<div class="gear-card" style="border-top:3px solid ${col}" data-gear="${escapeAttr(name)}">
-      ${img?`<img class="gear-photo" src="${img}" alt="${escapeAttr(name)}" loading="lazy" data-tile="gear-icon-tile" data-soft="${groupSoft(topType)}" data-colour="${col}" data-icon="${gearIconName(topType)}" onerror="gearPhotoFailed(this)">`:gearIconTile(topType,'gear-icon-tile')}
+      ${img?`<img class="gear-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" loading="lazy" data-tile="gear-icon-tile" data-soft="${groupSoft(topType)}" data-colour="${col}" data-icon="${gearIconName(topType)}" onerror="gearPhotoFailed(this)">`:gearIconTile(topType,'gear-icon-tile')}
       <div class="gear-name" title="${escapeAttr(gearLabel(name))}">${escapeHtml(gearLabel(name))}</div>
       ${isUnresolvedGear(name)?`<div class="gear-unresolved">${escapeHtml(name)}</div>`:''}
       <div class="gear-type" style="color:${col}">${typeEmoji(topType)} ${topType}</div>
@@ -1742,7 +1754,7 @@ function openGearModal(name){
     {label:'In use',value:daysBetween(s.first,s.last).toLocaleString('en-GB')+' days'},
   ];
   document.getElementById('gearModal').innerHTML=`
-    ${img?`<img class="gear-modal-photo" src="${img}" alt="${escapeAttr(name)}" data-tile="gear-modal-icon" data-soft="${groupSoft(topType)}" data-colour="${col}" data-icon="${gearIconName(topType)}" onerror="gearPhotoFailed(this)">`:gearIconTile(topType,'gear-modal-icon')}
+    ${img?`<img class="gear-modal-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" data-tile="gear-modal-icon" data-soft="${groupSoft(topType)}" data-colour="${col}" data-icon="${gearIconName(topType)}" onerror="gearPhotoFailed(this)">`:gearIconTile(topType,'gear-modal-icon')}
     <div class="gear-modal-head">
       <div><div class="gear-modal-title">${escapeHtml(gearLabel(name))}</div><div class="gear-modal-sub" style="color:${col}">${typeEmoji(topType)} Mostly ${topType.toLowerCase()}</div>${isUnresolvedGear(name)?`<div class="gear-unresolved" style="margin-top:4px">Strava id ${escapeHtml(name)} — name could not be fetched</div>`:''}</div>
       <button class="gear-modal-close" onclick="closeGearModal()">✕</button>
