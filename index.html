@@ -144,6 +144,8 @@ a{color:inherit;text-decoration:none}
 .record-value{font-size:22px;font-weight:700;letter-spacing:-.3px}
 .record-date{font-size:11px;color:var(--text-muted);margin-top:4px}
 .record-name{font-size:11px;color:var(--text-muted);margin-top:2px;font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.record-log{display:block;width:100%;margin-top:8px;padding:6px 8px;border:1px solid var(--border);font-size:11px;font-weight:600;color:var(--text-muted);background:transparent;cursor:pointer;font-family:inherit;transition:all .15s}
+.record-log:hover{background:var(--bg);color:var(--text);border-color:var(--border-strong)}
 .record-strava{display:inline-flex;align-items:center;gap:4px;margin-top:8px;color:#fc4c02;font-size:11px;font-weight:600;text-decoration:none;opacity:.85;transition:opacity .15s}
 .record-strava:hover{opacity:1}
 /* LOG */
@@ -235,6 +237,14 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .zwift-turn-row input{margin-top:3px;flex-shrink:0;cursor:pointer}
 .zwift-turn-row input:checked+span{text-decoration:line-through;color:var(--text-muted)}
 .zwift-directions-trailing{margin-top:8px;font-size:11px;color:var(--text-muted);font-style:italic}
+/* SCOPE LINE — the header's year and sport controls do not mean the same thing on
+   every tab, so each tab states what it is actually showing, and says so plainly
+   when a filter above it is being ignored. */
+.scope-line{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+.scope-badge{background:var(--surface);border:1px solid var(--border);padding:4px 10px;font-size:12px;color:var(--text-muted)}
+.scope-warn{display:inline-flex;align-items:center;gap:6px;background:#fef9c3;border:1px solid #fde047;padding:4px 10px;font-size:12px;color:#854d0e}
+.scope-warn .ms{font-size:14px}
+@media(max-width:640px){.scope-line{margin-bottom:14px}.scope-badge,.scope-warn{font-size:11px}}
 /* MEX */
 .mex-ladder{display:flex;flex-direction:column;gap:6px}
 .mex-row{display:flex;align-items:flex-start;gap:12px}
@@ -429,7 +439,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
   /* 44px touch targets */
   .loc-pill,.hm-nav-btn,.page-btn,.zwift-status-bar .type-btn,
-  .partner-log-btn,.gear-view-all,.view-more-btn,.go-log-btn,
+  .partner-log-btn,.gear-view-all,.view-more-btn,.go-log-btn,.record-log,
   .early-years-toggle,.zwift-reset-btn{min-height:44px}
   .loc-pill,.hm-nav-btn,.page-btn,.zwift-status-bar .type-btn,.partner-log-btn{
     display:inline-flex;align-items:center;justify-content:center}
@@ -537,6 +547,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
 </div>
 <div id="dashTooltip" class="dash-tooltip"></div>
 <div class="main">
+
+<div class="scope-line" id="scopeLine"></div>
 
 <!-- SUMMARY -->
 <div id="tab-summary" class="tab-content active">
@@ -1003,6 +1015,9 @@ function setTab(tab,dir){
     el.addEventListener('animationend',()=>el.classList.remove(cls),{once:true});
   }
   const mts=document.getElementById('tabSelectMobile');if(mts)mts.value=tab;
+  // Map and Zwift return before renderAll(), so the scope line has to be refreshed
+  // here too — otherwise they inherit whatever the previous tab was showing.
+  renderScope();
   if(tab==='map'){renderMap(activeType==='All'?ALL_DATA:ALL_DATA.filter(a=>mapFilterMatches(a)));return;}
   if(tab==='zwift'){loadZwiftRoutes();return;}
   renderAll();
@@ -1530,7 +1545,8 @@ function renderRecords(){
   function card(label,value,dateStr,name,cls,stravaId){
     if(!value)return'';
     const link=stravaId?`<a href="https://www.strava.com/activities/${stravaId}" target="_blank" class="record-strava">↗ View on Strava</a>`:'';
-    return`<div class="record-card ${cls}"><div class="record-label">${label}</div><div class="record-value">${value}</div>${dateStr?`<div class="record-date">${dateStr}</div>`:''}${name?`<div class="record-name">${name}</div>`:''}${link}</div>`;
+    const inLog=name?`<button class="record-log" ${logSearchAttr(name)}>Find in log</button>`:'';
+    return`<div class="record-card ${cls}"><div class="record-label">${label}</div><div class="record-value">${value}</div>${dateStr?`<div class="record-date">${dateStr}</div>`:''}${inLog}${name?`<div class="record-name">${name}</div>`:''}${link}</div>`;
   }
 
   const prDists=[{label:'1 km',field:'pr_1km'},{label:'1 mile',field:'pr_1mi'},{label:'5 km',field:'pr_5km'},{label:'10 km',field:'pr_10km'},{label:'Half Marathon',field:'pr_hm'},{label:'Marathon',field:'pr_mar'}];
@@ -1584,6 +1600,7 @@ function renderRecords(){
 }
 
 // ── SOCIAL ──
+function logSearchAttr(name){return `onclick="goToLogSearch(${escapeAttr(JSON.stringify(String(name)))})"`;}
 function goToLogSearch(name){logSearch=name;const el=document.getElementById('logSearch');if(el)el.value=name;logPage=1;setTab('log');}
 // ── MEX ──────────────────────────────────────────────────────────────────────
 // One activity at every whole unit in ascending order; your Mex is the highest unbroken
@@ -2313,7 +2330,40 @@ function showDashTooltip(event,date){
 }
 function hideDashTooltip(){document.getElementById('dashTooltip').style.display='none';}
 
+// What each tab is really showing, given the header controls. The year and sport
+// filters read as global because they sit in the header on every tab, but several
+// tabs ignore one or both — so rather than leave that to be discovered, every tab
+// states its scope and flags any control above it that it is not honouring.
+function scopeFor(tab){
+  const y=activeYear==='All'?'All time':activeYear;
+  const t=activeType==='All'?'all sports':activeType.toLowerCase();
+  const u=distUnit(),ignored=[];
+  if(tab==='records'){
+    if(activeYear!=='All')ignored.push('year');
+    if(activeType!=='All')ignored.push('sport');
+    return{text:`All time · all sports · ${u}`,ignored};
+  }
+  if(tab==='map'){
+    if(activeYear!=='All')ignored.push('year');
+    return{text:`All time · ${t}`,ignored};
+  }
+  if(tab==='heatmap')return{text:`${activeYear==='All'?'Latest year':activeYear} at top, earlier years below · ${t} · one shared colour scale`,ignored};
+  // Charts only ever plots the last 24 months unless a single year is chosen, so
+  // saying "all time" here would be the very thing this line exists to prevent.
+  if(tab==='charts')return{text:`${activeYear==='All'?'Last 24 months':activeYear} · ${t} · ${u} · year-over-year uses every year`,ignored};
+  if(tab==='zwift')return{text:'From Notion · the year and sport filters do not apply here',ignored};
+  if(tab==='log'&&logSearch)return{text:`${y} · ${t} · ${u} · matching “${logSearch}”`,ignored};
+  return{text:`${y} · ${t} · ${u}`,ignored};
+}
+function renderScope(){
+  const el=document.getElementById('scopeLine');if(!el)return;
+  const s=scopeFor(activeTab);
+  el.innerHTML=`<span class="scope-badge">${escapeHtml(s.text)}</span>`+
+    (s.ignored.length?`<span class="scope-warn"><span class="ms">info</span>This tab ignores the ${s.ignored.join(' and ')} filter${s.ignored.length>1?'s':''} above</span>`:'');
+}
+
 function renderAll(){
+  renderScope();
   if(activeTab==='summary')renderSummary();
   else if(activeTab==='charts')renderCharts();
   else if(activeTab==='heatmap')renderHeatmap();
@@ -2453,7 +2503,7 @@ async function buildLocationPills() {
   const hiddenCount = groups.length - shown.length;
 
   let html = shown.map(g =>
-    `<div class="loc-pill" style="cursor:pointer" onclick="goToLogSearch(${JSON.stringify(g.name)})">` +
+    `<div class="loc-pill" style="cursor:pointer" ${logSearchAttr(g.name)}>` +
     `<span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span>` +
     ` ${g.name} <strong style="margin-left:4px;color:var(--text)">${g.count}</strong></div>`
   ).join('');
