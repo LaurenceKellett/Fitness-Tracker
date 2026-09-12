@@ -246,6 +246,112 @@ a{color:inherit;text-decoration:none}
 .records-section{margin-bottom:28px}
 .records-section h3{font-size:14px;font-weight:700;margin-bottom:14px}
 .records-note{font-size:11px;color:var(--text-muted);line-height:1.55;margin-top:12px;max-width:70ch}
+/* ── RECORDS, REBUILT ──
+   28 equal-weight cards became a hero row plus tables. The table earns its keep by
+   adding a Standing column: the date was always there and never did anything, and
+   how long a record has held is the part that is actually interesting. */
+.rec-yearbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.rec-yearbar .lbl{font-size:12px;color:var(--text-muted)}
+.rec-yr{height:30px;display:inline-flex;align-items:center;padding:0 11px;border:1px solid var(--border);
+  border-radius:0;background:var(--surface);font-family:inherit;font-size:12px;font-weight:600;
+  color:var(--text-muted);cursor:pointer;transition:all .15s}
+.rec-yr:hover{border-color:var(--border-strong);color:var(--text)}
+.rec-yr.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.rec-hero-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(216px,1fr));gap:14px;margin-bottom:30px}
+.rec-hero{background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--hc);
+  padding:16px 18px;box-shadow:var(--shadow);cursor:pointer;transition:border-color .15s}
+.rec-hero:hover{border-color:var(--border-strong);border-top-color:var(--hc)}
+.rec-hero-lbl{font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:7px}
+.rec-hero-val{font-size:30px;font-weight:800;letter-spacing:-.8px;line-height:1}
+.rec-hero-val .u{font-size:14px;font-weight:400;color:var(--text-muted);letter-spacing:0;margin-left:3px}
+.rec-hero-nm{font-size:12px;font-weight:600;margin-top:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec-hero-sub{font-size:11px;color:var(--text-light);margin-top:2px}
+.rec-sect{display:flex;align-items:baseline;gap:10px;margin:0 0 10px}
+.rec-sect h3{font-size:14px;font-weight:700}
+.rec-sect span{font-size:11px;color:var(--text-light)}
+.rec-tbl{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);margin-bottom:8px}
+.rec-head,.rec-row{display:grid;grid-template-columns:180px 122px 1fr 96px 118px;gap:14px;align-items:center;padding:0 16px}
+.rec-head{height:32px;background:var(--bg);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;color:var(--text-light)}
+.rec-row{height:42px;border-bottom:1px solid var(--bg);font-size:12.5px;cursor:pointer;transition:background .12s}
+.rec-row:last-child{border-bottom:none}
+.rec-row:hover{background:var(--bg)}
+.rec-name{font-weight:600;display:flex;align-items:center;gap:7px;min-width:0}
+.rec-name i{width:7px;height:7px;flex-shrink:0;font-style:normal}
+.rec-best{font-weight:700;font-size:14px;font-variant-numeric:tabular-nums}
+.rec-act{color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec-set{color:var(--text-light);font-size:11.5px;font-variant-numeric:tabular-nums}
+.rec-std{font-size:11.5px;color:var(--text-muted)}
+.rec-fresh{font-size:10px;font-weight:700;color:#166534;background:#dcfce7;padding:1px 6px;white-space:nowrap}
+.rec-shared{font-size:11.5px;color:var(--text-muted);margin-bottom:26px;display:flex;align-items:flex-start;gap:7px;max-width:104ch;line-height:1.55}
+.rec-shared .ms{font-size:14px;color:var(--accent);flex-shrink:0;margin-top:1px}
+/* Totals are not bests, so they do not wear the bests' card. */
+.rec-totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(154px,1fr));gap:1px;background:var(--border);border:1px solid var(--border)}
+.rec-totals>div{background:var(--surface);padding:13px 15px}
+.rec-tot-l{font-size:10px;font-weight:700;color:var(--text-light);margin-bottom:5px}
+.rec-tot-v{font-size:19px;font-weight:800;letter-spacing:-.5px;line-height:1}
+.rec-tot-s{font-size:10.5px;color:var(--text-light);margin-top:4px}
+/* ── SOCIAL, REBUILT ──
+   The page used to hold two different definitions of "social" and show them one above
+   the other, disagreeing: a stat row from Strava's participant count, and partner cards
+   from a regex over activity titles. One definition leads now, and the named list is
+   explicitly the subset written into titles. */
+.soc-lead{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);padding:20px 22px}
+.soc-lead-top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.soc-lead-n{font-size:30px;font-weight:800;letter-spacing:-.7px;line-height:1}
+.soc-lead-t{font-size:13px;color:var(--text-muted);padding-bottom:2px}
+.soc-split{display:flex;height:26px;margin:14px 0 10px;overflow:hidden}
+.soc-split span{display:block;height:100%}
+.soc-key{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:11.5px;color:var(--text-muted)}
+.soc-key i{width:9px;height:9px;display:inline-block;margin-right:5px;font-style:normal}
+.soc-key b{font-weight:700;color:var(--text)}
+.soc-caveat{margin-top:14px;padding-top:13px;border-top:1px solid var(--border);display:flex;align-items:flex-start;gap:10px}
+.soc-caveat .ms{font-size:17px;color:#b45309;flex-shrink:0}
+.soc-caveat div{font-size:12px;color:var(--text-muted);line-height:1.6}
+.soc-caveat strong{color:var(--text);font-weight:700}
+.soc-tbl{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow)}
+.soc-head,.soc-row{display:grid;grid-template-columns:36px 150px 1fr 86px 98px 110px 86px;gap:12px;align-items:center;padding:0 16px}
+.soc-head{height:32px;background:var(--bg);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;color:var(--text-light)}
+.soc-row{height:48px;border-bottom:1px solid var(--bg);font-size:12.5px;cursor:pointer;transition:background .12s}
+.soc-row:last-child{border-bottom:none}
+.soc-row:hover{background:var(--bg)}
+.soc-av{width:26px;height:26px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700}
+.soc-nm{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.soc-nm small{display:block;font-size:10.5px;font-weight:400;color:var(--text-light);margin-top:1px}
+.soc-mix{display:flex;height:8px;overflow:hidden}
+.soc-mix span{display:block;height:100%}
+.soc-num{font-weight:700;font-variant-numeric:tabular-nums}
+.soc-mut{color:var(--text-muted);font-size:11.5px;font-variant-numeric:tabular-nums}
+.soc-warm{font-size:10px;font-weight:700;padding:1px 6px;white-space:nowrap}
+.soc-note{font-size:11.5px;color:var(--text-muted);margin-top:10px;max-width:104ch;line-height:1.6}
+/* Partner panel, on the gear/activity modal shell. */
+.soc-modal-head{display:flex;align-items:center;gap:14px;padding:20px 22px 0}
+.soc-modal-av{width:52px;height:52px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:21px;font-weight:700;flex-shrink:0}
+@media(max-width:900px){
+  .soc-head,.soc-row{grid-template-columns:36px 1fr 84px 104px 86px}
+  .soc-head>:nth-child(3),.soc-row>:nth-child(3),
+  .soc-head>:nth-child(5),.soc-row>:nth-child(5){display:none}
+}
+@media(max-width:640px){
+  .soc-lead{padding:16px 17px}
+  .soc-lead-n{font-size:26px}
+  .soc-head,.soc-row{grid-template-columns:32px 1fr 84px;gap:10px;padding:0 14px}
+  .soc-head>:nth-child(5),.soc-row>:nth-child(5),
+  .soc-head>:nth-child(6),.soc-row>:nth-child(6){display:none}
+  .soc-row{height:56px}
+}
+@media(max-width:900px){
+  .rec-head,.rec-row{grid-template-columns:150px 104px 1fr 104px}
+  .rec-head>:nth-child(4),.rec-row>:nth-child(4){display:none}
+}
+@media(max-width:640px){
+  /* The activity name is the first thing to go: the row opens the activity anyway. */
+  .rec-head,.rec-row{grid-template-columns:1fr 96px 106px;gap:10px;padding:0 14px}
+  .rec-head>:nth-child(3),.rec-row>:nth-child(3){display:none}
+  .rec-row{height:52px}
+  .rec-yr{min-height:44px}
+  .rec-hero-val{font-size:26px}
+  .rec-tot-v{font-size:17px}
+}
 .records-note:empty{display:none}
 .records-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:12px}
 .record-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:16px;box-shadow:var(--shadow);position:relative;overflow:hidden}
@@ -881,12 +987,13 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
 <!-- RECORDS -->
 <div id="tab-records" class="tab-content">
-  <div class="records-section"><h3><span class="ms" style="font-size:16px;vertical-align:-3px">directions_run</span> Running Personal Bests</h3><div class="records-grid" id="runPRs"></div><div class="records-note" id="runPRNote"></div></div>
-  <div class="records-section"><h3><span class="ms" style="font-size:16px;vertical-align:-3px">directions_bike</span> Cycling Highlights</h3><div class="records-grid" id="ridePRs"></div></div>
-  <div class="records-section"><h3><span class="ms" style="font-size:16px;vertical-align:-3px">computer</span> Virtual Ride Highlights</h3><div class="records-grid" id="virtualPRs"></div></div>
-  <div class="records-section"><h3><span class="ms" style="font-size:16px;vertical-align:-3px">directions_walk</span> Walk Highlights</h3><div class="records-grid" id="walkPRs"></div></div>
-  <div class="records-section" id="swimSection"><h3><span class="ms" style="font-size:16px;vertical-align:-3px">pool</span> Swim Highlights</h3><div class="records-grid" id="swimPRs"></div></div>
-  <div class="records-section"><h3><span class="ms" style="font-size:16px;vertical-align:-3px">emoji_events</span> All-time Milestones</h3><div class="records-grid" id="milestones"></div></div>
+  <div class="rec-yearbar" id="recYearBar"></div>
+  <div class="section-header"><h2 id="recHeroTitle">The ones that stand out</h2><span class="badge" id="recHeroBadge"></span></div>
+  <div class="rec-hero-grid" id="recHero"></div>
+  <div id="recTables"></div>
+  <div class="section-header" style="margin-top:28px"><h2>All time</h2><span class="badge" id="recTotalsBadge"></span></div>
+  <div class="rec-totals" id="recTotals"></div>
+  <div class="records-note" id="runPRNote"></div>
 </div>
 
 <!-- MEX -->
@@ -894,26 +1001,17 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
 <!-- SOCIAL -->
 <div id="tab-social" class="tab-content">
-  <div class="section-header"><h2>Top Activity Partners</h2><span class="badge" id="socialBadge"></span></div>
-  <div class="stats-grid" id="socialStats"></div>
-  <div class="partner-grid" id="partnerCards"></div>
-  <div class="charts-grid">
+  <div class="section-header"><h2>Who you train with</h2><span class="badge" id="socialBadge"></span></div>
+  <div class="soc-lead" id="socLead"></div>
+  <div class="section-header" style="margin-top:28px"><h2>Named partners</h2><span class="badge" id="socPartnerBadge"></span></div>
+  <div id="socPartners"></div>
+  <div class="charts-grid wide" style="margin-top:24px">
     <div class="chart-card">
-      <div class="chart-title">Activities with Each Partner</div>
-      <div class="chart-sub">Top 12 by number of activities</div>
-      <div class="chart-wrap tall"><canvas id="chartPartnerCount"></canvas></div>
-    </div>
-    <div class="chart-card">
-      <div class="chart-title">Distance with Each Partner</div>
-      <div class="chart-sub" id="partnerDistSub">Top 12 by distance</div>
-      <div class="chart-wrap tall"><canvas id="chartPartnerDist"></canvas></div>
-    </div>
-  </div>
-  <div class="charts-grid wide">
-    <div class="chart-card">
-      <div class="chart-title">Solo vs. With Others</div>
-      <div class="chart-sub">Monthly activities with a partner vs solo</div>
+      <div class="chart-title">Solo and in company, by month</div>
+      <div class="chart-sub" id="socialTimeSub">Activities with someone else there, against activities alone</div>
       <div class="chart-wrap"><canvas id="chartSocialTime"></canvas></div>
+      <div id="socialChips" class="chart-chips"></div>
+      <div id="socialVerdict" class="chart-verdict"></div>
     </div>
   </div>
 </div>
@@ -2079,113 +2177,263 @@ function showDayDetail(date){
 
 // ── RECORDS ──
 function fmtPRTime(s){if(!s)return'—';const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;return h>0?`${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`:m+':'+String(sec).padStart(2,'0');}
+// ── RECORDS ──
+// Rebuilt from 28 equal-weight cards into a hero row plus tables. Three things changed
+// substantively, not just visually:
+//   1. The year filter reaches this page. It used to read ALL_DATA and ignore both
+//      header filters, so "my best of 2026" was not askable.
+//   2. Every record carries how long it has stood. The date was always rendered and
+//      never did anything with it.
+//   3. Records that were only the maximum of a trivial set are gone — Most Calories on
+//      a dog walk, 138ft of climbing, a swim pace quoted per mile.
+
+// Records are per-sport by construction, so the sport filter has nothing to add here —
+// only the year does. recYear tracks it separately so the header's type filter does not
+// silently empty the page.
+let recYear='All';
+
+function setRecYear(y){recYear=y;renderRecords();}
+
+// Which records each sport actually deserves. A record needs the sport to have real
+// spread in the measure: "most calories on a walk" is arithmetic, not an achievement.
+const REC_SPECS={
+  Ride:[
+    {k:'dist',label:'Longest ride'},
+    {k:'elv',label:'Biggest climb'},
+    {k:'speed',label:'Highest avg speed',floor:10},
+    {k:'pwr',label:'Highest avg power'},
+    {k:'time',label:'Longest time riding'},
+  ],
+  Run:[
+    {k:'dist',label:'Longest run'},
+    {k:'pace',label:'Fastest avg pace',floor:3},
+    {k:'elv',label:'Biggest climb'},
+    {k:'pr_1km',label:'1 km'},
+    {k:'pr_1mi',label:'1 mile'},
+    {k:'pr_5km',label:'5 km'},
+    {k:'pr_10km',label:'10 km'},
+    {k:'pr_hm',label:'Half marathon'},
+    {k:'pr_mar',label:'Marathon'},
+  ],
+  Virtual:[
+    {k:'dist',label:'Longest virtual ride'},
+    {k:'elv',label:'Biggest climb'},
+    {k:'pwr',label:'Highest avg power'},
+  ],
+  Walk:[
+    {k:'dist',label:'Longest walk'},
+    {k:'time',label:'Longest time on feet'},
+  ],
+  Swim:[
+    {k:'dist',label:'Longest swim'},
+    {k:'time',label:'Longest time in water'},
+  ],
+};
+
+const REC_SECTIONS=[
+  {group:'Ride',   title:'Cycling',      icon:'directions_bike', noun:'rides'},
+  {group:'Run',    title:'Running',      icon:'directions_run',  noun:'runs'},
+  {group:'Virtual',title:'Virtual rides',icon:'computer',        noun:'virtual rides'},
+  {group:'Walk',   title:'Walking',      icon:'directions_walk', noun:'walks'},
+  {group:'Swim',   title:'Swimming',     icon:'pool',            noun:'swims'},
+];
+
+// One place that knows how to read, compare and print each measure, so the table, the
+// hero row and the margin ranking all agree.
+function recMeasure(k){
+  if(k.startsWith('pr_'))return{
+    get:a=>(a[k]>0&&a[k]<86400)?a[k]:0, lower:true,
+    fmt:v=>fmtPRTime(v)};
+  return{
+    dist :{get:a=>a.dist_mi||0,   fmt:v=>fmtDist(v)+' '+distUnit()},
+    elv  :{get:a=>a.elv||0,       fmt:v=>fmtElv(v)},
+    speed:{get:a=>a.speed_mph||0, fmt:v=>fmtSpeed(v)},
+    pwr  :{get:a=>a.pwr||0,       fmt:v=>fmtNum(v)+'W'},
+    time :{get:a=>a.mt||0,        fmt:v=>fmtTime(v)},
+    // Lower is better, and fmtPace refuses anything over an hour per mile — a swim
+    // pace per mile is technically a number and tells you nothing.
+    pace :{get:a=>a.pace_mi||0,   lower:true, fmt:v=>fmtPace(v)},
+  }[k];
+}
+
+// How long ago, in words, and whether it counts as recent.
+function recStanding(dateStr){
+  const days=Math.floor((new Date()-new Date(dateStr+'T12:00:00'))/86400000);
+  if(days<=90)return{fresh:true,text:days<=1?'today':days<=7?'this week':days<=31?'this month':Math.round(days/7)+' weeks ago'};
+  const yrs=days/365.25;
+  if(yrs<1)return{fresh:false,text:Math.max(1,Math.round(days/30.4))+' months'};
+  return{fresh:false,text:Math.round(yrs)+(Math.round(yrs)===1?' year':' years')};
+}
+
+function recFind(acts,spec){
+  const m=recMeasure(spec.k);
+  if(!m)return null;
+  let best=null,bestV=0,runnerV=0;
+  acts.forEach(a=>{
+    if(spec.floor&&(a.dist_mi||0)<spec.floor)return;
+    const v=m.get(a);
+    if(!(v>0))return;
+    const better=best===null||(m.lower?v<bestV:v>bestV);
+    if(better){runnerV=bestV;bestV=v;best=a;}
+    else if(m.lower?(runnerV===0||v<runnerV):v>runnerV)runnerV=v;
+  });
+  if(!best)return null;
+  // Margin over the runner-up, used to pick the hero row. Zero when there is nothing
+  // to compare against — a single marathon is not "standing out", it is unrepeated.
+  const margin=runnerV>0?(m.lower?(runnerV-bestV)/runnerV:(bestV-runnerV)/runnerV):0;
+  return{spec,act:best,value:bestV,display:m.fmt(bestV),margin,lone:runnerV===0};
+}
+
 function renderRecords(){
-  const runs=ALL_DATA.filter(a=>typeGroup(a.type)==='Run');
-  const rides=ALL_DATA.filter(a=>a.type==='Ride');
-  const virtuals=ALL_DATA.filter(a=>a.type==='VirtualRide');
-  const walks=ALL_DATA.filter(a=>a.type==='Walk');
-  function bestPR(acts,field){return acts.filter(a=>a[field]>0&&a[field]<86400).reduce((b,a)=>!b||a[field]<b[field]?a:b,null);}
-  function longestAct(acts){return acts.filter(a=>a.dist_mi>0).reduce((b,a)=>!b||(a.dist_mi>b.dist_mi)?a:b,null);}
-  function fastestSpeed(acts,minDist=5){return acts.filter(a=>a.dist_mi>=minDist&&a.speed_mph>0).reduce((b,a)=>!b||(a.speed_mph>b.speed_mph)?a:b,null);}
-  function mostElv(acts){return acts.filter(a=>a.elv>0).reduce((b,a)=>!b||(a.elv>b.elv)?a:b,null);}
-  function mostCal(acts){return acts.filter(a=>a.cal>0).reduce((b,a)=>!b||(a.cal>b.cal)?a:b,null);}
+  const yearOf=a=>a.date.slice(0,4);
+  const years=[...new Set(ALL_DATA.map(yearOf))].sort().reverse();
+  if(recYear!=='All'&&!years.includes(recYear))recYear='All';
+  const scoped=recYear==='All'?ALL_DATA:ALL_DATA.filter(a=>yearOf(a)===recYear);
 
-  function card(label,value,dateStr,name,cls,stravaId){
-    if(!value)return'';
-    const link=stravaId?`<a href="https://www.strava.com/activities/${stravaId}" target="_blank" class="record-strava">↗ View on Strava</a>`:'';
-    const inLog=name?`<button class="record-log" ${logSearchAttr(name)}>Find in log</button>`:'';
-    // The two actions share a wrapper so the phone can put them on one row. On desktop
-    // the wrapper is display:contents, so it takes no part in layout and nothing moves.
-    const actions=(inLog||link)?`<div class="record-actions">${inLog}${link}</div>`:'';
-    // Name above date, and both above the actions: the button used to sit between the
-    // date and the activity name, splitting one piece of information in half.
-    return`<div class="record-card ${cls}"><div class="record-label">${label}</div><div class="record-value">${value}</div>${name?`<div class="record-name">${name}</div>`:''}${dateStr?`<div class="record-date">${dateStr}</div>`:''}${actions}</div>`;
+  // Year bar. Records are per-sport, so only the year is offered — the header's sport
+  // filter is deliberately not applied and the note under the tables says so.
+  const bar=document.getElementById('recYearBar');
+  if(bar)bar.innerHTML='<span class="lbl">Best of</span>'+
+    [['All','All time'],...years.slice(0,6).map(y=>[y,y])].map(([v,l])=>
+      `<button class="rec-yr${recYear===v?' on':''}" onclick="setRecYear(${escapeAttr(JSON.stringify(v))})">${escapeHtml(l)}</button>`).join('');
+
+  // Every record, per section.
+  const found={};
+  REC_SECTIONS.forEach(sec=>{
+    const acts=scoped.filter(a=>typeGroup(a.type)===sec.group);
+    found[sec.group]={acts,recs:(REC_SPECS[sec.group]||[]).map(sp=>recFind(acts,sp)).filter(Boolean)};
+  });
+
+  // ── Hero row: the four with the biggest margin over their runner-up ──
+  const streak=recLongestStreak(scoped);
+  const all=[];
+  REC_SECTIONS.forEach(sec=>found[sec.group].recs.forEach(r=>all.push({...r,group:sec.group})));
+  // A record only belongs in this row if it genuinely stands clear. Ranking by margin
+  // alone put a climb 1% above its runner-up, and a virtual ride 0% above, under a
+  // heading claiming they stood out — so there is a floor, and the row simply carries
+  // fewer cards when fewer qualify.
+  const HERO_MARGIN=0.08;
+  const hero=all.filter(r=>!r.lone&&r.margin>=HERO_MARGIN)
+    .sort((a,b)=>b.margin-a.margin).slice(0,3);
+  const heroEl=document.getElementById('recHero');
+  const badge=document.getElementById('recHeroBadge');
+  const title=document.getElementById('recHeroTitle');
+  if(title)title.textContent=hero.length?'The ones that stand out':'Your headline numbers';
+  if(badge)badge.textContent=(recYear==='All'?'All time':recYear)+' · '+all.length+' record'+(all.length===1?'':'s');
+  if(heroEl){
+    if(!all.length){
+      heroEl.innerHTML='<div class="chart-empty" style="height:90px;border:1px solid var(--border);background:var(--surface)">Nothing with a distance or a duration in '+escapeHtml(recYear)+'.</div>';
+    }else{
+      const fallback=hero.length?[]:['Longest ride','Longest run','Longest virtual ride']
+        .map(l=>all.find(r=>r.spec.label===l)).filter(Boolean).slice(0,3);
+      heroEl.innerHTML=(hero.length?hero:fallback).map(r=>{
+        const st=recStanding(r.act.date);
+        return `<div class="rec-hero" style="--hc:${groupColor(r.group)}" ${r.act.id?`data-act="${escapeAttr(r.act.id)}"`:''}>
+          <div class="rec-hero-lbl">${escapeHtml(r.spec.label)}</div>
+          <div class="rec-hero-val">${r.display.replace(/^([\d,.:]+)\s*(.*)$/,(m,n,u)=>n+(u?`<span class="u">${escapeHtml(u)}</span>`:''))}</div>
+          <div class="rec-hero-nm">${escapeHtml(r.act.name||r.act.type)}</div>
+          <div class="rec-hero-sub">${fmtDate(r.act.date)} · ${st.fresh?'set '+st.text:'has stood '+st.text}${r.margin>=HERO_MARGIN?` · ${Math.round(r.margin*100)}% clear of your next best`:''}</div>
+        </div>`;
+      }).join('')+(streak?`
+        <div class="rec-hero" style="--hc:#22c55e">
+          <div class="rec-hero-lbl">Longest streak</div>
+          <div class="rec-hero-val">${streak.len}<span class="u">days</span></div>
+          <div class="rec-hero-nm">Consecutive active days</div>
+          <div class="rec-hero-sub">${fmtDate(streak.from)} → ${fmtDate(streak.to)}${streak.current?' · running now':''}</div>
+        </div>`:'');
+    }
   }
 
-  const prDists=[{label:'1 km',field:'pr_1km'},{label:'1 mile',field:'pr_1mi'},{label:'5 km',field:'pr_5km'},{label:'10 km',field:'pr_10km'},{label:'Half Marathon',field:'pr_hm'},{label:'Marathon',field:'pr_mar'}];
-  document.getElementById('runPRs').innerHTML=[
-    ...prDists.map(({label,field})=>{const b=bestPR(runs,field);return b?card(label,fmtPRTime(b[field]),fmtDate(b.date),b.name,'run',b.id):'';}),[
-    (()=>{const b=longestAct(runs);return b?card('Longest Run',fmtDist(b.dist_mi)+' '+distUnit(),fmtDate(b.date),b.name,'run',b.id):'';})(),(()=>{const b=mostElv(runs);return b?card('Most Elevation',fmtElv(b.elv),fmtDate(b.date),b.name,'run',b.id):'';})(),(()=>{const b=fastestSpeed(runs,3);return b?card('Fastest Avg Pace',fmtPace(b.pace_mi),fmtDate(b.date),b.name,'run',b.id):'';})()] ].flat().join('');
-
-  document.getElementById('ridePRs').innerHTML=[
-    (()=>{const b=longestAct(rides);return b?card('Longest Ride',fmtDist(b.dist_mi)+' '+distUnit(),fmtDate(b.date),b.name,'ride',b.id):'';})(),
-    (()=>{const b=fastestSpeed(rides,20);return b?card('Highest Avg Speed',fmtSpeed(b.speed_mph),fmtDate(b.date),b.name,'ride',b.id):'';})(),
-    (()=>{const b=mostElv(rides);return b?card('Most Elevation',fmtElv(b.elv),fmtDate(b.date),b.name,'ride',b.id):'';})(),
-    (()=>{const b=mostCal(rides);return b?card('Most Calories',fmtCal(b.cal)+' kcal',fmtDate(b.date),b.name,'ride',b.id):'';})(),
-    (()=>{const pa=rides.filter(a=>a.pwr>0);const b=pa.reduce((best,a)=>!best||(a.pwr>best.pwr)?a:best,null);return b?card('Highest Avg Power',fmtNum(b.pwr)+'W',fmtDate(b.date),b.name,'ride',b.id):'';})()] .join('');
-
-  document.getElementById('virtualPRs').innerHTML=[
-    (()=>{const b=longestAct(virtuals);return b?card('Longest Virtual Ride',fmtDist(b.dist_mi)+' '+distUnit(),fmtDate(b.date),b.name,'virtual',b.id):'';})(),
-    (()=>{const b=fastestSpeed(virtuals,5);return b?card('Highest Avg Speed',fmtSpeed(b.speed_mph),fmtDate(b.date),b.name,'virtual',b.id):'';})(),
-    (()=>{const b=mostElv(virtuals);return b?card('Most Elevation',fmtElv(b.elv),fmtDate(b.date),b.name,'virtual',b.id):'';})(),
-    (()=>{const b=mostCal(virtuals);return b?card('Most Calories',fmtCal(b.cal)+' kcal',fmtDate(b.date),b.name,'virtual',b.id):'';})()].join('');
-
-  document.getElementById('walkPRs').innerHTML=[
-    (()=>{const b=longestAct(walks);return b?card('Longest Walk',fmtDist(b.dist_mi)+' '+distUnit(),fmtDate(b.date),b.name,'walk',b.id):'';})(),
-    (()=>{const b=mostElv(walks);return b?card('Most Elevation',fmtElv(b.elv),fmtDate(b.date),b.name,'walk',b.id):'';})(),
-    // Walks had a longest and a most-climbed but never a fastest. Two miles is a low
-    // enough floor to include a real walk but high enough to exclude a stroll to the shop.
-    (()=>{const b=fastestSpeed(walks,2);if(!b)return'';const p=fmtPace(b.pace_mi);return p==='—'?'':card('Fastest Avg Pace',p,fmtDate(b.date),b.name,'walk',b.id);})(),
-    (()=>{const b=mostCal(walks);return b?card('Most Calories',fmtCal(b.cal)+' kcal',fmtDate(b.date),b.name,'walk',b.id):'';})(),
-    (()=>{const b=walks.filter(a=>a.mt>0).reduce((best,a)=>!best||a.mt>best.mt?a:best,null);return b?card('Longest Time on Feet',fmtTime(b.mt),fmtDate(b.date),b.name,'walk',b.id):'';})()].join('');
-
-  // Swims had no section at all, so every swim record was invisible.
-  const swims=ALL_DATA.filter(a=>typeGroup(a.type)==='Swim');
-  const swimSec=document.getElementById('swimSection');
-  if(!swims.length){swimSec.style.display='none';}
-  else{
-    swimSec.style.display='';
-    document.getElementById('swimPRs').innerHTML=[
-      (()=>{const b=longestAct(swims);return b?card('Longest Swim',fmtDist(b.dist_mi)+' '+distUnit(),fmtDate(b.date),b.name,'swim',b.id):'';})(),
-      (()=>{const b=swims.filter(a=>a.mt>0).reduce((best,a)=>!best||a.mt>best.mt?a:best,null);return b?card('Longest Time in Water',fmtTime(b.mt),fmtDate(b.date),b.name,'swim',b.id):'';})(),
-      // fmtPace gives up past 60 min/mile, which a slow swim can genuinely exceed —
-      // so drop the card rather than print an em dash where a record should be.
-      (()=>{const b=fastestSpeed(swims,0.25);if(!b)return'';const p=fmtPace(b.pace_mi);return p==='—'?'':card('Fastest Avg Pace',p,fmtDate(b.date),b.name,'swim',b.id);})(),
-      (()=>{const b=mostCal(swims);return b?card('Most Calories',fmtCal(b.cal)+' kcal',fmtDate(b.date),b.name,'swim',b.id):'';})(),
-      card('Total Swim Distance',fmtDist(swims.reduce((s,a)=>s+(a.dist_mi||0),0))+' '+distUnit(),`${swims.length.toLocaleString('en-GB')} swims`,'','swim')
-    ].join('');
+  // ── Per-sport tables ──
+  const tablesEl=document.getElementById('recTables');
+  if(tablesEl){
+    tablesEl.innerHTML=REC_SECTIONS.map(sec=>{
+      const {acts,recs}=found[sec.group];
+      if(!recs.length)return '';
+      const col=groupColor(sec.group);
+      const rows=recs.map(r=>{
+        const st=recStanding(r.act.date);
+        return `<div class="rec-row"${r.act.id?` data-act="${escapeAttr(r.act.id)}"`:''}>
+          <div class="rec-name"><i style="background:${col}"></i>${escapeHtml(r.spec.label)}</div>
+          <div class="rec-best">${escapeHtml(r.display)}</div>
+          <div class="rec-act" title="${escapeAttr(r.act.name||'')}">${escapeHtml(r.act.name||r.act.type)}</div>
+          <div class="rec-set">${fmtDate(r.act.date)}</div>
+          <div class="rec-std">${st.fresh?`<span class="rec-fresh">${st.text}</span>`:st.text}</div>
+        </div>`;
+      }).join('');
+      // When one activity holds several of a section's records, say so — the old page
+      // rendered the dates and could not notice they were the same day.
+      const byId={};
+      recs.forEach(r=>{if(r.act.id)byId[r.act.id]=(byId[r.act.id]||[]).concat(r.spec.label);});
+      const multi=Object.entries(byId).filter(([,ls])=>ls.length>1)
+        .sort((x,y)=>y[1].length-x[1].length)[0];
+      const shared=multi?(()=>{
+        const a=acts.find(x=>String(x.id)===String(multi[0]));
+        return `<div class="rec-shared"><span class="ms">info</span><div>${multi[1].length} of these came from one ${sec.group==='Run'?'run':'outing'} — <strong style="font-weight:600">${escapeHtml(a.name||a.type)}, ${fmtDate(a.date)}</strong>.</div></div>`;
+      })():'<div style="height:26px"></div>';
+      return `<div class="rec-sect"><h3><span class="ms" style="font-size:15px;color:${col};vertical-align:-2px">${sec.icon}</span> ${sec.title}</h3><span>${acts.length.toLocaleString('en-GB')} ${sec.noun}</span></div>
+        <div class="rec-tbl">
+          <div class="rec-head"><div>Record</div><div>Best</div><div>Activity</div><div>Set</div><div>Standing</div></div>
+          ${rows}
+        </div>${shared}`;
+    }).join('');
   }
 
-  // The six distance PBs come from Strava's best-efforts, which the summary endpoint
-  // does not return — so they render as nothing at all. Say that, rather than leaving
-  // a section that looks like it has simply lost half its cards.
-  const noteEl=document.getElementById('runPRNote');
-  if(noteEl){
-    const withPr=runs.filter(a=>prDists.some(({field})=>a[field]>0)).length;
-    const totalRuns=runs.length;
-    noteEl.textContent=withPr
-      ? `Segment PBs are read from Strava's best-efforts, one request per activity, so they are collected gradually on the daily refresh — ${withPr.toLocaleString('en-GB')} of ${totalRuns.toLocaleString('en-GB')} runs checked so far. The rest of this section is computed from whole activities and is already complete.`
-      : `Segment PBs (1 km, 1 mile, 5 km, 10 km, half, marathon) come from Strava's best-efforts, which the bulk activity endpoint doesn't return. They are collected a slice at a time on the daily refresh and will start appearing here. Everything above is computed from whole activities.`;
+  // ── Totals, in their own vocabulary ──
+  const tot=document.getElementById('recTotals');
+  const tBadge=document.getElementById('recTotalsBadge');
+  if(tot){
+    const d=scoped.reduce((s,a)=>s+(a.dist_mi||0),0);
+    const e=scoped.reduce((s,a)=>s+(a.elv||0),0);
+    const t=scoped.reduce((s,a)=>s+(a.mt||0),0);
+    const c=scoped.reduce((s,a)=>s+(a.cal||0),0);
+    const days=new Set(scoped.map(a=>a.date)).size;
+    const ys=[...new Set(scoped.map(yearOf))].sort();
+    const span=ys.length?(ys.length===1?ys[0]:ys[0]+'–'+ys[ys.length-1]):'—';
+    if(tBadge)tBadge.textContent=recYear==='All'?span:recYear;
+    const cell=(l,v,sub)=>`<div><div class="rec-tot-l">${l}</div><div class="rec-tot-v">${v}</div><div class="rec-tot-s">${sub}</div></div>`;
+    tot.innerHTML=
+      cell('Distance',fmtDist(d),distUnit()+' · '+span)+
+      cell('Moving time',fmtNum(t/3600)+'h',fmtNum(t/86400)+' days')+
+      cell('Climbed',fmtElv(e),(e/29029).toFixed(1)+'× Everest')+
+      cell('Activities',scoped.length.toLocaleString('en-GB'),days.toLocaleString('en-GB')+' active days')+
+      cell('Calories',fmtCal(c),'kcal')+
+      cell('Active days',days.toLocaleString('en-GB'),days?(scoped.length/days).toFixed(1)+' activities per active day':'—');
   }
 
-  const totalDist=ALL_DATA.reduce((s,a)=>s+(a.dist_mi||0),0),totalElv=ALL_DATA.reduce((s,a)=>s+(a.elv||0),0),totalCal=ALL_DATA.reduce((s,a)=>s+(a.cal||0),0),totalTime=ALL_DATA.reduce((s,a)=>s+(a.mt||0),0);
-  const activeDays=new Set(ALL_DATA.map(a=>a.date));let ls=0,cs=0,pd=null;
-  [...activeDays].sort().forEach(d=>{if(pd){const diff=(new Date(d)-new Date(pd))/86400000;if(diff===1){cs++;ls=Math.max(ls,cs);}else cs=1;}else cs=1;pd=d;});
-  // The span used to be hardcoded as "2013–2026" and would have quietly gone stale.
-  const yearsSeen=[...new Set(ALL_DATA.map(a=>a.date.slice(0,4)))].sort();
-  const span=yearsSeen.length?(yearsSeen[0]===yearsSeen[yearsSeen.length-1]?yearsSeen[0]:yearsSeen[0]+'–'+yearsSeen[yearsSeen.length-1]):'All time';
-  document.getElementById('milestones').innerHTML=[
-    card('Total Distance',fmtDist(totalDist)+' '+distUnit(),span,'','run'),
-    card('Total Moving Time',fmtNum(totalTime/3600)+'h ('+fmtNum(totalTime/86400)+'d)','All time','','ride'),
-    card('Total Elevation Gain',fmtElv(totalElv),(totalElv/29029).toFixed(1)+'× Everest','','virtual'),
-    card('Total Calories',fmtCal(totalCal)+' kcal','All time','','walk'),
-    card('Total Activities',ALL_DATA.length.toLocaleString('en-GB'),span+' · '+yearsSeen.length+' years','','run'),
-    card('Longest Streak',ls+' days','consecutive active days','','ride'),
-  ].join('');
-  // Current streak pill
-  const allDates=ALL_DATA.map(a=>a.date).sort();
-  const allDatesSet=new Set(allDates);
-  let streakCur=0;
-  let checkD=new Date(allDates[allDates.length-1]);
-  while(allDatesSet.has(checkD.toISOString().slice(0,10))){streakCur++;checkD.setDate(checkD.getDate()-1);}
-  const lastAct=allDates[allDates.length-1];
-  const todayStr=new Date().toISOString().slice(0,10);
-  const yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);
-  const isActive=lastAct===todayStr||lastAct===yesterday.toISOString().slice(0,10);
-  if(streakCur>1){
-    document.getElementById('milestones').innerHTML+=
-      `<div class="record-card run" style="border-top-color:#22c55e"><div class="record-label" style="display:flex;align-items:center;gap:8px">Current Streak${isActive?`<span class="streak-pill"><span class="streak-dot"></span>Active</span>`:''}</div><div class="record-value">${streakCur.toLocaleString('en-GB')}<span style="font-size:14px;font-weight:400;color:var(--text-muted);margin-left:4px">days</span></div><div class="record-date">${fmtDate(allDates[allDates.length-streakCur])} → now</div><div class="record-name">Consecutive days with an activity</div></div>`;
+  // ── The note: says what the page is and is not doing ──
+  const note=document.getElementById('runPRNote');
+  if(note){
+    const runs=found.Run?found.Run.acts:[];
+    const withPr=runs.filter(a=>['pr_1km','pr_1mi','pr_5km','pr_10km','pr_hm','pr_mar'].some(f=>a[f]>0)).length;
+    const bits=[];
+    bits.push(activeType==='All'
+      ? 'Records are grouped by sport, so the header’s sport filter is not applied here — only the year.'
+      : `The header is filtered to ${activeType.toLowerCase()}, which Records deliberately ignores: the sections are already per-sport. The year filter above does apply.`);
+    bits.push(withPr
+      ? `Segment bests come from Strava’s best-efforts, one request per activity, so they arrive gradually on the daily refresh — ${withPr.toLocaleString('en-GB')} of ${runs.length.toLocaleString('en-GB')} runs checked so far.`
+      : 'Segment bests (1 km, 1 mile, 5 km, 10 km, half, marathon) come from Strava’s best-efforts, which the bulk endpoint doesn’t return. They are collected a slice at a time on the daily refresh and will start appearing above.');
+    bits.push('Calories and elevation are no longer shown as records for walks and swims: the maximum of a set with no spread in it is arithmetic, not an achievement.');
+    note.textContent=bits.join(' ');
   }
+}
+
+// Longest run of consecutive active days, and whether it is the one you are on.
+function recLongestStreak(acts){
+  const days=[...new Set(acts.map(a=>a.date))].sort();
+  if(!days.length)return null;
+  let bestLen=0,bestTo=null,len=0,prev=null,startOf={};
+  let curStart=null;
+  days.forEach(d=>{
+    if(prev&&(new Date(d)-new Date(prev))/86400000===1)len++;
+    else{len=1;curStart=d;}
+    if(len>bestLen){bestLen=len;bestTo=d;startOf[d]=curStart;}
+    prev=d;
+  });
+  if(!bestTo)return null;
+  const last=days[days.length-1];
+  const daysSinceEnd=Math.floor((new Date()-new Date(last+'T12:00:00'))/86400000);
+  return{len:bestLen,from:startOf[bestTo],to:bestTo,current:bestTo===last&&daysSinceEnd<=1};
 }
 
 // ── SOCIAL ──
@@ -2392,66 +2640,205 @@ function wasSocial(a){
   return extractPartners(a.name).length>0;
 }
 
-// Group size, from athlete_count rather than from titles. Deliberately silent when
-// no activity in the filter carries the field, rather than reporting everything solo.
-function renderSocialStats(data){
-  const el=document.getElementById('socialStats');if(!el)return;
-  const known=data.filter(a=>typeof a.athletes==='number');
-  if(!known.length){el.innerHTML='';el.style.display='none';return;}
-  el.style.display='';
-  const solo=known.filter(a=>a.athletes===1).length;
-  const pair=known.filter(a=>a.athletes===2).length;
-  const group=known.filter(a=>a.athletes>=3).length;
-  const biggest=known.reduce((b,a)=>a.athletes>(b?b.athletes:0)?a:b,null);
-  const socialDist=known.filter(a=>a.athletes>1).reduce((s,a)=>s+(a.dist_mi||0),0);
-  const pct=n=>Math.round(n/known.length*100);
-  el.innerHTML=`
-    <div class="stat-card">
-      <div class="stat-label">Ridden solo</div>
-      <div class="stat-value">${pct(solo)}<span class="stat-unit">%</span></div>
-      <div class="stat-sub">${solo.toLocaleString('en-GB')} of ${known.length.toLocaleString('en-GB')} with a known group size</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">With one other</div>
-      <div class="stat-value">${pair.toLocaleString('en-GB')}</div>
-      <div class="stat-sub">${group.toLocaleString('en-GB')} more were three or more</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Biggest group</div>
-      <div class="stat-value">${biggest?biggest.athletes:'—'}<span class="stat-unit">people</span></div>
-      <div class="stat-sub">${biggest?`${escapeHtml(biggest.name||'Untitled')} · ${fmtDate(biggest.date)}`:'—'}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Distance in company</div>
-      <div class="stat-value">${fmtDist(socialDist)}<span class="stat-unit">${distUnit()}</span></div>
-      <div class="stat-sub">Counted from Strava's participant count, not from titles</div>
-    </div>`;
+// ── SOCIAL ──
+// The page used to show two incompatible answers to "how social are you?" twenty pixels
+// apart: a stat row counted from Strava's athlete_count, and partner cards counted by
+// regex over activity titles. Both were computed correctly; presenting them side by side
+// with no stated relationship was the defect. One definition leads now — the participant
+// count, which exists on every activity — and the named table is explicitly the subset
+// you have written into titles.
+
+const SOC_AVATAR=['#1d4ed8','#ef4444','#eab308','#0ea5e9','#8b5cf6','#ec4899','#f97316','#14b8a6','#84cc16','#a855f7'];
+
+// Regular / Occasional / Lapsed, from the last time you were out together. Whether
+// someone is still in your week is more useful than their lifetime total, which is what
+// the two old bar charts both ranked by.
+function socStanding(lastDate){
+  const days=Math.floor((new Date()-new Date(lastDate+'T12:00:00'))/86400000);
+  if(days<=45)return{label:'Regular',col:'#166534',bg:'#dcfce7',days};
+  if(days<=240)return{label:'Occasional',col:'#475569',bg:'#f1f5f9',days};
+  return{label:'Lapsed',col:'#b45309',bg:'#fef3c7',days};
 }
+
+function socAgo(dateStr){
+  const d=Math.floor((new Date()-new Date(dateStr+'T12:00:00'))/86400000);
+  if(d<=1)return'yesterday';
+  if(d<7)return d+' days ago';
+  if(d<35)return Math.round(d/7)+' weeks ago';
+  if(d<365)return Math.max(1,Math.round(d/30.4))+' months ago';
+  const y=d/365.25;
+  return Math.round(y)+(Math.round(y)===1?' year ago':' years ago');
+}
+
+let SOC_PARTNERS={};
 
 function renderSocial(){
   const data=getFiltered();
+
+  // ── The lead: one definition, from the field that exists on every activity ──
+  const known=data.filter(a=>typeof a.athletes==='number');
+  const withCo=known.filter(a=>a.athletes>1);
+  const pair=known.filter(a=>a.athletes===2).length;
+  const group=known.filter(a=>a.athletes>=3).length;
+  const alone=known.filter(a=>a.athletes===1).length;
+  const coDist=withCo.reduce((s,a)=>s+(a.dist_mi||0),0);
+  const lead=document.getElementById('socLead');
+  const badge=document.getElementById('socialBadge');
+
+  if(!known.length){
+    if(lead)lead.innerHTML=`<div style="font-size:12px;color:var(--text-muted);line-height:1.6">Strava's participant count arrives with the next refresh. Until then the only signal is the names written into activity titles, which is what the table below reads.</div>`;
+    if(badge)badge.textContent='waiting on the next refresh';
+  }else{
+    const pct=n=>known.length?(n/known.length*100):0;
+    if(badge)badge.textContent=`${withCo.length.toLocaleString('en-GB')} of ${known.length.toLocaleString('en-GB')} with company`;
+    if(lead)lead.innerHTML=`
+      <div class="soc-lead-top">
+        <div class="soc-lead-n">${withCo.length.toLocaleString('en-GB')}</div>
+        <div class="soc-lead-t">of your ${known.length.toLocaleString('en-GB')} activities had someone else there — ${fmtDist(coDist)} ${distUnit()} in company</div>
+      </div>
+      <div class="soc-split">
+        <span style="width:${pct(alone).toFixed(1)}%;background:#e2e8f0"></span>
+        <span style="width:${pct(pair).toFixed(1)}%;background:var(--ride)"></span>
+        <span style="width:${pct(group).toFixed(1)}%;background:var(--accent)"></span>
+      </div>
+      <div class="soc-key">
+        <span><i style="background:#e2e8f0"></i><b>${alone.toLocaleString('en-GB')}</b> alone</span>
+        <span><i style="background:var(--ride)"></i><b>${pair.toLocaleString('en-GB')}</b> with one other</span>
+        <span><i style="background:var(--accent)"></i><b>${group.toLocaleString('en-GB')}</b> in a group of three or more</span>
+      </div>
+      <div class="soc-caveat">
+        <span class="ms">edit_note</span>
+        <div><strong>The count above knows somebody was there. It does not know who.</strong>
+        Names come only from <code style="font-size:11.5px;background:var(--bg);border:1px solid var(--border);padding:0 4px">w/ Name</code> in the title, so the table below covers the company you have written down — never more than that, and possibly much less.</div>
+      </div>`;
+  }
+
+  // ── Named partners, from the titles ──
   const pm={};
-  const AC=['#1d4ed8','#ef4444','#eab308','#0ea5e9','#8b5cf6','#ec4899','#f97316','#14b8a6','#84cc16','#a855f7'];
-  data.forEach(a=>{extractPartners(a.name).forEach(p=>{if(!pm[p])pm[p]={count:0,dist:0,time:0,types:{}};pm[p].count++;pm[p].dist+=a.dist_mi||0;pm[p].time+=a.mt||0;const g=typeGroup(a.type);pm[p].types[g]=(pm[p].types[g]||0)+1;});});
-  const sorted=Object.entries(pm).sort((a,b)=>b[1].count-a[1].count);
-  document.getElementById('socialBadge').textContent=sorted.length+' partners found';
-  renderSocialStats(data);
-  document.getElementById('partnerCards').innerHTML=sorted.slice(0,12).map(([name,d],i)=>{
-    const init=name.trim().split(' ').map(w=>w[0]||'').slice(0,2).join('').toUpperCase();
-    const tt=d.types?Object.entries(d.types).sort((a,b)=>b[1]-a[1])[0][0]:'?';
-    return`<div class="partner-card"><div class="partner-avatar" style="background:${AC[i%AC.length]}">${init}</div><div class="partner-name">${name}</div><div class="partner-count">${d.count.toLocaleString('en-GB')} activities</div><div class="partner-dist">${fmtDist(d.dist)} ${distUnit()}</div><div class="partner-type">${typeEmoji(tt)} mostly ${tt.toLowerCase()}</div><button class="partner-log-btn" onclick="goToLogSearch(decodeURIComponent('${encodeURIComponent(name)}'))">View activities →</button></div>`;
-  }).join('');
-  const top12=sorted.slice(0,12);
-  destroyChart('partnerCount');
-  if(top12.length)charts.partnerCount=new Chart(document.getElementById('chartPartnerCount').getContext('2d'),{type:'bar',data:{labels:top12.map(([n])=>n),datasets:[{data:top12.map(([,d])=>d.count),backgroundColor:top12.map((_,i)=>AC[i%AC.length]),borderRadius:0}]},options:{indexAxis:'y',plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()}},y:{grid:{display:false},ticks:{font:{size:12}}}}}});
-  const top12d=Object.entries(pm).sort((a,b)=>b[1].dist-a[1].dist).slice(0,12);
-  document.getElementById('partnerDistSub').textContent='Top 12 by distance ('+distUnit()+')';
-  destroyChart('partnerDist');
-  if(top12d.length)charts.partnerDist=new Chart(document.getElementById('chartPartnerDist').getContext('2d'),{type:'bar',data:{labels:top12d.map(([n])=>n),datasets:[{data:top12d.map(([,d])=>+(unit==='mi'?d.dist:d.dist*1.60934).toFixed(1)),backgroundColor:top12d.map((_,i)=>AC[i%AC.length]),borderRadius:0}]},options:{indexAxis:'y',plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()}},y:{grid:{display:false},ticks:{font:{size:12}}}}}});
+  data.forEach(a=>extractPartners(a.name).forEach(p=>{
+    if(!pm[p])pm[p]={name:p,count:0,dist:0,time:0,types:{},first:a.date,last:a.date,acts:[]};
+    const e=pm[p];
+    e.count++;e.dist+=a.dist_mi||0;e.time+=a.mt||0;
+    const g=typeGroup(a.type);e.types[g]=(e.types[g]||0)+1;
+    if(a.date<e.first)e.first=a.date;
+    if(a.date>e.last)e.last=a.date;
+    e.acts.push(a);
+  }));
+  // Sorted by recency, not by lifetime total — which is what both old charts did.
+  const partners=Object.values(pm).sort((x,y)=>y.last.localeCompare(x.last));
+  SOC_PARTNERS={};partners.forEach((p,i)=>{p.colour=SOC_AVATAR[i%SOC_AVATAR.length];SOC_PARTNERS[p.name]=p;});
+
+  const pBadge=document.getElementById('socPartnerBadge');
+  if(pBadge)pBadge.textContent=partners.length
+    ? `${partners.length} ${partners.length===1?'person':'people'} · most recent first`
+    : 'none named yet';
+
+  const wrap=document.getElementById('socPartners');
+  if(wrap){
+    if(!partners.length){
+      wrap.innerHTML=`<div class="chart-empty" style="height:90px;border:1px solid var(--border);background:var(--surface)">No activity titles contain &ldquo;w/ Name&rdquo;, so there is nobody to list. Adding a name in Strava adds a row here.</div>`;
+    }else{
+      const maxMix=p=>Object.entries(p.types).sort((a,b)=>b[1]-a[1]);
+      wrap.innerHTML=`<div class="soc-tbl">
+        <div class="soc-head"><div></div><div>Partner</div><div>Sports together</div><div>Together</div><div>Distance</div><div>Last out</div><div></div></div>
+        ${partners.map(p=>{
+          const st=socStanding(p.last);
+          const mix=maxMix(p).map(([g,n])=>`<span style="width:${n/p.count*100}%;background:${groupColor(g)}" title="${g} · ${n}"></span>`).join('');
+          return `<div class="soc-row" data-partner="${escapeAttr(p.name)}">
+            <div><span class="soc-av" style="background:${p.colour}">${escapeHtml(socInitials(p.name))}</span></div>
+            <div class="soc-nm">${escapeHtml(p.name)}<small>first out ${fmtDate(p.first)}</small></div>
+            <div class="soc-mix">${mix}</div>
+            <div class="soc-num">${p.count.toLocaleString('en-GB')}</div>
+            <div class="soc-num">${fmtDist(p.dist)} ${distUnit()}</div>
+            <div class="soc-mut">${socAgo(p.last)}</div>
+            <div><span class="soc-warm" style="color:${st.col};background:${st.bg}">${st.label}</span></div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="soc-note">One table where there were two charts: activities and distance ranked the same people in the same order, so the second said nothing the first had not. A row opens that partner, the way gear and activities do.</div>`;
+    }
+  }
+
+  // ── The one chart that was pulling its weight ──
   const mk=getMonthKeys(),sbm={},slm={};
   data.forEach(a=>{const m=a.date.slice(0,7);if(wasSocial(a))sbm[m]=(sbm[m]||0)+1;else slm[m]=(slm[m]||0)+1;});
+  const sub=document.getElementById('socialTimeSub');
+  if(sub)sub.textContent=known.length
+    ? `${withCo.length.toLocaleString('en-GB')} of ${known.length.toLocaleString('en-GB')} activities had someone else there`
+    : 'Read from activity titles until Strava’s participant count arrives';
   destroyChart('socialTime');
-  charts.socialTime=new Chart(document.getElementById('chartSocialTime').getContext('2d'),{type:'bar',data:{labels:mk.map(monthLabel),datasets:[{label:'With others',data:mk.map(m=>sbm[m]||0),backgroundColor:'#1d4ed8',borderRadius:0,borderSkipped:false},{label:'Solo',data:mk.map(m=>slm[m]||0),backgroundColor:'#e2e8f0',borderRadius:0,borderSkipped:false}]},options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}}},responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:true,grid:{color:'#f0f0f0'},ticks:{font:{size:11}}}},interaction:{mode:'index'}}});
+  charts.socialTime=new Chart(document.getElementById('chartSocialTime').getContext('2d'),{
+    type:'bar',
+    data:{labels:mk.map(monthLabel),datasets:[
+      {label:'With others',data:mk.map(m=>sbm[m]||0),backgroundColor:'#1d4ed8',borderRadius:0,borderSkipped:false},
+      {label:'Alone',data:mk.map(m=>slm[m]||0),backgroundColor:'#e2e8f0',borderRadius:0,borderSkipped:false}]},
+    options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}}},responsive:true,maintainAspectRatio:false,
+      scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:true,grid:{color:'#f0f0f0'},ticks:{font:{size:11},precision:0}}},interaction:{mode:'index'}}
+  });
+
+  // Chips and a verdict, the treatment from the heart-rate card.
+  if(known.length){
+    const totDist=data.reduce((s,a)=>s+(a.dist_mi||0),0);
+    const pctActs=Math.round(withCo.length/known.length*100);
+    const pctMiles=totDist>0?Math.round(coDist/totDist*100):0;
+    chartSummary('social',[
+      {n:pctActs+'%',label:'of activities in company',col:'#1d4ed8'},
+      {n:pctMiles+'%',label:'of your distance',col:'#0ea5e9'},
+      {n:group.toLocaleString('en-GB'),label:'in groups of three or more',col:'#ff385c'},
+    ],(()=>{
+      if(!withCo.length)return 'Every activity in this filter was on your own.';
+      const d=pctMiles-pctActs;
+      if(d>=6)return `One activity in ${Math.max(2,Math.round(known.length/withCo.length))} has company, but those carry ${pctMiles}% of your distance — riding with people makes the day longer, not just more frequent.`;
+      if(d<=-6)return `Company accounts for ${pctActs}% of activities but only ${pctMiles}% of distance, so the ones with other people are the shorter outings.`;
+      return `${pctActs}% of activities and ${pctMiles}% of distance — company is spread evenly across your week rather than concentrated in the big days out.`;
+    })());
+  }else chartSummary('social',[],'');
+}
+
+function socInitials(name){
+  return String(name).trim().split(/\s+/).map(w=>w[0]||'').slice(0,2).join('').toUpperCase();
+}
+
+// ── PARTNER PANEL ──
+// Same shell as gear and activities, so the three read as one idea.
+function openPartnerModal(name){
+  const p=SOC_PARTNERS[name];
+  if(!p)return;
+  const st=socStanding(p.last);
+  const top=Object.entries(p.types).sort((a,b)=>b[1]-a[1]);
+  const stats=[
+    {label:'Activities together',value:p.count.toLocaleString('en-GB')},
+    {label:'Distance together',value:fmtDist(p.dist)+' '+distUnit()},
+    {label:'Moving time',value:fmtTime(p.time)},
+    {label:'First out',value:fmtDate(p.first)},
+    {label:'Last out',value:fmtDate(p.last)+' · '+socAgo(p.last)},
+    {label:'Average outing',value:fmtDist(p.dist/Math.max(1,p.count))+' '+distUnit()},
+  ];
+  const recent=[...p.acts].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,40);
+  document.getElementById('actModal').innerHTML=`
+    <div class="soc-modal-head">
+      <span class="soc-modal-av" style="background:${p.colour}">${escapeHtml(socInitials(p.name))}</span>
+      <div style="flex:1;min-width:0">
+        <div class="gear-modal-title">${escapeHtml(p.name)}</div>
+        <div class="gear-modal-sub" style="color:${st.col}">${st.label} · ${p.count.toLocaleString('en-GB')} activities together</div>
+      </div>
+      <button class="gear-modal-close" onclick="closeActivityModal()" aria-label="Close">✕</button>
+    </div>
+    <div class="gear-modal-body">
+      <div class="gear-modal-stats">${stats.map(s=>`<div><div class="gear-modal-stat-label">${s.label}</div><div class="gear-modal-stat-value">${s.value}</div></div>`).join('')}</div>
+      <div class="gear-modal-section-title">What you do together</div>
+      <div class="gear-modal-types">${top.map(([g,n])=>
+        `<div class="gear-modal-type-chip" style="color:${groupColor(g)}">${typeEmoji(g)} ${g} · ${n} · ${fmtDist(p.acts.filter(a=>typeGroup(a.type)===g).reduce((s,a)=>s+(a.dist_mi||0),0))} ${distUnit()}</div>`).join('')}</div>
+      <div class="gear-modal-section-title">Together, most recent first${p.acts.length>40?` (showing 40 of ${p.acts.length})`:''}</div>
+      <div class="gear-modal-acts">${recent.map(a=>
+        `<div class="gear-modal-act-row act-row-click"${a.id?` data-act="${escapeAttr(a.id)}"`:''}><span class="gear-modal-act-date">${fmtDate(a.date)}</span>${typeEmoji(typeGroup(a.type))}<span class="gear-modal-act-name" title="${escapeAttr(a.name||'')}">${escapeHtml(a.name||a.type)}</span><span class="gear-modal-act-dist">${fmtDist(a.dist_mi||0)} ${distUnit()}</span></div>`).join('')}</div>
+      <div class="act-actions">
+        <button ${logSearchAttr(p.name)}>Find in log</button>
+      </div>
+    </div>`;
+  destroyActMap();
+  document.getElementById('actModalBackdrop').classList.add('open');
+  document.body.style.overflow='hidden';
 }
 
 // ── GEAR ──
@@ -2559,8 +2946,12 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeGearModal();cl
 // their own behaviour — clicking Strava should go to Strava, not open the modal.
 document.addEventListener('click',e=>{
   if(e.target.closest('a,button'))return;
-  const row=e.target.closest('[data-act]');
-  if(row&&row.dataset.act)openActivityModal(row.dataset.act);
+  // The two never nest: a partner row carries no activity id, and the outings listed
+  // inside the partner panel carry no partner. So whichever matches is the one meant.
+  const act=e.target.closest('[data-act]');
+  if(act&&act.dataset.act){openActivityModal(act.dataset.act);return;}
+  const partner=e.target.closest('[data-partner]');
+  if(partner&&partner.dataset.partner)openPartnerModal(partner.dataset.partner);
 });
 
 function daysBetween(d1,d2){return Math.round((new Date(d2)-new Date(d1))/86400000)+1;}

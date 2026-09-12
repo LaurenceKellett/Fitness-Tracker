@@ -45,9 +45,9 @@ The Worker holds all secrets and does all the heavy work. The Pages frontend is 
 | Map | Route heatmap — all GPS routes rendered as semi-transparent polylines on a dark basemap, coloured by sport type — plus **route replay** and **Ground covered** (see below) |
 | Charts | Monthly distance, elevation, year-on-year bar chart, activity type doughnut, heart-rate zones, Relative Effort and time of day |
 | Heatmap | GitHub-style activity calendar, with every prior year listed beneath |
-| Records | Personal bests and highlights by sport type, including swims |
+| Records | A hero row of records that stand clear, then per-sport tables with a Standing column, then all-time totals (see below) |
 | Mex | Mex Score — the ladder of whole-unit distance buckets, the first gap, and which gaps are worth most (see below) |
-| Social | Partner leaderboard plus real group sizes from Strava's participant count |
+| Social | One count of who you train with, the named partners as a table, and the solo-vs-company chart (see below) |
 | Gear | Bike and shoe mileage, with a wear bar on running shoes |
 | Activity Log | Searchable, sortable full activity table |
 | Zwift Routes | Live two-way view of the "Zwift Routes" Notion database, grouped by map. Route catalog (name, map, distance, elevation, links) is read-only, managed in Notion; Status/Date completed/Time can be edited from the app and are written straight back to Notion |
@@ -547,6 +547,70 @@ than asserting "your Strava zones" either way.
 
 The five buckets are rescaled to sum to moving time, since the curve's tails fall
 outside the zone range.
+
+---
+
+## Records
+
+Three substantive changes, not just a layout pass.
+
+**The year filter reaches this page.** `renderRecords` read `ALL_DATA` and ignored both
+header filters, so "my best of 2026" was not askable — the question a records page most
+invites. A `recYear` bar now scopes it. The *sport* filter is still deliberately not
+applied, because the sections are already per-sport, and the note under the tables says
+so rather than leaving you to wonder.
+
+**Every record says how long it has stood.** The date was always rendered and never used.
+`recStanding()` turns it into "5 years" or a green chip for anything set in the last 90
+days. Where one activity holds several of a section's records, a line under the table
+says so — the old page had the dates and could not notice they were the same day.
+
+**Records that were only the maximum of a trivial set are gone.** `REC_SPECS` names which
+records each sport deserves: Most Calories on a dog walk, 138ft of climbing and a swim
+pace quoted per mile were arithmetic dressed as achievement. Walks and swims keep longest
+distance and longest duration.
+
+The hero row takes the records with the biggest **margin over their runner-up**, with a
+floor of 8%. Ranking by margin alone put a climb 1% above its runner-up under a heading
+claiming it stood out, so the row carries fewer cards when fewer qualify, and the heading
+changes to "Your headline numbers" when nothing does. A record with no runner-up at all
+(a single marathon) is unrepeated, not outstanding, and is excluded.
+
+Totals moved out of the bests' card vocabulary entirely — they are a different kind of
+fact. Rows open the activity panel, so the 42 repeated Find-in-log and Strava buttons are
+gone.
+
+---
+
+## Social
+
+The page used to hold **two incompatible definitions of "social" twenty pixels apart**: a
+stat row counted from `athlete_count`, and partner cards counted by regex over activity
+titles. With 1,400 activities the first said 300 had company; the second said three
+people. Both were computed correctly — presenting them adjacent with no stated
+relationship was the defect.
+
+One definition leads now: the participant count, which exists on every activity, as a
+three-way split (alone / with one other / group of three or more). Underneath it, in
+plain words, is the thing that reconciles the two: *the count knows somebody was there,
+it does not know who* — names come only from `w/ Name` in the title, so the table below
+is the company you have written down, never more.
+
+The two bar charts became **one table**. Activities and distance ranked the same people in
+the same order, so the second said nothing the first had not. The table adds what neither
+chart had: **first out**, **last out**, a sport-mix bar, and a Regular / Occasional /
+Lapsed chip from recency. It is sorted by *how recently*, not how much — whether someone
+is still in your week beats a lifetime total.
+
+A row opens a partner panel on the same shell as gear and activities, listing your
+outings together; an outing inside it opens that activity. The delegated click handler
+checks `data-act` before `data-partner`; the two never nest, so whichever matches is the
+one meant.
+
+The solo-vs-company chart keeps its place and gains the chip-and-verdict treatment. The
+verdict is computed, not asserted: it compares the share of *activities* with company
+against the share of *distance* and says which way it falls, including the case where
+they match and company therefore does not make the day longer.
 
 ---
 
