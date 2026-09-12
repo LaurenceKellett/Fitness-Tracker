@@ -500,6 +500,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .callout .ms{font-size:17px;color:var(--accent);flex-shrink:0}
 .callout strong{font-weight:700}
 .callout-body{min-width:0}
+.callout-status{font-size:10px;font-weight:700;letter-spacing:.02em}
+.callout-note{font-size:11px;color:var(--text-muted);display:inline-block;margin-top:4px}
 .zwift-ridden{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:1px 5px;background:var(--accent-soft);color:var(--accent);flex-shrink:0}
 .zwift-ridden .ms{font-size:11px}
 /* EDDINGTON INFO ICON */
@@ -2175,13 +2177,20 @@ function gearForecast(topType,s,col){
   }
   const pct=Math.min(100,Math.round(s.dist/SHOE_LIFE_MI*100));
   const left=Math.max(0,SHOE_LIFE_MI-s.dist);
-  const barCol=pct>=100?'#ef4444':pct>=80?'#f59e0b':col;
+  // Deliberately NOT the sport colour: groupColor('Run') is #ef4444, so a
+  // brand-new pair came out the same red as a worn-out one. Green, amber, red.
+  const barCol=pct>=100?'#ef4444':pct>=80?'#f59e0b':'#22c55e';
   let when;
   if(pct>=100)when='Past the usual 500-mile guideline.';
   else if(perWeek>0.05){
     const weeks=Math.ceil(left/perWeek);
-    const d=new Date(now.getTime()+weeks*7*86400000);
-    when=`At this rate, around ${d.toLocaleDateString('en-GB',{month:'long',year:'numeric'})}.`;
+    // A date three years out is not a forecast, it is arithmetic with a date on
+    // the end. Past eighteen months, say the distance and leave it at that.
+    if(weeks>78)when=`${fmtDist(left)} ${distUnit()} to go at this rate.`;
+    else{
+      const d=new Date(now.getTime()+weeks*7*86400000);
+      when=`At this rate, around ${d.toLocaleDateString('en-GB',{month:'long',year:'numeric'})}.`;
+    }
   }else when=`${fmtDist(left)} ${distUnit()} to go.`;
   return`<div class="gear-forecast">
     <div class="gear-forecast-head"><span>Wear</span><span>${pct}% of ${fmtDist(SHOE_LIFE_MI)} ${distUnit()}</span></div>
@@ -2495,11 +2504,17 @@ function renderZwiftRiddenCallout(){
   const idx=zwiftRiddenIndex();
   const unmarked=ZWIFT_DATA.filter(r=>r.status!=='Complete'&&idx[r.id]);
   if(!unmarked.length){el.style.display='none';el.innerHTML='';return;}
-  const names=unmarked.slice(0,4).map(r=>escapeHtml(r.route)).join(', ');
+  // The callout is about the whole catalogue, not the filtered view, so a route can
+  // be named here and not appear in the list below. Each name carries its current
+  // status, which is what explains the absence.
+  const names=unmarked.slice(0,4)
+    .map(r=>`${escapeHtml(r.route)} <span class="callout-status" style="color:${zwiftStatusColor(r.status)}">${escapeHtml(r.status)}</span>`)
+    .join(' · ');
   el.style.display='flex';
   el.innerHTML=`<span class="ms">fact_check</span><div class="callout-body">
     <strong>${unmarked.length} route${unmarked.length===1?'':'s'} you appear to have ridden ${unmarked.length===1?'is':'are'} still not marked Complete.</strong><br>
-    ${names}${unmarked.length>4?` and ${unmarked.length-4} more`:''}. Matched by route name against your virtual rides — open a route to set its status.</div>`;
+    ${names}${unmarked.length>4?` · and ${unmarked.length-4} more`:''}<br>
+    <span class="callout-note">Matched by route name against your virtual rides, across every status — open a route to set it. Some may be hidden by the filter above.</span></div>`;
 }
 
 function renderZwiftTable(){
