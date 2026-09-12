@@ -283,6 +283,8 @@ async function refreshActivitiesCache(env, { regenerateAi = true, backfillPrs = 
     // How the zone boundaries were arrived at, so the chart can say so rather than
     // asserting "your Strava zones" whether or not they loaded.
     hrZones: _hrZoneMeta,
+    // Keyed by gear name, because that is what each activity carries.
+    gearMeta: _gearMeta,
   });
 
   if (env.CACHE) {
@@ -966,6 +968,17 @@ async function fetchAllActivities(accessToken, env) {
   const knownGear = await loadGearNames(env);
   await fetchGearNames(gearIds, accessToken, gearMap, knownGear);
   await saveGearNames(env, knownGear);
+  _gearMeta = {};
+  for (const id of gearIds) {
+    const rec = knownGear[id];
+    if (rec && rec.name) {
+      _gearMeta[rec.name] = {
+        brand:   rec.brand   || null,
+        model:   rec.model   || null,
+        retired: !!rec.retired,
+      };
+    }
+  }
 
   for (const a of all) {
     a.gear    = a._gear_id ? (gearMap[a._gear_id] || null) : null;
@@ -1255,6 +1268,10 @@ function normalCDF(x, mean, std) {
 // refreshActivitiesCache, which needs it for the envelope. Same request, no
 // concurrency: a Worker isolate handles one refresh at a time.
 let _hrZoneMeta = { athleteMaxHr: null, source: 'derived' };
+// Gear brand, model and retired flag, keyed by the gear NAME the activities
+// carry. The lookup that produces them is already made and already cached; this
+// just stops the extra fields being thrown away at the door.
+let _gearMeta = {};
 
 // The athlete's maximum heart rate, derived from the history itself.
 //
@@ -1412,6 +1429,11 @@ function transformActivity(a, zones = []) {
     pr_1mi:  null,
     pr_hm:   null,
     pr_mar:  null,
+    // The highest and lowest point the activity reached, in feet to match elv.
+    // Free on the summary object; this is a record rather than a trend, so the
+    // Records page is where it surfaces.
+    elev_hi: a.elev_high != null ? round(a.elev_high * 3.28084, 0) : null,
+    elev_lo: a.elev_low  != null ? round(a.elev_low  * 3.28084, 0) : null,
     pwr:     a.average_watts || null,
     max_pwr: a.max_watts     || null,
     // Normalised power weights the surges, so it beats a flat average on anything

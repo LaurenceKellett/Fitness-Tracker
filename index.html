@@ -242,7 +242,13 @@ a{color:inherit;text-decoration:none}
 .hm-cell.active{cursor:pointer}.hm-cell.active:hover{opacity:.75}
 .heatmap-legend{display:flex;align-items:center;gap:4px;margin-top:10px;font-size:11px;color:var(--text-muted)}
 .hm-prior{margin-top:24px;padding-top:20px;border-top:1px solid var(--border)}
-.hm-prior-head{display:flex;align-items:baseline;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.hm-prior>summary{cursor:pointer;list-style:none}
+.hm-prior>summary::-webkit-details-marker{display:none}
+.hm-prior>summary::after{content:'▸';margin-left:auto;color:var(--text-light);font-size:11px;transition:transform .15s}
+.hm-prior[open]>summary::after{transform:rotate(90deg)}
+.hm-prior-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.hm-prior-spark{display:flex;align-items:flex-end;gap:2px;height:18px;width:132px;flex-shrink:0}
+.hm-prior-spark i{flex:1;display:block;font-style:normal}
 .hm-prior-year{font-size:15px;font-weight:700}
 .hm-prior-meta{font-size:11px;color:var(--text-muted)}
 .heatmap-legend-cells{display:flex;gap:2px}
@@ -636,6 +642,10 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .gear-unresolved{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;color:var(--text-light);margin-bottom:6px}
 .gear-photo-hint{font-size:11px;color:var(--text-light);line-height:1.5;margin-top:5px}
 .gear-photo-hint.is-hidden{display:none}
+.gear-brand{color:var(--text-light);font-weight:500}
+.gear-retired-tag{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;background:#f1f5f9;color:#64748b;padding:1px 5px;margin-left:4px;vertical-align:1px}
+.gear-card.is-retired{opacity:.72}
+.gear-card.is-retired:hover{opacity:1}
 .gear-photo-hint code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;background:var(--bg);border:1px solid var(--border);padding:0 4px}
 .top-gear-photo{width:28px;height:28px;object-fit:cover;border-radius:0;flex:none}
 .gear-name{font-size:13px;font-weight:700;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1116,6 +1126,16 @@ tbody td{padding:10px 14px;vertical-align:middle}
   <div class="section-header" style="margin-top:28px"><h2>All time</h2><span class="badge" id="recTotalsBadge"></span></div>
   <div class="rec-totals" id="recTotals"></div>
   <div class="records-note" id="runPRNote"></div>
+  <div class="section-header" style="margin-top:28px"><h2>How your bests got there</h2><span class="badge" id="prProgBadge"></span></div>
+  <div class="charts-grid wide">
+    <div class="chart-card">
+      <div class="chart-title">Personal best progression</div>
+      <div class="chart-sub" id="prProgSub">Your best time at each distance, as it stood on each date</div>
+      <div class="chart-wrap tall"><canvas id="chartPrProg"></canvas></div>
+      <div id="prprogChips" class="chart-chips"></div>
+      <div id="prprogVerdict" class="chart-verdict"></div>
+    </div>
+  </div>
 </div>
 
 <!-- MEX -->
@@ -1275,6 +1295,43 @@ tbody td{padding:10px 14px;vertical-align:middle}
 <script>
 let ALL_DATA = [];
 
+// ── VIEW STATE, IN THE URL AND REMEMBERED ──
+// These four were plain defaults, so every reload dumped you back on Summary /
+// all time / all sports / miles, and there was no way to link or bookmark a
+// view. They now live in the query string — which makes the back button work
+// and a view shareable — and fall back to the last one you used.
+const VIEW_KEY='ft-view-v1';
+const VALID_TABS=['summary','map','charts','heatmap','records','mex','social','gear','log','zwift'];
+function readView(){
+  let saved={};
+  try{saved=JSON.parse(localStorage.getItem(VIEW_KEY)||'{}');}catch(e){}
+  const q=new URLSearchParams(location.search);
+  const pick=(k,fallback,ok)=>{
+    const v=q.get(k)!=null?q.get(k):saved[k];
+    return (v!=null&&(!ok||ok(v)))?v:fallback;
+  };
+  return{
+    tab:pick('tab','summary',v=>VALID_TABS.includes(v)),
+    year:pick('year','All',v=>v==='All'||/^\d{4}$/.test(v)),
+    type:pick('type','All',v=>TYPE_GROUPS.includes(v)),
+    unit:pick('unit','mi',v=>v==='mi'||v==='km'),
+  };
+}
+// Called after any state change. replaceState rather than pushState for the
+// filters — a back button that stepped through every sport you tried would be
+// worse than none — but the tab does push, because moving between tabs is the
+// navigation people expect back to undo.
+function writeView(push){
+  const st={tab:activeTab,year:activeYear,type:activeType,unit};
+  try{localStorage.setItem(VIEW_KEY,JSON.stringify(st));}catch(e){}
+  const q=new URLSearchParams();
+  if(st.tab!=='summary')q.set('tab',st.tab);
+  if(st.year!=='All')q.set('year',st.year);
+  if(st.type!=='All')q.set('type',st.type);
+  if(st.unit!=='mi')q.set('unit',st.unit);
+  const url=location.pathname+(q.toString()?'?'+q:'')+location.hash;
+  try{history[push?'pushState':'replaceState'](st,'',url);}catch(e){}
+}
 let unit='mi',activeYear='All',activeType='All',activeTab='summary';
 let logPage=1;const LOG_PAGE_SIZE=50;
 let hmShowAll=false;let recentShowAll=false;
@@ -1346,6 +1403,10 @@ const GEAR_IMAGES={
   'Under Armour UA Thrill 3':'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS5wY6VS80V-woI10KU9YfYvQYc9oN0iPfqP-tDacNOiQ&s',
 };
 let GEAR_DATA={};
+// Brand, model and retired flag by gear name, from the Worker envelope. The
+// lookup that produces them was already being made; this is what stops the
+// extra fields being discarded.
+let GEAR_META={};
 
 function fmtDist(v){if(v==null)return'—';const d=unit==='mi'?v:v*1.60934;return parseFloat(d>=100?d.toFixed(0):d.toFixed(1)).toLocaleString('en-GB');}
 function distUnit(){return unit;}
@@ -1444,6 +1505,21 @@ function gearPhotoFallback(name){
 // Strava gear ids look like b1234567 / g1234567. The Worker falls back to the raw id when
 // the name lookup fails, and cached activity data can still carry one.
 function isUnresolvedGear(name){return /^[bg]\d{5,}$/i.test(String(name||''));}
+// "Nike · Pegasus 40" rather than making you read it out of the free-text name.
+// Only shown when it adds something the name does not already say.
+function gearMetaLine(name){
+  const m=GEAR_META[name];if(!m)return'';
+  const bits=[m.brand,m.model].filter(Boolean);
+  if(!bits.length)return'';
+  const joined=bits.join(' ');
+  if(gearKey(joined)===gearKey(name))return'';
+  return ` <span class="gear-brand">· ${escapeHtml(joined)}</span>`;
+}
+function gearRetiredTag(name){
+  const m=GEAR_META[name];
+  return m&&m.retired?' <span class="gear-retired-tag">Retired</span>':'';
+}
+function isRetiredGear(name){const m=GEAR_META[name];return !!(m&&m.retired);}
 function gearLabel(name){return isUnresolvedGear(name)?'Unidentified gear':name;}
 // Swap a failed photo for its icon tile rather than removing it and collapsing the card.
 // A remote fallback gets one attempt first, so a missing local file falls back to
@@ -1538,7 +1614,7 @@ function stepYear(dir){
   idx=Math.max(0,Math.min(years.length-1,idx));
   setYear(years[idx]);
 }
-function setYear(y){activeYear=y;buildYearStepper();renderAll();}
+function setYear(y){activeYear=y;buildYearStepper();writeView(false);renderAll();}
 
 const TYPE_GROUPS=['All','Ride','Virtual','Run','Walk','Swim','Other'];
 function buildTypeFilters(){
@@ -1554,7 +1630,7 @@ function buildTypeFilters(){
   }).join('');
   updateScopeChip();
 }
-function setType(t){activeType=t;buildTypeFilters();renderAll();}
+function setType(t){activeType=t;buildTypeFilters();writeView(false);renderAll();}
 
 // ── SCOPE CHIP + SHEET (phone) ──
 // The chip states the scope in words and is also the control that changes it,
@@ -1580,7 +1656,7 @@ document.addEventListener('keydown',e=>{
 });
 
 const TAB_ORDER=['summary','map','charts','heatmap','records','mex','social','gear','log','zwift'];
-function setTab(tab,dir){
+function setTab(tab,dir,fromPop){
   if(tab==='mex'&&activeTab!=='mex')mexAnimate=true;
   // A replay left running on a tab you cannot see is a requestAnimationFrame loop
   // burning battery for nothing.
@@ -1602,6 +1678,9 @@ function setTab(tab,dir){
   // Map and Zwift return before renderAll(), so the scope line has to be refreshed
   // here too — otherwise they inherit whatever the previous tab was showing.
   renderScope();
+  // Skipped when the change came from the back button, which is already at the
+  // right URL — pushing again would trap you in the history.
+  if(!fromPop)writeView(true);
   if(tab==='map'){renderMap(activeType==='All'?ALL_DATA:ALL_DATA.filter(a=>mapFilterMatches(a)));return;}
   if(tab==='zwift'){loadZwiftRoutes();return;}
   renderAll();
@@ -1609,7 +1688,20 @@ function setTab(tab,dir){
   // would wipe an animation started on the previous tab's cards.
   staggerCards(el);
 }
-function setUnit(u){unit=u;document.querySelectorAll('.unit-opt').forEach(b=>b.classList.toggle('active',b.dataset.unit===u));renderAll();}
+function setUnit(u){unit=u;document.querySelectorAll('.unit-opt').forEach(b=>b.classList.toggle('active',b.dataset.unit===u));writeView(false);renderAll();}
+
+// Put the whole view on screen at once, from a URL or from the back button.
+function applyView(v,fromPop){
+  unit=v.unit;
+  document.querySelectorAll('.unit-opt').forEach(b=>b.classList.toggle('active',b.dataset.unit===unit));
+  activeYear=v.year;activeType=v.type;
+  buildYearStepper();buildTypeFilters();
+  setTab(v.tab,null,fromPop);
+}
+window.addEventListener('popstate',()=>{
+  if(!ALL_DATA||!ALL_DATA.length)return;
+  applyView(readView(),true);
+});
 
 // ── SWIPE BETWEEN TABS ──
 (function(){
@@ -2611,6 +2703,7 @@ function renderYearCalendarChart(year,data){
 }
 
 // ── HEATMAP ──
+const MNAMES=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function renderHeatmap(){
   // The year filter is deliberately not applied here. This tab lists every year at once,
   // and one colour scale shared across all of them is what lets them be read against each
@@ -2650,7 +2743,7 @@ function renderHeatmap(){
     const dow0=start.getDay();start.setDate(start.getDate()-(dow0===0?6:dow0-1));
     const r1=240,g1=240,b1=240;
     const r2=parseInt(accent.slice(1,3),16),g2=parseInt(accent.slice(3,5),16),b2=parseInt(accent.slice(5,7),16);
-    const MNAMES=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
     const G=2;
 
     // Build weeks array [[{ds,inY,dd,mo}×7]×N]
@@ -2741,18 +2834,33 @@ function renderHeatmap(){
   const priorEl=document.getElementById('heatmapPriorYears');
   if(priorEl){
     const prior=allDataYears.filter(y=>y<displayYear).sort().reverse();
+    // Every earlier year used to render its full grid unconditionally. With
+    // eleven years of history that made this tab 22,150px tall on a phone —
+    // twenty-four screens of scrolling, against 6,525px for the next worst tab.
+    // They collapse now, with a summary that still says something: active days,
+    // distance, and a twelve-segment bar of the year's shape. Open by default on
+    // a wide screen, where reading the years against each other is the point and
+    // the whole tab fits in 2,700px anyway.
+    const openByDefault=!window.matchMedia('(max-width:640px)').matches;
     priorEl.innerHTML=prior.map(y=>{
       const days=Object.keys(byDay).filter(d=>d.slice(0,4)===y);
       const dist=days.reduce((s,d)=>s+byDay[d].dist,0);
-      return`<div class="hm-prior reveal">
-        <div class="hm-prior-head">
+      const months=Array.from({length:12},(_,m)=>{
+        const mk=y+'-'+String(m+1).padStart(2,'0');
+        return Object.keys(byDay).filter(d=>d.startsWith(mk)).reduce((t,d)=>t+byDay[d].dist,0);
+      });
+      const mMax=Math.max(...months,1);
+      const spark=months.map((v,m)=>
+        `<i style="height:${Math.max(8,Math.round(v/mMax*100))}%;background:${v?accent:'#e8e8e8'};opacity:${v?(0.35+0.65*v/mMax).toFixed(2):1}" title="${MNAMES[m]} ${y} · ${fmtDist(v)} ${distUnit()}"></i>`).join('');
+      return`<details class="hm-prior"${openByDefault?' open':''}>
+        <summary class="hm-prior-head">
           <span class="hm-prior-year">${y}</span>
           <span class="hm-prior-meta">${days.length.toLocaleString('en-GB')} active days · ${fmtDist(dist)} ${distUnit()}</span>
-        </div>
+          <span class="hm-prior-spark">${spark}</span>
+        </summary>
         ${renderHeatYear(y)}
-      </div>`;
+      </details>`;
     }).join('');
-    revealOnScroll(priorEl);
   }
 
   // Legend
@@ -2800,6 +2908,7 @@ const REC_SPECS={
   Ride:[
     {k:'dist',label:'Longest ride'},
     {k:'elv',label:'Biggest climb'},
+    {k:'high',label:'Highest point reached'},
     {k:'speed',label:'Highest avg speed',floor:10},
     {k:'pwr',label:'Highest avg power'},
     {k:'time',label:'Longest time riding'},
@@ -2808,6 +2917,7 @@ const REC_SPECS={
     {k:'dist',label:'Longest run'},
     {k:'pace',label:'Fastest avg pace',floor:3},
     {k:'elv',label:'Biggest climb'},
+    {k:'high',label:'Highest point reached'},
     {k:'pr_1km',label:'1 km'},
     {k:'pr_1mi',label:'1 mile'},
     {k:'pr_5km',label:'5 km'},
@@ -2823,6 +2933,7 @@ const REC_SPECS={
   Walk:[
     {k:'dist',label:'Longest walk'},
     {k:'time',label:'Longest time on feet'},
+    {k:'high',label:'Highest point reached'},
   ],
   Swim:[
     {k:'dist',label:'Longest swim'},
@@ -2850,6 +2961,9 @@ function recMeasure(k){
     speed:{get:a=>a.speed_mph||0, fmt:v=>fmtSpeed(v)},
     pwr  :{get:a=>a.pwr||0,       fmt:v=>fmtNum(v)+'W'},
     time :{get:a=>a.mt||0,        fmt:v=>fmtTime(v)},
+    // The highest point the activity reached, not the height climbed on it —
+    // elev_hi is an altitude, elv is a sum of ascents.
+    high :{get:a=>a.elev_hi||0,   fmt:v=>fmtElv(v)},
     // Lower is better, and fmtPace refuses anything over an hour per mile — a swim
     // pace per mile is technically a number and tells you nothing.
     pace :{get:a=>a.pace_mi||0,   lower:true, fmt:v=>fmtPace(v)},
@@ -3016,6 +3130,89 @@ function renderRecords(){
     bits.push('Calories and elevation are no longer shown as records for walks and swims: the maximum of a set with no spread in it is arithmetic, not an achievement.');
     note.textContent=bits.join(' ');
   }
+
+  renderPrProgression();
+}
+
+// ── PERSONAL BEST PROGRESSION ──
+// The pr_* fields are backfilled at forty Strava requests per cron run and then
+// shown only as a single best-ever number. This is the same data asked the more
+// interesting question: not what your best is, but when it moved.
+const PR_PROG=[
+  {k:'pr_1km', label:'1 km',          col:'#0ea5e9'},
+  {k:'pr_1mi', label:'1 mile',        col:'#22c55e'},
+  {k:'pr_5km', label:'5 km',          col:'#1d4ed8'},
+  {k:'pr_10km',label:'10 km',         col:'#6d28d9'},
+  {k:'pr_hm',  label:'Half marathon', col:'#f59e0b'},
+  {k:'pr_mar', label:'Marathon',      col:'#ff385c'},
+];
+function renderPrProgression(){
+  const badge=document.getElementById('prProgBadge');
+  const sub=document.getElementById('prProgSub');
+  // Deliberately all-time and unscoped by the year stepper: a progression that
+  // starts again each January is not a progression.
+  const runs=ALL_DATA.filter(a=>typeGroup(a.type)==='Run').sort((x,y)=>x.date.localeCompare(y.date));
+  const series=PR_PROG.map(d=>{
+    const efforts=runs.filter(a=>a[d.k]>0&&a[d.k]<86400).map(a=>({date:a.date,t:a[d.k]}));
+    if(efforts.length<2)return null;
+    // The record as it stood on each date: it only ever steps down, and a point
+    // is only added where it actually moved.
+    // x is epoch milliseconds, not a date string: Chart.js only parses dates with
+    // a date adapter, and this page loads chart.umd on its own. A linear axis with
+    // a formatting callback needs no extra library.
+    const steps=[];let best=Infinity;
+    efforts.forEach(e=>{if(e.t<best){best=e.t;steps.push({x:Date.parse(e.date+'T12:00:00'),y:e.t,d:e.date});}});
+    if(steps.length<2)return null;
+    // Carry the final value to today so the flat run since your last PB is visible
+    // rather than the line stopping the day you set it.
+    const today=new Date(),todayMs=today.getTime(),todayStr=today.toISOString().slice(0,10);
+    if(steps[steps.length-1].d!==todayStr)steps.push({x:todayMs,y:best,d:todayStr});
+    return{...d,steps,best,n:efforts.length,first:efforts[0]};
+  }).filter(Boolean);
+
+  if(!series.length){
+    setChartEmpty('chartPrProg','No distance has two or more recorded best efforts yet. Strava\u2019s best-efforts arrive a slice at a time on the daily refresh, so this fills in as they do.');
+    if(badge)badge.textContent='waiting on best efforts';
+    chartSummary('prprog',[],'');
+    return;
+  }
+  setChartEmpty('chartPrProg');
+  if(badge)badge.textContent=series.length+' distance'+(series.length===1?'':'s')+' · all time';
+  if(sub)sub.textContent='Your best time at each distance as it stood on each date. Steps down only, because a personal best cannot get worse — a flat line is a record still standing.';
+  destroyChart('prProg');
+  charts.prProg=new Chart(document.getElementById('chartPrProg').getContext('2d'),{
+    type:'line',
+    data:{datasets:series.map(d=>({
+      label:d.label,data:d.steps.map(p=>({x:p.x,y:p.y})),
+      borderColor:d.col,backgroundColor:d.col,stepped:'after',
+      fill:false,pointRadius:2.5,pointHoverRadius:4,borderWidth:2,tension:0}))},
+    options:{parsing:false,
+      plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},
+        tooltip:{callbacks:{
+          title:c=>fmtDate(new Date(c[0].parsed.x).toISOString().slice(0,10)),
+          label:c=>c.dataset.label+': '+fmtPRTime(c.parsed.y)}}},
+      responsive:true,maintainAspectRatio:false,
+      scales:{
+        x:{type:'linear',grid:{display:false},
+          ticks:{font:{size:10},maxTicksLimit:8,callback:v=>new Date(v).getFullYear()}},
+        y:{reverse:true,grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>fmtPRTime(Math.round(v))}}}}
+  });
+  // The headline distance is the one you have the most efforts at.
+  const head=series.reduce((b,d)=>d.n>b.n?d:b,series[0]);
+  const cut=head.first.t-head.best;
+  chartSummary('prprog',[
+    {n:fmtPRTime(head.best),label:head.label+' best',col:head.col},
+    {n:(cut>0?'−':'')+fmtPRTime(Math.abs(cut)),label:'off your first '+head.label,col:cut>0?'#16a34a':'#9ca3af'},
+    {n:String(series.reduce((s,d)=>s+d.steps.length-1,0)),label:'times a record moved',col:'#1d4ed8'},
+  ],(()=>{
+    // The last real record, not the carried-to-today point that every series ends on.
+    let last=null,which=null;
+    series.forEach(d=>{const p=d.steps[d.steps.length-2];if(p&&(!last||p.d>last.d)){last=p;which=d;}});
+    if(!last)return'';
+    const days=Math.floor((Date.now()-last.x)/86400000);
+    if(days<120)return `Your most recent best was the ${which.label} on ${fmtDate(last.d)}. Everything here is still moving.`;
+    return `Nothing has moved since the ${which.label} on ${fmtDate(last.d)}, ${Math.round(days/30.4)} months ago. A flat line here is a record standing, not a chart with no data.`;
+  })());
 }
 
 // Longest run of consecutive active days, and whether it is the one you are on.
@@ -3528,7 +3725,13 @@ function openPartnerModal(name){
 // as a forecast is worse than no forecast.
 const SHOE_LIFE_MI=500;
 
-function gearForecast(topType,s,col){
+function gearForecast(topType,s,col,name){
+  // A retired shoe does not need telling it is past its life. Report what it did
+  // and stop nagging — the wear bar is advice, and the decision is already made.
+  if(name&&isRetiredGear(name)){
+    const pctR=Math.round(s.dist/SHOE_LIFE_MI*100);
+    return`<div class="gear-forecast"><div class="gear-forecast-sub">Retired${topType==='Run'?` at ${pctR}% of the ${fmtDist(SHOE_LIFE_MI)} ${distUnit()} guideline`:''}, after ${fmtDist(s.dist)} ${distUnit()} and ${s.count.toLocaleString('en-GB')} outing${s.count===1?'':'s'}.</div></div>`;
+  }
   const now=new Date(),cutoff=new Date(now.getFullYear(),now.getMonth(),now.getDate()-90).toISOString().slice(0,10);
   const recent=s.acts.filter(a=>a.date>=cutoff).reduce((t,a)=>t+(a.dist_mi||0),0);
   const perWeek=recent/(90/7);
@@ -3581,7 +3784,11 @@ function renderGear(){
     gm[g].acts.push(a);
   });
   GEAR_DATA=gm;
-  const sorted=Object.entries(gm).sort((a,b)=>b[1].dist-a[1].dist);
+  // Retired items sink below everything still in use. They keep their figures —
+  // a retired shoe is still 3,379 miles of your life — but they stop competing
+  // with current gear for the top of the page.
+  const sorted=Object.entries(gm).sort((a,b)=>
+    (isRetiredGear(a[0])?1:0)-(isRetiredGear(b[0])?1:0)||b[1].dist-a[1].dist);
   document.getElementById('gearBadge').textContent=sorted.length+' items';
   const GEAR_COLORS=['#1d4ed8','#ef4444','#eab308','#0ea5e9','#8b5cf6','#22c55e','#f97316','#14b8a6','#84cc16','#a855f7'];
   // Gear cards (top 8)
@@ -3589,11 +3796,11 @@ function renderGear(){
     const topType=dominantType(s.types);
     const col=groupColor(topType);
     const img=gearPhoto(name);
-    return`<div class="gear-card" style="border-top:3px solid ${col}" data-gear="${escapeAttr(name)}">
+    return`<div class="gear-card${isRetiredGear(name)?' is-retired':''}" style="border-top:3px solid ${col}" data-gear="${escapeAttr(name)}">
       ${img?`<img class="gear-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" loading="lazy" data-tile="gear-icon-tile" data-soft="${groupSoft(topType)}" data-colour="${col}" data-icon="${gearIconName(topType)}" data-fallback="${escapeAttr(gearPhotoFallback(name))}" onerror="gearPhotoFailed(this)">`:gearIconTile(topType,'gear-icon-tile')}
       <div class="gear-name" title="${escapeAttr(gearLabel(name))}">${escapeHtml(gearLabel(name))}</div>
       ${isUnresolvedGear(name)?`<div class="gear-unresolved">${escapeHtml(name)}</div>`:''}
-      <div class="gear-type" style="color:${col}">${typeEmoji(topType)} ${topType}</div>
+      <div class="gear-type" style="color:${col}">${typeEmoji(topType)} ${topType}${gearMetaLine(name)}${gearRetiredTag(name)}</div>
       <div class="gear-hero">
         <div class="gear-hero-label">Distance</div>
         <div class="gear-hero-value">${fmtDist(s.dist)} <em>${distUnit()}</em></div>
@@ -3603,7 +3810,7 @@ function renderGear(){
         <div><div class="gear-trio-label">Moving</div><div class="gear-trio-value" title="${escapeAttr(fmtTime(s.time))}">${Math.round(s.time/3600).toLocaleString('en-GB')}h</div></div>
         <div><div class="gear-trio-label">Climbed</div><div class="gear-trio-value">${fmtElv(s.elv)}</div></div>
       </div>
-      ${gearForecast(topType,s,col)}
+      ${gearForecast(topType,s,col,name)}
       <div class="gear-span"><span>${fmtDate(s.first)}</span><span>${fmtDate(s.last)}</span></div>
     </div>`;
   }).join('');
@@ -3768,6 +3975,7 @@ function openActivityModal(id){
     a.pwr?{label:'Avg power',value:fmtNum(a.pwr)+'W'}:null,
     a.max_pwr?{label:'Max power',value:fmtNum(a.max_pwr)+'W'}:null,
     a.cal?{label:'Calories',value:fmtCal(a.cal)+' kcal'}:null,
+    (()=>{const sh=routeShape(a);return sh?{label:'Route shape',value:sh.label,title:sh.note}:null;})(),
     a.score?{label:'Relative Effort',value:fmtNum(a.score)}:null,
     a.kudos?{label:'Kudos',value:a.kudos.toLocaleString('en-GB')}:null,
     (typeof a.athletes==='number'&&a.athletes>1)?{label:'Group size',value:a.athletes+' people'}:null,
@@ -3812,7 +4020,7 @@ function openActivityModal(id){
       <button class="gear-modal-close" onclick="closeActivityModal()" aria-label="Close">✕</button>
     </div>
     <div class="gear-modal-body">
-      <div class="gear-modal-stats">${stats.map(s=>`<div><div class="gear-modal-stat-label">${s.label}</div><div class="gear-modal-stat-value">${s.value}</div></div>`).join('')}</div>
+      <div class="gear-modal-stats">${stats.map(s=>`<div${s.title?` title="${escapeAttr(s.title)}"`:''}><div class="gear-modal-stat-label">${s.label}</div><div class="gear-modal-stat-value">${s.value}</div></div>`).join('')}</div>
       ${zoneBlock}
       ${prs?`<div class="gear-modal-section-title" style="margin-top:20px">Segment bests on this run</div><div class="gear-modal-types">${prs}</div>`:''}
       <div class="act-actions">
@@ -3906,6 +4114,48 @@ function sortLog(col){
 function changePage(dir){const data=getLogData();const t=Math.ceil(data.length/LOG_PAGE_SIZE)||1;logPage=Math.max(1,Math.min(t,logPage+dir));renderLog();}
 // Strava's workout_type: 1 is a race for runs, 11 is a race for rides.
 function isRace(a){return a.wtype===1||a.wtype===11;}
+
+// ── ROUTE SHAPE ──
+// Loop, out-and-back, or point-to-point, read off the polyline the map already
+// decodes. No new field is needed: end_latlng would only tell you whether the
+// finish is near the start, which cannot separate a loop from an out-and-back —
+// both return to where they began. The retrace test below can.
+function haversineMi(a,b){
+  const R=3958.8,toRad=d=>d*Math.PI/180;
+  const dLat=toRad(b[0]-a[0]),dLng=toRad(b[1]-a[1]);
+  const s1=Math.sin(dLat/2),s2=Math.sin(dLng/2);
+  const h=s1*s1+Math.cos(toRad(a[0]))*Math.cos(toRad(b[0]))*s2*s2;
+  return 2*R*Math.asin(Math.min(1,Math.sqrt(h)));
+}
+function routeShape(a){
+  const segs=a.polylines||(a.polyline?[a.polyline]:[]);
+  if(!segs.length)return null;
+  // A route passing through a home zone has that part cut out for privacy, so
+  // its real start or finish may be missing. Say so rather than calling a ride
+  // point-to-point because its ends were trimmed off.
+  if(segs.length>1||a.near_home)return{label:'Route trimmed near home',note:'Part of this route sits inside a privacy zone, so its shape cannot be read from what is left.'};
+  const pts=decodePolylinePts(segs[0]);
+  if(pts.length<20)return null;
+  const start=pts[0],end=pts[pts.length-1];
+  // Span, not total distance: a big number here means the ride went somewhere.
+  let span=0;
+  for(let i=0;i<pts.length;i+=Math.max(1,Math.floor(pts.length/60)))span=Math.max(span,haversineMi(start,pts[i]));
+  if(span<=0.05)return null;
+  const gap=haversineMi(start,end);
+  if(gap>span*0.35)return{label:'Point to point',note:`Finished ${fmtDist(gap)} ${distUnit()} from where it started.`};
+  // Both ends meet. A loop and an out-and-back look identical at the endpoints,
+  // so compare the outward path against the return: on an out-and-back the point
+  // a fifth of the way in sits almost on top of the point a fifth from the end.
+  let retrace=0,n=0;
+  for(let f=0.08;f<=0.46;f+=0.04){
+    const i=Math.floor(pts.length*f),j=Math.floor(pts.length*(1-f));
+    retrace+=haversineMi(pts[i],pts[j]);n++;
+  }
+  const mean=retrace/Math.max(1,n);
+  return mean<span*0.22
+    ? {label:'Out and back',note:`Out ${fmtDist(span)} ${distUnit()} and back along the same road.`}
+    : {label:'Loop',note:`A loop reaching ${fmtDist(span)} ${distUnit()} from the start at its furthest.`};
+}
 
 // Strava reports foot cadence as one leg's revolutions per minute, so a run at
 // "88" is actually 176 steps a minute. Bikes are already whole revolutions.
@@ -4441,9 +4691,33 @@ function setUpdatedAt(isoString) {
 
 const CACHE_KEY = 'fitness_dashboard_v1';
 
+// Set once, on the first render after data arrives — a later refresh must not
+// yank you back to whatever the URL said when the page opened.
+let _viewApplied=false;
+
 function renderFromData() {
   buildYearStepper();
   buildTypeFilters();
+  if(!_viewApplied){
+    _viewApplied=true;
+    const v=readView();
+    // applyView renders the chosen tab itself, so nothing below needs repeating
+    // for anything other than the always-on Summary and Records.
+    unit=v.unit;
+    document.querySelectorAll('.unit-opt').forEach(b=>b.classList.toggle('active',b.dataset.unit===unit));
+    activeYear=v.year;activeType=v.type;
+    buildYearStepper();buildTypeFilters();
+    renderSummary();
+    renderRecords();
+    buildLocationPills();
+    if(v.tab!=='summary')setTab(v.tab,null,true);
+    else if(activeTab==='map')renderMap(activeType==='All'?ALL_DATA:ALL_DATA.filter(a=>mapFilterMatches(a)));
+    // After setTab, not before, or activeTab is still 'summary' and the tab drops
+    // out of the URL you just arrived on. replaceState rather than push: arriving
+    // somewhere is not a navigation to undo.
+    writeView(false);
+    return;
+  }
   renderSummary();
   renderRecords();
   buildLocationPills();
@@ -4601,6 +4875,7 @@ async function loadData(forceRefresh = false) {
       updatedAt = json.updatedAt;
       // Absent on an envelope cached before the Worker started sending it.
       if (json.hrZones) HR_ZONE_META = json.hrZones;
+      if (json.gearMeta) GEAR_META = json.gearMeta;
     }
     setUpdatedAt(updatedAt);
   } catch (e) {
