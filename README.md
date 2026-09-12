@@ -42,7 +42,7 @@ The Worker holds all secrets and does all the heavy work. The Pages frontend is 
 | Tab | What it shows |
 |-----|---------------|
 | Summary | Stats, year-over-year table, activity breakdown by type, recent activities, AI monthly summary, location pills |
-| Map | Route heatmap — all GPS routes rendered as semi-transparent polylines on a dark basemap, coloured by sport type — plus **Ground covered** (see below) |
+| Map | Route heatmap — all GPS routes rendered as semi-transparent polylines on a dark basemap, coloured by sport type — plus **route replay** and **Ground covered** (see below) |
 | Charts | Monthly distance, elevation, year-on-year bar chart, activity type doughnut, heart-rate zones, Relative Effort and time of day |
 | Heatmap | GitHub-style activity calendar, with every prior year listed beneath |
 | Records | Personal bests and highlights by sport type, including swims |
@@ -123,6 +123,7 @@ Zwift route data is cached under `zwift_routes_v1` with a short 2-minute TTL (No
 | `GET /callback` | Exchanges the OAuth code, stores the refresh token in KV, and shows it for the secret |
 | `GET /debug` | Strava connection diagnostic — reports whether the token refresh worked and returns five activities. Never echoes the token response itself: this route has no auth |
 | `GET /sync-training-log` | Runs the Strava → Notion Training Log sync now, and returns `{ checked, created, skipped, relinked, failed, errors }`. Also runs automatically on the cron |
+| `GET /backfill-prs` | Collects one slice (40) of segment PBs from Strava's best-efforts and refreshes the cache. Returns `{ checked, found, remaining }`. Also runs automatically on the cron — see **Segment PBs** below |
 | `GET /zwift-routes` | Returns the cached Zwift routes envelope `{ data, updatedAt }`, proxied live from Notion |
 | `GET /zwift-routes?refresh=true` | Bypasses cache, re-fetches all routes from Notion |
 | `PATCH /zwift-routes/{pageId}` | Updates `status`/`date_completed`/`time` on one route, writes straight to Notion |
@@ -218,6 +219,36 @@ them checks for the field's presence and says so on screen rather than reporting
 a zero — `renderExtraCharts` shows "Start times arrive with the next Strava
 refresh", `renderSocialStats` renders nothing rather than claiming everything
 was solo. `wasSocial()` falls back to the old title regex for older entries.
+
+### Segment PBs (best-efforts)
+
+The Records tab has six distance PB slots — 1 km, 1 mile, 5 km, 10 km, half,
+marathon — that sat empty since it was written, because Strava's **list**
+endpoint omits `best_efforts` entirely. They come back only from
+`GET /activities/{id}`, one request per activity, against a limit of 100
+requests per 15 minutes and 1,000 a day.
+
+So they are collected gradually:
+
+- `best_efforts_v1` in KV maps activity id → `{pr_1km, pr_1mi, …}`, or `null`
+  meaning *asked, this activity has none*. It has **no TTL** — re-deriving an
+  entry costs a Strava request.
+- Each cron run takes the `BEST_EFFORTS_BUDGET` (40) newest runs not yet in the
+  store, four at a time. Three crons a day is ~120 requests — well inside the
+  limit. A few hundred runs are covered within a week.
+- Only `Run`, `TrailRun` and `VirtualRun` are asked about. A ride has no best
+  efforts, so asking would waste a request.
+- A 404 (deleted or no longer readable) is recorded as `null` so it is never
+  asked about again. A 429 or a 5xx is **left out of the store entirely**, so
+  the next run retries it.
+- `applyBestEfforts` writes whatever has been collected onto every cache
+  refresh, which costs one KV read. Only the cron spends Strava requests, so a
+  page load never waits on this.
+
+`GET /backfill-prs` runs a slice on demand and returns
+`{checked, found, remaining}` — call it again in fifteen minutes for the next
+slice. The Records tab says how many runs have been checked so far rather than
+silently showing fewer cards than it has slots for.
 
 ### Sport types
 
@@ -381,7 +412,25 @@ The Worker aggregates the last 30 days of activity data and sends it to `@cf/met
 - **Shadows:** `--shadow` is the standard card lift. `--shadow-callout` is heavier and reserved for call-out boxes — the AI summary and the sync warning — so they lift off the page without needing a colour fill.
 - **Labels:** sentence case. No `text-transform: uppercase` and no letter-spacing on labels, per the house rule across the tools.
 - **Card colour:** one rule — a 3px `border-top` in the relevant colour. Not a left border, not a `::before` bar. An uncoloured card uses `var(--border)` so it keeps the same height.
-- **Motion:** three animations, and each one points at something. The Mex ladder builds left to right on arrival at the tab (not on a filter re-render — `mexAnimate` is set by `setTab` and cleared by `renderMex`, so a re-render reusing the same DOM doesn't replay it). The first-gap cell keeps a slow pulse because it is the one cell that is a to-do. Prior heatmap years fade up as you scroll to them, via an IntersectionObserver that unobserves each element once fired. All three are switched off wholesale under `prefers-reduced-motion`, which also drops every transition to 0.01ms.
+- **Motion:** four animations, and each one points at something. The Mex ladder builds left to right on arrival at the tab (not on a filter re-render — `mexAnimate` is set by `setTab` and cleared by `renderMex`, so a re-render reusing the same DOM doesn't replay it). The first-gap cell keeps a slow pulse because it is the one cell that is a to-do. Prior heatmap years fade up as you scroll to them, via an IntersectionObserver that unobserves each element once fired. Cards in the first grid of a tab come in as a short left-to-right run when you switch to it, capped at eight steps of 26ms — `staggerCards` runs *after* `renderAll`, because `renderAll` replaces the grid's `innerHTML`, and removes the class after 700ms so a filter change is instant. All four are switched off wholesale under `prefers-reduced-motion`, which also drops every transition to 0.01ms.
+
+---
+
+## Route replay
+
+On the Map tab, above the map. Picks one route and traces it from start to
+finish, with the covered part drawn solid over the faded background layer and a
+marker at the head.
+
+- The picker offers the 60 **longest** routes in the current filter. A three-mile
+  loop traced across a whole county is a dot moving in a corner.
+- Routes split into multiple segments by a privacy zone are excluded — the
+  marker would jump the gap.
+- Fixed 9-second duration, not real time. Nobody watches an eight-hour ride.
+- Under `prefers-reduced-motion` the whole route is drawn at once rather than
+  not at all.
+- `setTab` calls `stopReplay()` when you leave the Map, so the
+  `requestAnimationFrame` loop never runs behind a tab you cannot see.
 
 ---
 

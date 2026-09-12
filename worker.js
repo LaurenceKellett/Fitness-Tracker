@@ -25,6 +25,25 @@ const WORKER_URL = 'https://activities-api.lk-ff7.workers.dev/';
 const CACHE_KEY  = 'activities_v2';
 const CACHE_TTL  = 60 * 60 * 24; // 24 hours in seconds
 
+// Segment PBs (1k, 1 mile, 5k, 10k, half, marathon) are not on the bulk activity
+// endpoint — they only come back from GET /activities/{id}, one request each. A
+// full history is far too many requests to make in one go, so they are collected
+// a slice at a time on the cron and kept forever in their own KV key. An entry of
+// null means "asked, this activity has none", so it is never asked about again.
+const BEST_EFFORTS_KEY   = 'best_efforts_v1';
+const BEST_EFFORTS_BUDGET = 40;  // detail requests per cron run — 3 crons/day ≈ 120
+const BEST_EFFORTS_BATCH  = 4;   // concurrent requests, matching the gear lookup's caution
+
+// Strava's best-effort names, mapped to the fields the dashboard already has slots for.
+const BEST_EFFORT_FIELDS = {
+  '1k':             'pr_1km',
+  '1 mile':         'pr_1mi',
+  '5k':             'pr_5km',
+  '10k':            'pr_10km',
+  'half-marathon':  'pr_hm',
+  'marathon':       'pr_mar',
+};
+
 const ZWIFT_DATA_SOURCE_ID = '13b81faa-c3d2-4f94-83ca-bc782626f1e3';
 const ZWIFT_CACHE_KEY      = 'zwift_routes_v1';
 const ZWIFT_CACHE_TTL      = 120; // 2 minutes — writes invalidate this immediately anyway
@@ -54,6 +73,7 @@ export default {
       case '/debug':              return handleDebug(env);
       case '/zwift-routes':       return handleZwiftRoutes(request, env);
       case '/sync-training-log':  return handleSyncTrainingLog(env);
+      case '/backfill-prs':       return handleBackfillPrs(env);
       default:
         if (url.pathname.startsWith('/zwift-routes/') && request.method === 'PATCH') {
           const pageId = url.pathname.slice('/zwift-routes/'.length);
@@ -76,7 +96,9 @@ export default {
         console.error('Scheduled Notion sync failed:', err.message);
       }
       try {
-        await refreshActivitiesCache(env, { regenerateAi: false });
+        // backfillPrs: the cron is the only place that spends Strava requests on
+        // segment PBs, a slice at a time, so it never delays a page load.
+        await refreshActivitiesCache(env, { regenerateAi: false, backfillPrs: true });
       } catch (err) {
         // The previous cache entry stays put, so a failed refresh serves stale
         // data rather than none.
@@ -216,9 +238,24 @@ async function handleActivities(request, env) {
 // output nobody reads — but a scheduled refresh should not be the thing that
 // destroys the last good summary either, so it carries the existing one
 // forward rather than writing the placeholder over it.
-async function refreshActivitiesCache(env, { regenerateAi = true } = {}) {
+async function refreshActivitiesCache(env, { regenerateAi = true, backfillPrs = false } = {}) {
   const accessToken = await getAccessToken(env);
   const activities  = await fetchAllActivities(accessToken, env);
+
+  // Segment PBs collected on previous runs are written on unconditionally — that
+  // costs one KV read. Collecting NEW ones costs a Strava request per activity,
+  // so only the cron does that; a user waiting on /activities never pays for it.
+  if (backfillPrs) {
+    try {
+      const res = await backfillBestEfforts(env, accessToken, activities);
+      console.log(`Best-effort backfill: checked ${res.checked}, found ${res.found}, ${res.remaining} runs still to do`);
+    } catch (err) {
+      console.error('Best-effort backfill failed:', err.message);
+      applyBestEfforts(activities, await loadBestEfforts(env));
+    }
+  } else {
+    applyBestEfforts(activities, await loadBestEfforts(env));
+  }
 
   let aiSummary = 'No AI summary generated.';
   if (regenerateAi && env.AI) {
@@ -657,6 +694,42 @@ async function handleSyncTrainingLog(env) {
   }
 }
 
+// Manual trigger for the segment-PB backfill, so a slice can be collected on demand
+// rather than only on the cron. Refreshes the cache too, so the numbers it just
+// collected are on screen straight away. Reports how many runs are still to do —
+// call it again in fifteen minutes to take the next slice.
+async function handleBackfillPrs(env) {
+  try {
+    const accessToken = await getAccessToken(env);
+    const activities  = await fetchAllActivities(accessToken, env);
+    const summary     = await backfillBestEfforts(env, accessToken, activities);
+
+    if (env.CACHE) {
+      let aiSummary = 'No AI summary generated.';
+      try {
+        const previous = await env.CACHE.get(CACHE_KEY);
+        if (previous) aiSummary = JSON.parse(previous).aiSummary ?? aiSummary;
+      } catch {
+        // Keep the default rather than fail a successful backfill.
+      }
+      await env.CACHE.put(CACHE_KEY, JSON.stringify({
+        data: activities,
+        aiSummary,
+        updatedAt: new Date().toISOString(),
+      }), { expirationTtl: CACHE_TTL });
+    }
+
+    return new Response(JSON.stringify({ ...summary, ranAt: new Date().toISOString() }), {
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  } catch (err) {
+    return new Response(JSON.stringify({ error: true, message: err.message }), {
+      status: 500,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+}
+
 async function syncActivitiesToNotion(env) {
   const accessToken = await getAccessToken(env);
   const afterEpoch   = Math.floor(Date.now() / 1000) - TRAINING_LOG_LOOKBACK_DAYS * 86400;
@@ -899,6 +972,125 @@ async function fetchAllActivities(accessToken, env) {
   }
 
   return all.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// =============================================================================
+// BEST-EFFORT (SEGMENT PB) BACKFILL
+// The Records tab has had six empty slots — 1k, 1 mile, 5k, 10k, half, marathon —
+// since it was written, because transformActivity has nothing to fill them from:
+// Strava's list endpoint omits best_efforts entirely. They arrive only on the
+// detailed activity, one HTTP request per activity, and the API allows 100
+// requests per 15 minutes and 1,000 a day.
+//
+// So this collects them gradually. Each cron run takes the newest runs that have
+// not been asked about yet, up to BEST_EFFORTS_BUDGET of them, and records what
+// came back. Runs with no best efforts (a treadmill session, a sub-1k jog) are
+// stored as null so they are never asked about twice. A few hundred runs are
+// covered within a week and the store is permanent from then on.
+// =============================================================================
+
+async function loadBestEfforts(env) {
+  if (!env.CACHE) return {};
+  try {
+    const raw = await env.CACHE.get(BEST_EFFORTS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    // A corrupt store costs a re-fetch, not a failed refresh.
+    return {};
+  }
+}
+
+async function saveBestEfforts(env, store) {
+  if (!env.CACHE) return;
+  // No expirationTtl: these never change once recorded, and re-deriving them
+  // costs one Strava request per activity.
+  await env.CACHE.put(BEST_EFFORTS_KEY, JSON.stringify(store));
+}
+
+// Write whatever has been collected onto the activity objects. Anything not yet
+// asked about simply keeps its null, which the dashboard already renders as absent.
+function applyBestEfforts(activities, store) {
+  for (const a of activities) {
+    const efforts = store[a.id];
+    if (!efforts) continue;
+    for (const field of Object.values(BEST_EFFORT_FIELDS)) {
+      if (efforts[field] != null) a[field] = efforts[field];
+    }
+  }
+}
+
+// Only foot sports have best efforts. Asking about a ride wastes a request.
+function hasBestEfforts(activity) {
+  return ['Run', 'TrailRun', 'VirtualRun'].includes(activity.type);
+}
+
+async function backfillBestEfforts(env, accessToken, activities) {
+  const store = await loadBestEfforts(env);
+
+  // Newest first: a PB set last month matters more than filling in 2014.
+  const pending = activities
+    .filter(a => hasBestEfforts(a) && !(a.id in store))
+    .sort((x, y) => y.date.localeCompare(x.date))
+    .slice(0, BEST_EFFORTS_BUDGET);
+
+  if (!pending.length) return { checked: 0, found: 0, remaining: 0 };
+
+  let found = 0;
+  for (let i = 0; i < pending.length; i += BEST_EFFORTS_BATCH) {
+    const batch = pending.slice(i, i + BEST_EFFORTS_BATCH);
+    const results = await Promise.all(
+      batch.map(a => fetchBestEffortsFor(a.id, accessToken))
+    );
+    results.forEach((efforts, n) => {
+      // undefined means the request failed — leave it out of the store entirely so
+      // the next run retries it. null means asked and genuinely none.
+      if (efforts === undefined) return;
+      store[batch[n].id] = efforts;
+      if (efforts) found++;
+    });
+  }
+
+  await saveBestEfforts(env, store);
+  applyBestEfforts(activities, store);
+
+  const remaining = activities.filter(a => hasBestEfforts(a) && !(a.id in store)).length;
+  return { checked: pending.length, found, remaining };
+}
+
+async function fetchBestEffortsFor(id, accessToken) {
+  try {
+    const res = await fetch(
+      `https://www.strava.com/api/v3/activities/${id}?include_all_efforts=true`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (res.status === 429) {
+      console.error(`Best efforts for ${id} rate-limited; will retry next run`);
+      return undefined;
+    }
+    if (!res.ok) {
+      // 404 means the activity is gone or private to this token. That will not
+      // change on a retry, so record it as "none" rather than asking forever.
+      if (res.status === 404) return null;
+      console.error(`Best efforts for ${id} failed: ${res.status}`);
+      return undefined;
+    }
+    const detail = await res.json();
+    const efforts = Array.isArray(detail.best_efforts) ? detail.best_efforts : [];
+    if (!efforts.length) return null;
+
+    const out = {};
+    for (const e of efforts) {
+      const field = BEST_EFFORT_FIELDS[String(e.name || '').toLowerCase()];
+      if (!field) continue;
+      const t = e.elapsed_time || e.moving_time || 0;
+      // Keep the fastest, in case Strava ever returns two efforts at one distance.
+      if (t > 0 && (out[field] == null || t < out[field])) out[field] = t;
+    }
+    return Object.keys(out).length ? out : null;
+  } catch (err) {
+    console.error(`Best efforts for ${id} threw: ${err.message}`);
+    return undefined;
+  }
 }
 
 // =============================================================================

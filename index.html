@@ -112,6 +112,20 @@ a{color:inherit;text-decoration:none}
 .zone-chip{display:flex;align-items:baseline;gap:6px;padding:5px 11px;font-size:11px;font-weight:600}
 .zone-chip strong{font-size:13px;font-weight:700}
 .zone-verdict{font-size:11px;color:var(--text-muted);line-height:1.55;margin-top:12px}
+.replay-bar{display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:8px 12px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow)}
+.replay-bar>.ms{font-size:18px;color:var(--accent);flex-shrink:0}
+.replay-select{flex:1;min-width:0;height:32px;padding:0 10px;border:1px solid var(--border);border-radius:0;font-family:inherit;font-size:12px;background:var(--surface);color:var(--text);cursor:pointer}
+.replay-status{font-size:11px;color:var(--text-muted);flex-shrink:0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* On a phone the bar wraps to: icon + picker, then a full-width Replay button under
+   the thing it acts on, then the status. Left in source order the button landed
+   above its own picker, which reads backwards. */
+@media(max-width:640px){
+  .replay-bar{flex-wrap:wrap;gap:8px 10px}
+  .replay-bar>.ms{order:1}
+  .replay-select{order:2;flex:1;flex-basis:auto;height:44px;font-size:13px}
+  #replayBtn{order:3;flex-basis:100%;min-height:44px}
+  .replay-status{order:4;flex-basis:100%;white-space:normal}
+}
 .explore-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border)}
 .explore-row:last-child{border-bottom:none}
 .explore-year{width:44px;flex-shrink:0;font-size:12px;font-weight:700;color:var(--text-muted)}
@@ -318,8 +332,21 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .mex-anim .mex-cell.gap{animation:mexIn .3s ease both,gapPulse 2.8s ease-in-out 1s infinite;animation-delay:var(--d,0ms),0ms}
 .reveal{opacity:0}
 .reveal.shown{animation:yearIn .45s cubic-bezier(.2,.7,.3,1) both}
+/* Cards on a freshly-opened tab come in as a short left-to-right run rather than
+   all at once. Capped at eight steps of 26ms: past that it stops reading as one
+   movement and starts reading as a slow page. Applied by setTab, cleared when it
+   finishes, so a filter change re-rendering the same cards does not replay it. */
+.stagger>*{animation:yearIn .34s cubic-bezier(.2,.7,.3,1) both}
+.stagger>*:nth-child(1){animation-delay:0ms}
+.stagger>*:nth-child(2){animation-delay:26ms}
+.stagger>*:nth-child(3){animation-delay:52ms}
+.stagger>*:nth-child(4){animation-delay:78ms}
+.stagger>*:nth-child(5){animation-delay:104ms}
+.stagger>*:nth-child(6){animation-delay:130ms}
+.stagger>*:nth-child(7){animation-delay:156ms}
+.stagger>*:nth-child(n+8){animation-delay:182ms}
 @media(prefers-reduced-motion:reduce){
-  .mex-anim .mex-cell,.reveal.shown{animation:none!important}
+  .mex-anim .mex-cell,.reveal.shown,.stagger>*{animation:none!important}
   .reveal{opacity:1}
   *{transition-duration:.01ms!important}
 }
@@ -846,6 +873,12 @@ tbody td{padding:10px 14px;vertical-align:middle}
     </div>
   </div>
   <div id="mapJumpRow" class="loc-row" style="margin-bottom:8px"></div>
+  <div class="replay-bar" id="replayBar" style="display:none">
+    <span class="ms">play_circle</span>
+    <select id="replayPick" class="replay-select" onchange="stopReplay()"></select>
+    <button class="page-btn" id="replayBtn" onclick="toggleReplay()">Replay</button>
+    <span class="replay-status" id="replayStatus"></span>
+  </div>
   <div id="mapContainer" style="height:600px;border-radius:0;overflow:hidden;border:1px solid var(--border);background:#fff"></div>
   <div class="section-header" style="margin-top:26px"><h2>Ground covered</h2><span class="badge" id="exploreBadge"></span></div>
   <div class="stats-grid" id="exploreStats"></div>
@@ -1101,6 +1134,9 @@ function setType(t){activeType=t;buildTypeFilters();renderAll();}
 const TAB_ORDER=['summary','map','charts','heatmap','records','mex','social','gear','log','zwift'];
 function setTab(tab,dir){
   if(tab==='mex'&&activeTab!=='mex')mexAnimate=true;
+  // A replay left running on a tab you cannot see is a requestAnimationFrame loop
+  // burning battery for nothing.
+  if(activeTab==='map'&&tab!=='map'&&typeof stopReplay==='function')stopReplay();
   activeTab=tab;
   document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',TAB_ORDER[i]===tab));
   document.querySelectorAll('.tab-content').forEach(d=>d.classList.remove('active','enter-from-left','enter-from-right'));
@@ -1118,6 +1154,9 @@ function setTab(tab,dir){
   if(tab==='map'){renderMap(activeType==='All'?ALL_DATA:ALL_DATA.filter(a=>mapFilterMatches(a)));return;}
   if(tab==='zwift'){loadZwiftRoutes();return;}
   renderAll();
+  // After the render, not before — renderAll replaces the grid's innerHTML, which
+  // would wipe an animation started on the previous tab's cards.
+  staggerCards(el);
 }
 function setUnit(u){unit=u;document.querySelectorAll('.unit-opt').forEach(b=>b.classList.toggle('active',b.dataset.unit===u));renderAll();}
 
@@ -1811,9 +1850,13 @@ function renderRecords(){
   // does not return — so they render as nothing at all. Say that, rather than leaving
   // a section that looks like it has simply lost half its cards.
   const noteEl=document.getElementById('runPRNote');
-  if(noteEl)noteEl.textContent=prDists.some(({field})=>bestPR(runs,field))
-    ? ''
-    : 'Segment PBs (1 km, 5 km, 10 km, half, marathon) come from Strava’s best-efforts, which the bulk activity endpoint doesn’t return. The records above are computed from whole activities.';
+  if(noteEl){
+    const withPr=runs.filter(a=>prDists.some(({field})=>a[field]>0)).length;
+    const totalRuns=runs.length;
+    noteEl.textContent=withPr
+      ? `Segment PBs are read from Strava's best-efforts, one request per activity, so they are collected gradually on the daily refresh — ${withPr.toLocaleString('en-GB')} of ${totalRuns.toLocaleString('en-GB')} runs checked so far. The rest of this section is computed from whole activities and is already complete.`
+      : `Segment PBs (1 km, 1 mile, 5 km, 10 km, half, marathon) come from Strava's best-efforts, which the bulk activity endpoint doesn't return. They are collected a slice at a time on the daily refresh and will start appearing here. Everything above is computed from whole activities.`;
+  }
 
   const totalDist=ALL_DATA.reduce((s,a)=>s+(a.dist_mi||0),0),totalElv=ALL_DATA.reduce((s,a)=>s+(a.elv||0),0),totalCal=ALL_DATA.reduce((s,a)=>s+(a.cal||0),0),totalTime=ALL_DATA.reduce((s,a)=>s+(a.mt||0),0);
   const activeDays=new Set(ALL_DATA.map(a=>a.date));let ls=0,cs=0,pd=null;
@@ -1874,6 +1917,25 @@ function mexBuckets(acts){
   return b;
 }
 function mexOf(buckets){let n=1;while(buckets.has(n))n++;return n-1;}
+
+// Stagger the first grid of cards on a tab you have just switched to. Only the
+// first one: staggering every grid down a long tab means the bottom of the page
+// is still animating in when you have scrolled past it. The class comes off after
+// the run so a later re-render is instant.
+function staggerCards(tabEl){
+  if(!tabEl)return;
+  if(matchMedia('(prefers-reduced-motion:reduce)').matches)return;
+  // The first grid that actually has cards in it, not simply the first one: on
+  // Records the Running PBs grid comes first and is empty for a ride-only history,
+  // and taking it would mean nothing ever staggered.
+  const grid=[...tabEl.querySelectorAll('.stats-grid,.records-grid,.gear-grid,.partner-grid,.charts-grid')]
+    .find(g=>g.children.length);
+  if(!grid)return;
+  grid.classList.remove('stagger');
+  void grid.offsetWidth;            // force a reflow so re-adding the class restarts it
+  grid.classList.add('stagger');
+  setTimeout(()=>grid.classList.remove('stagger'),700);
+}
 
 // Reveal .reveal children as they scroll into view. Each element is unobserved the
 // moment it fires, so nothing re-animates on the way back up. Without IntersectionObserver
@@ -3094,6 +3156,7 @@ function renderMap(data){
     _map.setView(HOME_CENTER,HOME_ZOOM);
   });
   buildMapJumpButtons();
+  buildReplayPicker(withRoute,segsOf);
 
   // Legend
   const legend=document.getElementById('mapLegend');
@@ -3101,6 +3164,85 @@ function renderMap(data){
     const types=[...new Set(data.map(a=>mapTypeGroup(a.type)))];
     legend.innerHTML=types.map(t=>`<span style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted)"><span style="width:10px;height:10px;border-radius:0;background:${groupColor(t)};display:inline-block;opacity:.8"></span>${t}</span>`).join('');
   }
+}
+
+// ── ROUTE REPLAY ──
+// One route at a time, traced from start to finish with a marker at the head and
+// the covered part drawn solid over the faded background layer. Fixed duration
+// rather than real time: an eight-hour ride played at any honest speed is not a
+// thing anybody watches.
+const REPLAY_MS=9000;
+const REPLAY_MAX=60;           // routes offered in the picker
+let _replayPts=null,_replayLine=null,_replayDot=null,_replayRaf=null,_replayStart=0;
+let _replayLookup={};
+
+// Longest first — a 3-mile loop traced across a whole county is a dot moving in a
+// corner, and the routes worth watching are the big ones.
+function buildReplayPicker(withRoute,segsOf){
+  const bar=document.getElementById('replayBar'),sel=document.getElementById('replayPick');
+  if(!bar||!sel)return;
+  stopReplay();
+  const candidates=withRoute
+    .filter(a=>segsOf(a).length===1)   // a route split by a privacy zone would jump the gap
+    .sort((a,b)=>(b.dist_mi||0)-(a.dist_mi||0))
+    .slice(0,REPLAY_MAX);
+  if(!candidates.length){bar.style.display='none';sel.innerHTML='';return;}
+  bar.style.display='flex';
+  sel.innerHTML=candidates.map(a=>
+    `<option value="${escapeAttr(a.id)}">${escapeHtml(a.name||a.type)} · ${fmtDist(a.dist_mi||0)} ${distUnit()} · ${fmtDate(a.date)}</option>`
+  ).join('');
+  _replayLookup={};
+  candidates.forEach(a=>{_replayLookup[a.id]={act:a,segs:segsOf};});
+  setReplayStatus('');
+}
+
+function setReplayStatus(t){const el=document.getElementById('replayStatus');if(el)el.textContent=t;}
+
+function stopReplay(){
+  if(_replayRaf){cancelAnimationFrame(_replayRaf);_replayRaf=null;}
+  if(_replayLine&&_map){_map.removeLayer(_replayLine);_replayLine=null;}
+  if(_replayDot&&_map){_map.removeLayer(_replayDot);_replayDot=null;}
+  _replayPts=null;
+  const btn=document.getElementById('replayBtn');if(btn)btn.textContent='Replay';
+  setReplayStatus('');
+}
+
+function toggleReplay(){
+  if(_replayRaf){stopReplay();return;}
+  const sel=document.getElementById('replayPick');
+  const entry=sel&&_replayLookup[sel.value];
+  if(!entry||!_map)return;
+  const a=entry.act;
+  const pts=decodePolylinePts(entry.segs(a)[0]||'');
+  if(pts.length<2){setReplayStatus('No usable route for this activity.');return;}
+
+  _replayPts=pts;
+  _map.flyToBounds(L.latLngBounds(pts),{padding:[50,50],maxZoom:14});
+  const col=groupColor(mapTypeGroup(a.type));
+  _replayLine=L.polyline([pts[0]],{color:col,weight:4,opacity:.95}).addTo(_map);
+  _replayDot=L.circleMarker(pts[0],{radius:6,color:'#fff',weight:2,fillColor:col,fillOpacity:1}).addTo(_map);
+  document.getElementById('replayBtn').textContent='Stop';
+
+  // Reduced motion gets the whole route drawn at once rather than no route at all.
+  if(matchMedia('(prefers-reduced-motion:reduce)').matches){
+    _replayLine.setLatLngs(pts);_replayDot.setLatLng(pts[pts.length-1]);
+    setReplayStatus(`${fmtDist(a.dist_mi||0)} ${distUnit()} · ${fmtTime(a.mt)}`);
+    return;
+  }
+
+  _replayStart=performance.now();
+  const step=now=>{
+    const t=Math.min(1,(now-_replayStart)/REPLAY_MS);
+    const n=Math.max(1,Math.round(t*(pts.length-1)));
+    _replayLine.setLatLngs(pts.slice(0,n+1));
+    _replayDot.setLatLng(pts[n]);
+    setReplayStatus(`${Math.round(t*100)}% · ${fmtDist((a.dist_mi||0)*t)} of ${fmtDist(a.dist_mi||0)} ${distUnit()}`);
+    if(t<1){_replayRaf=requestAnimationFrame(step);return;}
+    _replayRaf=null;
+    document.getElementById('replayBtn').textContent='Replay';
+    setReplayStatus(`${fmtDist(a.dist_mi||0)} ${distUnit()} · ${fmtTime(a.mt)} · ${fmtElv(a.elv)}`);
+  };
+  _replayRaf=requestAnimationFrame(step);
 }
 
 // ── GROUND COVERED ──
