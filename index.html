@@ -108,6 +108,15 @@ a{color:inherit;text-decoration:none}
 .chart-sub{font-size:11px;color:var(--text-muted);margin-bottom:16px}
 .chart-wrap{position:relative;height:240px}.chart-wrap.tall{height:320px}
 @media(max-width:700px){.charts-grid{grid-template-columns:1fr}}
+/* The pattern from the heart-rate zone card, generalised: a row of tinted figure
+   chips under the plot, then one plain-English line saying what the shape means.
+   A chart earns these only when there is something true and non-obvious to say —
+   chips that restate the axis, or a verdict that restates the chips, are noise. */
+.chart-chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.chart-chip{display:flex;align-items:baseline;gap:6px;padding:5px 11px;font-size:11px;font-weight:600}
+.chart-chip strong{font-size:13px;font-weight:700}
+.chart-verdict{font-size:11px;color:var(--text-muted);line-height:1.55;margin-top:12px}
+.chart-verdict:empty,.chart-chips:empty{display:none}
 .zone-split{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
 .zone-chip{display:flex;align-items:baseline;gap:6px;padding:5px 11px;font-size:11px;font-weight:600}
 .zone-chip strong{font-size:13px;font-weight:700}
@@ -681,6 +690,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <div class="chart-sub" id="firstChartSub">Distance per month by activity type</div>
       <div id="firstChartMonthly" class="chart-wrap tall"><canvas id="chartMonthly"></canvas></div>
       <div id="firstChartCalendar" style="display:none"></div>
+      <div id="distChips" class="chart-chips"></div>
+      <div id="distVerdict" class="chart-verdict"></div>
     </div>
   </div>
   <div class="charts-grid" id="yoyDonutGrid">
@@ -693,6 +704,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <div class="chart-title">Activity Mix</div>
       <div class="chart-sub">Share of activities by type</div>
       <div class="chart-wrap"><canvas id="chartDonut"></canvas></div>
+      <div id="mixChips" class="chart-chips"></div>
     </div>
   </div>
   <div class="charts-grid wide">
@@ -700,6 +712,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <div class="chart-title">Monthly Elevation Gain</div>
       <div class="chart-sub" id="elevChartSub">Feet climbed per month</div>
       <div class="chart-wrap"><canvas id="chartElev"></canvas></div>
+      <div id="elevChips" class="chart-chips"></div>
+      <div id="elevVerdict" class="chart-verdict"></div>
     </div>
   </div>
   <div class="charts-grid" id="paceChartRow">
@@ -728,11 +742,15 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <div class="chart-title">Relative Effort</div>
       <div class="chart-sub" id="effortSub">Strava's suffer score, totalled per month</div>
       <div class="chart-wrap"><canvas id="chartEffort"></canvas></div>
+      <div id="effortChips" class="chart-chips"></div>
+      <div id="effortVerdict" class="chart-verdict"></div>
     </div>
     <div class="chart-card">
       <div class="chart-title">When you train</div>
       <div class="chart-sub" id="todSub">Activities by hour of day</div>
       <div class="chart-wrap"><canvas id="chartTod"></canvas></div>
+      <div id="todChips" class="chart-chips"></div>
+      <div id="todVerdict" class="chart-verdict"></div>
     </div>
   </div>
   <div id="yearCalDayDetail"></div>
@@ -1459,15 +1477,105 @@ function renderCharts(){
     options:{plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'#f0f0f0'},ticks:{callback:v=>v.toLocaleString(),font:{size:11}}}}}
   });
 
+  renderSummaryLines(data,monthKeys,typeKeys,colorFull);
   renderExtraCharts(data,monthKeys);
+}
+
+// ── FIGURE CHIPS AND VERDICTS ──
+// The heart-rate zone card set the pattern: tinted figures under the plot, then one
+// line saying what the shape means. Applied here to the charts that have something
+// true and non-obvious to say. Calories and Year-over-Year deliberately get neither —
+// a chip reading "total calories" under a chart of monthly calories is just the axis
+// again, and a verdict would be invented.
+function renderSummaryLines(data,monthKeys,typeKeys,colorFull){
+  const inScope=m=>monthKeys.includes(m);
+
+  // ── Monthly distance ──
+  const byMonth={};
+  data.forEach(a=>{const m=a.date.slice(0,7);if(!inScope(m))return;byMonth[m]=(byMonth[m]||0)+(a.dist_mi||0);});
+  const months=Object.keys(byMonth);
+  const totalDist=months.reduce((s,m)=>s+byMonth[m],0);
+  if(!totalDist){chartSummary('dist',[],'');}
+  else{
+    const active=months.filter(m=>byMonth[m]>0);
+    const best=active.reduce((b,m)=>byMonth[m]>byMonth[b]?m:b,active[0]);
+    const avg=totalDist/Math.max(1,active.length);
+    // On "All" the chart shows the last 24 months, not all time — say which, rather
+    // than calling a two-year figure a total.
+    const scopeWord=activeYear==='All'?distUnit()+', last 24 months':distUnit()+' in '+activeYear;
+    chartSummary('dist',[
+      {n:fmtDist(totalDist),label:scopeWord,col:'#1d4ed8'},
+      {n:fmtDist(avg),label:distUnit()+'/month',col:'#0ea5e9'},
+      {n:fmtDist(byMonth[best]),label:'best · '+monthLabel(best),col:'#ff385c'},
+    ],
+    // Only compare years when a full previous year is in scope to compare against.
+    (()=>{
+      const yrs={};
+      data.forEach(a=>{const y=a.date.slice(0,4);yrs[y]=(yrs[y]||0)+(a.dist_mi||0);});
+      const ys=Object.keys(yrs).sort();
+      if(ys.length<2)return `${active.length} month${active.length===1?'':'s'} with something in them, averaging ${fmtDist(avg)} ${distUnit()}.`;
+      const cur=ys[ys.length-1],prev=ys[ys.length-2];
+      const d=yrs[cur]-yrs[prev],pct=Math.round(Math.abs(d)/Math.max(1,yrs[prev])*100);
+      const curIsPartial=cur===String(new Date().getFullYear());
+      if(curIsPartial)return `${cur} is ${fmtDist(yrs[cur])} ${distUnit()} so far against ${fmtDist(yrs[prev])} for all of ${prev} — ${Math.round(yrs[cur]/Math.max(1,yrs[prev])*100)}% of last year's total, with the year not finished.`;
+      return `${cur} came to ${fmtDist(yrs[cur])} ${distUnit()}, ${pct}% ${d>=0?'more':'less'} than ${prev}.`;
+    })());
+  }
+
+  // ── Elevation ──
+  // Scoped to monthKeys exactly as the distance figures are. Summing elevation over
+  // the whole filtered set while distance covered only the charted months made the
+  // ft-per-mile ratio almost double what it should be.
+  const totalElv=data.reduce((s,a)=>inScope(a.date.slice(0,7))?s+(a.elv||0):s,0);
+  if(!totalElv){chartSummary('elev',[],'');}
+  else{
+    const perMile=totalDist>0?totalElv/totalDist:0;
+    const everests=totalElv/29029;
+    chartSummary('elev',[
+      {n:fmtElv(totalElv),label:'climbed',col:'#8b5cf6'},
+      {n:chipNum(everests,1),label:'× Everest',col:'#ec4899'},
+      {n:Math.round(unit==='mi'?perMile:perMile*0.3048/1.60934).toLocaleString('en-GB'),label:(unit==='mi'?'ft':'m')+' per '+distUnit(),col:'#f59e0b'},
+    ],
+    perMile>0?`That works out at ${Math.round(perMile)} ft of climbing for every mile ridden. Anything over about 60 is properly hilly territory; the Lancashire average sits nearer 50.`:'');
+  }
+
+  // ── Activity mix: chips only. The donut is the verdict. ──
+  if(activeType==='All'){
+    const counts={};
+    data.forEach(a=>{const g=typeGroup(a.type);counts[g]=(counts[g]||0)+1;});
+    const total=data.length||1;
+    chartSummary('mix',typeKeys.filter(t=>counts[t]).map((t,i)=>({
+      n:Math.round(counts[t]/total*100)+'%',
+      label:t.toLowerCase()+' · '+counts[t].toLocaleString('en-GB'),
+      col:colorFull[typeKeys.indexOf(t)],
+    })),'');
+  }else chartSummary('mix',[],'');
 }
 
 // ── THREE CHARTS OVER DATA THAT WAS ALREADY BEING FETCHED ──
 // Heart-rate zones, Relative Effort and time of day were all sitting in the
 // activity payload with nothing drawing them.
 
+// Replaced by the Worker's envelope on load; the fallback keeps the chart honest
+// about not knowing yet rather than asserting a source.
+let HR_ZONE_META={athleteMaxHr:null,source:'derived'};
+
 const ZONE_COLORS=['#94a3b8','#0ea5e9','#22c55e','#f59e0b','#ef4444'];
 const ZONE_NAMES=['Z1 Recovery','Z2 Endurance','Z3 Tempo','Z4 Threshold','Z5 VO2 max'];
+
+// Render the figure chips and the verdict line under a chart. Passing nothing for
+// either clears it, and the empty container collapses, so a filter that leaves a
+// chart with nothing to say leaves no gap behind.
+function chartSummary(id,chips,verdict){
+  const c=document.getElementById(id+'Chips'),v=document.getElementById(id+'Verdict');
+  if(c)c.innerHTML=(chips||[]).map(x=>
+    `<div class="chart-chip" style="color:${x.col};background:${x.col}1a"><strong>${escapeHtml(x.n)}</strong> ${escapeHtml(x.label)}</div>`
+  ).join('');
+  if(v)v.textContent=verdict||'';
+}
+
+// "12,480" from 12480.4, in the app's locale. Chips are figures, not prose.
+function chipNum(v,dp){return Number(dp?(+v).toFixed(dp):Math.round(v)).toLocaleString('en-GB');}
 
 // Hide a chart's canvas and put a sentence in its place. Passing no message puts
 // the canvas back, so the same call handles both directions on a filter change.
@@ -1506,7 +1614,9 @@ function renderExtraCharts(data,monthKeys){
     // heart rate per activity, not the stream, so the split is modelled from that
     // average and the moving time rather than measured second by second.
     document.getElementById('zoneSub').textContent=
-      `Estimated from each activity's average heart rate and your Strava zones — ${withHr.length.toLocaleString('en-GB')} activit${withHr.length===1?'y':'ies'} with HR data, ${fmtHours(totalSec)} in total`;
+      HR_ZONE_META.source==='strava'
+        ? `Estimated from each activity's average heart rate, split across the zones you set in Strava — ${withHr.length.toLocaleString('en-GB')} activit${withHr.length===1?'y':'ies'} with HR data, ${fmtHours(totalSec)} in total`
+        : `Estimated from each activity's average heart rate against a max of ${HR_ZONE_META.athleteMaxHr||'—'} bpm, the highest you have recorded. Strava's own zones need a permission this app doesn't ask for. ${withHr.length.toLocaleString('en-GB')} activit${withHr.length===1?'y':'ies'} with HR data, ${fmtHours(totalSec)} in total`;
     destroyChart('zones');
     charts.zones=new Chart(document.getElementById('chartZones').getContext('2d'),{
       type:'bar',
@@ -1536,7 +1646,29 @@ function renderExtraCharts(data,monthKeys){
   data.forEach(a=>{const s=a.score||0;if(!s)return;effTot+=s;const m=a.date.slice(0,7);monthEff[m]=(monthEff[m]||0)+s;});
   if(!effTot){
     setChartEmpty('chartEffort','No Relative Effort recorded for these activities. Strava only scores activities with heart-rate data.');
+    chartSummary('effort',[],'');
   }else{
+    // Recent three months against the rest, which is the question a load chart is
+    // actually being asked: am I building or backing off?
+    const withVals=monthKeys.filter(m=>monthEff[m]>0);
+    const recent=withVals.slice(-3),earlier=withVals.slice(0,-3);
+    const mean=ms=>ms.length?ms.reduce((s,m)=>s+monthEff[m],0)/ms.length:0;
+    const rAvg=mean(recent),eAvg=mean(earlier);
+    const best=withVals.reduce((b,m)=>monthEff[m]>monthEff[b]?m:b,withVals[0]);
+    chartSummary('effort',[
+      {n:chipNum(effTot),label:'total effort',col:'#ff385c'},
+      {n:chipNum(rAvg),label:'recent 3-month average',col:'#f59e0b'},
+      {n:chipNum(monthEff[best]),label:'peak · '+monthLabel(best),col:'#8b5cf6'},
+    ],
+    (()=>{
+      if(!earlier.length||!eAvg)return `Peaked in ${monthLabel(best)}. Strava scores an activity only when it has heart-rate data, so a gap here is usually a flat battery rather than a rest week.`;
+      const d=Math.round((rAvg-eAvg)/eAvg*100);
+      if(d>=20)return `The last three months are running ${d}% above your earlier average. That is a real build — worth knowing whether it was deliberate.`;
+      if(d<=-20)return `The last three months are ${Math.abs(d)}% below your earlier average. Either a deliberate back-off, or the season got away from you.`;
+      return `The last three months sit within ${Math.abs(d)}% of your earlier average — steady, neither building nor backing off.`;
+    })());
+  }
+  if(effTot){
     setChartEmpty('chartEffort');
     const scored=data.filter(a=>a.score>0).length;
     document.getElementById('effortSub').textContent=
@@ -1557,6 +1689,7 @@ function renderExtraCharts(data,monthKeys){
   const timed=data.filter(a=>typeof a.time==='string'&&/^\d{2}:\d{2}$/.test(a.time));
   if(!timed.length){
     setChartEmpty('chartTod','Start times arrive with the next Strava refresh.');
+    chartSummary('tod',[],'');
   }else{
     setChartEmpty('chartTod');
     const hours=new Array(24).fill(0);
@@ -1573,6 +1706,26 @@ function renderExtraCharts(data,monthKeys){
         responsive:true,maintainAspectRatio:false,
         scales:{x:{grid:{display:false},ticks:{font:{size:9},autoSkip:false,maxRotation:0,callback:(v,i)=>i%3===0?pad(i):''}},y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},precision:0}}}}
     });
+
+    // Before 12, 12 to 17, 17 onwards. Crude, but it is the split people actually
+    // think in — before work, in the day, after work.
+    const band=(a,b)=>hours.slice(a,b).reduce((s,n)=>s+n,0);
+    const morning=band(0,12),afternoon=band(12,17),evening=band(17,24);
+    const n=timed.length,p=v=>Math.round(v/n*100);
+    chartSummary('tod',[
+      {n:p(morning)+'%',label:'before noon',col:'#f59e0b'},
+      {n:p(afternoon)+'%',label:'afternoon',col:'#0ea5e9'},
+      {n:p(evening)+'%',label:'evening',col:'#8b5cf6'},
+    ],
+    (()=>{
+      const top=Math.max(morning,afternoon,evening);
+      const share=p(top);
+      const early=band(0,8),late=band(20,24);
+      if(share>=60&&top===morning)return `${share}% of your training happens before noon, and ${p(early)}% of it before eight. You are a morning athlete, whatever you tell people.`;
+      if(share>=60&&top===evening)return `${share}% after five, ${p(late)}% after eight. Training fits around the day rather than the day around training.`;
+      if(share>=60)return `${share}% of it lands in the afternoon — an unusual pattern, and one that suggests a flexible day.`;
+      return `Spread fairly evenly: ${p(morning)}% before noon, ${p(afternoon)}% in the afternoon, ${p(evening)}% in the evening. No single habit dominates.`;
+    })());
   }
 }
 
@@ -3038,6 +3191,8 @@ async function loadData(forceRefresh = false) {
     } else {
       ALL_DATA = json.data;
       updatedAt = json.updatedAt;
+      // Absent on an envelope cached before the Worker started sending it.
+      if (json.hrZones) HR_ZONE_META = json.hrZones;
     }
     setUpdatedAt(updatedAt);
   } catch (e) {

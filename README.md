@@ -458,11 +458,70 @@ The area figure is cells × (0.003 × 69)² square miles. It measures ground
 ## Heart-rate zones
 
 The zone chart on the Charts tab is **estimated, not measured**, and the
-subtitle says so on screen. Strava's bulk activity endpoint returns one average
-heart rate per activity, not the stream. `estimateZones()` in `worker.js` models
-the distribution as a normal curve around that average (σ = max(( max − avg)/1.5,
-3)) and integrates it across your Strava zone boundaries, falling back to
-60/70/80/90% of max where zones aren't set. Treat the split as indicative.
+subtitle says so on screen — including which of the two sources below it used.
+Strava's bulk activity endpoint returns one average heart rate per activity, not
+the stream, so `estimateZones()` models the distribution as a normal curve around
+that average and integrates it across the zone boundaries.
+
+Two different numbers do two different jobs, and getting them the wrong way round
+is what made the first version wrong:
+
+| Number | Job |
+|--------|-----|
+| **Athlete max HR** | Sets *where the zone boundaries sit* — 60/70/80/90% of it |
+| **That activity's peak HR** | Sets *how wide that activity's heart rate ranged* |
+
+The original code passed each activity's own peak as the ceiling, so every
+boundary became a percentage of that day's high. An average always sits close to
+its own day's peak, so it landed near the top of its own private scale: a
+recovery spin at 118 bpm scored **90% in zones 4 and 5**, and the all-time chart
+read 31% Z5.
+
+The spread was backwards too. `σ = (ceiling − average)/1.5` gave an *easy* ride a
+*wider* spread than a hard one, smearing its time across every zone. It is now
+`(activity peak − average) / 2.5` — the peak of a longish sample sits roughly 2.5
+standard deviations above its mean, so the two numbers Strava gives us estimate
+the spread directly. A steady ride peaking 15 bpm over its average comes out
+tight; a session with real intervals peaking 60 over comes out wide.
+
+**Where the ceiling comes from.** `/athlete/zones` needs the `profile:read_all`
+scope. The app asked only for `activity:read_all`, so `fetchAthleteZones` always
+returned null and the real-zones branch was dead code — which is why the bug went
+unnoticed. `deriveAthleteMaxHr()` now takes the **99th percentile** of
+`max_heartrate` across your whole history (not the outright maximum: across
+thousands of activities a few strap dropouts read 220+, and one bad contact
+shouldn't set the scale for a decade).
+
+`profile:read_all` has been added to the OAuth scope, so re-running `GET /auth`
+will pick up your real configured zones and the chart will say so. Until then it
+says it is using a derived max and prints the figure. The envelope carries
+`hrZones: {athleteMaxHr, source}` so the page can state its own provenance rather
+than asserting "your Strava zones" either way.
+
+The five buckets are rescaled to sum to moving time, since the curve's tails fall
+outside the zone range.
+
+---
+
+## Figure chips and verdicts
+
+The heart-rate zone card set a pattern worth reusing: tinted figure chips under
+the plot, then one plain-English line saying what the shape *means*.
+`chartSummary(id, chips, verdict)` renders both; `.chart-chips` and
+`.chart-verdict` collapse when empty, so a filter that leaves a chart with
+nothing to say leaves no gap.
+
+Applied to Monthly Distance, Elevation, Activity Mix (chips only — the donut is
+its own verdict), Relative Effort and When You Train. **Deliberately not** applied
+to Calories or Year-over-Year: a chip reading "total calories" under a chart of
+monthly calories is the axis restated, and the verdict would have to be invented.
+A chart earns these only when there is something true and non-obvious to say.
+
+Scope discipline matters here — the first version of the elevation chips divided
+all-time climbing by 24-month distance and reported nearly double the real
+ft-per-mile. Every figure in a chip is now summed over the same `monthKeys` the
+chart itself draws, and the distance chip says "last 24 months" rather than
+calling a two-year figure a total.
 
 ---
 

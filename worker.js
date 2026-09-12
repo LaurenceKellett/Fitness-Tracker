@@ -118,7 +118,11 @@ function handleAuth(env) {
     redirect_uri:    `${WORKER_URL}/callback`,
     response_type:   'code',
     approval_prompt: 'force',
-    scope:           'activity:read_all',
+    // profile:read_all is what /athlete/zones needs. Without it fetchAthleteZones
+    // always returns null and the zone split falls back to percentages of a derived
+    // max. Adding it here changes nothing for the token you already hold — it only
+    // takes effect if you re-run /auth, which is optional.
+    scope:           'activity:read_all,profile:read_all',
   });
   return Response.redirect(
     `https://www.strava.com/oauth/authorize?${params}`,
@@ -273,6 +277,9 @@ async function refreshActivitiesCache(env, { regenerateAi = true, backfillPrs = 
     data: activities,
     aiSummary: aiSummary,
     updatedAt: new Date().toISOString(),
+    // How the zone boundaries were arrived at, so the chart can say so rather than
+    // asserting "your Strava zones" whether or not they loaded.
+    hrZones: _hrZoneMeta,
   });
 
   if (env.CACHE) {
@@ -961,9 +968,18 @@ async function fetchAllActivities(accessToken, env) {
   }
 
   const hrZones = await fetchAthleteZones(accessToken);
+  // Derived once from the whole history, not per activity — that was the bug.
+  const athleteMaxHr = deriveAthleteMaxHr(all);
+  // Recorded so the chart can state where its boundaries came from instead of
+  // claiming "your Strava zones" whether or not they ever loaded.
+  _hrZoneMeta = {
+    athleteMaxHr,
+    source: (hrZones && hrZones.length >= 5) ? 'strava' : 'derived',
+  };
+  console.log(`HR zones: athlete max ${athleteMaxHr ?? 'unknown'}, Strava zones ${hrZones ? 'loaded' : 'unavailable (needs profile:read_all)'}`);
 
   for (const a of all) {
-    const zones = estimateZones(a.hr, a.max_hr, a.mt, hrZones);
+    const zones = estimateZones(a.hr, a.max_hr, a.mt, hrZones, athleteMaxHr);
     a.z1 = zones.z1;
     a.z2 = zones.z2;
     a.z3 = zones.z3;
@@ -1176,28 +1192,82 @@ function normalCDF(x, mean, std) {
   return 0.5 * (1 + erf((x - mean) / (std * Math.SQRT2)));
 }
 
-function estimateZones(avgHr, maxHr, movingTime, zones) {
+// Set by fetchAllActivities on each refresh and read straight afterwards by
+// refreshActivitiesCache, which needs it for the envelope. Same request, no
+// concurrency: a Worker isolate handles one refresh at a time.
+let _hrZoneMeta = { athleteMaxHr: null, source: 'derived' };
+
+// The athlete's maximum heart rate, derived from the history itself.
+//
+// This has to be derived because /athlete/zones needs the profile:read_all scope and
+// this app only asks for activity:read_all — so fetchAthleteZones returns null and the
+// real-zones branch below never fires. Re-authorising with the wider scope would give
+// the true configured zones; until then the highest peak you have actually recorded is
+// a better estimate of your ceiling than anything age-based.
+//
+// The 99th percentile rather than the outright maximum: across thousands of activities
+// a handful of strap dropouts read 220+, and one bad contact should not set the scale
+// for a decade of riding.
+function deriveAthleteMaxHr(activities) {
+  const peaks = activities
+    .map(a => a.max_hr)
+    .filter(v => typeof v === 'number' && v >= 120 && v <= 225)
+    .sort((x, y) => x - y);
+  if (peaks.length < 10) return null;
+  return peaks[Math.floor(peaks.length * 0.99)] ?? peaks[peaks.length - 1];
+}
+
+// Split one activity's moving time across heart-rate zones.
+//
+// Two different numbers do two different jobs here, and the previous version conflated
+// them: athleteMaxHr sets WHERE the zone boundaries sit, activityMaxHr sets HOW WIDE
+// this particular activity's heart rate ranged. Passing the activity's own peak as the
+// ceiling made every zone boundary a percentage of that day's high — so an average,
+// which always sits close to its own day's peak, landed near the top of its own scale
+// and a recovery spin scored 90% in zones 4 and 5.
+function estimateZones(avgHr, activityMaxHr, movingTime, zones, athleteMaxHr) {
   const zero = { z1: 0, z2: 0, z3: 0, z4: 0, z5: 0 };
   if (!avgHr || movingTime === 0) return zero;
 
-  const effectiveMax = maxHr > 0 ? maxHr : Math.round(avgHr / 0.80);
+  // Last-resort ceiling if the history gave us nothing: assume a hard-ish average sits
+  // around 80% of max. Only reached when there are fewer than ten HR activities.
+  const ceiling = athleteMaxHr && athleteMaxHr > avgHr
+    ? athleteMaxHr
+    : Math.max(Math.round(avgHr / 0.80), avgHr + 15);
 
   const effectiveZones = (zones && zones.length >= 5) ? zones : [
-    { min: 0,                               max: Math.round(effectiveMax * 0.60) },
-    { min: Math.round(effectiveMax * 0.60), max: Math.round(effectiveMax * 0.70) },
-    { min: Math.round(effectiveMax * 0.70), max: Math.round(effectiveMax * 0.80) },
-    { min: Math.round(effectiveMax * 0.80), max: Math.round(effectiveMax * 0.90) },
-    { min: Math.round(effectiveMax * 0.90), max: -1 },
+    { min: 0,                          max: Math.round(ceiling * 0.60) },
+    { min: Math.round(ceiling * 0.60), max: Math.round(ceiling * 0.70) },
+    { min: Math.round(ceiling * 0.70), max: Math.round(ceiling * 0.80) },
+    { min: Math.round(ceiling * 0.80), max: Math.round(ceiling * 0.90) },
+    { min: Math.round(ceiling * 0.90), max: -1 },
   ];
 
-  const std = Math.max((effectiveMax - avgHr) / 1.5, 3);
+  // Spread within this activity. The peak of a long-ish sample sits roughly 2.5
+  // standard deviations above its mean, so (peak − average) / 2.5 estimates the
+  // spread from the two numbers Strava actually gives us. A steady ride peaking 15
+  // bpm over its average comes out tight; a session with real intervals peaking 60
+  // over comes out wide. The old formula used (ceiling − average), which ran the
+  // opposite way: the easier the ride, the wider it smeared the time.
+  const span = (typeof activityMaxHr === 'number' && activityMaxHr > avgHr)
+    ? activityMaxHr - avgHr
+    : 12;
+  const std = Math.min(Math.max(span / 2.5, 3), 30);
 
   const result = {};
   for (let i = 0; i < 5; i++) {
     const lo = effectiveZones[i].min;
-    const hi = effectiveZones[i].max === -1 ? effectiveMax + 40 : effectiveZones[i].max;
+    const hi = effectiveZones[i].max === -1 ? ceiling + 25 : effectiveZones[i].max;
     const proportion = Math.max(0, normalCDF(hi, avgHr, std) - normalCDF(lo, avgHr, std));
     result[`z${i + 1}`] = Math.round(proportion * movingTime);
+  }
+
+  // The curve's tails fall outside the zone range, so the five buckets come up a little
+  // short of moving time. Scale them back up rather than quietly losing minutes.
+  const total = result.z1 + result.z2 + result.z3 + result.z4 + result.z5;
+  if (total > 0 && total < movingTime) {
+    const k = movingTime / total;
+    for (let i = 1; i <= 5; i++) result[`z${i}`] = Math.round(result[`z${i}`] * k);
   }
 
   return result;
