@@ -637,6 +637,17 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .top-gear-photo{width:28px;height:28px;object-fit:cover;border-radius:0;flex:none}
 .gear-name{font-size:13px;font-weight:700;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gear-type{font-size:11px;font-weight:600;margin-bottom:8px}
+/* The card used to be six label/value rows where Distance — the thing you came
+   to see — had the same weight as "First used". It leads now, at the same
+   24px/700 as every other headline figure in the app. */
+.gear-hero{padding-top:11px;margin-top:9px;border-top:1px solid var(--border)}
+.gear-hero-label{font-size:12px;font-weight:600;color:var(--text-muted)}
+.gear-hero-value{font-size:24px;font-weight:700;letter-spacing:-.5px;margin-top:2px}
+.gear-hero-value em{font-size:13px;font-weight:600;color:var(--text-muted);font-style:normal}
+.gear-trio{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px;padding-top:11px;border-top:1px solid var(--border)}
+.gear-trio-label{font-size:9.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-light)}
+.gear-trio-value{font-size:13px;font-weight:700;margin-top:2px;letter-spacing:-.2px}
+.gear-span{display:flex;justify-content:space-between;gap:10px;font-size:10.5px;color:var(--text-light);margin-top:11px;padding-top:9px;border-top:1px solid var(--border)}
 .gear-stat{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--bg)}
 .gear-stat-label{color:var(--text-muted)}.gear-stat-value{font-weight:600}
 .gear-forecast{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
@@ -1104,8 +1115,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <div class="chart-wrap tall"><canvas id="chartGearDist"></canvas></div>
     </div>
     <div class="chart-card">
-      <div class="chart-title">Top Gear by Activities</div>
-      <div class="chart-sub">Number of activities per item</div>
+      <div class="chart-title">Gear over time</div>
+      <div class="chart-sub" id="gearTimeSub">Distance per quarter by item</div>
       <div class="chart-wrap tall"><canvas id="chartGearCount"></canvas></div>
     </div>
   </div>
@@ -3246,13 +3257,17 @@ function renderGear(){
       <div class="gear-name" title="${escapeAttr(gearLabel(name))}">${escapeHtml(gearLabel(name))}</div>
       ${isUnresolvedGear(name)?`<div class="gear-unresolved">${escapeHtml(name)}</div>`:''}
       <div class="gear-type" style="color:${col}">${typeEmoji(topType)} ${topType}</div>
-      <div class="gear-stat"><span class="gear-stat-label">Distance</span><span class="gear-stat-value">${fmtDist(s.dist)} ${distUnit()}</span></div>
-      <div class="gear-stat"><span class="gear-stat-label">Activities</span><span class="gear-stat-value">${s.count.toLocaleString('en-GB')}</span></div>
-      <div class="gear-stat"><span class="gear-stat-label">Moving time</span><span class="gear-stat-value">${fmtTime(s.time)}</span></div>
-      <div class="gear-stat"><span class="gear-stat-label">Elevation</span><span class="gear-stat-value">${fmtElv(s.elv)}</span></div>
-      <div class="gear-stat"><span class="gear-stat-label">First used</span><span class="gear-stat-value">${fmtDate(s.first)}</span></div>
-      <div class="gear-stat"><span class="gear-stat-label">Last used</span><span class="gear-stat-value">${fmtDate(s.last)}</span></div>
+      <div class="gear-hero">
+        <div class="gear-hero-label">Distance</div>
+        <div class="gear-hero-value">${fmtDist(s.dist)} <em>${distUnit()}</em></div>
+      </div>
+      <div class="gear-trio">
+        <div><div class="gear-trio-label">${topType==='Run'?'Runs':topType==='Walk'?'Walks':topType==='Swim'?'Swims':'Uses'}</div><div class="gear-trio-value">${s.count.toLocaleString('en-GB')}</div></div>
+        <div><div class="gear-trio-label">Moving</div><div class="gear-trio-value" title="${escapeAttr(fmtTime(s.time))}">${Math.round(s.time/3600).toLocaleString('en-GB')}h</div></div>
+        <div><div class="gear-trio-label">Climbed</div><div class="gear-trio-value">${fmtElv(s.elv)}</div></div>
+      </div>
       ${gearForecast(topType,s,col)}
+      <div class="gear-span"><span>${fmtDate(s.first)}</span><span>${fmtDate(s.last)}</span></div>
     </div>`;
   }).join('');
   // Chart: by distance
@@ -3260,10 +3275,51 @@ function renderGear(){
   document.getElementById('gearDistSub').textContent=(unit==='mi'?'Miles':'Kilometres')+' logged per item';
   destroyChart('gearDist');
   charts.gearDist=new Chart(document.getElementById('chartGearDist').getContext('2d'),{type:'bar',data:{labels:top10d.map(([n])=>n.length>22?n.slice(0,22)+'…':n),datasets:[{data:top10d.map(([,s])=>+(unit==='mi'?s.dist:s.dist*1.60934).toFixed(0)),backgroundColor:GEAR_COLORS,borderRadius:0}]},options:{indexAxis:'y',plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()+' '+distUnit()}},y:{grid:{display:false},ticks:{font:{size:11}}}}}});
-  // Chart: by count
-  const top10c=Object.entries(gm).sort((a,b)=>b[1].count-a[1].count).slice(0,10);
+  // This used to be "Top Gear by Activities" — the same items in the same order
+  // as the chart above it, because with a handful of items each in a different
+  // sport, any ranking is just a ranking of your sports. A small collection
+  // cannot support a league table, but it can support a history: when each item
+  // arrived, when it took over, and when it quietly stopped being used.
+  renderGearTimeline(gm,GEAR_COLORS);
+}
+
+function renderGearTimeline(gm,COLORS){
+  const names=Object.entries(gm).sort((a,b)=>b[1].dist-a[1].dist).slice(0,8).map(([n])=>n);
+  const sub=document.getElementById('gearTimeSub');
+  const perQ={};let minQ=null,maxQ=null;
+  names.forEach(n=>gm[n].acts.forEach(a=>{
+    const y=a.date.slice(0,4),q=Math.floor(+a.date.slice(5,7)/3.01)+1;
+    const key=y+'Q'+q;
+    if(!perQ[key])perQ[key]={};
+    perQ[key][n]=(perQ[key][n]||0)+(a.dist_mi||0);
+    if(!minQ||key<minQ)minQ=key;if(!maxQ||key>maxQ)maxQ=key;
+  }));
+  if(!minQ){
+    setChartEmpty('chartGearCount','No gear is named on the activities in this filter.');
+    return;
+  }
+  setChartEmpty('chartGearCount');
+  // Every quarter between first and last, so a gap reads as a gap.
+  const quarters=[];
+  let [qy,qq]=[+minQ.slice(0,4),+minQ.slice(5)];
+  const [ey,eq]=[+maxQ.slice(0,4),+maxQ.slice(5)];
+  while(qy<ey||(qy===ey&&qq<=eq)){quarters.push(qy+'Q'+qq);qq++;if(qq>4){qq=1;qy++;}}
+  if(sub)sub.textContent=(unit==='mi'?'Miles':'Kilometres')+' per quarter by item · '+quarters.length+' quarters, '+quarters[0].replace('Q',' Q')+' to '+quarters[quarters.length-1].replace('Q',' Q');
+  const conv=v=>+(unit==='mi'?v:v*1.60934).toFixed(0);
   destroyChart('gearCount');
-  charts.gearCount=new Chart(document.getElementById('chartGearCount').getContext('2d'),{type:'bar',data:{labels:top10c.map(([n])=>n.length>22?n.slice(0,22)+'…':n),datasets:[{data:top10c.map(([,s])=>s.count),backgroundColor:GEAR_COLORS,borderRadius:0}]},options:{indexAxis:'y',plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()}},y:{grid:{display:false},ticks:{font:{size:11}}}}}});
+  charts.gearCount=new Chart(document.getElementById('chartGearCount').getContext('2d'),{
+    type:'bar',
+    data:{labels:quarters.map(q=>q.replace('Q',' Q')),datasets:names.map((n,i)=>({
+      label:gearLabel(n),
+      data:quarters.map(q=>conv((perQ[q]||{})[n]||0)),
+      backgroundColor:COLORS[i%COLORS.length],borderRadius:0,borderSkipped:false}))},
+    options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},
+      tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toLocaleString()+' '+distUnit()}}},
+      responsive:true,maintainAspectRatio:false,
+      scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:9},maxTicksLimit:14,autoSkip:true}},
+        y:{stacked:true,grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()}}},
+      interaction:{mode:'index'}}
+  });
 }
 
 document.getElementById('gearCards').addEventListener('click',e=>{
