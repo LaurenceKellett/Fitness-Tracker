@@ -1134,7 +1134,10 @@ function fmtElevUnit(){return unit==='km'?'m':'ft';}
 function fmtElevVal(ft){return unit==='km'?ft*0.3048:ft;}
 function fmtTime(s){if(!s)return'—';const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h>0?h.toLocaleString('en-GB')+'h '+String(m).padStart(2,'0')+'m':m+'m';}
 function fmtSpeed(mph){if(!mph||mph<=0)return'—';const v=unit==='mi'?mph:mph*1.60934;return v.toFixed(1)+(unit==='mi'?' mph':' km/h');}
-function fmtPace(s_per_mi){if(!s_per_mi||s_per_mi<=0||s_per_mi>3600)return'—';const s=unit==='mi'?s_per_mi:s_per_mi/1.60934;const m=Math.floor(s/60),sec=Math.round(s%60);return m+':'+String(sec).padStart(2,'0')+'/'+(unit==='mi'?'mi':'km');}
+// Round to whole seconds FIRST, then split. Rounding the remainder on its own let
+// 479.7 s/mi print as "7:60/mi" — a time that does not exist, and it was on screen
+// for roughly one pace in fifty.
+function fmtPace(s_per_mi){if(!s_per_mi||s_per_mi<=0||s_per_mi>3600)return'—';const raw=unit==='mi'?s_per_mi:s_per_mi/1.60934;const t=Math.round(raw);const m=Math.floor(t/60),sec=t%60;return m+':'+String(sec).padStart(2,'0')+'/'+(unit==='mi'?'mi':'km');}
 function fmtDate(d){if(!d)return'—';const[y,m,dn]=d.split('-');return dn+'/'+m+'/'+y;}
 function fmtNum(n){return n!=null?Math.round(n).toLocaleString('en-GB'):'—';}
 function fmtCal(c){return c?c.toLocaleString('en-GB'):'—';}
