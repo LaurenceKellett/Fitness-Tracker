@@ -35,6 +35,13 @@ a{color:inherit;text-decoration:none}
 .header{background:var(--surface);border-bottom:1px solid var(--border-strong);position:sticky;top:0;z-index:100}
 .header-inner{max-width:1200px;margin:0 auto;padding:0 24px}
 .hrow{display:flex;align-items:center;padding:8px 0;gap:6px}
+/* Ten tab buttons need about 1100px. Between the 640px phone breakpoint — where the
+   row is swapped for a select — and roughly 1400px they were pushing the whole
+   document wider than the viewport, so every tab scrolled sideways on a tablet or a
+   small laptop. The row scrolls on its own now instead of dragging the page with it. */
+#tabRow{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;-ms-overflow-style:none}
+#tabRow::-webkit-scrollbar{display:none}
+#tabRow .tab-btn{flex-shrink:0}
 .hrow+.hrow{border-top:1px solid var(--border)}
 .logo-wrap{display:flex;align-items:center;gap:8px}
 .logo-icon{width:26px;height:26px;background:#fc4c02;border-radius:0;display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -101,6 +108,24 @@ a{color:inherit;text-decoration:none}
 .chart-sub{font-size:11px;color:var(--text-muted);margin-bottom:16px}
 .chart-wrap{position:relative;height:240px}.chart-wrap.tall{height:320px}
 @media(max-width:700px){.charts-grid{grid-template-columns:1fr}}
+.zone-split{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.zone-chip{display:flex;align-items:baseline;gap:6px;padding:5px 11px;font-size:11px;font-weight:600}
+.zone-chip strong{font-size:13px;font-weight:700}
+.zone-verdict{font-size:11px;color:var(--text-muted);line-height:1.55;margin-top:12px}
+.explore-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border)}
+.explore-row:last-child{border-bottom:none}
+.explore-year{width:44px;flex-shrink:0;font-size:12px;font-weight:700;color:var(--text-muted)}
+.explore-track{flex:1;min-width:0;height:16px;background:var(--bg);border:1px solid var(--border);box-sizing:border-box}
+.explore-bar{height:100%;background:#cbd5e1;position:relative}
+.explore-bar span{position:absolute;inset:0 auto 0 0;background:var(--accent);display:block}
+.explore-fig{flex-shrink:0;font-size:11px;color:var(--text-muted);white-space:nowrap}
+.explore-fig strong{font-size:12px;font-weight:700;color:var(--text)}
+@media(max-width:640px){
+  .explore-row{flex-wrap:wrap;gap:6px 10px}
+  .explore-track{order:3;flex-basis:100%;flex-grow:1}
+  .explore-fig{margin-left:auto}
+}
+.chart-empty{display:flex;align-items:center;justify-content:center;height:100%;font-size:12px;color:var(--text-light);text-align:center;padding:0 20px}
 /* YEAR CAL */
 .year-cal-grid{display:flex;gap:2px;overflow-x:auto;padding-bottom:4px}
 .year-cal-col{display:flex;flex-direction:column;gap:2px}
@@ -134,6 +159,8 @@ a{color:inherit;text-decoration:none}
 /* RECORDS */
 .records-section{margin-bottom:28px}
 .records-section h3{font-size:14px;font-weight:700;margin-bottom:14px}
+.records-note{font-size:11px;color:var(--text-muted);line-height:1.55;margin-top:12px;max-width:70ch}
+.records-note:empty{display:none}
 .records-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:12px}
 .record-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:16px;box-shadow:var(--shadow);position:relative;overflow:hidden}
 .record-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
@@ -170,6 +197,12 @@ tbody tr:last-child{border-bottom:none}
 tbody tr:hover{background:var(--bg)}
 tbody td{padding:10px 14px;vertical-align:middle}
 .type-badge{display:inline-block;padding:2px 8px;border-radius:0;font-size:11px;font-weight:600}
+/* Second line inside a table cell: the supporting number, never the headline one. */
+.cell-sub{font-size:10px;color:var(--text-light);margin-top:1px;font-weight:500;white-space:nowrap}
+.row-mark{display:inline-flex;align-items:center;vertical-align:middle;margin-right:6px;font-size:9px;font-weight:800;letter-spacing:.04em;padding:1px 4px}
+.row-mark.race{background:var(--accent-soft);color:var(--accent)}
+.row-mark.commute{background:#e2e8f0;color:#475569;padding:1px 3px}
+.row-mark.commute .ms{font-size:12px}
 .badge-ride{background:var(--ride-soft);color:var(--ride)}.badge-virtual{background:var(--virtual-soft);color:var(--virtual)}
 .badge-run{background:var(--run-soft);color:var(--run)}.badge-walk{background:var(--walk-soft);color:var(--walk)}
 .badge-swim{background:var(--swim-soft);color:var(--swim)}.badge-other{background:var(--other-soft);color:var(--other)}
@@ -272,6 +305,24 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .mex-sport-chip strong{font-size:13px;font-weight:700}
 .mex-note{font-size:11px;color:var(--text-muted);line-height:1.55}
 .mex-empty{text-align:center;padding:60px 20px;color:var(--text-muted);font-size:14px}
+/* MOTION
+   Three rules only, and each one earns its place by pointing at something:
+   the ladder builds left-to-right so you read it in the order it means,
+   the gap cell keeps breathing because it is the one cell that is a to-do,
+   and prior years fade up as you reach them rather than all at once.
+   Everything here is switched off wholesale under prefers-reduced-motion. */
+@keyframes mexIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+@keyframes gapPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,56,92,.35)}50%{box-shadow:0 0 0 5px rgba(255,56,92,0)}}
+@keyframes yearIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.mex-anim .mex-cell{animation:mexIn .3s ease both;animation-delay:var(--d,0ms)}
+.mex-anim .mex-cell.gap{animation:mexIn .3s ease both,gapPulse 2.8s ease-in-out 1s infinite;animation-delay:var(--d,0ms),0ms}
+.reveal{opacity:0}
+.reveal.shown{animation:yearIn .45s cubic-bezier(.2,.7,.3,1) both}
+@media(prefers-reduced-motion:reduce){
+  .mex-anim .mex-cell,.reveal.shown{animation:none!important}
+  .reveal{opacity:1}
+  *{transition-duration:.01ms!important}
+}
 /* On a phone a 20-wide row wraps into ragged sixes and the ladder stops being
    readable, so the row becomes a labelled block of two tidy tens instead. */
 @media(max-width:700px){
@@ -345,6 +396,11 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .gear-type{font-size:11px;font-weight:600;margin-bottom:8px}
 .gear-stat{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--bg)}
 .gear-stat-label{color:var(--text-muted)}.gear-stat-value{font-weight:600}
+.gear-forecast{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.gear-forecast-head{display:flex;justify-content:space-between;font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text-light);margin-bottom:5px}
+.gear-forecast-bar{height:5px;background:var(--bg);border:1px solid var(--border);box-sizing:border-box}
+.gear-forecast-bar span{display:block;height:100%;transition:width .4s ease}
+.gear-forecast-sub{font-size:10px;color:var(--text-light);line-height:1.5;margin-top:6px}
 .gear-modal-backdrop{display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1000;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 16px}
 .gear-modal-backdrop.open{display:flex}
 .gear-modal{background:var(--surface);border-radius:0;box-shadow:0 12px 40px rgba(15,23,42,.25);width:100%;max-width:640px;margin:auto}
@@ -413,6 +469,12 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .partner-log-btn:hover{background:var(--bg);color:var(--text)}
 /* SYNC INDICATOR */
 .sync-indicator{display:flex;align-items:center;gap:8px;padding:9px 14px;background:#fef9c3;border:1px solid #fde047;border-radius:0;font-size:12px;color:#854d0e;margin-bottom:16px;box-shadow:var(--shadow-callout)}
+.callout{display:flex;align-items:flex-start;gap:10px;padding:12px 16px;background:var(--accent-soft);border:1px solid var(--accent);font-size:12px;line-height:1.6;color:var(--text);margin-bottom:16px;box-shadow:var(--shadow-callout)}
+.callout .ms{font-size:17px;color:var(--accent);flex-shrink:0}
+.callout strong{font-weight:700}
+.callout-body{min-width:0}
+.zwift-ridden{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:1px 5px;background:var(--accent-soft);color:var(--accent);flex-shrink:0}
+.zwift-ridden .ms{font-size:11px}
 /* EDDINGTON INFO ICON */
 .edd-info-wrap{position:relative;display:inline-block;margin-left:5px;vertical-align:middle;top:-1px}
 .edd-info-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:0;background:var(--border);color:var(--text-muted);font-size:9px;font-weight:700;cursor:help;line-height:1}
@@ -453,7 +515,9 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
   /* nothing below 11px */
   .dow-count,.dow-label,.edd-info-icon,.gear-unresolved,.partner-type,
-  .strava-link,.record-label,.zwift-cat-badge,.hm-month-lbl,.hm-dow-hdr{font-size:11px}
+  .strava-link,.record-label,.zwift-cat-badge,.hm-month-lbl,.hm-dow-hdr,
+  .cell-sub,.row-mark,.gear-forecast-head,.gear-forecast-sub,.zwift-ridden{font-size:11px}
+  .row-mark .ms,.zwift-ridden .ms{font-size:13px}
 
   /* The log is 11 columns wide on a 390px screen, so the only things visible
      without scrolling sideways were date, type and name — every actual metric
@@ -621,6 +685,27 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <div class="chart-wrap"><canvas id="chartCals"></canvas></div>
     </div>
   </div>
+  <div class="charts-grid wide">
+    <div class="chart-card" id="zoneCard">
+      <div class="chart-title">Where your heart rate actually sits</div>
+      <div class="chart-sub" id="zoneSub">Time in each heart-rate zone, across every activity with HR data</div>
+      <div class="chart-wrap"><canvas id="chartZones"></canvas></div>
+      <div id="zoneSplit" class="zone-split"></div>
+      <div id="zoneVerdict" class="zone-verdict"></div>
+    </div>
+  </div>
+  <div class="charts-grid" id="effortTimeRow">
+    <div class="chart-card">
+      <div class="chart-title">Relative Effort</div>
+      <div class="chart-sub" id="effortSub">Strava's suffer score, totalled per month</div>
+      <div class="chart-wrap"><canvas id="chartEffort"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">When you train</div>
+      <div class="chart-sub" id="todSub">Activities by hour of day</div>
+      <div class="chart-wrap"><canvas id="chartTod"></canvas></div>
+    </div>
+  </div>
   <div id="yearCalDayDetail"></div>
 </div>
 
@@ -639,10 +724,11 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
 <!-- RECORDS -->
 <div id="tab-records" class="tab-content">
-  <div class="records-section"><h3><span class="ms" style="font-size:16px;vertical-align:-3px">directions_run</span> Running Personal Bests</h3><div class="records-grid" id="runPRs"></div></div>
+  <div class="records-section"><h3><span class="ms" style="font-size:16px;vertical-align:-3px">directions_run</span> Running Personal Bests</h3><div class="records-grid" id="runPRs"></div><div class="records-note" id="runPRNote"></div></div>
   <div class="records-section"><h3><span class="ms" style="font-size:16px;vertical-align:-3px">directions_bike</span> Cycling Highlights</h3><div class="records-grid" id="ridePRs"></div></div>
   <div class="records-section"><h3><span class="ms" style="font-size:16px;vertical-align:-3px">computer</span> Virtual Ride Highlights</h3><div class="records-grid" id="virtualPRs"></div></div>
   <div class="records-section"><h3><span class="ms" style="font-size:16px;vertical-align:-3px">directions_walk</span> Walk Highlights</h3><div class="records-grid" id="walkPRs"></div></div>
+  <div class="records-section" id="swimSection"><h3><span class="ms" style="font-size:16px;vertical-align:-3px">pool</span> Swim Highlights</h3><div class="records-grid" id="swimPRs"></div></div>
   <div class="records-section"><h3><span class="ms" style="font-size:16px;vertical-align:-3px">emoji_events</span> All-time Milestones</h3><div class="records-grid" id="milestones"></div></div>
 </div>
 
@@ -652,6 +738,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 <!-- SOCIAL -->
 <div id="tab-social" class="tab-content">
   <div class="section-header"><h2>Top Activity Partners</h2><span class="badge" id="socialBadge"></span></div>
+  <div class="stats-grid" id="socialStats"></div>
   <div class="partner-grid" id="partnerCards"></div>
   <div class="charts-grid">
     <div class="chart-card">
@@ -741,6 +828,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
     <button class="page-btn" onclick="toggleAllZwiftGroups(false)">Collapse all</button>
   </div>
   <div id="zwiftCalendar" style="display:none"></div>
+  <div id="zwiftRiddenCallout" class="callout" style="display:none"></div>
   <div id="zwiftGroups"></div>
   <div id="zwiftEmpty" style="display:none;text-align:center;padding:60px 20px;color:var(--text-muted);font-size:14px">
     <span class="ms" style="font-size:36px;display:block;margin-bottom:8px">route</span>
@@ -759,6 +847,13 @@ tbody td{padding:10px 14px;vertical-align:middle}
   </div>
   <div id="mapJumpRow" class="loc-row" style="margin-bottom:8px"></div>
   <div id="mapContainer" style="height:600px;border-radius:0;overflow:hidden;border:1px solid var(--border);background:#fff"></div>
+  <div class="section-header" style="margin-top:26px"><h2>Ground covered</h2><span class="badge" id="exploreBadge"></span></div>
+  <div class="stats-grid" id="exploreStats"></div>
+  <div class="chart-card" style="margin-top:4px">
+    <div class="chart-title">New ground, year by year</div>
+    <div class="chart-sub" id="exploreSub">How much of each year was somewhere you had never been before</div>
+    <div id="exploreYears"></div>
+  </div>
   <div id="mapEmpty" style="display:none;text-align:center;padding:60px 20px;color:var(--text-muted);font-size:14px">
     <span class="ms" style="font-size:36px;display:block;margin-bottom:8px">map</span>
     No route data yet — sync with Strava to load GPS routes.
@@ -775,7 +870,7 @@ let logPage=1;const LOG_PAGE_SIZE=50;
 let hmShowAll=false;let recentShowAll=false;
 let logSort={col:'date',dir:-1};let logSearch='';let charts={};
 
-let ZWIFT_DATA=[];let zwiftLoaded=false;let zwiftSearch='';let zwiftStatusFilter='All';
+let ZWIFT_DATA=[];let zwiftLoaded=false;let zwiftSearch='';let zwiftStatusFilter='Not started';
 let zwiftEditingId=null;let zwiftSaving=false;let zwiftGroupOpen={};
 const ZWIFT_CACHE_KEY='zwift_routes_v1';
 const ZWIFT_CHECKLIST_KEY='zwift_checklist_v1';
@@ -854,7 +949,8 @@ function fmtDate(d){if(!d)return'—';const[y,m,dn]=d.split('-');return dn+'/'+m
 function fmtNum(n){return n!=null?Math.round(n).toLocaleString('en-GB'):'—';}
 function fmtCal(c){return c?c.toLocaleString('en-GB'):'—';}
 function escapeAttr(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;');}
-function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+// escapeHtml lives further down, next to the Zwift detail renderer. There used to be a
+// second, weaker copy here that the later one silently shadowed — one definition now.
 
 function typeGroup(t){
   if(t==='VirtualRide')return'Virtual';
@@ -1004,6 +1100,7 @@ function setType(t){activeType=t;buildTypeFilters();renderAll();}
 
 const TAB_ORDER=['summary','map','charts','heatmap','records','mex','social','gear','log','zwift'];
 function setTab(tab,dir){
+  if(tab==='mex'&&activeTab!=='mex')mexAnimate=true;
   activeTab=tab;
   document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',TAB_ORDER[i]===tab));
   document.querySelectorAll('.tab-content').forEach(d=>d.classList.remove('active','enter-from-left','enter-from-right'));
@@ -1320,6 +1417,122 @@ function renderCharts(){
     type:'bar',data:{labels:monthKeys.map(monthLabel),datasets:[{data:monthKeys.map(m=>Math.round(monthCal[m]||0)),backgroundColor:'#ec4899',borderRadius:0}]},
     options:{plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'#f0f0f0'},ticks:{callback:v=>v.toLocaleString(),font:{size:11}}}}}
   });
+
+  renderExtraCharts(data,monthKeys);
+}
+
+// ── THREE CHARTS OVER DATA THAT WAS ALREADY BEING FETCHED ──
+// Heart-rate zones, Relative Effort and time of day were all sitting in the
+// activity payload with nothing drawing them.
+
+const ZONE_COLORS=['#94a3b8','#0ea5e9','#22c55e','#f59e0b','#ef4444'];
+const ZONE_NAMES=['Z1 Recovery','Z2 Endurance','Z3 Tempo','Z4 Threshold','Z5 VO2 max'];
+
+// Hide a chart's canvas and put a sentence in its place. Passing no message puts
+// the canvas back, so the same call handles both directions on a filter change.
+function setChartEmpty(canvasId,msg){
+  const cv=document.getElementById(canvasId);if(!cv)return;
+  const wrap=cv.parentElement;
+  let note=wrap.querySelector('.chart-empty');
+  if(!msg){cv.style.display='';if(note)note.remove();return;}
+  destroyChart(canvasId.replace(/^chart/,'').toLowerCase());
+  cv.style.display='none';
+  if(!note){note=document.createElement('div');note.className='chart-empty';wrap.appendChild(note);}
+  note.textContent=msg;
+}
+
+function fmtHours(sec){
+  if(sec<3600)return Math.round(sec/60)+'m';
+  const h=sec/3600;
+  return (h<10?h.toFixed(1):Math.round(h))+'h';
+}
+
+function renderExtraCharts(data,monthKeys){
+  // ── Heart-rate zones ──
+  const withHr=data.filter(a=>a.hr&&(a.z1||a.z2||a.z3||a.z4||a.z5));
+  const tot=[0,0,0,0,0];
+  withHr.forEach(a=>{tot[0]+=a.z1||0;tot[1]+=a.z2||0;tot[2]+=a.z3||0;tot[3]+=a.z4||0;tot[4]+=a.z5||0;});
+  const totalSec=tot.reduce((s,v)=>s+v,0);
+  const splitEl=document.getElementById('zoneSplit'),verdictEl=document.getElementById('zoneVerdict');
+
+  if(!totalSec){
+    setChartEmpty('chartZones','No activities in this filter have heart-rate data.');
+    if(splitEl)splitEl.innerHTML='';
+    if(verdictEl)verdictEl.textContent='';
+  }else{
+    setChartEmpty('chartZones');
+    // Say plainly where these come from: Strava's summary endpoint gives one average
+    // heart rate per activity, not the stream, so the split is modelled from that
+    // average and the moving time rather than measured second by second.
+    document.getElementById('zoneSub').textContent=
+      `Estimated from each activity's average heart rate and your Strava zones — ${withHr.length.toLocaleString('en-GB')} activit${withHr.length===1?'y':'ies'} with HR data, ${fmtHours(totalSec)} in total`;
+    destroyChart('zones');
+    charts.zones=new Chart(document.getElementById('chartZones').getContext('2d'),{
+      type:'bar',
+      data:{labels:ZONE_NAMES,datasets:[{data:tot.map(s=>+(s/3600).toFixed(1)),backgroundColor:ZONE_COLORS,borderRadius:0}]},
+      options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y}h · ${Math.round(tot[c.dataIndex]/totalSec*100)}% of HR time`}}},
+        responsive:true,maintainAspectRatio:false,
+        scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v+'h'}}}}
+    });
+    if(splitEl)splitEl.innerHTML=tot.map((s,i)=>{
+      const pct=Math.round(s/totalSec*100);
+      return`<div class="zone-chip" style="color:${ZONE_COLORS[i]};background:${ZONE_COLORS[i]}1a"><strong>${pct}%</strong> ${ZONE_NAMES[i].split(' ')[0]} · ${fmtHours(s)}</div>`;
+    }).join('');
+    if(verdictEl){
+      const pc=n=>Math.round(n/totalSec*100);
+      const easy=pc(tot[0]+tot[1]),mid=pc(tot[2]),hard=pc(tot[3]+tot[4]);
+      let v;
+      if(easy>=75&&hard>=8)v=`${easy}% easy · ${mid}% tempo · ${hard}% hard — roughly the polarised shape most endurance plans aim for.`;
+      else if(easy>=75)v=`${easy}% easy · ${mid}% tempo · ${hard}% hard. The easy base is there; the sharp end is thin.`;
+      else if(mid>=25)v=`${easy}% easy · ${mid}% tempo · ${hard}% hard. A lot of this sits in the middle, which is the classic way to be permanently tired without getting faster.`;
+      else v=`${easy}% easy · ${mid}% tempo · ${hard}% hard. Most plans would have the easy number closer to 80%.`;
+      verdictEl.textContent=v;
+    }
+  }
+
+  // ── Relative Effort ──
+  const monthEff={};let effTot=0;
+  data.forEach(a=>{const s=a.score||0;if(!s)return;effTot+=s;const m=a.date.slice(0,7);monthEff[m]=(monthEff[m]||0)+s;});
+  if(!effTot){
+    setChartEmpty('chartEffort','No Relative Effort recorded for these activities. Strava only scores activities with heart-rate data.');
+  }else{
+    setChartEmpty('chartEffort');
+    const scored=data.filter(a=>a.score>0).length;
+    document.getElementById('effortSub').textContent=
+      `Strava's suffer score, totalled per month — ${scored.toLocaleString('en-GB')} of ${data.length.toLocaleString('en-GB')} activities are scored`;
+    destroyChart('effort');
+    charts.effort=new Chart(document.getElementById('chartEffort').getContext('2d'),{
+      type:'bar',
+      data:{labels:monthKeys.map(monthLabel),datasets:[{data:monthKeys.map(m=>Math.round(monthEff[m]||0)),backgroundColor:'#ff385c',borderRadius:0}]},
+      options:{plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,
+        scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()}}}}
+    });
+  }
+
+  // ── Time of day ──
+  // a.time only exists on activities cached since the Worker started keeping it,
+  // so an older cache legitimately has none and should say so rather than draw a
+  // chart of twenty-four zeroes.
+  const timed=data.filter(a=>typeof a.time==='string'&&/^\d{2}:\d{2}$/.test(a.time));
+  if(!timed.length){
+    setChartEmpty('chartTod','Start times arrive with the next Strava refresh.');
+  }else{
+    setChartEmpty('chartTod');
+    const hours=new Array(24).fill(0);
+    timed.forEach(a=>{hours[+a.time.slice(0,2)]++;});
+    const peak=hours.indexOf(Math.max(...hours));
+    const pad=n=>String(n).padStart(2,'0');
+    document.getElementById('todSub').textContent=
+      `Activities by hour started — busiest hour is ${pad(peak)}:00–${pad((peak+1)%24)}:00 (${hours[peak].toLocaleString('en-GB')})`;
+    destroyChart('tod');
+    charts.tod=new Chart(document.getElementById('chartTod').getContext('2d'),{
+      type:'bar',
+      data:{labels:hours.map((_,h)=>pad(h)),datasets:[{data:hours,backgroundColor:hours.map((_,h)=>h===peak?'#ff385c':'#cbd5e1'),borderRadius:0}]},
+      options:{plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>`${pad(c[0].dataIndex)}:00–${pad((c[0].dataIndex+1)%24)}:00`,label:c=>`${c.parsed.y} activit${c.parsed.y===1?'y':'ies'}`}}},
+        responsive:true,maintainAspectRatio:false,
+        scales:{x:{grid:{display:false},ticks:{font:{size:9},autoSkip:false,maxRotation:0,callback:(v,i)=>i%3===0?pad(i):''}},y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},precision:0}}}}
+    });
+  }
 }
 
 // Year calendar chart
@@ -1499,7 +1712,7 @@ function renderHeatmap(){
     priorEl.innerHTML=prior.map(y=>{
       const days=Object.keys(byDay).filter(d=>d.slice(0,4)===y);
       const dist=days.reduce((s,d)=>s+byDay[d].dist,0);
-      return`<div class="hm-prior">
+      return`<div class="hm-prior reveal">
         <div class="hm-prior-head">
           <span class="hm-prior-year">${y}</span>
           <span class="hm-prior-meta">${days.length.toLocaleString('en-GB')} active days · ${fmtDist(dist)} ${distUnit()}</span>
@@ -1507,6 +1720,7 @@ function renderHeatmap(){
         ${renderHeatYear(y)}
       </div>`;
     }).join('');
+    revealOnScroll(priorEl);
   }
 
   // Legend
@@ -1570,17 +1784,49 @@ function renderRecords(){
   document.getElementById('walkPRs').innerHTML=[
     (()=>{const b=longestAct(walks);return b?card('Longest Walk',fmtDist(b.dist_mi)+' '+distUnit(),fmtDate(b.date),b.name,'walk',b.id):'';})(),
     (()=>{const b=mostElv(walks);return b?card('Most Elevation',fmtElv(b.elv),fmtDate(b.date),b.name,'walk',b.id):'';})(),
-    (()=>{const b=mostCal(walks);return b?card('Most Calories',fmtCal(b.cal)+' kcal',fmtDate(b.date),b.name,'walk',b.id):'';})()].join('');
+    // Walks had a longest and a most-climbed but never a fastest. Two miles is a low
+    // enough floor to include a real walk but high enough to exclude a stroll to the shop.
+    (()=>{const b=fastestSpeed(walks,2);if(!b)return'';const p=fmtPace(b.pace_mi);return p==='—'?'':card('Fastest Avg Pace',p,fmtDate(b.date),b.name,'walk',b.id);})(),
+    (()=>{const b=mostCal(walks);return b?card('Most Calories',fmtCal(b.cal)+' kcal',fmtDate(b.date),b.name,'walk',b.id):'';})(),
+    (()=>{const b=walks.filter(a=>a.mt>0).reduce((best,a)=>!best||a.mt>best.mt?a:best,null);return b?card('Longest Time on Feet',fmtTime(b.mt),fmtDate(b.date),b.name,'walk',b.id):'';})()].join('');
+
+  // Swims had no section at all, so every swim record was invisible.
+  const swims=ALL_DATA.filter(a=>typeGroup(a.type)==='Swim');
+  const swimSec=document.getElementById('swimSection');
+  if(!swims.length){swimSec.style.display='none';}
+  else{
+    swimSec.style.display='';
+    document.getElementById('swimPRs').innerHTML=[
+      (()=>{const b=longestAct(swims);return b?card('Longest Swim',fmtDist(b.dist_mi)+' '+distUnit(),fmtDate(b.date),b.name,'swim',b.id):'';})(),
+      (()=>{const b=swims.filter(a=>a.mt>0).reduce((best,a)=>!best||a.mt>best.mt?a:best,null);return b?card('Longest Time in Water',fmtTime(b.mt),fmtDate(b.date),b.name,'swim',b.id):'';})(),
+      // fmtPace gives up past 60 min/mile, which a slow swim can genuinely exceed —
+      // so drop the card rather than print an em dash where a record should be.
+      (()=>{const b=fastestSpeed(swims,0.25);if(!b)return'';const p=fmtPace(b.pace_mi);return p==='—'?'':card('Fastest Avg Pace',p,fmtDate(b.date),b.name,'swim',b.id);})(),
+      (()=>{const b=mostCal(swims);return b?card('Most Calories',fmtCal(b.cal)+' kcal',fmtDate(b.date),b.name,'swim',b.id):'';})(),
+      card('Total Swim Distance',fmtDist(swims.reduce((s,a)=>s+(a.dist_mi||0),0))+' '+distUnit(),`${swims.length.toLocaleString('en-GB')} swims`,'','swim')
+    ].join('');
+  }
+
+  // The six distance PBs come from Strava's best-efforts, which the summary endpoint
+  // does not return — so they render as nothing at all. Say that, rather than leaving
+  // a section that looks like it has simply lost half its cards.
+  const noteEl=document.getElementById('runPRNote');
+  if(noteEl)noteEl.textContent=prDists.some(({field})=>bestPR(runs,field))
+    ? ''
+    : 'Segment PBs (1 km, 5 km, 10 km, half, marathon) come from Strava’s best-efforts, which the bulk activity endpoint doesn’t return. The records above are computed from whole activities.';
 
   const totalDist=ALL_DATA.reduce((s,a)=>s+(a.dist_mi||0),0),totalElv=ALL_DATA.reduce((s,a)=>s+(a.elv||0),0),totalCal=ALL_DATA.reduce((s,a)=>s+(a.cal||0),0),totalTime=ALL_DATA.reduce((s,a)=>s+(a.mt||0),0);
   const activeDays=new Set(ALL_DATA.map(a=>a.date));let ls=0,cs=0,pd=null;
   [...activeDays].sort().forEach(d=>{if(pd){const diff=(new Date(d)-new Date(pd))/86400000;if(diff===1){cs++;ls=Math.max(ls,cs);}else cs=1;}else cs=1;pd=d;});
+  // The span used to be hardcoded as "2013–2026" and would have quietly gone stale.
+  const yearsSeen=[...new Set(ALL_DATA.map(a=>a.date.slice(0,4)))].sort();
+  const span=yearsSeen.length?(yearsSeen[0]===yearsSeen[yearsSeen.length-1]?yearsSeen[0]:yearsSeen[0]+'–'+yearsSeen[yearsSeen.length-1]):'All time';
   document.getElementById('milestones').innerHTML=[
-    card('Total Distance',fmtDist(totalDist)+' '+distUnit(),'All time','2013–2026','run'),
+    card('Total Distance',fmtDist(totalDist)+' '+distUnit(),span,'','run'),
     card('Total Moving Time',fmtNum(totalTime/3600)+'h ('+fmtNum(totalTime/86400)+'d)','All time','','ride'),
     card('Total Elevation Gain',fmtElv(totalElv),(totalElv/29029).toFixed(1)+'× Everest','','virtual'),
     card('Total Calories',fmtCal(totalCal)+' kcal','All time','','walk'),
-    card('Total Activities',ALL_DATA.length.toLocaleString('en-GB'),'2013–2026','','run'),
+    card('Total Activities',ALL_DATA.length.toLocaleString('en-GB'),span+' · '+yearsSeen.length+' years','','run'),
     card('Longest Streak',ls+' days','consecutive active days','','ride'),
   ].join('');
   // Current streak pill
@@ -1629,8 +1875,33 @@ function mexBuckets(acts){
 }
 function mexOf(buckets){let n=1;while(buckets.has(n))n++;return n-1;}
 
+// Reveal .reveal children as they scroll into view. Each element is unobserved the
+// moment it fires, so nothing re-animates on the way back up. Without IntersectionObserver
+// (or with reduced motion on) everything is simply shown.
+function revealOnScroll(root){
+  const els=[...root.querySelectorAll('.reveal')];
+  if(!els.length)return;
+  if(!('IntersectionObserver'in window)||matchMedia('(prefers-reduced-motion:reduce)').matches){
+    els.forEach(e=>{e.classList.remove('reveal');});return;
+  }
+  const io=new IntersectionObserver((entries,obs)=>{
+    entries.forEach(en=>{
+      if(!en.isIntersecting)return;
+      en.target.classList.add('shown');
+      obs.unobserve(en.target);
+    });
+  },{rootMargin:'0px 0px -40px 0px',threshold:.06});
+  els.forEach(e=>io.observe(e));
+}
+
+// The ladder draws itself in only when you arrive at the tab. Re-rendering because
+// a filter changed reuses the same DOM shape, and replaying the build there reads
+// as a flicker rather than as motion.
+let mexAnimate=false;
+
 function renderMex(){
   const u=unit,el=document.getElementById('tab-mex');
+  const animate=mexAnimate;mexAnimate=false;
   const buckets=mexBuckets(getFiltered());
   if(!buckets.size){
     el.innerHTML='<div class="mex-empty"><span class="ms" style="font-size:36px;display:block;margin-bottom:8px">stairs</span>No activities match this filter.</div>';
@@ -1641,16 +1912,19 @@ function renderMex(){
   const ceiling=Math.min(MEX_MAX,Math.max(MEX_ROW,Math.ceil(Math.max(longest,firstGap+9)/MEX_ROW)*MEX_ROW));
   const filled=[...buckets.keys()].filter(n=>n<=ceiling).length;
 
+  // The stagger caps at ~600ms however long the ladder is: a 400-cell ladder
+  // stepping 8ms each would take three seconds to finish drawing itself.
+  const totalCells=ceiling,step=Math.min(8,600/Math.max(1,totalCells));
   let ladder='';
   for(let start=1;start<=ceiling;start+=MEX_ROW){
     let cells='';
     for(let n=start;n<start+MEX_ROW;n++){
-      const b=buckets.get(n);
+      const b=buckets.get(n),d=`--d:${Math.round((n-1)*step)}ms`;
       if(b){
         const g=dominantType(b.counts);
-        cells+=`<div class="mex-cell" style="background:${groupColor(g)}" title="${n} ${u} · mostly ${g}">${n}</div>`;
+        cells+=`<div class="mex-cell" style="background:${groupColor(g)};${d}" title="${n} ${u} · mostly ${g}">${n}</div>`;
       }else{
-        cells+=`<div class="mex-cell ${n===firstGap?'gap':'empty'}" title="Nothing between ${n}.0 and ${n}.9 ${u}">${n}</div>`;
+        cells+=`<div class="mex-cell ${n===firstGap?'gap':'empty'}" style="${d}" title="Nothing between ${n}.0 and ${n}.9 ${u}">${n}</div>`;
       }
     }
     ladder+=`<div class="mex-row"><div class="mex-row-label">${start}–${start+MEX_ROW-1}</div><div class="mex-cells">${cells}</div></div>`;
@@ -1699,7 +1973,7 @@ function renderMex(){
   <div class="chart-card" style="margin-bottom:18px">
     <div class="chart-title">The ladder</div>
     <div class="chart-sub">Each cell is one whole-${u} bucket. An activity counts for the ${u} it lands in, rounded down. Where several sports fill the same bucket, the cell takes the colour of whichever has the most activities in it.</div>
-    <div class="mex-ladder">${ladder}</div>
+    <div class="mex-ladder${animate?' mex-anim':''}">${ladder}</div>
     <div class="mex-legend">
       ${['Ride','Virtual','Run','Walk','Swim'].map(g=>`<div class="mex-legend-item"><div class="mex-swatch" style="background:${groupColor(g)}"></div><span>${g}</span></div>`).join('')}
       <div class="mex-legend-item"><div class="mex-swatch" style="background:var(--accent-soft);border:2px solid var(--accent)"></div><span>First gap — your ceiling</span></div>
@@ -1748,6 +2022,50 @@ function renderMex(){
   </div>`;
 }
 
+// Was this activity done with other people? Strava's athlete_count is the real
+// answer; the name regex is the fallback for activities cached before the Worker
+// started asking for it, and it only ever knew about the names you typed yourself.
+function wasSocial(a){
+  if(typeof a.athletes==='number')return a.athletes>1;
+  return extractPartners(a.name).length>0;
+}
+
+// Group size, from athlete_count rather than from titles. Deliberately silent when
+// no activity in the filter carries the field, rather than reporting everything solo.
+function renderSocialStats(data){
+  const el=document.getElementById('socialStats');if(!el)return;
+  const known=data.filter(a=>typeof a.athletes==='number');
+  if(!known.length){el.innerHTML='';el.style.display='none';return;}
+  el.style.display='';
+  const solo=known.filter(a=>a.athletes===1).length;
+  const pair=known.filter(a=>a.athletes===2).length;
+  const group=known.filter(a=>a.athletes>=3).length;
+  const biggest=known.reduce((b,a)=>a.athletes>(b?b.athletes:0)?a:b,null);
+  const socialDist=known.filter(a=>a.athletes>1).reduce((s,a)=>s+(a.dist_mi||0),0);
+  const pct=n=>Math.round(n/known.length*100);
+  el.innerHTML=`
+    <div class="stat-card">
+      <div class="stat-label">Ridden solo</div>
+      <div class="stat-value">${pct(solo)}<span class="stat-unit">%</span></div>
+      <div class="stat-sub">${solo.toLocaleString('en-GB')} of ${known.length.toLocaleString('en-GB')} with a known group size</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">With one other</div>
+      <div class="stat-value">${pair.toLocaleString('en-GB')}</div>
+      <div class="stat-sub">${group.toLocaleString('en-GB')} more were three or more</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Biggest group</div>
+      <div class="stat-value">${biggest?biggest.athletes:'—'}<span class="stat-unit">people</span></div>
+      <div class="stat-sub">${biggest?`${escapeHtml(biggest.name||'Untitled')} · ${fmtDate(biggest.date)}`:'—'}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Distance in company</div>
+      <div class="stat-value">${fmtDist(socialDist)}<span class="stat-unit">${distUnit()}</span></div>
+      <div class="stat-sub">Counted from Strava's participant count, not from titles</div>
+    </div>`;
+}
+
 function renderSocial(){
   const data=getFiltered();
   const pm={};
@@ -1755,6 +2073,7 @@ function renderSocial(){
   data.forEach(a=>{extractPartners(a.name).forEach(p=>{if(!pm[p])pm[p]={count:0,dist:0,time:0,types:{}};pm[p].count++;pm[p].dist+=a.dist_mi||0;pm[p].time+=a.mt||0;const g=typeGroup(a.type);pm[p].types[g]=(pm[p].types[g]||0)+1;});});
   const sorted=Object.entries(pm).sort((a,b)=>b[1].count-a[1].count);
   document.getElementById('socialBadge').textContent=sorted.length+' partners found';
+  renderSocialStats(data);
   document.getElementById('partnerCards').innerHTML=sorted.slice(0,12).map(([name,d],i)=>{
     const init=name.trim().split(' ').map(w=>w[0]||'').slice(0,2).join('').toUpperCase();
     const tt=d.types?Object.entries(d.types).sort((a,b)=>b[1]-a[1])[0][0]:'?';
@@ -1768,12 +2087,47 @@ function renderSocial(){
   destroyChart('partnerDist');
   if(top12d.length)charts.partnerDist=new Chart(document.getElementById('chartPartnerDist').getContext('2d'),{type:'bar',data:{labels:top12d.map(([n])=>n),datasets:[{data:top12d.map(([,d])=>+(unit==='mi'?d.dist:d.dist*1.60934).toFixed(1)),backgroundColor:top12d.map((_,i)=>AC[i%AC.length]),borderRadius:0}]},options:{indexAxis:'y',plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()}},y:{grid:{display:false},ticks:{font:{size:12}}}}}});
   const mk=getMonthKeys(),sbm={},slm={};
-  data.forEach(a=>{const m=a.date.slice(0,7);if(extractPartners(a.name).length>0)sbm[m]=(sbm[m]||0)+1;else slm[m]=(slm[m]||0)+1;});
+  data.forEach(a=>{const m=a.date.slice(0,7);if(wasSocial(a))sbm[m]=(sbm[m]||0)+1;else slm[m]=(slm[m]||0)+1;});
   destroyChart('socialTime');
   charts.socialTime=new Chart(document.getElementById('chartSocialTime').getContext('2d'),{type:'bar',data:{labels:mk.map(monthLabel),datasets:[{label:'With others',data:mk.map(m=>sbm[m]||0),backgroundColor:'#1d4ed8',borderRadius:0,borderSkipped:false},{label:'Solo',data:mk.map(m=>slm[m]||0),backgroundColor:'#e2e8f0',borderRadius:0,borderSkipped:false}]},options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}}},responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:true,grid:{color:'#f0f0f0'},ticks:{font:{size:11}}}},interaction:{mode:'index'}}});
 }
 
 // ── GEAR ──
+
+// Running shoes are the one piece of kit with a service life people actually agree
+// on — 300 to 500 miles is the usual guidance. Everything else gets a usage rate
+// instead of an invented wear figure, because a made-up chain interval dressed up
+// as a forecast is worse than no forecast.
+const SHOE_LIFE_MI=500;
+
+function gearForecast(topType,s,col){
+  const now=new Date(),cutoff=new Date(now.getFullYear(),now.getMonth(),now.getDate()-90).toISOString().slice(0,10);
+  const recent=s.acts.filter(a=>a.date>=cutoff).reduce((t,a)=>t+(a.dist_mi||0),0);
+  const perWeek=recent/(90/7);
+  const rate=perWeek>0.05
+    ? `${fmtDist(perWeek)} ${distUnit()}/week over the last 90 days`
+    : `Not used in the last 90 days`;
+
+  if(topType!=='Run'){
+    return`<div class="gear-forecast"><div class="gear-forecast-sub">${rate}</div></div>`;
+  }
+  const pct=Math.min(100,Math.round(s.dist/SHOE_LIFE_MI*100));
+  const left=Math.max(0,SHOE_LIFE_MI-s.dist);
+  const barCol=pct>=100?'#ef4444':pct>=80?'#f59e0b':col;
+  let when;
+  if(pct>=100)when='Past the usual 500-mile guideline.';
+  else if(perWeek>0.05){
+    const weeks=Math.ceil(left/perWeek);
+    const d=new Date(now.getTime()+weeks*7*86400000);
+    when=`At this rate, around ${d.toLocaleDateString('en-GB',{month:'long',year:'numeric'})}.`;
+  }else when=`${fmtDist(left)} ${distUnit()} to go.`;
+  return`<div class="gear-forecast">
+    <div class="gear-forecast-head"><span>Wear</span><span>${pct}% of ${fmtDist(SHOE_LIFE_MI)} ${distUnit()}</span></div>
+    <div class="gear-forecast-bar"><span style="width:${pct}%;background:${barCol}"></span></div>
+    <div class="gear-forecast-sub">${when} ${rate}. The 300–500 mile life is a rule of thumb, not a measurement.</div>
+  </div>`;
+}
+
 function renderGear(){
   const data=getFiltered();
   // Sync indicator — computes dynamically from today's date
@@ -1811,6 +2165,7 @@ function renderGear(){
       <div class="gear-stat"><span class="gear-stat-label">Elevation</span><span class="gear-stat-value">${fmtElv(s.elv)}</span></div>
       <div class="gear-stat"><span class="gear-stat-label">First used</span><span class="gear-stat-value">${fmtDate(s.first)}</span></div>
       <div class="gear-stat"><span class="gear-stat-label">Last used</span><span class="gear-stat-value">${fmtDate(s.last)}</span></div>
+      ${gearForecast(topType,s,col)}
     </div>`;
   }).join('');
   // Chart: by distance
@@ -1923,6 +2278,16 @@ function sortLog(col){
   renderLog();
 }
 function changePage(dir){const data=getLogData();const t=Math.ceil(data.length/LOG_PAGE_SIZE)||1;logPage=Math.max(1,Math.min(t,logPage+dir));renderLog();}
+// Strava's workout_type: 1 is a race for runs, 11 is a race for rides.
+function isRace(a){return a.wtype===1||a.wtype===11;}
+
+// Strava reports foot cadence as one leg's revolutions per minute, so a run at
+// "88" is actually 176 steps a minute. Bikes are already whole revolutions.
+function cadenceLabel(cad,g){
+  if(g==='Run'||g==='Walk')return Math.round(cad*2)+' spm';
+  return Math.round(cad)+' rpm';
+}
+
 function renderLog(){
   const data=getLogData();
   renderSearchSummary(data);
@@ -1938,15 +2303,22 @@ function renderLog(){
     // Show specific sport for Other activities
     const displayType=(g==='Other'&&activeType==='Other')?(a.sport||a.type):g;
     const gearShort=a.gear?gearLabel(a.gear).split(' ').slice(0,2).join(' '):'—';
+    // Two new fields go inside cells that already exist rather than into columns of
+    // their own — the table is eleven wide already and the phone hides five of them.
+    const stopped=(a.et&&a.mt&&a.et-a.mt>=60)?a.et-a.mt:0;
+    const marks=[
+      isRace(a)?'<span class="row-mark race" title="Race">RACE</span>':'',
+      a.commute?'<span class="row-mark commute" title="Commute"><span class="ms">work</span></span>':''
+    ].join('');
     return`<tr>
-      <td style="white-space:nowrap;color:var(--text-muted);font-size:12px">${fmtDate(a.date)}</td>
+      <td style="white-space:nowrap;color:var(--text-muted);font-size:12px">${fmtDate(a.date)}${a.time?`<div class="cell-sub">${a.time}</div>`:''}</td>
       <td><span class="type-badge ${bc}">${displayType}</span></td>
-      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${a.name||''}">${a.name||'—'}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeAttr(a.name||'')}">${marks}${escapeHtml(a.name||'—')}</td>
       <td>${a.dist_mi?fmtDist(a.dist_mi)+' '+distUnit():'—'}</td>
       <td>${fmtSpeed(a.speed_mph)}</td>
-      <td>${fmtTime(a.mt)}</td>
+      <td>${fmtTime(a.mt)}${stopped?`<div class="cell-sub" title="Elapsed time minus moving time">+${fmtTime(stopped)} stopped</div>`:''}</td>
       <td>${a.elv?fmtElv(a.elv):'—'}</td>
-      <td>${a.hr?Math.round(a.hr)+'bpm':'—'}</td>
+      <td>${a.hr?Math.round(a.hr)+'bpm':'—'}${a.cad?`<div class="cell-sub">${cadenceLabel(a.cad,g)}</div>`:''}</td>
       <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--text-muted)" title="${a.gear||''}">${gearShort}</td>
       <td>${a.cal?a.cal.toLocaleString('en-GB'):'—'}</td>
       <td>${a.id&&a.has_map?`<a href="https://www.strava.com/activities/${a.id}" target="_blank" class="strava-link">↗</a>`:''}</td>
@@ -1962,7 +2334,7 @@ async function loadZwiftRoutes(forceRefresh=false){
       const cached=localStorage.getItem(ZWIFT_CACHE_KEY);
       if(cached){
         const parsed=JSON.parse(cached);
-        ZWIFT_DATA=parsed.data||[];
+        ZWIFT_DATA=parsed.data||[];_zwiftRiddenIndex=null;
         zwiftLoaded=true;
         buildZwiftStatusFilters();
         renderZwiftTable();
@@ -1977,7 +2349,7 @@ async function loadZwiftRoutes(forceRefresh=false){
     if(!res.ok||json.error){
       throw new Error(json.message||'Failed to load Zwift routes');
     }
-    ZWIFT_DATA=json.data;
+    ZWIFT_DATA=json.data;_zwiftRiddenIndex=null;
     zwiftLoaded=true;
     localStorage.setItem(ZWIFT_CACHE_KEY,JSON.stringify({data:json.data,updatedAt:json.updatedAt}));
     buildZwiftStatusFilters();
@@ -2032,9 +2404,47 @@ function zwiftStatusColor(status){return ZWIFT_STATUS_COLOR[status]||ZWIFT_STATU
 
 const ZWIFT_CHEVRON_SVG='<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
+// ── ZWIFT ROUTES ↔ VIRTUAL RIDES ──
+// Zwift writes the route name into the activity title ("Zwift - Volcano Circuit in
+// Watopia"), so the two datasets can be joined on the name without any extra API.
+// Names shorter than six characters are skipped: "Hilly" would match half of Watopia.
+let _zwiftRiddenIndex=null;
+
+function zwiftNorm(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
+
+function zwiftRiddenIndex(){
+  if(_zwiftRiddenIndex)return _zwiftRiddenIndex;
+  const virtuals=ALL_DATA.filter(a=>typeGroup(a.type)==='Virtual').map(a=>({n:zwiftNorm(a.name),date:a.date}));
+  const idx={};
+  ZWIFT_DATA.forEach(r=>{
+    const key=zwiftNorm(r.route);
+    if(key.length<6)return;
+    const hits=virtuals.filter(v=>v.n.includes(key));
+    if(hits.length)idx[r.id]={count:hits.length,last:hits.map(h=>h.date).sort().slice(-1)[0]};
+  });
+  _zwiftRiddenIndex=idx;
+  return idx;
+}
+
+// Routes the activity history says have been done but Notion still calls unfinished.
+function renderZwiftRiddenCallout(){
+  const el=document.getElementById('zwiftRiddenCallout');
+  if(!el)return;
+  const idx=zwiftRiddenIndex();
+  const unmarked=ZWIFT_DATA.filter(r=>r.status!=='Complete'&&idx[r.id]);
+  if(!unmarked.length){el.style.display='none';el.innerHTML='';return;}
+  const names=unmarked.slice(0,4).map(r=>escapeHtml(r.route)).join(', ');
+  el.style.display='flex';
+  el.innerHTML=`<span class="ms">fact_check</span><div class="callout-body">
+    <strong>${unmarked.length} route${unmarked.length===1?'':'s'} you appear to have ridden ${unmarked.length===1?'is':'are'} still not marked Complete.</strong><br>
+    ${names}${unmarked.length>4?` and ${unmarked.length-4} more`:''}. Matched by route name against your virtual rides — open a route to set its status.</div>`;
+}
+
 function renderZwiftTable(){
   const scrollY=window.scrollY;
   const groups=getZwiftGroups();
+  const riddenIdx=zwiftRiddenIndex();
+  renderZwiftRiddenCallout();
   const totalShown=groups.reduce((n,g)=>n+g.routes.length,0);
   const totalComplete=ZWIFT_DATA.filter(r=>r.status==='Complete').length;
   const pct=ZWIFT_DATA.length?Math.round(totalComplete/ZWIFT_DATA.length*100):0;
@@ -2057,6 +2467,7 @@ function renderZwiftTable(){
           <div class="zwift-row-main">
             <span class="zwift-row-name">${r.route}</span>
             ${catBadges}
+            ${riddenIdx[r.id]?`<span class="zwift-ridden" title="Matched ${riddenIdx[r.id].count} virtual ride${riddenIdx[r.id].count===1?'':'s'} by name · last ${fmtDate(riddenIdx[r.id].last)}"><span class="ms">check</span>Ridden ${riddenIdx[r.id].count}×</span>`:''}
             <span class="zwift-row-stats">${stats}</span>
           </div>
           <div class="zwift-row-right">
@@ -2067,7 +2478,7 @@ function renderZwiftTable(){
         ${open?renderZwiftDetail(r):''}
       </div>`;
     }).join('');
-    const groupOpen=zwiftGroupOpen[g.name]!==false;
+    const groupOpen=zwiftGroupOpen[g.name]===true;
     return`<details class="zwift-group"${groupOpen?' open':''} ontoggle="onZwiftGroupToggle('${g.name}',this.open)">
       <summary style="background:${mapSoftBg(g.name)}"><span class="zwift-summary-left"><span class="zwift-map-dot" style="background:${mapDotColor(g.name)}"></span>${g.name}</span><span class="zwift-group-count">${complete}/${g.routes.length} complete</span></summary>
       ${rowsHtml}
@@ -2636,6 +3047,12 @@ function renderMap(data){
   const empty=document.getElementById('mapEmpty');
   const container=document.getElementById('mapContainer');
 
+  // Deferred a frame: the first call decodes every polyline in the filter, and doing
+  // that inline would hold up the map's own paint. Scheduled before the empty-state
+  // return so the panel clears itself rather than keeping the last filter's numbers
+  // on screen next to an empty map.
+  requestAnimationFrame(()=>renderExplored(withRoute,segsOf));
+
   if(!withRoute.length&&!dotOnly.length){
     if(empty)empty.style.display='block';
     if(container)container.style.display='none';
@@ -2684,6 +3101,111 @@ function renderMap(data){
     const types=[...new Set(data.map(a=>mapTypeGroup(a.type)))];
     legend.innerHTML=types.map(t=>`<span style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted)"><span style="width:10px;height:10px;border-radius:0;background:${groupColor(t)};display:inline-block;opacity:.8"></span>${t}</span>`).join('');
   }
+}
+
+// ── GROUND COVERED ──
+// Every route point is dropped into a fixed grid and the distinct cells counted.
+// A cell is 0.003° of latitude — about 330 m — which is coarse enough that riding
+// the same road on a different side of the white line is the same cell, and fine
+// enough that the next valley over is a new one. Longitude is scaled by cos(lat)
+// so cells stay roughly square at this latitude instead of stretching east-west.
+const CELL_DEG=0.003;
+const CELL_M=Math.round(CELL_DEG*69*1609);
+const _exploreCache=new WeakMap();
+
+function cellsOf(a,segsOf){
+  let c=_exploreCache.get(a);
+  if(c)return c;
+  c=new Set();
+  segsOf(a).forEach(seg=>{
+    decodePolylinePts(seg).forEach(([lat,lng])=>{
+      c.add(Math.round(lat/CELL_DEG)+','+Math.round(lng/(CELL_DEG/Math.max(.2,Math.cos(lat*Math.PI/180)))));
+    });
+  });
+  _exploreCache.set(a,c);
+  return c;
+}
+
+// Great-circle distance in miles, so "furthest from home" is a real distance
+// rather than a degrees-apart number that means nothing at a glance.
+function milesFromHome(lat,lng){
+  const R=3958.8,toRad=d=>d*Math.PI/180;
+  const dLat=toRad(lat-HOME_CENTER[0]),dLng=toRad(lng-HOME_CENTER[1]);
+  const h=Math.sin(dLat/2)**2+Math.cos(toRad(HOME_CENTER[0]))*Math.cos(toRad(lat))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.min(1,Math.sqrt(h)));
+}
+
+function renderExplored(withRoute,segsOf){
+  const statsEl=document.getElementById('exploreStats'),yearsEl=document.getElementById('exploreYears');
+  const badgeEl=document.getElementById('exploreBadge'),subEl=document.getElementById('exploreSub');
+  if(!statsEl||!yearsEl)return;
+  if(!withRoute.length){
+    statsEl.innerHTML='';
+    yearsEl.innerHTML='<div class="chart-empty" style="height:80px">No GPS routes in this filter.</div>';
+    if(badgeEl)badgeEl.textContent='';
+    return;
+  }
+
+  // Chronological, so "new" always means new relative to everything before it.
+  const acts=[...withRoute].sort((a,b)=>a.date.localeCompare(b.date));
+  const seen=new Set(),byYear={};
+  let furthest=null,furthestMi=0;
+  acts.forEach(a=>{
+    const y=a.date.slice(0,4);
+    if(!byYear[y])byYear[y]={total:0,fresh:0,acts:0,best:null,bestFresh:0};
+    const cells=cellsOf(a,segsOf);
+    let fresh=0;
+    cells.forEach(k=>{if(!seen.has(k)){fresh++;seen.add(k);}});
+    byYear[y].total+=cells.size;byYear[y].fresh+=fresh;byYear[y].acts++;
+    if(fresh>byYear[y].bestFresh){byYear[y].bestFresh=fresh;byYear[y].best=a;}
+    if(a.lat&&a.lng&&!a.near_home){
+      const mi=milesFromHome(a.lat,a.lng);
+      if(mi>furthestMi){furthestMi=mi;furthest=a;}
+    }
+  });
+
+  const years=Object.keys(byYear).sort().reverse();
+  const latest=years[0],prev=years[1];
+  const areaMi2=seen.size*Math.pow(CELL_DEG*69,2); // 1° of latitude ≈ 69 miles
+  const pctNew=v=>v.total?Math.round(v.fresh/v.total*100):0;
+  const bestAct=byYear[latest].best;
+  const bestPct=bestAct?Math.round(byYear[latest].bestFresh/Math.max(1,cellsOf(bestAct,segsOf).size)*100):0;
+
+  if(badgeEl)badgeEl.textContent=`${acts.length.toLocaleString('en-GB')} routes · ${years.length} year${years.length===1?'':'s'}`;
+  if(subEl)subEl.textContent=`Each bar is a year, scaled by how much ground it covered. The solid part is ground you had never been over before. Squares are about ${CELL_M} m across.`;
+
+  statsEl.innerHTML=`
+    <div class="stat-card">
+      <div class="stat-label">Ground covered</div>
+      <div class="stat-value">${Math.round(areaMi2).toLocaleString('en-GB')}<span class="stat-unit">sq mi</span></div>
+      <div class="stat-sub">${seen.size.toLocaleString('en-GB')} distinct ${CELL_M}m squares touched</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">New ground in ${latest}</div>
+      <div class="stat-value">${pctNew(byYear[latest])}<span class="stat-unit">%</span></div>
+      <div class="stat-sub">${prev?`${pctNew(byYear[prev])}% in ${prev}`:'First year with GPS routes'}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Furthest from home</div>
+      <div class="stat-value">${furthest?fmtDist(furthestMi):'—'}${furthest?`<span class="stat-unit">${distUnit()}</span>`:''}</div>
+      <div class="stat-sub">${furthest?`${escapeHtml(furthest.name||'Untitled')} · ${fmtDate(furthest.date)}`:'No away-from-home routes in this filter'}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Biggest discovery of ${latest}</div>
+      <div class="stat-value">${bestPct}<span class="stat-unit">% new</span></div>
+      <div class="stat-sub">${bestAct?`${escapeHtml(bestAct.name||'Untitled')} · ${fmtDate(bestAct.date)}`:'—'}</div>
+    </div>`;
+
+  const maxTotal=Math.max(...years.map(y=>byYear[y].total),1);
+  yearsEl.innerHTML=years.map(y=>{
+    const v=byYear[y];
+    const w=v.total/maxTotal*100,fw=v.total?v.fresh/v.total*100:0;
+    return`<div class="explore-row">
+      <div class="explore-year">${y}</div>
+      <div class="explore-track"><div class="explore-bar" style="width:${Math.max(1,w).toFixed(1)}%"><span style="width:${fw.toFixed(1)}%"></span></div></div>
+      <div class="explore-fig"><strong>${pctNew(v)}%</strong> new · ${v.acts.toLocaleString('en-GB')} route${v.acts===1?'':'s'}</div>
+    </div>`;
+  }).join('');
 }
 
 // Always-available jump pills regardless of whether they've been auto-discovered

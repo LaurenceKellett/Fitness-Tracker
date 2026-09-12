@@ -1047,6 +1047,9 @@ function transformActivity(a, zones = []) {
   return {
     id:         String(a.id),
     date:       a.start_date_local.slice(0, 10),
+    // The local clock time, which used to be sliced off and thrown away with the
+    // rest of the timestamp. "HH:MM", already in the athlete's own timezone.
+    time:       a.start_date_local.slice(11, 16),
     type:       a.sport_type || a.type || 'Other',
     sport:      a.sport_type || a.type || 'Other',
     name:       a.name || '',
@@ -1054,6 +1057,17 @@ function transformActivity(a, zones = []) {
     dist_km:    round(dist_km, 2),
     elv:        round(elv_ft, 1),
     mt:         a.moving_time  || 0,
+    // Elapsed minus moving is time spent stopped. Without it a four-hour ride with
+    // ninety minutes of cafe reads exactly like a two-and-a-half-hour ride.
+    et:         a.elapsed_time || 0,
+    cad:        a.average_cadence || null,
+    // Strava knows the real participant count; the Social tab was inferring company
+    // by regex-matching "w/ Name" out of activity titles, so it only ever knew about
+    // the ones you remembered to type.
+    athletes:   a.athlete_count || 1,
+    commute:    !!a.commute,
+    // 1 = race for runs, 11 = race for rides. Lets a race be told from a hard Tuesday.
+    wtype:      a.workout_type != null ? a.workout_type : null,
     hr:         a.average_heartrate || null,
     max_hr:     a.max_heartrate     || 0,
     cal:        a.calories || Math.round(a.kilojoules || 0),

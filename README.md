@@ -42,13 +42,13 @@ The Worker holds all secrets and does all the heavy work. The Pages frontend is 
 | Tab | What it shows |
 |-----|---------------|
 | Summary | Stats, year-over-year table, activity breakdown by type, recent activities, AI monthly summary, location pills |
-| Map | Route heatmap — all GPS routes rendered as semi-transparent polylines on a dark basemap, coloured by sport type |
-| Charts | Monthly distance, elevation, year-on-year bar chart, activity type doughnut |
-| Heatmap | GitHub-style activity calendar |
-| Records | Personal bests and highlights by sport type |
+| Map | Route heatmap — all GPS routes rendered as semi-transparent polylines on a dark basemap, coloured by sport type — plus **Ground covered** (see below) |
+| Charts | Monthly distance, elevation, year-on-year bar chart, activity type doughnut, heart-rate zones, Relative Effort and time of day |
+| Heatmap | GitHub-style activity calendar, with every prior year listed beneath |
+| Records | Personal bests and highlights by sport type, including swims |
 | Mex | Mex Score — the ladder of whole-unit distance buckets, the first gap, and which gaps are worth most (see below) |
-| Social | Kudos leaderboard |
-| Gear | Bike and shoe mileage |
+| Social | Partner leaderboard plus real group sizes from Strava's participant count |
+| Gear | Bike and shoe mileage, with a wear bar on running shoes |
 | Activity Log | Searchable, sortable full activity table |
 | Zwift Routes | Live two-way view of the "Zwift Routes" Notion database, grouped by map. Route catalog (name, map, distance, elevation, links) is read-only, managed in Notion; Status/Date completed/Time can be edited from the app and are written straight back to Notion |
 
@@ -197,6 +197,27 @@ holds true UTC, which is what makes Notion display the right local time.
 The local date is still what decides which diary day a row belongs to, and that
 is read off `start_date_local` in the sync loop — the one place the local field
 is the right one.
+
+### Activity fields
+
+`transformActivity` in `worker.js` maps Strava's summary object to the compact
+shape the dashboard caches. Six fields were being fetched and then dropped on
+the floor; they are kept now:
+
+| Field | Source | Used by |
+|-------|--------|---------|
+| `time` | `start_date_local.slice(11,16)` — local clock, "HH:MM" | Charts → When you train; the Log's date cell |
+| `et` | `elapsed_time` | The Log's "+Nm stopped" line (`et − mt`) |
+| `cad` | `average_cadence` | The Log's cadence line. Strava reports **one leg's** rpm for foot sports, so `cadenceLabel()` doubles it to spm for runs and walks |
+| `athletes` | `athlete_count` | Social group-size cards and the solo/with-others chart |
+| `commute` | `commute` | The Log's commute marker |
+| `wtype` | `workout_type` — 1 = race (run), 11 = race (ride) | The Log's RACE marker |
+
+These only appear on activities cached **after** the change. Anything relying on
+them checks for the field's presence and says so on screen rather than reporting
+a zero — `renderExtraCharts` shows "Start times arrive with the next Strava
+refresh", `renderSocialStats` renders nothing rather than claiming everything
+was solo. `wasSocial()` falls back to the old title regex for older entries.
 
 ### Sport types
 
@@ -360,6 +381,52 @@ The Worker aggregates the last 30 days of activity data and sends it to `@cf/met
 - **Shadows:** `--shadow` is the standard card lift. `--shadow-callout` is heavier and reserved for call-out boxes — the AI summary and the sync warning — so they lift off the page without needing a colour fill.
 - **Labels:** sentence case. No `text-transform: uppercase` and no letter-spacing on labels, per the house rule across the tools.
 - **Card colour:** one rule — a 3px `border-top` in the relevant colour. Not a left border, not a `::before` bar. An uncoloured card uses `var(--border)` so it keeps the same height.
+- **Motion:** three animations, and each one points at something. The Mex ladder builds left to right on arrival at the tab (not on a filter re-render — `mexAnimate` is set by `setTab` and cleared by `renderMex`, so a re-render reusing the same DOM doesn't replay it). The first-gap cell keeps a slow pulse because it is the one cell that is a to-do. Prior heatmap years fade up as you scroll to them, via an IntersectionObserver that unobserves each element once fired. All three are switched off wholesale under `prefers-reduced-motion`, which also drops every transition to 0.01ms.
+
+---
+
+## Ground covered
+
+On the Map tab, under the map itself. Every route point is dropped into a fixed
+grid and the distinct cells counted. A cell is `CELL_DEG` = 0.003° of latitude —
+about 330 m — coarse enough that the same road ridden twice is one cell, fine
+enough that the next valley is a new one. Longitude is divided by
+`cos(latitude)` so cells stay roughly square rather than stretching east-west.
+
+Activities are walked in date order, so "new" always means new relative to
+everything before it. Per-activity cell sets are memoised in a `WeakMap`, so a
+filter change re-counts without re-decoding every polyline.
+
+"Furthest from home" is a great-circle distance from `HOME_CENTER` (the
+Longridge town centre constant, not an address) and skips `near_home`
+activities, whose coordinates are deliberately snapped.
+
+The area figure is cells × (0.003 × 69)² square miles. It measures ground
+*touched*, not ground *seen* — a road through a cell claims the whole cell.
+
+---
+
+## Heart-rate zones
+
+The zone chart on the Charts tab is **estimated, not measured**, and the
+subtitle says so on screen. Strava's bulk activity endpoint returns one average
+heart rate per activity, not the stream. `estimateZones()` in `worker.js` models
+the distribution as a normal curve around that average (σ = max(( max − avg)/1.5,
+3)) and integrates it across your Strava zone boundaries, falling back to
+60/70/80/90% of max where zones aren't set. Treat the split as indicative.
+
+---
+
+## Zwift routes ↔ virtual rides
+
+Zwift writes the route name into the activity title, so `zwiftRiddenIndex()`
+joins the Notion route catalogue to your VirtualRide activities on a normalised
+name match (lowercase, non-alphanumerics collapsed, `includes`). Route names
+shorter than six characters are skipped — "Hilly" would match half of Watopia.
+
+Matched routes get a "Ridden N×" chip, and any route matched but not marked
+Complete in Notion is listed in a callout above the groups. The join is
+read-only: it never writes a status back.
 
 ---
 
