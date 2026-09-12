@@ -39,16 +39,25 @@ a{color:inherit;text-decoration:none}
    row is swapped for a select — and roughly 1400px they were pushing the whole
    document wider than the viewport, so every tab scrolled sideways on a tablet or a
    small laptop. The row scrolls on its own now instead of dragging the page with it. */
-#tabRow{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;-ms-overflow-style:none}
-#tabRow::-webkit-scrollbar{display:none}
-#tabRow .tab-btn{flex-shrink:0}
 .hrow+.hrow{border-top:1px solid var(--border)}
+/* Two bands, grouped by kind: "place" (brand, destinations, utilities) then
+   "scope" (the two controls that change what every number on the page means).
+   The year stepper used to live at the end of the tab row, which pushed its
+   right edge to 1078px — off-screen on anything narrower, with no hint it was
+   there. Moving it here returns 137px to the tabs and fixes that outright. */
+.hrow-nav{gap:16px;padding:9px 0}
+.hrow-scope{gap:10px;padding:5px 0}
+.tab-strip-wrap{display:flex;flex:1;min-width:0;position:relative}
+.tab-strip{display:flex;align-items:center;gap:2px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+.tab-strip::-webkit-scrollbar{display:none}
+.tab-strip .tab-btn{flex-shrink:0}
+.scope-sep{width:1px;height:18px;background:var(--border-strong);flex-shrink:0}
+.scope-chip{display:none}
 .logo-wrap{display:flex;align-items:center;gap:8px}
 .logo-icon{width:26px;height:26px;background:#fc4c02;border-radius:0;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .logo-name{font-size:15px;font-weight:700;letter-spacing:-.3px;color:var(--text)}
 .last-updated{font-size:10px;color:var(--text-light);white-space:nowrap}
 .header-toolbar{display:flex;align-items:stretch;border:1px solid var(--border-strong);border-radius:0;overflow:hidden;flex-shrink:0;height:30px}
-.toolbar-divider{width:1px;background:var(--border-strong);flex-shrink:0}
 .unit-opt{padding:0 9px;font-size:11px;font-weight:600;color:var(--text-muted);border:none;background:transparent;cursor:pointer;line-height:1;font-family:inherit;display:flex;align-items:center}
 .unit-opt.active{background:var(--text);color:#fff}
 .icon-btn{width:32px;border:none;background:transparent;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);font-size:15px;text-decoration:none;flex-shrink:0;transition:color .15s;font-family:inherit}
@@ -58,7 +67,7 @@ a{color:inherit;text-decoration:none}
 .tab-btn .ms{font-size:14px;vertical-align:0}
 .tab-btn.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
 .tab-btn:hover:not(.active){color:var(--text)}
-.year-bar{display:flex;align-items:center;gap:5px;margin-left:auto;flex-shrink:0}
+.year-bar{display:flex;align-items:center;gap:5px;flex-shrink:0}
 .year-all{padding:5px 10px;font-size:11px;font-weight:600;color:var(--text-muted);border:1px solid var(--border-strong);border-radius:0;background:transparent;cursor:pointer;transition:all .15s;font-family:inherit}
 .year-all.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent-soft)}
 .year-ctl{display:flex;align-items:center;border:1px solid var(--border-strong);border-radius:0;overflow:hidden}
@@ -691,13 +700,53 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
 .top-gear-name{flex:1;font-weight:500}
 .top-gear-dist{font-weight:700;color:var(--text-muted);font-size:12px}
-/* MOBILE SELECTS */
-.mobile-select-row{display:none;gap:8px;padding:10px 0 0}
-.mobile-select-wrap{position:relative;flex:1;min-width:0}
-.mobile-select-wrap-tab{display:none;margin:8px 0 6px}
-.mobile-select-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--text-muted);pointer-events:none}
-.mobile-select,.mobile-tab-select{display:none;width:100%;height:36px;padding:0 28px 0 34px;border:1px solid var(--border);border-radius:0;font-size:13px;font-weight:600;background:var(--surface);color:var(--text);cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;box-shadow:var(--shadow);box-sizing:border-box}
-@media(max-width:640px){#tabRow{display:none}#typeRow{display:none}.last-updated{display:none}.mobile-select-row{display:flex}.mobile-select-wrap-tab{display:block}.mobile-select,.mobile-tab-select{display:block}}
+/* SCOPE CHIP + SHEET (phone) — one chip stating the scope in words, which is
+   also the control that changes it. Replaces two selects and a 24px read-only
+   line that said the same thing a third time. */
+.scope-chip{align-items:center;gap:7px;flex:1;min-width:0;border:1px solid var(--border-strong);border-radius:0;background:var(--surface);padding:7px 10px;font-family:inherit;font-size:12.5px;color:var(--text);cursor:pointer;text-align:left}
+.scope-chip .ms{font-size:16px;color:var(--text-muted);flex-shrink:0}
+.scope-chip-text{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.scope-chip-sport{font-weight:500;color:var(--text-muted);margin-left:4px}
+.scope-chip.open .scope-chip-sport{color:var(--accent)}
+.scope-chip-caret{margin-left:auto;color:var(--text-light);font-size:10px;flex-shrink:0}
+.scope-chip.open{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.scope-chip.open .ms,.scope-chip.open .scope-chip-caret{color:var(--accent)}
+.sheet-backdrop{display:none;position:fixed;inset:0;background:rgba(15,23,42,.32);z-index:200}
+.sheet-backdrop.open{display:block}
+.scope-sheet{display:none;position:fixed;left:0;right:0;bottom:0;z-index:201;background:var(--surface);border-top:1px solid var(--border-strong);box-shadow:0 -8px 24px rgba(15,23,42,.12);padding:16px 16px calc(20px + env(safe-area-inset-bottom))}
+.scope-sheet.open{display:block;animation:sheetUp .18s ease-out}
+@keyframes sheetUp{from{transform:translateY(16px);opacity:.5}to{transform:none;opacity:1}}
+.sheet-title{font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-muted)}
+.sheet-sec{margin-top:14px}
+.sheet-lbl{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-light);margin-bottom:7px}
+.sheet-chips{display:flex;gap:7px;flex-wrap:wrap}
+.sheet-chips button{display:flex;align-items:center;gap:6px;font-family:inherit;font-size:12px;font-weight:600;padding:8px 12px;border:1px solid var(--border);border-radius:0;background:var(--surface);color:var(--text-muted);cursor:pointer}
+.sheet-chips button.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.sheet-done{margin-top:16px;width:100%;background:var(--text);color:#fff;font-family:inherit;font-size:13px;font-weight:700;padding:12px;border:none;border-radius:0;cursor:pointer}
+/* Between the phone breakpoint and 1100px the labels are what overflows, so
+   they go and the icons carry the row. Ten icons plus gaps is about 320px. */
+@media(min-width:641px) and (max-width:1100px){
+  .hrow-nav .tab-label{display:none}
+  .hrow-nav .tab-btn{padding:6px 9px}
+  .hrow-nav .tab-btn .ms{font-size:17px}
+}
+@media(max-width:640px){
+  .hrow-nav{flex-wrap:wrap;gap:9px;padding:8px 0 0}
+  .logo-name{display:none}
+  /* The caret already says this opens something, so the calendar glyph is
+     23px spent on decoration the chip's own text can't afford. */
+  .scope-chip{display:flex;padding:7px 8px;gap:5px}
+  .scope-chip .ms{display:none}
+  .header-toolbar .unit-opt{padding:0 7px}
+  .header-toolbar .icon-btn{width:28px}
+  .hrow-scope{display:none}
+  .last-updated{display:none}
+  .tab-strip-wrap{order:3;flex-basis:100%;width:100%;margin:0 -24px;border-top:1px solid var(--border)}
+  .tab-strip-wrap::after{content:'';position:absolute;right:0;top:0;bottom:0;width:32px;background:linear-gradient(90deg,rgba(255,255,255,0),var(--surface) 70%);pointer-events:none}
+  .tab-strip{padding:2px 24px 0}
+  .tab-strip .tab-btn{flex-direction:column;gap:3px;padding:6px 10px 7px;font-size:10px;line-height:1.2}
+  .tab-strip .tab-btn .ms{font-size:20px}
+}
 /* PARTNER LOG BTN */
 .partner-log-btn{width:100%;margin-top:8px;padding:5px 8px;border:1px solid var(--border);border-radius:0;font-size:11px;color:var(--text-muted);background:transparent;cursor:pointer;transition:all .15s;font-family:inherit;text-align:center}
 .partner-log-btn:hover{background:var(--bg);color:var(--text)}
@@ -791,77 +840,69 @@ tbody td{padding:10px 14px;vertical-align:middle}
 <body>
 <div class="header">
   <div class="header-inner">
-    <!-- Row 1: brand bar -->
-    <div class="hrow">
+    <!-- Band 1 — PLACE: brand, destinations, utilities -->
+    <div class="hrow hrow-nav">
       <div class="logo-wrap">
         <div class="logo-icon"><svg viewBox="0 0 24 24" width="15" height="15"><path fill="white" d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0 4 13.828h4.172"/></svg></div>
         <span class="logo-name">Fitness</span>
       </div>
-      <div style="flex:1"></div>
-      <span class="last-updated" id="lastUpdated"></span>
+      <button class="scope-chip" id="scopeChip" onclick="openScopeSheet()" aria-haspopup="dialog">
+        <span class="ms">calendar_month</span>
+        <span class="scope-chip-text" id="scopeChipText">All time · all sports</span>
+        <span class="scope-chip-caret">&#9662;</span>
+      </button>
+      <div class="tab-strip-wrap">
+        <div class="tab-strip" id="tabRow">
+          <button class="tab-btn active" onclick="setTab('summary')"><span class="ms">home</span><span class="tab-label">Summary</span></button>
+          <button class="tab-btn" onclick="setTab('map')"><span class="ms">map</span><span class="tab-label">Map</span></button>
+          <button class="tab-btn" onclick="setTab('charts')"><span class="ms">bar_chart</span><span class="tab-label">Charts</span></button>
+          <button class="tab-btn" onclick="setTab('heatmap')"><span class="ms">grid_view</span><span class="tab-label">Heatmap</span></button>
+          <button class="tab-btn" onclick="setTab('records')"><span class="ms">emoji_events</span><span class="tab-label">Records</span></button>
+          <button class="tab-btn" onclick="setTab('mex')"><span class="ms">stairs</span><span class="tab-label">Mex</span></button>
+          <button class="tab-btn" onclick="setTab('social')"><span class="ms">thumb_up</span><span class="tab-label">Social</span></button>
+          <button class="tab-btn" onclick="setTab('gear')"><span class="ms">settings</span><span class="tab-label">Gear</span></button>
+          <button class="tab-btn" onclick="setTab('log')"><span class="ms">format_list_bulleted</span><span class="tab-label">Activity Log</span></button>
+          <button class="tab-btn" onclick="setTab('zwift')"><span class="ms">route</span><span class="tab-label">Zwift Routes</span></button>
+        </div>
+      </div>
       <div class="header-toolbar">
         <button class="unit-opt active" data-unit="mi" onclick="setUnit('mi')">mi</button>
         <button class="unit-opt" data-unit="km" onclick="setUnit('km')">km</button>
-        <span class="toolbar-divider"></span>
         <button class="icon-btn" id="refreshBtn" onclick="refreshData()" title="Pull latest from Strava"><span class="refresh-icon">↻</span></button>
-        <span class="toolbar-divider"></span>
         <a class="icon-btn" href="https://www.strava.com/athletes/263104" target="_blank" title="Strava profile">
           <svg viewBox="0 0 24 24" width="12" height="12"><path fill="currentColor" d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0 4 13.828h4.172"/></svg>
         </a>
       </div>
     </div>
-    <!-- Row 2: tabs + year stepper -->
-    <div class="hrow" id="tabRow">
-      <button class="tab-btn active" onclick="setTab('summary')"><span class="ms">home</span><span class="tab-label">Summary</span></button>
-      <button class="tab-btn" onclick="setTab('map')"><span class="ms">map</span><span class="tab-label">Map</span></button>
-      <button class="tab-btn" onclick="setTab('charts')"><span class="ms">bar_chart</span><span class="tab-label">Charts</span></button>
-      <button class="tab-btn" onclick="setTab('heatmap')"><span class="ms">grid_view</span><span class="tab-label">Heatmap</span></button>
-      <button class="tab-btn" onclick="setTab('records')"><span class="ms">emoji_events</span><span class="tab-label">Records</span></button>
-      <button class="tab-btn" onclick="setTab('mex')"><span class="ms">stairs</span><span class="tab-label">Mex</span></button>
-      <button class="tab-btn" onclick="setTab('social')"><span class="ms">thumb_up</span><span class="tab-label">Social</span></button>
-      <button class="tab-btn" onclick="setTab('gear')"><span class="ms">settings</span><span class="tab-label">Gear</span></button>
-      <button class="tab-btn" onclick="setTab('log')"><span class="ms">format_list_bulleted</span><span class="tab-label">Activity Log</span></button>
-      <button class="tab-btn" onclick="setTab('zwift')"><span class="ms">route</span><span class="tab-label">Zwift Routes</span></button>
+    <!-- Band 2 — SCOPE: the two controls that change what every number means -->
+    <div class="hrow hrow-scope" id="typeRow">
       <div class="year-bar">
-        <button class="year-all active" id="yearAll" onclick="setYear('All')">All</button>
+        <button class="year-all active" id="yearAll" onclick="setYear('All')">All time</button>
         <div class="year-ctl">
           <button class="year-arrow" id="yearPrev" onclick="stepYear(-1)">&#8249;</button>
           <span class="year-label" id="yearDisplay">—</span>
           <button class="year-arrow" id="yearNext" onclick="stepYear(1)">&#8250;</button>
         </div>
       </div>
-    </div>
-    <!-- Row 3: type filter -->
-    <div class="hrow" id="typeRow" style="padding-top:4px;padding-bottom:4px">
+      <span class="scope-sep"></span>
       <div class="type-bar" id="headerTypeFilters"></div>
-    </div>
-    <!-- Mobile controls -->
-    <div class="mobile-select-row">
-      <div class="mobile-select-wrap">
-        <span class="ms mobile-select-icon">calendar_month</span>
-        <select class="mobile-select" id="yearSelectMobile" onchange="setYear(this.value)"></select>
-      </div>
-      <div class="mobile-select-wrap">
-        <span class="ms mobile-select-icon">tune</span>
-        <select class="mobile-select" id="typeSelectMobile" onchange="setType(this.value)"></select>
-      </div>
-    </div>
-    <div class="mobile-select-wrap mobile-select-wrap-tab">
-      <span class="ms mobile-select-icon">apps</span>
-      <select class="mobile-tab-select" id="tabSelectMobile" onchange="setTab(this.value)">
-        <option value="summary">Summary</option>
-        <option value="map">Map</option>
-        <option value="charts">Charts</option>
-        <option value="heatmap">Heatmap</option>
-        <option value="records">Records</option>
-        <option value="mex">Mex</option>
-        <option value="social">Social</option>
-        <option value="gear">Gear</option>
-        <option value="log">Activity Log</option>
-        <option value="zwift">Zwift Routes</option>
-      </select>
+      <div style="flex:1"></div>
+      <span class="last-updated" id="lastUpdated"></span>
     </div>
   </div>
+</div>
+<div class="sheet-backdrop" id="scopeBackdrop" onclick="closeScopeSheet()"></div>
+<div class="scope-sheet" id="scopeSheet" role="dialog" aria-label="Scope" aria-modal="true">
+  <div class="sheet-title">Scope</div>
+  <div class="sheet-sec">
+    <div class="sheet-lbl">Period</div>
+    <div class="sheet-chips" id="sheetYears"></div>
+  </div>
+  <div class="sheet-sec">
+    <div class="sheet-lbl">Sport</div>
+    <div class="sheet-chips" id="sheetTypes"></div>
+  </div>
+  <button class="sheet-done" onclick="closeScopeSheet()">Done</button>
 </div>
 <div id="dashTooltip" class="dash-tooltip"></div>
 <div class="main">
@@ -1365,9 +1406,10 @@ function buildYearStepper(){
   if(display)display.textContent=displayYear||'—';
   if(prev)prev.disabled=activeYear!=='All'&&idx===0;
   if(next)next.disabled=activeYear!=='All'&&idx===years.length-1;
-  const msel=document.getElementById('yearSelectMobile');
-  const allOpts=['All',...years.slice().reverse()];
-  if(msel)msel.innerHTML=allOpts.map(y=>`<option value="${y}"${y===activeYear?' selected':''}>${y}</option>`).join('');
+  const sy=document.getElementById('sheetYears');
+  if(sy)sy.innerHTML=['All',...years.slice().reverse()].map(y=>
+    `<button class="${y===activeYear?'active':''}" onclick="setYear('${y}')">${y==='All'?'All time':y}</button>`).join('');
+  updateScopeChip();
 }
 function stepYear(dir){
   const years=[...new Set(ALL_DATA.map(a=>a.date.slice(0,4)))].sort();
@@ -1384,10 +1426,37 @@ function buildTypeFilters(){
     const dot=t!=='All'?`<span class="type-dot" style="background:${groupColor(t)}"></span>`:'';
     return`<button class="type-btn${t===activeType?' active':''}" data-type="${t}" onclick="setType('${t}')">${dot}${t}</button>`;
   }).join('');
-  const tsel=document.getElementById('typeSelectMobile');
-  if(tsel)tsel.innerHTML=TYPE_GROUPS.map(t=>`<option value="${t}"${t===activeType?' selected':''}>${t}</option>`).join('');
+  const st=document.getElementById('sheetTypes');
+  if(st)st.innerHTML=TYPE_GROUPS.map(t=>{
+    const dot=t!=='All'?`<span class="type-dot" style="background:${groupColor(t)}"></span>`:'';
+    return`<button class="${t===activeType?'active':''}" onclick="setType('${t}')">${dot}${t==='All'?'All sports':t}</button>`;
+  }).join('');
+  updateScopeChip();
 }
 function setType(t){activeType=t;buildTypeFilters();renderAll();}
+
+// ── SCOPE CHIP + SHEET (phone) ──
+// The chip states the scope in words and is also the control that changes it,
+// so the read-only line this used to duplicate can go.
+function updateScopeChip(){
+  const el=document.getElementById('scopeChipText');if(!el)return;
+  const y=activeYear==='All'?'All time':activeYear;
+  const t=activeType==='All'?'all sports':activeType.toLowerCase();
+  el.innerHTML=`${escapeHtml(y)}<span class="scope-chip-sport">· ${escapeHtml(t)}</span>`;
+}
+function openScopeSheet(){
+  document.getElementById('scopeBackdrop').classList.add('open');
+  document.getElementById('scopeSheet').classList.add('open');
+  document.getElementById('scopeChip').classList.add('open');
+}
+function closeScopeSheet(){
+  document.getElementById('scopeBackdrop').classList.remove('open');
+  document.getElementById('scopeSheet').classList.remove('open');
+  document.getElementById('scopeChip').classList.remove('open');
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&document.getElementById('scopeSheet').classList.contains('open'))closeScopeSheet();
+});
 
 const TAB_ORDER=['summary','map','charts','heatmap','records','mex','social','gear','log','zwift'];
 function setTab(tab,dir){
@@ -1405,7 +1474,10 @@ function setTab(tab,dir){
     el.classList.add(cls);
     el.addEventListener('animationend',()=>el.classList.remove(cls),{once:true});
   }
-  const mts=document.getElementById('tabSelectMobile');if(mts)mts.value=tab;
+  // The tab strip is the navigation now, so a tab reached by swiping has to be
+  // scrolled back into view or you lose track of where you are.
+  const activeBtn=document.querySelector('#tabRow .tab-btn.active');
+  if(activeBtn&&activeBtn.scrollIntoView)activeBtn.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'});
   // Map and Zwift return before renderAll(), so the scope line has to be refreshed
   // here too — otherwise they inherit whatever the previous tab was showing.
   renderScope();
@@ -3670,11 +3742,17 @@ function scopeFor(tab){
   if(tab==='charts')return{text:`${activeYear==='All'?'Last 24 months':activeYear} · ${t} · ${u} · year-over-year uses every year`,ignored};
   if(tab==='zwift')return{text:'From Notion · the year and sport filters do not apply here',ignored};
   if(tab==='log'&&logSearch)return{text:`${y} · ${t} · ${u} · matching “${logSearch}”`,ignored};
-  return{text:`${y} · ${t} · ${u}`,ignored};
+  return{text:`${y} · ${t} · ${u}`,ignored,plain:true};
 }
 function renderScope(){
   const el=document.getElementById('scopeLine');if(!el)return;
   const s=scopeFor(activeTab);
+  // The header's scope band already states the year and the sport, and it is
+  // the live control rather than an echo of it. This line only earns its 24px
+  // when the tab is doing something the header cannot say: overriding a
+  // filter, or framing what the view actually plots.
+  if(s.plain&&!s.ignored.length){el.innerHTML='';el.style.display='none';return;}
+  el.style.display='';
   el.innerHTML=`<span class="scope-badge">${escapeHtml(s.text)}</span>`+
     (s.ignored.length?`<span class="scope-warn"><span class="ms">info</span>This tab ignores the ${s.ignored.join(' and ')} filter${s.ignored.length>1?'s':''} above</span>`:'');
 }
