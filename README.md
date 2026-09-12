@@ -503,6 +503,41 @@ outside the zone range.
 
 ---
 
+## Activity detail modal
+
+Clicking a Recent Activities row on the Summary, or any row in the Activity Log,
+opens the activity. It reuses the gear modal's shell — same backdrop, head, stats
+grid and section titles — so the two read as one idea rather than two designs.
+
+The header is a **map of the route**, drawn with Leaflet from the stored polyline,
+with a green start dot and a red finish dot so a loop can be told from a
+point-to-point at a glance. Two cases fall back to the sport tile instead of an
+empty grey box, and each says which it is:
+
+- **Starts near home** — the route is deliberately trimmed (see GPS privacy), so
+  there is nothing to draw. The modal also carries a "Starts near home · route
+  trimmed" marker, rather than implying the activity had no GPS.
+- **No GPS at all** — a turbo session, a pool swim, a treadmill run.
+
+The map is **rebuilt on every open, not reused**: setting `innerHTML` destroys the
+container it was mounted in, and Leaflet leaks listeners if the container vanishes
+without `remove()` being called. `destroyActMap()` runs on open and on close, and
+the map is created inside a `requestAnimationFrame` after the backdrop is shown so
+Leaflet measures a laid-out container instead of coming up zero-sized.
+
+Below it: every field the activity has, and only those it has — a row is omitted
+rather than printed as an em dash. Stopped time appears only when it is at least a
+minute; pace for foot sports, speed for everything else. Then the heart-rate zone
+split as a single stacked bar in the same colours the Charts tab uses, carrying the
+same "estimated, not measured" caveat; any segment bests recorded on that activity;
+and three actions — Strava, jump to that item's gear, find it in the log.
+
+One delegated click handler on `document` covers both surfaces and survives every
+re-render. It returns early on `closest('a,button')`, so the Strava link and the
+buttons inside a row keep their own behaviour instead of opening the modal.
+
+---
+
 ## Figure chips and verdicts
 
 The heart-rate zone card set a pattern worth reusing: tinted figure chips under

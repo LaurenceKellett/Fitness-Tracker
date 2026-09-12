@@ -465,6 +465,31 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .gear-modal-act-date{color:var(--text-muted);width:72px;flex-shrink:0}
 .gear-modal-act-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gear-modal-act-dist{font-weight:600;flex-shrink:0}
+/* ── ACTIVITY MODAL ──
+   Reuses the gear modal's shell so the two read as the same object. What differs is
+   the header: a map of the route where there is one, the sport tile where there is not. */
+.act-map{width:100%;height:210px;background:var(--bg);display:block}
+.act-map-none{width:100%;height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:var(--bg)}
+.act-map-none .ms{font-size:44px;vertical-align:0}
+.act-map-none span.lbl{font-size:11px;color:var(--text-muted)}
+.act-marks{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+.act-mark{font-size:10px;font-weight:700;padding:2px 7px}
+.act-zonebar{display:flex;height:10px;margin-bottom:6px;overflow:hidden}
+.act-zonebar span{display:block;height:100%}
+.act-zonekey{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:10px;color:var(--text-muted)}
+.act-zonekey i{display:inline-block;width:8px;height:8px;margin-right:4px;font-style:normal}
+.act-actions{display:flex;gap:8px;margin-top:20px}
+.act-actions a,.act-actions button{flex:1;min-height:40px;display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  border:1px solid var(--border-strong);background:transparent;font-family:inherit;font-size:12px;font-weight:600;
+  color:var(--text-muted);cursor:pointer;text-decoration:none;transition:all .15s}
+.act-actions a:hover,.act-actions button:hover{color:var(--text);background:var(--bg)}
+.act-actions a.strava{color:#fc4c02;border-color:#fc4c02}
+.act-row-click{cursor:pointer}
+@media(max-width:640px){
+  .act-map{height:170px}
+  .act-actions{flex-wrap:wrap}
+  .act-actions a,.act-actions button{min-height:44px;flex-basis:calc(50% - 4px)}
+}
 /* TOP GEAR in summary */
 .top-gear-list{background:var(--surface);border:1px solid var(--border);border-radius:0;overflow:hidden;box-shadow:var(--shadow)}
 .top-gear-row{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border);font-size:13px}
@@ -853,6 +878,9 @@ tbody td{padding:10px 14px;vertical-align:middle}
 <div class="gear-modal-backdrop" id="gearModalBackdrop" onclick="if(event.target===this)closeGearModal()">
   <div class="gear-modal" id="gearModal"></div>
 </div>
+<div class="gear-modal-backdrop" id="actModalBackdrop" onclick="if(event.target===this)closeActivityModal()">
+  <div class="gear-modal" id="actModal"></div>
+</div>
 
 <!-- LOG -->
 <div id="tab-log" class="tab-content">
@@ -1095,7 +1123,7 @@ function recentItemHtml(a,showDate){
   const g=typeGroup(a.type);
   const hr=a.hr?' · <span class="ms ms-fill" style="font-size:13px;color:#ef4444">favorite</span> '+Math.round(a.hr)+' bpm':'';
   const gear=a.gear?' · <span class="ms" style="font-size:13px">'+gearIconName(g)+'</span> '+escapeHtml(gearLabel(a.gear).split(' ').slice(0,2).join(' ')):'';
-  return`<div class="recent-item" style="border-left-color:${groupColor(g)}">
+  return`<div class="recent-item${a.id?' act-row-click':''}"${a.id?` data-act="${escapeAttr(a.id)}"`:''} style="border-left-color:${groupColor(g)}">
       <div class="recent-info">
         <div class="recent-name">${escapeHtml(a.name||a.type)}</div>
         <div class="recent-meta">${showDate?fmtDate(a.date)+' · ':''}${typeEmoji(g)} ${g}${hr}${gear}</div>
@@ -2434,7 +2462,16 @@ document.getElementById('gearCards').addEventListener('click',e=>{
   const card=e.target.closest('.gear-card');
   if(card)openGearModal(card.dataset.gear);
 });
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeGearModal();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeGearModal();closeActivityModal();}});
+
+// One delegated handler covers the recent-activity rows on the Summary and the Log's
+// table rows, both now and after any re-render. Links and buttons inside a row keep
+// their own behaviour — clicking Strava should go to Strava, not open the modal.
+document.addEventListener('click',e=>{
+  if(e.target.closest('a,button'))return;
+  const row=e.target.closest('[data-act]');
+  if(row&&row.dataset.act)openActivityModal(row.dataset.act);
+});
 
 function daysBetween(d1,d2){return Math.round((new Date(d2)-new Date(d1))/86400000)+1;}
 
@@ -2484,6 +2521,137 @@ function openGearModal(name){
 
 function closeGearModal(){
   document.getElementById('gearModalBackdrop').classList.remove('open');
+  document.body.style.overflow='';
+}
+
+// ── ACTIVITY DETAIL MODAL ──
+// Same shell as the gear modal, so the two read as one idea. The header is a map of
+// the route where there is one — privacy-trimmed activities and anything without GPS
+// fall back to the sport tile rather than an empty grey box.
+
+let _actMap=null;
+
+// The modal's innerHTML is replaced on every open, which destroys the container the
+// map was mounted in, so the map is rebuilt each time rather than reused. Leaflet
+// leaks listeners if the container disappears without remove() being called.
+function destroyActMap(){
+  if(_actMap){try{_actMap.remove();}catch(e){/* container already gone */}_actMap=null;}
+}
+
+function actById(id){return ALL_DATA.find(a=>String(a.id)===String(id))||null;}
+
+function openActivityModal(id){
+  const a=actById(id);
+  if(!a)return;
+  const g=typeGroup(a.type),col=groupColor(g);
+  const segs=a.polylines||(a.polyline?[a.polyline]:[]);
+  const hasRoute=segs.length>0;
+
+  const stopped=(a.et&&a.mt&&a.et-a.mt>=60)?a.et-a.mt:0;
+  const isFoot=g==='Run'||g==='Walk';
+  const stats=[
+    a.dist_mi?{label:'Distance',value:fmtDist(a.dist_mi)+' '+distUnit()}:null,
+    a.mt?{label:'Moving time',value:fmtTime(a.mt)}:null,
+    stopped?{label:'Stopped',value:fmtTime(stopped)}:null,
+    (isFoot&&a.pace_mi)?{label:'Avg pace',value:fmtPace(a.pace_mi)}:(a.speed_mph?{label:'Avg speed',value:fmtSpeed(a.speed_mph)}:null),
+    a.elv?{label:'Elevation',value:fmtElv(a.elv)}:null,
+    a.hr?{label:'Avg heart rate',value:Math.round(a.hr)+' bpm'}:null,
+    a.max_hr?{label:'Max heart rate',value:Math.round(a.max_hr)+' bpm'}:null,
+    a.cad?{label:'Cadence',value:cadenceLabel(a.cad,g)}:null,
+    a.pwr?{label:'Avg power',value:fmtNum(a.pwr)+'W'}:null,
+    a.max_pwr?{label:'Max power',value:fmtNum(a.max_pwr)+'W'}:null,
+    a.cal?{label:'Calories',value:fmtCal(a.cal)+' kcal'}:null,
+    a.score?{label:'Relative Effort',value:fmtNum(a.score)}:null,
+    a.kudos?{label:'Kudos',value:a.kudos.toLocaleString('en-GB')}:null,
+    (typeof a.athletes==='number'&&a.athletes>1)?{label:'Group size',value:a.athletes+' people'}:null,
+    a.gear?{label:'Gear',value:escapeHtml(gearLabel(a.gear))}:null,
+  ].filter(Boolean);
+
+  const marks=[
+    isRace(a)?`<span class="act-mark" style="color:var(--accent);background:var(--accent-soft)">Race</span>`:'',
+    a.commute?`<span class="act-mark" style="color:#475569;background:#e2e8f0">Commute</span>`:'',
+    a.near_home?`<span class="act-mark" style="color:#854d0e;background:#fef9c3">Starts near home · route trimmed</span>`:'',
+  ].filter(Boolean).join('');
+
+  // Zone split, same colours as the Charts tab so the two are obviously the same thing.
+  const z=[a.z1||0,a.z2||0,a.z3||0,a.z4||0,a.z5||0];
+  const zTot=z.reduce((s,v)=>s+v,0);
+  const zoneBlock=zTot?`
+    <div class="gear-modal-section-title">Heart-rate zones</div>
+    <div class="act-zonebar">${z.map((v,i)=>v?`<span style="width:${v/zTot*100}%;background:${ZONE_COLORS[i]}" title="${ZONE_NAMES[i]} · ${fmtTime(v)}"></span>`:'').join('')}</div>
+    <div class="act-zonekey">${z.map((v,i)=>v?`<span><i style="background:${ZONE_COLORS[i]}"></i>${ZONE_NAMES[i].split(' ')[0]} ${Math.round(v/zTot*100)}%</span>`:'').join('')}</div>
+    <div style="font-size:10px;color:var(--text-light);margin-top:7px">Estimated from this activity's average heart rate, not measured second by second.</div>
+  `:'';
+
+  const prs=[['pr_1km','1 km'],['pr_1mi','1 mile'],['pr_5km','5 km'],['pr_10km','10 km'],['pr_hm','Half marathon'],['pr_mar','Marathon']]
+    .filter(([f])=>a[f]>0)
+    .map(([f,l])=>`<div class="gear-modal-type-chip" style="color:${col}">${l} · ${fmtPRTime(a[f])}</div>`).join('');
+
+  const when=fmtDate(a.date)+(a.time?' · '+a.time:'');
+
+  document.getElementById('actModal').innerHTML=`
+    ${hasRoute
+      ? `<div id="actModalMap" class="act-map"></div>`
+      : `<div class="act-map-none" style="background:${groupSoft(g)}">
+           <span class="ms" style="color:${col}">${gearIconName(g)}</span>
+           <span class="lbl">${a.near_home?'Route hidden — starts near home':'No GPS route for this activity'}</span>
+         </div>`}
+    <div class="gear-modal-head">
+      <div style="min-width:0">
+        <div class="gear-modal-title">${escapeHtml(a.name||a.type)}</div>
+        <div class="gear-modal-sub" style="color:${col}">${typeEmoji(g)} ${escapeHtml(a.sport||a.type)} · ${when}</div>
+        ${marks?`<div class="act-marks">${marks}</div>`:''}
+      </div>
+      <button class="gear-modal-close" onclick="closeActivityModal()" aria-label="Close">✕</button>
+    </div>
+    <div class="gear-modal-body">
+      <div class="gear-modal-stats">${stats.map(s=>`<div><div class="gear-modal-stat-label">${s.label}</div><div class="gear-modal-stat-value">${s.value}</div></div>`).join('')}</div>
+      ${zoneBlock}
+      ${prs?`<div class="gear-modal-section-title" style="margin-top:20px">Segment bests on this run</div><div class="gear-modal-types">${prs}</div>`:''}
+      <div class="act-actions">
+        ${a.id?`<a class="strava" href="https://www.strava.com/activities/${encodeURIComponent(a.id)}" target="_blank" rel="noopener">↗ View on Strava</a>`:''}
+        ${a.gear?`<button onclick="closeActivityModal();openGearModal(${escapeAttr(JSON.stringify(String(a.gear)))})">This gear</button>`:''}
+        ${a.name?`<button ${logSearchAttr(a.name)}>Find in log</button>`:''}
+      </div>
+    </div>`;
+
+  document.getElementById('actModalBackdrop').classList.add('open');
+  document.body.style.overflow='hidden';
+
+  if(hasRoute)drawActivityMap(segs,col);
+}
+
+// Built after the backdrop is shown, so Leaflet measures a laid-out container rather
+// than a display:none one and comes up zero-sized.
+function drawActivityMap(segs,col){
+  destroyActMap();
+  requestAnimationFrame(()=>{
+    const el=document.getElementById('actModalMap');
+    if(!el||typeof L==='undefined')return;
+    try{
+      _actMap=L.map(el,{zoomControl:false,attributionControl:false,scrollWheelZoom:false,preferCanvas:true});
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,opacity:.55}).addTo(_actMap);
+      const all=[];
+      segs.forEach(seg=>{
+        const pts=decodePolylinePts(seg);
+        if(pts.length<2)return;
+        L.polyline(pts,{color:col,weight:3.5,opacity:.95}).addTo(_actMap);
+        all.push(...pts);
+      });
+      if(all.length){
+        _actMap.fitBounds(L.latLngBounds(all),{padding:[24,24],maxZoom:15});
+        // Start and finish, so a loop can be told from a point-to-point at a glance.
+        L.circleMarker(all[0],{radius:5,color:'#fff',weight:2,fillColor:'#16a34a',fillOpacity:1}).addTo(_actMap);
+        L.circleMarker(all[all.length-1],{radius:5,color:'#fff',weight:2,fillColor:'#ef4444',fillOpacity:1}).addTo(_actMap);
+      }
+      _actMap.invalidateSize();
+    }catch(e){console.error('Could not draw the activity map:',e);}
+  });
+}
+
+function closeActivityModal(){
+  destroyActMap();
+  document.getElementById('actModalBackdrop').classList.remove('open');
   document.body.style.overflow='';
 }
 
@@ -2561,7 +2729,7 @@ function renderLog(){
       isRace(a)?'<span class="row-mark race" title="Race">RACE</span>':'',
       a.commute?'<span class="row-mark commute" title="Commute"><span class="ms">work</span></span>':''
     ].join('');
-    return`<tr>
+    return`<tr${a.id?` class="act-row-click" data-act="${escapeAttr(a.id)}"`:''}>
       <td style="white-space:nowrap;color:var(--text-muted);font-size:12px">${fmtDate(a.date)}${a.time?`<div class="cell-sub">${a.time}</div>`:''}</td>
       <td><span class="type-badge ${bc}">${displayType}</span></td>
       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeAttr(a.name||'')}">${marks}${escapeHtml(a.name||'—')}</td>
