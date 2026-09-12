@@ -416,21 +416,68 @@ The Worker aggregates the last 30 days of activity data and sends it to `@cf/met
 
 ---
 
-## Route replay
+## The Map page
 
-On the Map tab, above the map. Picks one route and traces it from start to
-finish, with the covered part drawn solid over the faded background layer and a
-marker at the head.
+The map and its controls are **one object**: a single toolbar sharing the map's
+border, then the map itself with its overlays.
 
-- The picker offers the 60 **longest** routes in the current filter. A three-mile
-  loop traced across a whole county is a dot moving in a corner.
-- Routes split into multiple segments by a privacy zone are excluded — the
-  marker would jump the gap.
-- Fixed 9-second duration, not real time. Nobody watches an eight-hour ride.
-- Under `prefers-reduced-motion` the whole route is drawn at once rather than
-  not at all.
-- `setTab` calls `stopReplay()` when you leave the Map, so the
-  `requestAnimationFrame` loop never runs behind a tab you cannot see.
+It used to be three strips stacked above the map in three different treatments —
+a bare legend-and-fade row, a row of eight jump pills, and a bordered, shadowed
+replay bar. Measured in a browser, that was **116px of controls above the map**,
+and 148px below about 1150px where the pills wrapped to a second row. It is 50px
+now. But the height was the smaller half of the problem: nothing grouped by
+function. Fade is a display control that sat with the legend, which is
+information; navigation had its own strip; replay a third.
+
+- **Go to** — Home keeps a button because it is the one you press. The other
+  seven jump locations collapse into one select, which resets to its prompt after
+  a jump so picking the same place twice still fires.
+- **Replay** — picker and button together, the button beside the thing it acts on.
+- **Fade** — the tile-opacity slider, now grouped as the display control it is.
+- **Legend** — moved onto the map, bottom-left, where legends belong and where it
+  costs no layout height. Being free of the layout, it also carries a count per
+  sport.
+- **Readout** — only while something is playing, bottom-right on the map. An empty
+  status line under the toolbar was one more thing taking space and saying nothing.
+
+On a phone it wraps to exactly **two** rows: Home, Elsewhere and Fade on the
+first (Home drops to its icon, the slider to 64px), the replay picker and its
+button on the second. Three rows would have been 155px — no better than the
+strips it replaced.
+
+### What the replay picker offers
+
+Both notable and recent routes, in one list, Notable first. Every line is
+computed from data already in the payload — nothing to configure, nothing extra
+to fetch. It replaces the old rule, which was the 60 longest routes, so the
+picker always opened on the same monster ride and there was no way to reach last
+Tuesday.
+
+| Category | From |
+|----------|------|
+| Race | `workout_type` 1 or 11, most recent first |
+| Most new ground | the cell-counting walk `renderExplored` already does |
+| Furthest out | great-circle distance from home, 25-mile floor |
+| Biggest climb | `elv` |
+| Longest | `dist_mi` |
+| Fastest | `speed_mph`, 10-mile floor so it isn't a downhill sprint |
+
+**Order is load-bearing.** The first category to claim a ride keeps it, and one
+ride is often the winner of several — your biggest climb may also be the furthest
+from home. Rarest fact first: a race is a thing that happened, "fastest" is a
+superlative any ride can hold, so Fastest yields last rather than swallowing the
+race. When a category's winner is already taken it falls to the **runner-up**
+rather than the row silently disappearing, which is what an earlier version did.
+
+"Most new ground" gets its ranking from `renderExplored` rather than repeating
+the walk — `_exploreBestNew` holds the top five by proportion, and the picker is
+rebuilt once that deferred pass finishes.
+
+Routes split into segments by a privacy zone are excluded: the marker would jump
+the gap. Fixed 9-second trace, not real time. Under `prefers-reduced-motion` the
+whole route draws at once rather than not at all. `setTab` calls `stopReplay()`
+when you leave the Map, so the `requestAnimationFrame` loop never runs behind a
+tab you cannot see.
 
 ---
 

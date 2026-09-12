@@ -121,19 +121,82 @@ a{color:inherit;text-decoration:none}
 .zone-chip{display:flex;align-items:baseline;gap:6px;padding:5px 11px;font-size:11px;font-weight:600}
 .zone-chip strong{font-size:13px;font-weight:700}
 .zone-verdict{font-size:11px;color:var(--text-muted);line-height:1.55;margin-top:12px}
-.replay-bar{display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:8px 12px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow)}
-.replay-bar>.ms{font-size:18px;color:var(--accent);flex-shrink:0}
-.replay-select{flex:1;min-width:0;height:32px;padding:0 10px;border:1px solid var(--border);border-radius:0;font-family:inherit;font-size:12px;background:var(--surface);color:var(--text);cursor:pointer}
-.replay-status{font-size:11px;color:var(--text-muted);flex-shrink:0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* On a phone the bar wraps to: icon + picker, then a full-width Replay button under
-   the thing it acts on, then the status. Left in source order the button landed
-   above its own picker, which reads backwards. */
+/* ── THE MAP AND ITS CONTROLS, AS ONE OBJECT ──
+   There used to be three strips above the map in three different treatments: a bare
+   legend-and-fade row, a row of eight jump pills, and a bordered, shadowed replay bar.
+   Nothing grouped by function — Fade is a display control that sat with the legend,
+   which is information. One toolbar now, sharing the map's border, grouped Go to /
+   Replay / Fade. The legend moved onto the map, where legends belong and where it
+   costs no layout height. */
+.map-object{border:1px solid var(--border);background:var(--surface);box-shadow:var(--shadow)}
+.map-toolbar{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--border);background:var(--bg)}
+.map-tgroup{display:flex;align-items:center;gap:8px;min-width:0}
+.map-tgroup-grow{flex:1;min-width:0}
+.map-tlabel{font-size:12px;font-weight:500;color:var(--text-muted);white-space:nowrap;flex-shrink:0}
+.map-tlabel-icon{display:flex;align-items:center;gap:6px}
+.map-tdiv{width:1px;align-self:stretch;background:var(--border);flex-shrink:0}
+.map-btn{height:32px;display:inline-flex;align-items:center;gap:5px;padding:0 9px;border:1px solid var(--border);
+  border-radius:0;background:var(--surface);font-family:inherit;font-size:12px;font-weight:600;color:var(--text);
+  cursor:pointer;white-space:nowrap;flex-shrink:0;transition:border-color .15s,background .15s}
+.map-btn:hover{border-color:var(--border-strong);background:var(--bg)}
+.map-btn.playing{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.map-select{height:32px;padding:0 8px;border:1px solid var(--border);border-radius:0;font-family:inherit;
+  font-size:12px;background:var(--surface);color:var(--text);cursor:pointer;flex-shrink:0;box-sizing:border-box}
+.map-select-grow{flex:1;min-width:0}
+.map-fade{width:92px;accent-color:var(--accent);flex-shrink:0}
+.map-stage{position:relative;height:680px}
+/* Overlays sit on the map's own surface, so they cost no vertical space. Both are
+   translucent white rather than solid — a route under one stays readable. */
+.map-legend{position:absolute;left:14px;bottom:14px;z-index:500;display:flex;flex-direction:column;gap:5px;
+  padding:10px 12px;background:rgba(255,255,255,.94);border:1px solid var(--border);pointer-events:none}
+.map-legend-title{font-size:10px;font-weight:700;color:var(--text-light);margin-bottom:1px}
+.map-legend-row{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted)}
+.map-legend-row i{width:9px;height:9px;display:inline-block;font-style:normal;flex-shrink:0}
+.map-legend-row b{margin-left:auto;padding-left:14px;font-weight:400;color:var(--text-light)}
+.map-readout{position:absolute;right:14px;bottom:14px;z-index:500;display:flex;align-items:center;gap:12px;
+  padding:9px 14px;background:rgba(255,255,255,.94);border:1px solid var(--accent);pointer-events:none}
+.map-readout-name{font-size:12px;font-weight:700}
+.map-readout-sub{font-size:11px;color:var(--text-muted);margin-top:1px}
+.map-readout-pct{font-size:19px;font-weight:800;color:var(--accent);letter-spacing:-.4px}
+/* The picker's group headers. Notable first because it is what you would want to
+   watch; recent under it because it is what you would want to check. */
+#replayPick optgroup{font-size:11px;font-weight:700;color:var(--text-light)}
+#replayPick option{font-size:12px;font-weight:400;color:var(--text)}
+@media(max-width:1100px){
+  .map-tlabel{display:none}
+  .map-tgroup{gap:6px}
+}
+/* Two rows on a phone: Go to and Fade share the first, the replay picker and its
+   button take the second — the button beside the thing it acts on, not above it. */
 @media(max-width:640px){
-  .replay-bar{flex-wrap:wrap;gap:8px 10px}
-  .replay-bar>.ms{order:1}
-  .replay-select{order:2;flex:1;flex-basis:auto;height:44px;font-size:13px}
-  #replayBtn{order:3;flex-basis:100%;min-height:44px}
-  .replay-status{order:4;flex-basis:100%;white-space:normal}
+  /* Exactly two rows. Home drops to its icon and the fade slider to 64px so the
+     first row holds Go to and Fade together; the replay picker and its button take
+     the second, the button beside the thing it acts on rather than above it. Three
+     rows here would be 155px of toolbar — no better than the strips it replaced. */
+  .map-toolbar{flex-wrap:wrap;gap:8px;padding:8px}
+  .map-tdiv{display:none}
+  .map-tlabel{display:none}
+  .map-tgroup{flex:1 1 auto;min-width:0;gap:8px}
+  .map-tgroup-grow{flex:1 1 100%;order:3}
+  .map-btn,.map-select{height:44px;font-size:13px}
+  .map-btn{padding:0 12px}
+  #mapHomeBtn{width:44px;padding:0;justify-content:center;flex-shrink:0}
+  #mapHomeBtn .map-btn-text{display:none}
+  #mapHomeBtn .ms{font-size:19px}
+  #mapJumpSelect{width:auto!important;flex:1 1 auto;min-width:0}
+  .map-tgroup:last-of-type{flex:0 0 auto}
+  .map-fade{width:64px;flex-shrink:0}
+  #replayPick{flex:1 1 auto;min-width:0}
+  #replayBtn{width:44px;padding:0;justify-content:center;flex-shrink:0}
+  #replayBtn .ms{font-size:20px}
+  #replayBtnText{display:none}
+  .map-stage{height:420px}
+  .map-legend{left:10px;bottom:10px;padding:8px 10px;flex-direction:row;flex-wrap:wrap;gap:4px 10px;max-width:66%}
+  .map-legend-title{display:none}
+  .map-legend-row b{display:none}
+  .map-readout{right:10px;top:10px;bottom:auto;padding:6px 10px;gap:8px}
+  .map-readout-sub{display:none}
+  .map-readout-pct{font-size:15px}
 }
 .explore-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border)}
 .explore-row:last-child{border-bottom:none}
@@ -934,22 +997,46 @@ tbody td{padding:10px 14px;vertical-align:middle}
 </div>
 
 <div id="tab-map" class="tab-content">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:12px;flex-wrap:wrap">
-    <div id="mapLegend" style="display:flex;gap:10px;flex-wrap:wrap"></div>
-    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-      <span class="ms" style="font-size:15px;color:var(--text-muted)">contrast</span>
-      <span style="font-size:12px;color:var(--text-muted)">Fade</span>
-      <input type="range" min="0" max="90" value="0" oninput="setMapWhiteout(this.value)" style="width:110px;accent-color:var(--accent)">
+  <!-- The toolbar shares the map's border so the two read as one object. Everything
+       here used to be three separate strips above the map in three different styles. -->
+  <div class="map-object">
+    <div class="map-toolbar">
+      <div class="map-tgroup">
+        <span class="map-tlabel">Go to</span>
+        <button class="map-btn" id="mapHomeBtn" onclick="mapJumpHome()" title="Back to Longridge" aria-label="Back to home">
+          <span class="ms ms-fill" style="font-size:15px;color:var(--accent)">home</span><span class="map-btn-text">Home</span>
+        </button>
+        <select id="mapJumpSelect" class="map-select" style="width:136px" onchange="mapJumpTo(this.value)">
+          <option value="">Elsewhere…</option>
+        </select>
+      </div>
+
+      <span class="map-tdiv"></span>
+
+      <div class="map-tgroup map-tgroup-grow" id="replayGroup">
+        <span class="map-tlabel">Replay</span>
+        <select id="replayPick" class="map-select map-select-grow" onchange="stopReplay()"></select>
+        <button class="map-btn" id="replayBtn" onclick="toggleReplay()">
+          <span class="ms" id="replayBtnIcon" style="font-size:15px;color:var(--accent)">play_arrow</span><span id="replayBtnText">Replay</span>
+        </button>
+      </div>
+
+      <span class="map-tdiv"></span>
+
+      <div class="map-tgroup">
+        <label class="map-tlabel map-tlabel-icon" for="mapFade">
+          <span class="ms" style="font-size:15px;color:var(--text-light)">contrast</span>Fade
+        </label>
+        <input type="range" id="mapFade" min="0" max="90" value="0" oninput="setMapWhiteout(this.value)" class="map-fade">
+      </div>
+    </div>
+
+    <div class="map-stage">
+      <div id="mapContainer" style="height:100%;border-radius:0;overflow:hidden;background:#fff"></div>
+      <div id="mapLegend" class="map-legend"></div>
+      <div id="replayStatus" class="map-readout" style="display:none"></div>
     </div>
   </div>
-  <div id="mapJumpRow" class="loc-row" style="margin-bottom:8px"></div>
-  <div class="replay-bar" id="replayBar" style="display:none">
-    <span class="ms">play_circle</span>
-    <select id="replayPick" class="replay-select" onchange="stopReplay()"></select>
-    <button class="page-btn" id="replayBtn" onclick="toggleReplay()">Replay</button>
-    <span class="replay-status" id="replayStatus"></span>
-  </div>
-  <div id="mapContainer" style="height:600px;border-radius:0;overflow:hidden;border:1px solid var(--border);background:#fff"></div>
   <div class="section-header" style="margin-top:26px"><h2>Ground covered</h2><span class="badge" id="exploreBadge"></span></div>
   <div class="stats-grid" id="exploreStats"></div>
   <div class="chart-card" style="margin-top:4px">
@@ -3480,12 +3567,16 @@ function renderMap(data){
   // on screen next to an empty map.
   requestAnimationFrame(()=>renderExplored(withRoute,segsOf));
 
+  // Hide the whole object, toolbar included — hiding only the map container left an
+  // empty 680px stage with a toolbar on top of it controlling nothing.
+  const object=document.querySelector('.map-object');
   if(!withRoute.length&&!dotOnly.length){
     if(empty)empty.style.display='block';
-    if(container)container.style.display='none';
+    if(object)object.style.display='none';
     return;
   }
   if(empty)empty.style.display='none';
+  if(object)object.style.display='';
   if(container)container.style.display='block';
 
   const renderer=L.canvas();
@@ -3524,10 +3615,19 @@ function renderMap(data){
   buildReplayPicker(withRoute,segsOf);
 
   // Legend
+  // On the map now rather than above it, and carrying a count per sport — the space
+  // was free once it moved, so the legend may as well say how much of each there is.
   const legend=document.getElementById('mapLegend');
   if(legend){
-    const types=[...new Set(data.map(a=>mapTypeGroup(a.type)))];
-    legend.innerHTML=types.map(t=>`<span style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted)"><span style="width:10px;height:10px;border-radius:0;background:${groupColor(t)};display:inline-block;opacity:.8"></span>${t}</span>`).join('');
+    const counts={};
+    data.forEach(a=>{const t=mapTypeGroup(a.type);counts[t]=(counts[t]||0)+1;});
+    const types=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
+    legend.innerHTML=types.length
+      ? `<div class="map-legend-title">Sport</div>`+types.map(t=>
+          `<div class="map-legend-row"><i style="background:${groupColor(t)}"></i>${t}<b>${counts[t].toLocaleString('en-GB')}</b></div>`
+        ).join('')
+      : '';
+    legend.style.display=types.length?'':'none';
   }
 }
 
@@ -3543,32 +3643,116 @@ let _replayLookup={};
 
 // Longest first — a 3-mile loop traced across a whole county is a dot moving in a
 // corner, and the routes worth watching are the big ones.
+// The picker used to offer the 60 longest routes, so it always opened on the same
+// monster ride and there was no way to reach last Tuesday. It offers both now:
+// Notable first, because that is what you would want to watch, then Recent, because
+// that is what you would want to check. Everything here is computed from data already
+// in the payload — nothing to configure and nothing extra to fetch.
+let _replayCandidates=null;
+
+// Set by renderExplored, which already walks every route in date order counting new
+// cells. Recomputing that here would decode every polyline a second time.
+let _exploreBestNew=null;
+
 function buildReplayPicker(withRoute,segsOf){
-  const bar=document.getElementById('replayBar'),sel=document.getElementById('replayPick');
-  if(!bar||!sel)return;
+  const sel=document.getElementById('replayPick'),grp=document.getElementById('replayGroup');
+  if(!sel)return;
   stopReplay();
-  const candidates=withRoute
-    .filter(a=>segsOf(a).length===1)   // a route split by a privacy zone would jump the gap
-    .sort((a,b)=>(b.dist_mi||0)-(a.dist_mi||0))
-    .slice(0,REPLAY_MAX);
-  if(!candidates.length){bar.style.display='none';sel.innerHTML='';return;}
-  bar.style.display='flex';
-  sel.innerHTML=candidates.map(a=>
-    `<option value="${escapeAttr(a.id)}">${escapeHtml(a.name||a.type)} · ${fmtDist(a.dist_mi||0)} ${distUnit()} · ${fmtDate(a.date)}</option>`
-  ).join('');
+
+  // A route split into segments by a privacy zone is excluded: the marker would jump
+  // the gap rather than trace the ride.
+  const usable=withRoute.filter(a=>segsOf(a).length===1);
+  _replayCandidates={list:usable,segs:segsOf};
+  if(!usable.length){
+    sel.innerHTML='<option value="">No routes in this filter</option>';
+    sel.disabled=true;
+    if(grp)grp.style.opacity='.55';
+    _replayLookup={};
+    setReplayStatus('');
+    return;
+  }
+  sel.disabled=false;
+  if(grp)grp.style.opacity='';
+
+  const notable=[];
+  const seen=new Set();
+  // Each category takes the best route it can still have. One ride is often the
+  // winner of several — your biggest climb may also be the furthest from home — and
+  // simply skipping a category when its winner is taken quietly deleted the row. It
+  // falls to the runner-up instead, so every category that has any candidate at all
+  // contributes a line.
+  const add=(kind,score,fig)=>{
+    let pick=null,pickV=0;
+    for(const a of usable){
+      if(seen.has(a.id))continue;
+      const v=score(a);
+      if(v>0&&(!pick||v>pickV)){pick=a;pickV=v;}
+    }
+    if(!pick)return;
+    seen.add(pick.id);
+    notable.push({kind,act:pick,fig:fig(pick,pickV)});
+  };
+
+  // Order matters, because the first category to claim a ride keeps it. Rarest fact
+  // first: a race is a thing that happened, "fastest" is a superlative any ride can
+  // hold, so Fastest yields last rather than swallowing the race.
+  add('Race',a=>isRace(a)?(new Date(a.date).getTime()||1):0,
+    a=>fmtDist(a.dist_mi||0)+' '+distUnit()+' · '+a.date.slice(0,4));
+  // A ranked list rather than one winner, so this category can fall through too.
+  if(_exploreBestNew&&_exploreBestNew.length){
+    const rank={};_exploreBestNew.forEach(e=>{rank[e.act.id]=e;});
+    add('Most new ground',a=>rank[a.id]?rank[a.id].pct:0,(a,v)=>v+'% never ridden');
+  }
+  // 25 miles of floor, so a ride that merely started one town over is not "furthest".
+  add('Furthest out',
+    a=>(a.lat&&a.lng&&!a.near_home)?(milesFromHome(a.lat,a.lng)>25?milesFromHome(a.lat,a.lng):0):0,
+    (a,v)=>fmtDist(v)+' '+distUnit()+' from home');
+  add('Biggest climb',a=>a.elv||0,a=>fmtElv(a.elv));
+  add('Longest',a=>a.dist_mi||0,a=>fmtDist(a.dist_mi)+' '+distUnit());
+  // A distance floor, or the fastest route is a two-mile downhill sprint.
+  add('Fastest',a=>(a.dist_mi>=10?a.speed_mph:0)||0,a=>fmtSpeed(a.speed_mph));
+
+  const recent=usable.slice().sort((a,b)=>b.date.localeCompare(a.date))
+    .filter(a=>!seen.has(a.id)).slice(0,8);
+
+  const opt=(a,label)=>`<option value="${escapeAttr(a.id)}">${escapeHtml(label)}</option>`;
+  sel.innerHTML=
+    (notable.length?`<optgroup label="Notable">`+notable.map(n=>
+      opt(n.act,`${n.kind} · ${n.fig} · ${n.act.name||n.act.type}`)).join('')+`</optgroup>`:'')+
+    (recent.length?`<optgroup label="Recent">`+recent.map(a=>
+      opt(a,`${fmtDate(a.date)} · ${fmtDist(a.dist_mi||0)} ${distUnit()} · ${a.name||a.type}`)).join('')+`</optgroup>`:'');
+
   _replayLookup={};
-  candidates.forEach(a=>{_replayLookup[a.id]={act:a,segs:segsOf};});
+  usable.forEach(a=>{_replayLookup[a.id]={act:a,segs:segsOf};});
   setReplayStatus('');
 }
 
-function setReplayStatus(t){const el=document.getElementById('replayStatus');if(el)el.textContent=t;}
+// Called again once renderExplored has worked out which route covered the most new
+// ground, so that row can join the Notable group without decoding anything twice.
+function refreshReplayPicker(){
+  if(!_replayCandidates)return;
+  const sel=document.getElementById('replayPick');
+  const keep=sel?sel.value:'';
+  buildReplayPicker(_replayCandidates.list,_replayCandidates.segs);
+  if(sel&&keep&&sel.querySelector(`option[value="${CSS.escape(keep)}"]`))sel.value=keep;
+}
+
+// The readout lives on the map and only while something is playing — an empty status
+// line sitting under the toolbar was one more thing taking up space saying nothing.
+function setReplayStatus(html){
+  const el=document.getElementById('replayStatus');
+  if(!el)return;
+  if(!html){el.style.display='none';el.innerHTML='';return;}
+  el.style.display='';
+  el.innerHTML=html;
+}
 
 function stopReplay(){
   if(_replayRaf){cancelAnimationFrame(_replayRaf);_replayRaf=null;}
   if(_replayLine&&_map){_map.removeLayer(_replayLine);_replayLine=null;}
   if(_replayDot&&_map){_map.removeLayer(_replayDot);_replayDot=null;}
   _replayPts=null;
-  const btn=document.getElementById('replayBtn');if(btn)btn.textContent='Replay';
+  setReplayBtn(false);
   setReplayStatus('');
 }
 
@@ -3586,12 +3770,13 @@ function toggleReplay(){
   const col=groupColor(mapTypeGroup(a.type));
   _replayLine=L.polyline([pts[0]],{color:col,weight:4,opacity:.95}).addTo(_map);
   _replayDot=L.circleMarker(pts[0],{radius:6,color:'#fff',weight:2,fillColor:col,fillOpacity:1}).addTo(_map);
-  document.getElementById('replayBtn').textContent='Stop';
+  setReplayBtn(true);
 
   // Reduced motion gets the whole route drawn at once rather than no route at all.
   if(matchMedia('(prefers-reduced-motion:reduce)').matches){
     _replayLine.setLatLngs(pts);_replayDot.setLatLng(pts[pts.length-1]);
-    setReplayStatus(`${fmtDist(a.dist_mi||0)} ${distUnit()} · ${fmtTime(a.mt)}`);
+    setReplayBtn(false);
+    setReplayStatus(replayReadout(a,1));
     return;
   }
 
@@ -3601,13 +3786,35 @@ function toggleReplay(){
     const n=Math.max(1,Math.round(t*(pts.length-1)));
     _replayLine.setLatLngs(pts.slice(0,n+1));
     _replayDot.setLatLng(pts[n]);
-    setReplayStatus(`${Math.round(t*100)}% · ${fmtDist((a.dist_mi||0)*t)} of ${fmtDist(a.dist_mi||0)} ${distUnit()}`);
+    setReplayStatus(replayReadout(a,t));
     if(t<1){_replayRaf=requestAnimationFrame(step);return;}
     _replayRaf=null;
-    document.getElementById('replayBtn').textContent='Replay';
-    setReplayStatus(`${fmtDist(a.dist_mi||0)} ${distUnit()} · ${fmtTime(a.mt)} · ${fmtElv(a.elv)}`);
+    setReplayBtn(false);
+    setReplayStatus(replayReadout(a,1));
   };
   _replayRaf=requestAnimationFrame(step);
+}
+
+// The button carries an icon, so setting textContent on it wiped the icon out.
+function setReplayBtn(playing){
+  const b=document.getElementById('replayBtn');
+  const i=document.getElementById('replayBtnIcon');
+  const t=document.getElementById('replayBtnText');
+  if(!b)return;
+  b.classList.toggle('playing',!!playing);
+  if(i)i.textContent=playing?'stop_circle':'play_arrow';
+  if(t)t.textContent=playing?'Stop':'Replay';
+}
+
+function replayReadout(a,t){
+  const done=t>=1;
+  const covered=done?fmtDist(a.dist_mi||0)+' '+distUnit():`${fmtDist((a.dist_mi||0)*t)} of ${fmtDist(a.dist_mi||0)} ${distUnit()}`;
+  const sub=[covered,a.elv?fmtElv(a.elv):null,fmtDate(a.date)].filter(Boolean).join(' \u00b7 ');
+  return `<div style="min-width:0">
+      <div class="map-readout-name">${escapeHtml(a.name||a.type)}</div>
+      <div class="map-readout-sub">${sub}</div>
+    </div>
+    <div class="map-readout-pct">${done?fmtTime(a.mt):Math.round(t*100)+'%'}</div>`;
 }
 
 // ── GROUND COVERED ──
@@ -3650,13 +3857,15 @@ function renderExplored(withRoute,segsOf){
     statsEl.innerHTML='';
     yearsEl.innerHTML='<div class="chart-empty" style="height:80px">No GPS routes in this filter.</div>';
     if(badgeEl)badgeEl.textContent='';
+    _exploreBestNew=null;
+    refreshReplayPicker();
     return;
   }
 
   // Chronological, so "new" always means new relative to everything before it.
   const acts=[...withRoute].sort((a,b)=>a.date.localeCompare(b.date));
   const seen=new Set(),byYear={};
-  let furthest=null,furthestMi=0;
+  let furthest=null,furthestMi=0;const bestNew=[];
   acts.forEach(a=>{
     const y=a.date.slice(0,4);
     if(!byYear[y])byYear[y]={total:0,fresh:0,acts:0,best:null,bestFresh:0};
@@ -3665,6 +3874,12 @@ function renderExplored(withRoute,segsOf){
     cells.forEach(k=>{if(!seen.has(k)){fresh++;seen.add(k);}});
     byYear[y].total+=cells.size;byYear[y].fresh+=fresh;byYear[y].acts++;
     if(fresh>byYear[y].bestFresh){byYear[y].bestFresh=fresh;byYear[y].best=a;}
+    // Proportion, not raw count, so a short ride into genuinely new country beats a
+    // long one that was mostly familiar. Handed to the replay picker afterwards.
+    if(cells.size>=20){
+      const pct=Math.round(fresh/cells.size*100);
+      if(pct>=15)bestNew.push({act:a,pct});
+    }
     if(a.lat&&a.lng&&!a.near_home){
       const mi=milesFromHome(a.lat,a.lng);
       if(mi>furthestMi){furthestMi=mi;furthest=a;}
@@ -3703,6 +3918,12 @@ function renderExplored(withRoute,segsOf){
       <div class="stat-sub">${bestAct?`${escapeHtml(bestAct.name||'Untitled')} · ${fmtDate(bestAct.date)}`:'—'}</div>
     </div>`;
 
+  // The picker's "Most new ground" row comes from this walk rather than repeating it.
+  // Top five by proportion: a ranked list, so if the leader is already claimed by
+  // another category the row falls to the next rather than disappearing.
+  _exploreBestNew=bestNew.sort((x,y)=>y.pct-x.pct).slice(0,5);
+  refreshReplayPicker();
+
   const maxTotal=Math.max(...years.map(y=>byYear[y].total),1);
   yearsEl.innerHTML=years.map(y=>{
     const v=byYear[y];
@@ -3731,15 +3952,23 @@ const JUMP_LOCATIONS=[
   {name:'Denmark',    bounds:[[54.55, 8.07],[57.75,15.20]], zoom:7},
 ];
 
+// Eight pills were a full row — and a wrapped second row below about 1150px — for
+// something used occasionally. Home keeps its button because it is the one you press;
+// the rest collapse into a single control.
 function buildMapJumpButtons(){
-  const el=document.getElementById('mapJumpRow');
+  const el=document.getElementById('mapJumpSelect');
   if(!el)return;
-  el.innerHTML=
-    `<div class="loc-pill" style="cursor:pointer" onclick="mapJumpHome()"><span class="ms ms-fill" style="font-size:13px;color:var(--accent)">home</span> Home</div>`+
-    JUMP_LOCATIONS.map(p=>
-      `<div class="loc-pill" style="cursor:pointer" onclick='mapJumpToBounds(${JSON.stringify(p.bounds)},${p.zoom})'>`+
-      `<span class="ms ms-fill" style="font-size:13px;color:var(--accent)">location_on</span> ${p.name}</div>`
-    ).join('');
+  el.innerHTML='<option value="">Elsewhere…</option>'+
+    JUMP_LOCATIONS.map((p,i)=>`<option value="${i}">${escapeHtml(p.name)}</option>`).join('');
+}
+
+function mapJumpTo(i){
+  const p=JUMP_LOCATIONS[+i];
+  if(!p)return;
+  mapJumpToBounds(p.bounds,p.zoom);
+  // Reset to the prompt so picking the same place twice in a row still fires.
+  const el=document.getElementById('mapJumpSelect');
+  if(el)el.value='';
 }
 </script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
