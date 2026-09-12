@@ -314,35 +314,64 @@ a{color:inherit;text-decoration:none}
 .soc-caveat div{font-size:12px;color:var(--text-muted);line-height:1.6}
 .soc-caveat strong{color:var(--text);font-weight:700}
 .soc-tbl{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow)}
-.soc-head,.soc-row{display:grid;grid-template-columns:36px 150px 1fr 86px 98px 110px 86px;gap:12px;align-items:center;padding:0 16px}
+.soc-head,.soc-row{display:grid;grid-template-columns:34px minmax(0,2fr) minmax(92px,.8fr) minmax(100px,.8fr) minmax(104px,.9fr) 92px;gap:14px;align-items:center;padding:0 16px}
 .soc-head{height:32px;background:var(--bg);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;color:var(--text-light)}
-.soc-row{height:48px;border-bottom:1px solid var(--bg);font-size:12.5px;cursor:pointer;transition:background .12s}
+.soc-row{min-height:52px;border-bottom:1px solid var(--bg);font-size:12.5px;cursor:pointer;transition:background .12s}
 .soc-row:last-child{border-bottom:none}
 .soc-row:hover{background:var(--bg)}
-.soc-av{width:26px;height:26px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700}
-.soc-nm{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.soc-nm small{display:block;font-size:10.5px;font-weight:400;color:var(--text-light);margin-top:1px}
-.soc-mix{display:flex;height:8px;overflow:hidden}
-.soc-mix span{display:block;height:100%}
-.soc-num{font-weight:700;font-variant-numeric:tabular-nums}
-.soc-mut{color:var(--text-muted);font-size:11.5px;font-variant-numeric:tabular-nums}
-.soc-warm{font-size:10px;font-weight:700;padding:1px 6px;white-space:nowrap}
+.soc-av{width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700}
+.soc-nm{min-width:0}
+.soc-nm-top{display:flex;align-items:center;gap:7px;font-weight:700;min-width:0}
+.soc-nm-top>:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.soc-dots{display:inline-flex;gap:3px;flex-shrink:0}
+.soc-dots i{width:7px;height:7px;display:block;font-style:normal}
+.soc-nm small{display:block;font-size:10.5px;font-weight:400;color:var(--text-light);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.soc-also{font-style:normal;color:var(--text-muted)}
+/* display:contents lets one wrapper hold the three figures for the phone layout
+   without disturbing the desktop grid, where they stay individual columns. */
+.soc-meta{display:contents}
+.soc-cell{font-variant-numeric:tabular-nums;white-space:nowrap}
+.soc-cell b{font-weight:700;font-size:13.5px}
+.soc-cell span{color:var(--text-light);font-size:11px}
+.soc-cell::before{content:attr(data-lbl) ': ';display:none;color:var(--text-light);font-size:11px}
+.soc-last{display:flex;align-items:center;min-width:0}
+.soc-ago{color:var(--text-muted)}
+.soc-ago b{font-weight:400}
+.soc-warm{font-size:10px;font-weight:700;padding:2px 7px;white-space:nowrap}
 .soc-note{font-size:11.5px;color:var(--text-muted);margin-top:10px;max-width:104ch;line-height:1.6}
+.soc-note strong{color:var(--text);font-weight:700}
 /* Partner panel, on the gear/activity modal shell. */
 .soc-modal-head{display:flex;align-items:center;gap:14px;padding:20px 22px 0}
 .soc-modal-av{width:52px;height:52px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:21px;font-weight:700;flex-shrink:0}
+.soc-variants{display:flex;flex-wrap:wrap;gap:7px}
+.soc-variant{display:inline-flex;align-items:baseline;gap:6px;font-size:12px;padding:5px 10px;border:1px solid var(--border);color:var(--text-muted)}
+.soc-variant.is-primary{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:700}
+.soc-variant b{font-weight:700;font-size:11px;opacity:.7}
+.soc-variant-note{font-size:11px;color:var(--text-light);line-height:1.6;margin-top:8px}
 @media(max-width:900px){
-  .soc-head,.soc-row{grid-template-columns:36px 1fr 84px 104px 86px}
-  .soc-head>:nth-child(3),.soc-row>:nth-child(3),
-  .soc-head>:nth-child(5),.soc-row>:nth-child(5){display:none}
+  .soc-head,.soc-row{grid-template-columns:34px minmax(0,1.6fr) 78px 92px 96px 88px;gap:10px}
 }
 @media(max-width:640px){
   .soc-lead{padding:16px 17px}
   .soc-lead-n{font-size:26px}
-  .soc-head,.soc-row{grid-template-columns:32px 1fr 84px;gap:10px;padding:0 14px}
-  .soc-head>:nth-child(5),.soc-row>:nth-child(5),
-  .soc-head>:nth-child(6),.soc-row>:nth-child(6){display:none}
-  .soc-row{height:56px}
+  /* Two lines instead of five columns. The old rule dropped distance and
+     last-out on a phone, which hid the two figures the table exists for. */
+  .soc-head{display:none}
+  .soc-row{display:grid;grid-template-columns:32px 1fr auto;grid-template-areas:'av nm warm' '. meta meta';
+    gap:5px 10px;padding:11px 14px;min-height:0;align-items:center}
+  .soc-avc{grid-area:av;align-self:start;padding-top:1px}
+  .soc-nm{grid-area:nm}
+  .soc-last{grid-area:warm;align-self:start}
+  .soc-meta{display:block;grid-area:meta;font-size:12px;line-height:1.5}
+  .soc-cell{display:inline;white-space:normal}
+  /* "34 out · 733 mi" needs no labels — the units say which is which. Only the
+     date does, and it gets the short form so the line stays on one row. */
+  .soc-cell::before{display:none}
+  .soc-cell+.soc-cell::before{content:' · ';display:inline}
+  .soc-cell.soc-ago::before{content:' · last out ';display:inline}
+  .soc-cell b{font-size:12.5px}
+  .soc-ago{color:var(--text-muted)}
+  .soc-nm small{white-space:normal}
 }
 @media(max-width:900px){
   .rec-head,.rec-row{grid-template-columns:150px 104px 1fr 104px}
@@ -2887,13 +2916,48 @@ function socAgo(dateStr){
   const d=Math.floor((new Date()-new Date(dateStr+'T12:00:00'))/86400000);
   if(d<=1)return'yesterday';
   if(d<7)return d+' days ago';
-  if(d<35)return Math.round(d/7)+' weeks ago';
-  if(d<365)return Math.max(1,Math.round(d/30.4))+' months ago';
+  if(d<35){const w=Math.max(1,Math.round(d/7));return w+(w===1?' week ago':' weeks ago');}
+  if(d<365){const mo=Math.max(1,Math.round(d/30.4));return mo+(mo===1?' month ago':' months ago');}
   const y=d/365.25;
   return Math.round(y)+(Math.round(y)===1?' year ago':' years ago');
 }
 
 let SOC_PARTNERS={};
+
+// ── MERGING THE SAME PERSON WRITTEN SEVERAL WAYS ──
+// These names are free text typed into a Strava title over eleven years, with
+// no identity behind them, so "Pip", "PiP" and "Pip 💍" arrive as three people
+// and "CCC" and "CCC Chaint" as two. The only thing to match on is the text.
+//
+// Two rules, deliberately conservative:
+//   1. Canonical form — emoji, accents, apostrophes, punctuation and case all
+//      removed. This is what collapses Pip / PiP / Pip 💍.
+//   2. Whole-word prefix absorption — "ccc" swallows "ccc chaint", because the
+//      shorter name is how you usually write them and the longer one is the
+//      same person with a surname or a club suffix attached. It is a WORD
+//      prefix, not a character prefix, so "al" never swallows "alice".
+const SOC_EMOJI=/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE00}-\u{FE0F}\u{200D}]/gu;
+function socCanon(name){
+  return String(name||'')
+    .replace(SOC_EMOJI,' ')
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/['’`.]/g,'')
+    .replace(/[^A-Za-z0-9 ]+/g,' ')
+    .trim().replace(/\s+/g,' ')
+    .toLowerCase();
+}
+// Resolve every canonical form to the group it belongs to. Sorting shortest
+// first means a host is always already resolved when something absorbs into it,
+// so "ccc chaint cc" lands on "ccc" in one pass rather than needing a fixpoint.
+function socGroupMap(canons){
+  const keys=[...new Set(canons)].filter(Boolean).sort((a,b)=>a.length-b.length||a.localeCompare(b));
+  const map={};
+  keys.forEach(c=>{
+    const host=keys.find(k=>k!==c&&k.length>=2&&k.length<c.length&&c.startsWith(k+' '));
+    map[c]=host?(map[host]||host):c;
+  });
+  return map;
+}
 
 function renderSocial(){
   const data=getFiltered();
@@ -2937,19 +3001,45 @@ function renderSocial(){
   }
 
   // ── Named partners, from the titles ──
+  // Two passes: collect every spelling that appears, work out which spellings
+  // are the same person, then aggregate against the merged group.
+  const raw=[];
+  data.forEach(a=>extractPartners(a.name).forEach(p=>raw.push({p,a})));
+  const groupOf=socGroupMap(raw.map(r=>socCanon(r.p)));
   const pm={};
-  data.forEach(a=>extractPartners(a.name).forEach(p=>{
-    if(!pm[p])pm[p]={name:p,count:0,dist:0,time:0,types:{},first:a.date,last:a.date,acts:[]};
-    const e=pm[p];
+  raw.forEach(({p,a})=>{
+    const key=groupOf[socCanon(p)]||socCanon(p);
+    if(!key)return;
+    if(!pm[key])pm[key]={key,count:0,dist:0,time:0,types:{},first:a.date,last:a.date,acts:[],variants:{}};
+    const e=pm[key];
     e.count++;e.dist+=a.dist_mi||0;e.time+=a.mt||0;
+    e.variants[p]=(e.variants[p]||0)+1;
     const g=typeGroup(a.type);e.types[g]=(e.types[g]||0)+1;
     if(a.date<e.first)e.first=a.date;
     if(a.date>e.last)e.last=a.date;
     e.acts.push(a);
-  }));
+  });
+  // Which spelling to show. Frequency alone is not enough: "pip" can outnumber
+  // "Pip" and "sam!" can outnumber "Sam", and neither is the name you would
+  // write on a card. Score tidiness first — matches the group's canonical form,
+  // starts with a capital, carries no stray punctuation or emoji — and only use
+  // frequency to break the tie.
+  const tidiness=(v,key)=>
+    (socCanon(v)===key?8:0)+
+    (/^\p{Lu}/u.test(v.trim())?4:0)+
+    (/^\p{L}[\p{L} '’-]*$/u.test(v.trim())?2:0);
+  Object.values(pm).forEach(e=>{
+    const vs=Object.keys(e.variants).sort((x,y)=>
+      tidiness(y,e.key)-tidiness(x,e.key)||
+      e.variants[y]-e.variants[x]||
+      x.length-y.length||x.localeCompare(y));
+    e.name=vs[0];
+    e.alsoWritten=vs.slice(1);
+  });
   // Sorted by recency, not by lifetime total — which is what both old charts did.
   const partners=Object.values(pm).sort((x,y)=>y.last.localeCompare(x.last));
   SOC_PARTNERS={};partners.forEach((p,i)=>{p.colour=SOC_AVATAR[i%SOC_AVATAR.length];SOC_PARTNERS[p.name]=p;});
+  const mergedCount=partners.reduce((s,p)=>s+(p.alsoWritten.length?1:0),0);
 
   const pBadge=document.getElementById('socPartnerBadge');
   if(pBadge)pBadge.textContent=partners.length
@@ -2961,24 +3051,36 @@ function renderSocial(){
     if(!partners.length){
       wrap.innerHTML=`<div class="chart-empty" style="height:90px;border:1px solid var(--border);background:var(--surface)">No activity titles contain &ldquo;w/ Name&rdquo;, so there is nobody to list. Adding a name in Strava adds a row here.</div>`;
     }else{
-      const maxMix=p=>Object.entries(p.types).sort((a,b)=>b[1]-a[1]);
+      // The sport mix used to be a column of its own. It is three dots now, sized
+      // by share and sitting next to the name, which frees the width that the
+      // distance and last-out columns used to be dropped to make room for.
+      const dots=p=>Object.entries(p.types).sort((a,b)=>b[1]-a[1]).slice(0,3)
+        .map(([g,n])=>`<i style="background:${groupColor(g)};opacity:${(0.45+0.55*n/p.count).toFixed(2)}" title="${escapeAttr(g)} · ${n}"></i>`).join('');
       wrap.innerHTML=`<div class="soc-tbl">
-        <div class="soc-head"><div></div><div>Partner</div><div>Sports together</div><div>Together</div><div>Distance</div><div>Last out</div><div></div></div>
+        <div class="soc-head"><div></div><div>Partner</div><div>Together</div><div>Distance</div><div>Last out</div><div></div></div>
         ${partners.map(p=>{
           const st=socStanding(p.last);
-          const mix=maxMix(p).map(([g,n])=>`<span style="width:${n/p.count*100}%;background:${groupColor(g)}" title="${g} · ${n}"></span>`).join('');
+          const also=p.alsoWritten.length
+            ? `<em class="soc-also" title="${escapeAttr('Merged from: '+p.alsoWritten.join(', '))}">also ${escapeHtml(p.alsoWritten.slice(0,2).join(', '))}${p.alsoWritten.length>2?' +'+(p.alsoWritten.length-2):''}</em>`
+            : '';
           return `<div class="soc-row" data-partner="${escapeAttr(p.name)}">
-            <div><span class="soc-av" style="background:${p.colour}">${escapeHtml(socInitials(p.name))}</span></div>
-            <div class="soc-nm">${escapeHtml(p.name)}<small>first out ${fmtDate(p.first)}</small></div>
-            <div class="soc-mix">${mix}</div>
-            <div class="soc-num">${p.count.toLocaleString('en-GB')}</div>
-            <div class="soc-num">${fmtDist(p.dist)} ${distUnit()}</div>
-            <div class="soc-mut">${socAgo(p.last)}</div>
-            <div><span class="soc-warm" style="color:${st.col};background:${st.bg}">${st.label}</span></div>
+            <div class="soc-avc"><span class="soc-av" style="background:${p.colour}">${escapeHtml(socInitials(p.name))}</span></div>
+            <div class="soc-nm">
+              <span class="soc-nm-top">${escapeHtml(p.name)}<span class="soc-dots">${dots(p)}</span></span>
+              <small>since ${fmtDate(p.first)}${also?' · ':''}${also}</small>
+            </div>
+            <div class="soc-meta">
+              <div class="soc-cell" data-lbl="Together"><b>${p.count.toLocaleString('en-GB')}</b> <span>out</span></div>
+              <div class="soc-cell" data-lbl="Distance"><b>${fmtDist(p.dist)}</b> <span>${distUnit()}</span></div>
+              <div class="soc-cell soc-ago" data-lbl="Last out">${socAgo(p.last)}</div>
+            </div>
+            <div class="soc-last"><span class="soc-warm" style="color:${st.col};background:${st.bg}">${st.label}</span></div>
           </div>`;
         }).join('')}
       </div>
-      <div class="soc-note">One table where there were two charts: activities and distance ranked the same people in the same order, so the second said nothing the first had not. A row opens that partner, the way gear and activities do.</div>`;
+      <div class="soc-note">${mergedCount
+        ? `<strong>${mergedCount} ${mergedCount===1?'person was':'people were'} written more than one way</strong> and have been merged — case, emoji and a trailing surname or club name are ignored, so Pip, PiP and Pip&nbsp;💍 are one row. The merged spellings are listed under each name; open a row to see them all. `
+        : ''}Rows carry every figure at every width rather than dropping columns on a narrow screen. A row opens that partner, the way gear and activities do.</div>`;
     }
   }
 
@@ -3049,6 +3151,12 @@ function openPartnerModal(name){
     </div>
     <div class="gear-modal-body">
       <div class="gear-modal-stats">${stats.map(s=>`<div><div class="gear-modal-stat-label">${s.label}</div><div class="gear-modal-stat-value">${s.value}</div></div>`).join('')}</div>
+      ${p.alsoWritten&&p.alsoWritten.length?`
+      <div class="gear-modal-section-title">Also written as</div>
+      <div class="soc-variants">${[p.name,...p.alsoWritten].map(v=>
+        `<span class="soc-variant${v===p.name?' is-primary':''}">${escapeHtml(v)}<b>${(p.variants[v]||0).toLocaleString('en-GB')}</b></span>`).join('')}
+      </div>
+      <div class="soc-variant-note">These spellings were merged into one person. If any of them is someone else, the fix is in the Strava activity title — this reads the text, because that is all Strava gives it.</div>`:''}
       <div class="gear-modal-section-title">What you do together</div>
       <div class="gear-modal-types">${top.map(([g,n])=>
         `<div class="gear-modal-type-chip" style="color:${groupColor(g)}">${typeEmoji(g)} ${g} · ${n} · ${fmtDist(p.acts.filter(a=>typeGroup(a.type)===g).reduce((s,a)=>s+(a.dist_mi||0),0))} ${distUnit()}</div>`).join('')}</div>
