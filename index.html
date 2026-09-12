@@ -126,10 +126,6 @@ a{color:inherit;text-decoration:none}
 .chart-chip strong{font-size:13px;font-weight:700}
 .chart-verdict{font-size:11px;color:var(--text-muted);line-height:1.55;margin-top:12px}
 .chart-verdict:empty,.chart-chips:empty{display:none}
-.zone-split{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
-.zone-chip{display:flex;align-items:baseline;gap:6px;padding:5px 11px;font-size:11px;font-weight:600}
-.zone-chip strong{font-size:13px;font-weight:700}
-.zone-verdict{font-size:11px;color:var(--text-muted);line-height:1.55;margin-top:12px}
 /* ── THE MAP AND ITS CONTROLS, AS ONE OBJECT ──
    There used to be three strips above the map in three different treatments: a bare
    legend-and-fade row, a row of eight jump pills, and a bordered, shadowed replay bar.
@@ -941,6 +937,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
 <!-- CHARTS -->
 <div id="tab-charts" class="tab-content">
+  <div class="section-header"><h2>Volume</h2><span class="badge">How much — miles, feet, and whether you're ahead of yourself</span></div>
   <div class="charts-grid wide">
     <div class="chart-card">
       <div class="chart-title" id="firstChartTitle">Monthly Distance</div>
@@ -953,15 +950,18 @@ tbody td{padding:10px 14px;vertical-align:middle}
   </div>
   <div class="charts-grid" id="yoyDonutGrid">
     <div class="chart-card" id="yoyChartCard">
-      <div class="chart-title">Year-over-Year Distance</div>
-      <div class="chart-sub" id="yoyChartSub">Total distance per year</div>
+      <div class="chart-title">Rolling 12 Months</div>
+      <div class="chart-sub" id="yoyChartSub">Distance in the twelve months ending each month</div>
       <div class="chart-wrap"><canvas id="chartYoY"></canvas></div>
+      <div id="rollChips" class="chart-chips"></div>
+      <div id="rollVerdict" class="chart-verdict"></div>
     </div>
     <div class="chart-card" id="donutChartCard">
       <div class="chart-title">Activity Mix</div>
       <div class="chart-sub">Share of activities by type</div>
       <div class="chart-wrap"><canvas id="chartDonut"></canvas></div>
       <div id="mixChips" class="chart-chips"></div>
+      <div id="mixVerdict" class="chart-verdict"></div>
     </div>
   </div>
   <div class="charts-grid wide">
@@ -973,41 +973,47 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <div id="elevVerdict" class="chart-verdict"></div>
     </div>
   </div>
-  <div class="charts-grid" id="paceChartRow">
-    <div class="chart-card">
-      <div class="chart-title">Run Pace Trend</div>
-      <div class="chart-sub">Average pace per month (runs only)</div>
-      <div class="chart-wrap"><canvas id="chartPace"></canvas></div>
-    </div>
-    <div class="chart-card">
-      <div class="chart-title">Calories Burned</div>
-      <div class="chart-sub">Monthly total calories</div>
-      <div class="chart-wrap"><canvas id="chartCals"></canvas></div>
-    </div>
-  </div>
+  <div class="section-header"><h2>Intensity</h2><span class="badge">How hard — the half of training volume can't tell you</span></div>
   <div class="charts-grid wide">
     <div class="chart-card" id="zoneCard">
       <div class="chart-title">Where your heart rate actually sits</div>
       <div class="chart-sub" id="zoneSub">Time in each heart-rate zone, across every activity with HR data</div>
       <div class="chart-wrap"><canvas id="chartZones"></canvas></div>
-      <div id="zoneSplit" class="zone-split"></div>
-      <div id="zoneVerdict" class="zone-verdict"></div>
+      <div id="zoneChips" class="chart-chips"></div>
+      <div id="zoneVerdict" class="chart-verdict"></div>
     </div>
   </div>
-  <div class="charts-grid" id="effortTimeRow">
-    <div class="chart-card">
+  <div class="charts-grid" id="paceChartRow">
+    <div class="chart-card" id="effortCard">
       <div class="chart-title">Relative Effort</div>
       <div class="chart-sub" id="effortSub">Strava's suffer score, totalled per month</div>
       <div class="chart-wrap"><canvas id="chartEffort"></canvas></div>
       <div id="effortChips" class="chart-chips"></div>
       <div id="effortVerdict" class="chart-verdict"></div>
     </div>
+    <div class="chart-card" id="paceCard">
+      <div class="chart-title">Run Pace Trend</div>
+      <div class="chart-sub">Average pace per month (runs only)</div>
+      <div class="chart-wrap"><canvas id="chartPace"></canvas></div>
+      <div id="paceChips" class="chart-chips"></div>
+      <div id="paceVerdict" class="chart-verdict"></div>
+    </div>
+  </div>
+  <div class="section-header"><h2>Habits</h2><span class="badge">How you train — the patterns you don't choose</span></div>
+  <div class="charts-grid" id="effortTimeRow">
     <div class="chart-card">
       <div class="chart-title">When you train</div>
       <div class="chart-sub" id="todSub">Activities by hour of day</div>
       <div class="chart-wrap"><canvas id="chartTod"></canvas></div>
       <div id="todChips" class="chart-chips"></div>
       <div id="todVerdict" class="chart-verdict"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Moving vs stopped</div>
+      <div class="chart-sub" id="moveSub">Share of elapsed time actually spent moving, per month</div>
+      <div class="chart-wrap"><canvas id="chartMove"></canvas></div>
+      <div id="moveChips" class="chart-chips"></div>
+      <div id="moveVerdict" class="chart-verdict"></div>
     </div>
   </div>
   <div id="yearCalDayDetail"></div>
@@ -1687,7 +1693,11 @@ function renderCharts(){
   document.getElementById('donutChartCard').style.display=isSpecificType?'none':'block';
   document.getElementById('yoyChartCard').style.gridColumn=isSpecificType?'1 / -1':'';
   document.getElementById('yoyDonutGrid').style.gridTemplateColumns=isSpecificType?'1fr':'';
-  document.getElementById('paceChartRow').style.display=(activeType==='All'||activeType==='Run')?'grid':'none';
+  // Run pace only means something for runs. When it goes, Relative Effort takes
+  // the whole row rather than sitting half-width beside a hole.
+  const showPace=(activeType==='All'||activeType==='Run');
+  document.getElementById('paceCard').style.display=showPace?'block':'none';
+  document.getElementById('effortCard').style.gridColumn=showPace?'':'1 / -1';
 
   // First chart: year calendar or monthly bar
   document.getElementById('firstChartMonthly').style.display=isSpecificYear?'none':'block';
@@ -1714,31 +1724,15 @@ function renderCharts(){
     });
   }
 
-  // YoY — filter by type when specific type selected
-  const allYears=[...new Set(ALL_DATA.map(a=>a.date.slice(0,4)))].sort();
+  // ── Rolling 12 months ──
+  // This replaced a year-over-year bar chart, which could say "was last year
+  // bigger" but never "am I ahead of where I was" — a part-finished year is a
+  // short bar for a reason the chart cannot show. Every point on this line
+  // covers a full twelve months, so a rise is a real rise. It deliberately
+  // ignores the year filter: a rolling year is a multi-year measurement, and
+  // the scope line above says so.
   destroyChart('yoy');
-  let yoyDatasets;
-  if(isSpecificType){
-    const yoyTypeDist={};
-    ALL_DATA.forEach(a=>{
-      const g=typeGroup(a.type);
-      const match=activeType==='Ride'?(g==='Ride'||g==='Virtual'):g===activeType;
-      if(!match)return;
-      const y=a.date.slice(0,4);
-      yoyTypeDist[y]=(yoyTypeDist[y]||0)+(a.dist_mi||0);
-    });
-    yoyDatasets=[{label:activeType,data:allYears.map(y=>unit==='mi'?+(yoyTypeDist[y]||0).toFixed(0):+((yoyTypeDist[y]||0)*1.60934).toFixed(0)),backgroundColor:groupColor(activeType),borderRadius:0}];
-    document.getElementById('yoyChartSub').textContent=activeType+' distance per year';
-  }else{
-    const yoyDist={};
-    ALL_DATA.forEach(a=>{const y=a.date.slice(0,4),g=typeGroup(a.type);if(!yoyDist[y])yoyDist[y]={};yoyDist[y][g]=(yoyDist[y][g]||0)+(a.dist_mi||0);});
-    yoyDatasets=typeKeys.map((t,i)=>{return{label:t,data:allYears.map(y=>unit==='mi'?+((yoyDist[y]||{})[t]||0).toFixed(0):+(((yoyDist[y]||{})[t]||0)*1.60934).toFixed(0)),backgroundColor:colorFull[i],borderRadius:0,borderSkipped:false};});
-    document.getElementById('yoyChartSub').textContent='Total distance per year by type';
-  }
-  charts.yoy=new Chart(document.getElementById('chartYoY').getContext('2d'),{
-    type:'bar',data:{labels:allYears,datasets:yoyDatasets},
-    options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}}},responsive:true,maintainAspectRatio:false,scales:{x:{stacked:!isSpecificType,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:!isSpecificType,grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()}}},interaction:{mode:'index'}}
-  });
+  renderRolling12(isSpecificType);
 
   // Donut (only when All type)
   if(!isSpecificType){
@@ -1777,26 +1771,115 @@ function renderCharts(){
       ]},
       options:{plugins:{legend:{display:true,labels:{filter:(i)=>i.datasetIndex>0,boxWidth:20,font:{size:10},color:'#6b7280'}}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{reverse:true,grid:{color:'#f0f0f0'},ticks:{callback:v=>{const mm=Math.floor(v),ss=Math.round((v-mm)*60);return mm+':'+String(ss).padStart(2,'0')+(unit==='mi'?'/mi':'/km');},font:{size:10}}}}}
     });
-  }
+    // A pace line without figures under it makes you read the axis to answer
+    // "am I getting quicker", which is the only question it is being asked.
+    if(!pm.length)chartSummary('pace',[],'');
+    else{
+      const avgOf=m=>{const v=rpm[m];return v.reduce((s,x)=>s+x,0)/v.length;};
+      const all=pm.map(avgOf);
+      const mean=all.reduce((s,x)=>s+x,0)/all.length;
+      const bestIdx=all.indexOf(Math.min(...all));
+      const recent=pm.slice(-3),earlier=pm.slice(0,-3);
+      const meanOf=ms=>ms.length?ms.map(avgOf).reduce((s,x)=>s+x,0)/ms.length:0;
+      const rAvg=meanOf(recent),eAvg=meanOf(earlier);
+      const chips=[
+        {n:fmtPace(mean),label:'average',col:'#ef4444'},
+        {n:fmtPace(all[bestIdx]),label:'best month · '+monthLabel(pm[bestIdx]),col:'#16a34a'},
+      ];
+      let verdict='';
+      if(earlier.length&&rAvg>0&&eAvg>0){
+        // pace_mi is seconds per mile; the delta has to be converted like the
+        // axis is, or a km reader gets a mile-sized number.
+        const per=unit==='mi'?1:1/1.60934,uw=unit==='mi'?'a mile':'a kilometre';
+        const d=Math.round((rAvg-eAvg)*per);
+        chips.push({n:(d<=0?'−':'+')+Math.abs(d)+'s',label:'recent vs earlier',col:d<=0?'#16a34a':'#f59e0b'});
+        verdict=d===0
+          ?`The last three months are within a second ${uw} of everything before them — flat, whatever the line looks like.`
+          :d<0
+          ?`The last three months average ${Math.abs(d)} seconds ${uw} quicker than everything before them.`
+          :`The last three months average ${d} seconds ${uw} slower than everything before them — worth knowing whether that is fatigue, terrain, or deliberate easy running.`;
+      }else verdict=`${pm.length} month${pm.length===1?'':'s'} with runs in them. A trend needs a few more.`;
+      chartSummary('pace',chips,verdict);
+    }
+  }else chartSummary('pace',[],'');
 
-  // Calories
-  const monthCal={};data.forEach(a=>{const m=a.date.slice(0,7);if(!monthCal[m])monthCal[m]=0;monthCal[m]+=(a.cal||0);});
-  destroyChart('cals');
-  charts.cals=new Chart(document.getElementById('chartCals').getContext('2d'),{
-    type:'bar',data:{labels:monthKeys.map(monthLabel),datasets:[{data:monthKeys.map(m=>Math.round(monthCal[m]||0)),backgroundColor:'#ec4899',borderRadius:0}]},
-    options:{plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'#f0f0f0'},ticks:{callback:v=>v.toLocaleString(),font:{size:11}}}}}
-  });
+  // Calories had its own monthly bar chart here. It was Monthly Distance with a
+  // different y-axis — calories in this data derive from distance and duration,
+  // so the two silhouettes were the same. The total survives as a chip on the
+  // distance card, which is the only part of it that was telling you anything.
 
   renderSummaryLines(data,monthKeys,typeKeys,colorFull);
   renderExtraCharts(data,monthKeys);
 }
 
+// Enumerate every month from first to last inclusive, including the empty ones —
+// a rolling total that skipped a month with no activities would quietly shorten
+// its own window and overstate the result.
+function monthsBetween(first,last){
+  const out=[];let [y,m]=first.split('-').map(Number);
+  const [ly,lm]=last.split('-').map(Number);
+  while(y<ly||(y===ly&&m<=lm)){out.push(y+'-'+String(m).padStart(2,'0'));m++;if(m>12){m=1;y++;}}
+  return out;
+}
+
+function renderRolling12(isSpecificType){
+  const sub=document.getElementById('yoyChartSub');
+  const match=a=>{
+    if(!isSpecificType)return true;
+    const g=typeGroup(a.type);
+    return activeType==='Ride'?(g==='Ride'||g==='Virtual'):g===activeType;
+  };
+  const byMonth={};
+  ALL_DATA.filter(match).forEach(a=>{const m=a.date.slice(0,7);byMonth[m]=(byMonth[m]||0)+(a.dist_mi||0);});
+  const present=Object.keys(byMonth).sort();
+  if(sub)sub.textContent=(isSpecificType?activeType+' distance':'Distance')+' in the twelve months ending each month — spans every year, whatever the year filter says';
+  if(present.length<12){
+    setChartEmpty('chartYoY','A rolling twelve-month total needs at least a year of history behind it. There '+(present.length===1?'is':'are')+' '+present.length+' month'+(present.length===1?'':'s')+' here.');
+    chartSummary('roll',[],'');
+    return;
+  }
+  setChartEmpty('chartYoY');
+  const months=monthsBetween(present[0],present[present.length-1]);
+  const conv=v=>unit==='mi'?v:v*1.60934;
+  const pts=[];
+  for(let i=11;i<months.length;i++){
+    let s=0;for(let j=i-11;j<=i;j++)s+=byMonth[months[j]]||0;
+    pts.push({m:months[i],v:conv(s)});
+  }
+  const col=isSpecificType?groupColor(activeType):'#1d4ed8';
+  charts.yoy=new Chart(document.getElementById('chartYoY').getContext('2d'),{
+    type:'line',
+    data:{labels:pts.map(p=>monthLabel(p.m)),datasets:[{
+      data:pts.map(p=>Math.round(p.v)),borderColor:col,backgroundColor:col+'14',
+      fill:true,tension:.25,pointRadius:0,pointHitRadius:12,borderWidth:2.5}]},
+    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toLocaleString()+' '+distUnit()+' in the year to '+c.label}}},
+      responsive:true,maintainAspectRatio:false,
+      scales:{x:{grid:{display:false},ticks:{font:{size:10},maxTicksLimit:10}},y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()}}}}
+  });
+  const last=pts[pts.length-1];
+  const yearAgo=pts.length>12?pts[pts.length-13]:null;
+  const peak=pts.reduce((b,p)=>p.v>b.v?p:b,pts[0]);
+  const chips=[{n:chipNum(last.v),label:distUnit()+', trailing year',col:'#1d4ed8'}];
+  if(yearAgo&&yearAgo.v>0){
+    const d=(last.v-yearAgo.v)/yearAgo.v*100;
+    chips.push({n:(d>=0?'+':'−')+Math.abs(Math.round(d))+'%',label:'vs a year ago',col:d>=0?'#16a34a':'#ff385c'});
+  }
+  chips.push({n:chipNum(peak.v),label:'peak · '+monthLabel(peak.m),col:'#ff385c'});
+  let verdict;
+  if(peak.m===last.m)verdict='You are at your twelve-month peak right now — no rolling year in '+pts.length+' months of history has been bigger than the one you have just finished.';
+  else{
+    const off=Math.round((peak.v-last.v)/Math.max(1,peak.v)*100);
+    verdict='Your biggest rolling year ended '+monthLabel(peak.m)+'; you are '+off+'% below it now. Every point here covers twelve full months, so that is a real change rather than a calendar artefact.';
+  }
+  chartSummary('roll',chips,verdict);
+}
+
 // ── FIGURE CHIPS AND VERDICTS ──
 // The heart-rate zone card set the pattern: tinted figures under the plot, then one
 // line saying what the shape means. Applied here to the charts that have something
-// true and non-obvious to say. Calories and Year-over-Year deliberately get neither —
-// a chip reading "total calories" under a chart of monthly calories is just the axis
-// again, and a verdict would be invented.
+// true and non-obvious to say — which, since the Calories chart was folded into a
+// chip and Year-over-Year became a rolling twelve-month line, is now every card on
+// the tab. The heart-rate card, which invented this treatment, uses the helper too.
 function renderSummaryLines(data,monthKeys,typeKeys,colorFull){
   const inScope=m=>monthKeys.includes(m);
 
@@ -1813,10 +1896,14 @@ function renderSummaryLines(data,monthKeys,typeKeys,colorFull){
     // On "All" the chart shows the last 24 months, not all time — say which, rather
     // than calling a two-year figure a total.
     const scopeWord=activeYear==='All'?distUnit()+', last 24 months':distUnit()+' in '+activeYear;
+    // Calories used to have a monthly bar chart of its own, which was this same
+    // chart in different units. The total is the part worth keeping.
+    const cals=data.reduce((s,a)=>inScope(a.date.slice(0,7))?s+(a.cal||0):s,0);
     chartSummary('dist',[
       {n:fmtDist(totalDist),label:scopeWord,col:'#1d4ed8'},
       {n:fmtDist(avg),label:distUnit()+'/month',col:'#0ea5e9'},
       {n:fmtDist(byMonth[best]),label:'best · '+monthLabel(best),col:'#ff385c'},
+      ...(cals?[{n:cals>=1e6?chipNum(cals/1e6,1)+'M':chipNum(Math.round(cals/1000))+'k',label:'kcal burned',col:'#16a34a'}]:[]),
     ],
     // Only compare years when a full previous year is in scope to compare against.
     (()=>{
@@ -1849,17 +1936,83 @@ function renderSummaryLines(data,monthKeys,typeKeys,colorFull){
     perMile>0?`That works out at ${Math.round(perMile)} ft of climbing for every mile ridden. Anything over about 60 is properly hilly territory; the Lancashire average sits nearer 50.`:'');
   }
 
-  // ── Activity mix: chips only. The donut is the verdict. ──
+  // ── Activity mix ──
+  // The chips count sessions; the verdict says what share of the distance those
+  // sessions actually carry, which is the thing a count can't tell you.
   if(activeType==='All'){
-    const counts={};
-    data.forEach(a=>{const g=typeGroup(a.type);counts[g]=(counts[g]||0)+1;});
+    const counts={},dist={};
+    data.forEach(a=>{const g=typeGroup(a.type);counts[g]=(counts[g]||0)+1;dist[g]=(dist[g]||0)+(a.dist_mi||0);});
     const total=data.length||1;
-    chartSummary('mix',typeKeys.filter(t=>counts[t]).map((t,i)=>({
+    const distTot=Object.values(dist).reduce((s,v)=>s+v,0);
+    const present=typeKeys.filter(t=>counts[t]);
+    let verdict='';
+    if(present.length>1&&distTot>0){
+      const topByCount=present.reduce((b,t)=>counts[t]>counts[b]?t:b,present[0]);
+      const topByDist=present.reduce((b,t)=>dist[t]>dist[b]?t:b,present[0]);
+      const cShare=Math.round(counts[topByCount]/total*100);
+      const dShare=Math.round(dist[topByDist]/distTot*100);
+      verdict=topByCount===topByDist
+        ? `${topByCount} leads on both counts — ${cShare}% of your sessions and ${dShare}% of your distance.`
+        : `${topByCount} is your most frequent activity at ${cShare}% of sessions, but ${topByDist} carries ${dShare}% of the distance. The frequent ones are short.`;
+    }
+    chartSummary('mix',present.map(t=>({
       n:Math.round(counts[t]/total*100)+'%',
       label:t.toLowerCase()+' · '+counts[t].toLocaleString('en-GB'),
       col:colorFull[typeKeys.indexOf(t)],
-    })),'');
+    })),verdict);
   }else chartSummary('mix',[],'');
+}
+
+// ── MOVING VS STOPPED ──
+// mt and et are on every single activity and were charted nowhere. The gap
+// between them is cafe stops, junctions, regroups and waiting at lights.
+function renderMovingChart(data,monthKeys){
+  // Guard against the records that would make this meaningless: a paused watch
+  // left running overnight gives an elapsed time with no relationship to the
+  // ride, so anything claiming more than four hours stopped per hour moving is
+  // treated as a recording artefact rather than a very long coffee.
+  const usable=data.filter(a=>a.mt>0&&a.et>0&&a.et>=a.mt&&a.et<=a.mt*5);
+  if(usable.length<5){
+    setChartEmpty('chartMove','Not enough activities here record both moving and elapsed time.');
+    chartSummary('move',[],'');
+    return;
+  }
+  setChartEmpty('chartMove');
+  const byMonth={};
+  usable.forEach(a=>{
+    const m=a.date.slice(0,7);if(!monthKeys.includes(m))return;
+    if(!byMonth[m])byMonth[m]={mt:0,et:0};
+    byMonth[m].mt+=a.mt;byMonth[m].et+=a.et;
+  });
+  const months=monthKeys.filter(m=>byMonth[m]&&byMonth[m].et>0);
+  destroyChart('move');
+  charts.move=new Chart(document.getElementById('chartMove').getContext('2d'),{
+    type:'line',
+    data:{labels:months.map(monthLabel),datasets:[{
+      data:months.map(m=>+(byMonth[m].mt/byMonth[m].et*100).toFixed(1)),
+      borderColor:'#1d4ed8',backgroundColor:'#1d4ed814',fill:true,tension:.25,
+      pointRadius:0,pointHitRadius:12,borderWidth:2.5}]},
+    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y+'% of elapsed time moving'}}},
+      responsive:true,maintainAspectRatio:false,
+      scales:{x:{grid:{display:false},ticks:{font:{size:10},maxTicksLimit:10}},
+        y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v+'%'}}}}
+  });
+  const mtAll=usable.reduce((s,a)=>s+a.mt,0),etAll=usable.reduce((s,a)=>s+a.et,0);
+  const stopped=etAll-mtAll;
+  const share=Math.round(mtAll/etAll*100);
+  // Long days out are where stoppage actually accumulates, so compare the top
+  // quarter by distance against the rest rather than quoting one average.
+  const sorted=usable.slice().sort((a,b)=>(b.dist_mi||0)-(a.dist_mi||0));
+  const longs=sorted.slice(0,Math.max(1,Math.floor(sorted.length/4)));
+  const longShare=Math.round(longs.reduce((s,a)=>s+(a.et-a.mt),0)/Math.max(1,longs.reduce((s,a)=>s+a.et,0))*100);
+  chartSummary('move',[
+    {n:share+'%',label:'of elapsed time moving',col:'#1d4ed8'},
+    {n:fmtHours(stopped),label:'stopped, all in',col:'#ff385c'},
+    {n:longShare+'%',label:'stopped on your longest quarter',col:'#f59e0b'},
+  ],
+  stopped>86400
+    ? `That is ${(stopped/86400).toFixed(1)} days of logged life spent stationary. On your longest quarter of outings ${longShare}% of the clock is stopped — the price of a long day out is mostly not riding.`
+    : `${share}% of your elapsed time is spent actually moving, rising to ${100-longShare}% on your longest quarter of outings.`);
 }
 
 // ── THREE CHARTS OVER DATA THAT WAS ALREADY BEING FETCHED ──
@@ -1912,12 +2065,9 @@ function renderExtraCharts(data,monthKeys){
   const tot=[0,0,0,0,0];
   withHr.forEach(a=>{tot[0]+=a.z1||0;tot[1]+=a.z2||0;tot[2]+=a.z3||0;tot[3]+=a.z4||0;tot[4]+=a.z5||0;});
   const totalSec=tot.reduce((s,v)=>s+v,0);
-  const splitEl=document.getElementById('zoneSplit'),verdictEl=document.getElementById('zoneVerdict');
-
   if(!totalSec){
     setChartEmpty('chartZones','No activities in this filter have heart-rate data.');
-    if(splitEl)splitEl.innerHTML='';
-    if(verdictEl)verdictEl.textContent='';
+    chartSummary('zone',[],'');
   }else{
     setChartEmpty('chartZones');
     // Say plainly where these come from: Strava's summary endpoint gives one average
@@ -1935,21 +2085,22 @@ function renderExtraCharts(data,monthKeys){
         responsive:true,maintainAspectRatio:false,
         scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v+'h'}}}}
     });
-    if(splitEl)splitEl.innerHTML=tot.map((s,i)=>{
-      const pct=Math.round(s/totalSec*100);
-      return`<div class="zone-chip" style="color:${ZONE_COLORS[i]};background:${ZONE_COLORS[i]}1a"><strong>${pct}%</strong> ${ZONE_NAMES[i].split(' ')[0]} · ${fmtHours(s)}</div>`;
-    }).join('');
-    if(verdictEl){
-      const pc=n=>Math.round(n/totalSec*100);
-      const easy=pc(tot[0]+tot[1]),mid=pc(tot[2]),hard=pc(tot[3]+tot[4]);
-      let v;
-      if(easy>=75&&hard>=8)v=`${easy}% easy · ${mid}% tempo · ${hard}% hard — roughly the polarised shape most endurance plans aim for.`;
-      else if(easy>=75)v=`${easy}% easy · ${mid}% tempo · ${hard}% hard. The easy base is there; the sharp end is thin.`;
-      else if(mid>=25)v=`${easy}% easy · ${mid}% tempo · ${hard}% hard. A lot of this sits in the middle, which is the classic way to be permanently tired without getting faster.`;
-      else v=`${easy}% easy · ${mid}% tempo · ${hard}% hard. Most plans would have the easy number closer to 80%.`;
-      verdictEl.textContent=v;
-    }
+    // This card invented the chips-and-verdict treatment, then kept its own copy
+    // of the markup while every other card moved to the shared helper. Same
+    // output, one implementation.
+    const pc=n=>Math.round(n/totalSec*100);
+    const easy=pc(tot[0]+tot[1]),mid=pc(tot[2]),hard=pc(tot[3]+tot[4]);
+    let v;
+    if(easy>=75&&hard>=8)v=`${easy}% easy · ${mid}% tempo · ${hard}% hard — roughly the polarised shape most endurance plans aim for.`;
+    else if(easy>=75)v=`${easy}% easy · ${mid}% tempo · ${hard}% hard. The easy base is there; the sharp end is thin.`;
+    else if(mid>=25)v=`${easy}% easy · ${mid}% tempo · ${hard}% hard. A lot of this sits in the middle, which is the classic way to be permanently tired without getting faster.`;
+    else v=`${easy}% easy · ${mid}% tempo · ${hard}% hard. Most plans would have the easy number closer to 80%.`;
+    chartSummary('zone',tot.map((s,i)=>({
+      n:pc(s)+'%',label:ZONE_NAMES[i].split(' ')[0]+' · '+fmtHours(s),col:ZONE_COLORS[i],
+    })),v);
   }
+
+  renderMovingChart(data,monthKeys);
 
   // ── Relative Effort ──
   const monthEff={};let effTot=0;
