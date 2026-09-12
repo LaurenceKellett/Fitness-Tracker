@@ -22,7 +22,10 @@
 const WORKER_URL = 'https://activities-api.lk-ff7.workers.dev/';
 // ---------------------------------------------------------------------------
 
-const CACHE_KEY  = 'activities_v2';
+// Bumped from v2 when temp, np and pwr_real were added: entries cached under the
+// old key have no such fields, and the charts reading them would show an empty
+// state for up to a day rather than a rebuild.
+const CACHE_KEY  = 'activities_v3';
 const CACHE_TTL  = 60 * 60 * 24; // 24 hours in seconds
 
 // Segment PBs (1k, 1 mile, 5k, 10k, half, marathon) are not on the bulk activity
@@ -1355,8 +1358,17 @@ function transformActivity(a, zones = []) {
     pr_mar:  null,
     pwr:     a.average_watts || null,
     max_pwr: a.max_watts     || null,
+    // Normalised power weights the surges, so it beats a flat average on anything
+    // with hills or junctions in it. Strava gives it free on the summary object.
+    np:      a.weighted_average_watts || null,
+    // Whether those watts came off a power meter or were estimated from speed and
+    // weight. An estimate is not wrong, but a power trend built on one is really a
+    // speed trend, and the chart should be able to say so.
+    pwr_real: a.device_watts === true,
     dow:     DAYS[date.getDay()],
-    temp:    null,
+    // 0 °C is a real temperature, so the usual `|| null` idiom would silently
+    // discard every freezing ride. Only an absent reading becomes null.
+    temp:    a.average_temp != null ? a.average_temp : null,
   };
 }
 

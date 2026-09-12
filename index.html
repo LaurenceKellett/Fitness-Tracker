@@ -1039,6 +1039,22 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <div id="paceVerdict" class="chart-verdict"></div>
     </div>
   </div>
+  <div class="charts-grid" id="powerCadRow">
+    <div class="chart-card" id="powerCard">
+      <div class="chart-title">Power Trend</div>
+      <div class="chart-sub" id="powerSub">Average and normalised watts per month</div>
+      <div class="chart-wrap"><canvas id="chartPower"></canvas></div>
+      <div id="powerChips" class="chart-chips"></div>
+      <div id="powerVerdict" class="chart-verdict"></div>
+    </div>
+    <div class="chart-card" id="cadCard">
+      <div class="chart-title">Cadence Trend</div>
+      <div class="chart-sub" id="cadSub">Average cadence per month</div>
+      <div class="chart-wrap"><canvas id="chartCad"></canvas></div>
+      <div id="cadChips" class="chart-chips"></div>
+      <div id="cadVerdict" class="chart-verdict"></div>
+    </div>
+  </div>
   <div class="section-header"><h2>Habits</h2><span class="badge">How you train — the patterns you don't choose</span></div>
   <div class="charts-grid" id="effortTimeRow">
     <div class="chart-card">
@@ -1054,6 +1070,22 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <div class="chart-wrap"><canvas id="chartMove"></canvas></div>
       <div id="moveChips" class="chart-chips"></div>
       <div id="moveVerdict" class="chart-verdict"></div>
+    </div>
+  </div>
+  <div class="charts-grid" id="raceTempRow">
+    <div class="chart-card" id="raceCard">
+      <div class="chart-title">Race day vs everything else</div>
+      <div class="chart-sub" id="raceSub">Races against your ordinary sessions in the same sport</div>
+      <div class="chart-wrap"><canvas id="chartRace"></canvas></div>
+      <div id="raceChips" class="chart-chips"></div>
+      <div id="raceVerdict" class="chart-verdict"></div>
+    </div>
+    <div class="chart-card" id="tempCard">
+      <div class="chart-title">The weather you actually train in</div>
+      <div class="chart-sub" id="tempSub">Average speed by temperature band</div>
+      <div class="chart-wrap"><canvas id="chartTemp"></canvas></div>
+      <div id="tempChips" class="chart-chips"></div>
+      <div id="tempVerdict" class="chart-verdict"></div>
     </div>
   </div>
   <div id="yearCalDayDetail"></div>
@@ -2055,6 +2087,264 @@ function renderMovingChart(data,monthKeys){
     : `${share}% of your elapsed time is spent actually moving, rising to ${100-longShare}% on your longest quarter of outings.`);
 }
 
+// Average a numeric field per month, skipping months with nothing to average.
+function monthlyMean(acts,monthKeys,pick){
+  const acc={};
+  acts.forEach(a=>{
+    const v=pick(a);if(v==null||!isFinite(v))return;
+    const m=a.date.slice(0,7);if(!monthKeys.includes(m))return;
+    if(!acc[m])acc[m]={s:0,n:0};
+    acc[m].s+=v;acc[m].n++;
+  });
+  const months=monthKeys.filter(m=>acc[m]&&acc[m].n);
+  return{months,mean:m=>acc[m].s/acc[m].n,count:months.reduce((s,m)=>s+acc[m].n,0)};
+}
+
+// ── POWER ──
+// There is a power record on the Records page but no trend anywhere, and watts
+// are the one number here that cannot be inflated by simply riding more often.
+function renderPowerChart(data,monthKeys){
+  const withPwr=data.filter(a=>a.pwr>0);
+  if(withPwr.length<5){
+    setChartEmpty('chartPower','No activities in this filter record power. Watts arrive with a power meter, or with Strava’s estimate on a ride recorded by a head unit.');
+    chartSummary('power',[],'');
+    return;
+  }
+  setChartEmpty('chartPower');
+  const avg=monthlyMean(withPwr,monthKeys,a=>a.pwr);
+  const np=monthlyMean(withPwr,monthKeys,a=>a.np);
+  // device_watts says whether these came off a meter. An estimate is not useless,
+  // but a trend built on one is really a speed trend, so the card says which.
+  const real=withPwr.filter(a=>a.pwr_real).length;
+  const sub=document.getElementById('powerSub');
+  if(sub)sub.textContent=`Average${np.months.length?' and normalised':''} watts per month — ${withPwr.length.toLocaleString('en-GB')} activit${withPwr.length===1?'y':'ies'} with power`
+    +(real===0?', all of it estimated by Strava from speed and weight rather than measured'
+      :real===withPwr.length?', all measured by a power meter'
+      :`, ${Math.round(real/withPwr.length*100)}% of it measured rather than estimated`);
+  if(!avg.months.length){
+    setChartEmpty('chartPower','No power inside the charted months.');
+    chartSummary('power',[],'');return;
+  }
+  const sets=[{label:'Average',data:avg.months.map(m=>Math.round(avg.mean(m))),
+    borderColor:'#6d28d9',backgroundColor:'#6d28d914',fill:true,tension:.25,pointRadius:0,pointHitRadius:12,borderWidth:2.5}];
+  if(np.months.length>=avg.months.length*0.5)sets.push({label:'Normalised',
+    data:avg.months.map(m=>np.months.includes(m)?Math.round(np.mean(m)):null),
+    borderColor:'#f59e0b',borderDash:[5,4],fill:false,tension:.25,pointRadius:0,pointHitRadius:12,borderWidth:2,spanGaps:true});
+  destroyChart('power');
+  charts.power=new Chart(document.getElementById('chartPower').getContext('2d'),{
+    type:'line',data:{labels:avg.months.map(monthLabel),datasets:sets},
+    options:{plugins:{legend:{display:sets.length>1,position:'bottom',labels:{boxWidth:10,font:{size:11}}},
+      tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y+'w'}}},
+      responsive:true,maintainAspectRatio:false,
+      scales:{x:{grid:{display:false},ticks:{font:{size:10},maxTicksLimit:10}},
+        y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v+'w'}}}}
+  });
+  const all=avg.months.map(m=>avg.mean(m));
+  const overall=all.reduce((s,v)=>s+v,0)/all.length;
+  const peakIdx=all.indexOf(Math.max(...all));
+  const chips=[{n:Math.round(overall)+'w',label:'average',col:'#6d28d9'}];
+  if(np.months.length)chips.push({n:Math.round(np.months.reduce((s,m)=>s+np.mean(m),0)/np.months.length)+'w',label:'normalised',col:'#f59e0b'});
+  chips.push({n:Math.round(all[peakIdx])+'w',label:'best month · '+monthLabel(avg.months[peakIdx]),col:'#1d4ed8'});
+  let verdict;
+  if(all.length>=4){
+    const half=Math.floor(all.length/2);
+    const early=all.slice(0,half).reduce((s,v)=>s+v,0)/half;
+    const late=all.slice(-half).reduce((s,v)=>s+v,0)/half;
+    const d=Math.round((late-early)/early*100);
+    chips.push({n:(d>=0?'+':'−')+Math.abs(d)+'%',label:'recent vs earlier',col:d>=0?'#16a34a':'#ff385c'});
+    verdict=d>=3?`Up ${d}% across the charted months. Distance, elevation and effort all rise when you simply do more; watts do not, so this one is real.`
+      :d<=-3?`Down ${Math.abs(d)}% across the charted months — the only chart on this tab where a fall cannot be explained by riding less often.`
+      :`Flat within ${Math.abs(d)}% across the charted months. Steady rather than stagnant, depending on what you were training for.`;
+  }else verdict=`${all.length} month${all.length===1?'':'s'} with power in them. A trend needs a few more.`;
+  chartSummary('power',chips,verdict);
+}
+
+// ── CADENCE ──
+// Strava reports foot cadence as one leg, so runs are charted at double on their
+// own axis. Putting ~85 rpm and ~170 spm on one scale would flatten the bike line.
+function renderCadenceChart(data,monthKeys){
+  const withCad=data.filter(a=>a.cad>0);
+  if(withCad.length<5){
+    setChartEmpty('chartCad','No activities in this filter record cadence.');
+    chartSummary('cad',[],'');
+    return;
+  }
+  setChartEmpty('chartCad');
+  const wheeled=withCad.filter(a=>{const g=typeGroup(a.type);return g==='Ride'||g==='Virtual';});
+  const footed=withCad.filter(a=>{const g=typeGroup(a.type);return g==='Run'||g==='Walk';});
+  const rpm=monthlyMean(wheeled,monthKeys,a=>a.cad);
+  const spm=monthlyMean(footed,monthKeys,a=>a.cad*2);
+  const months=monthKeys.filter(m=>rpm.months.includes(m)||spm.months.includes(m));
+  if(!months.length){
+    setChartEmpty('chartCad','No cadence inside the charted months.');
+    chartSummary('cad',[],'');return;
+  }
+  const sub=document.getElementById('cadSub');
+  if(sub)sub.textContent='Average cadence per month — '+withCad.length.toLocaleString('en-GB')+' activit'+(withCad.length===1?'y':'ies')+' with cadence'
+    +(footed.length?'. Foot cadence is doubled to steps per minute, the way you would count it':'');
+  const sets=[];
+  if(rpm.months.length)sets.push({label:'Ride · rpm',yAxisID:'y',
+    data:months.map(m=>rpm.months.includes(m)?Math.round(rpm.mean(m)):null),
+    borderColor:'#1d4ed8',backgroundColor:'#1d4ed814',fill:true,tension:.25,pointRadius:0,pointHitRadius:12,borderWidth:2.5,spanGaps:true});
+  if(spm.months.length)sets.push({label:'Run · spm',yAxisID:rpm.months.length?'y2':'y',
+    data:months.map(m=>spm.months.includes(m)?Math.round(spm.mean(m)):null),
+    borderColor:'#ef4444',fill:false,tension:.25,pointRadius:0,pointHitRadius:12,borderWidth:2.5,spanGaps:true});
+  const scales={x:{grid:{display:false},ticks:{font:{size:10},maxTicksLimit:10}},
+    y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v+(rpm.months.length?' rpm':' spm')}}};
+  if(rpm.months.length&&spm.months.length)scales.y2={position:'right',grid:{display:false},ticks:{font:{size:11},callback:v=>v+' spm'}};
+  destroyChart('cad');
+  charts.cad=new Chart(document.getElementById('chartCad').getContext('2d'),{
+    type:'line',data:{labels:months.map(monthLabel),datasets:sets},
+    options:{plugins:{legend:{display:sets.length>1,position:'bottom',labels:{boxWidth:10,font:{size:11}}}},
+      responsive:true,maintainAspectRatio:false,scales}
+  });
+  const chips=[];
+  if(rpm.months.length)chips.push({n:Math.round(rpm.months.reduce((s,m)=>s+rpm.mean(m),0)/rpm.months.length)+' rpm',label:'riding',col:'#1d4ed8'});
+  if(spm.months.length)chips.push({n:Math.round(spm.months.reduce((s,m)=>s+spm.mean(m),0)/spm.months.length)+' spm',label:'on foot',col:'#ef4444'});
+  let verdict='';
+  const trendOf=(g,unitStr)=>{
+    if(g.months.length<4)return null;
+    const vals=g.months.map(m=>g.mean(m)),half=Math.floor(vals.length/2);
+    const early=vals.slice(0,half).reduce((s,v)=>s+v,0)/half;
+    const late=vals.slice(-half).reduce((s,v)=>s+v,0)/half;
+    return{d:Math.round(late-early),unitStr};
+  };
+  const rt=trendOf(rpm,'rpm'),st=trendOf(spm,'spm');
+  if(rt&&Math.abs(rt.d)>=2){
+    chips.push({n:(rt.d>=0?'+':'−')+Math.abs(rt.d),label:'rpm since earlier',col:rt.d>=0?'#16a34a':'#f59e0b'});
+    verdict=rt.d>0?`Riding cadence is up ${rt.d} rpm on the earlier half — spinning more, grinding less.`
+      :`Riding cadence is down ${Math.abs(rt.d)} rpm on the earlier half, which usually means bigger gears or more climbing.`;
+  }
+  if(st&&Math.abs(st.d)>=3)verdict+=(verdict?' ':'')+`Running cadence has moved ${st.d>0?'up':'down'} ${Math.abs(st.d)} spm; 170–180 is the range most coaches aim at.`;
+  if(!verdict)verdict='Cadence is steady across the charted months. It is a habit more than a fitness marker, so flat is the normal answer.';
+  chartSummary('cad',chips,verdict);
+}
+
+// ── RACE DAY ──
+// wtype has been stored since the worker was written and only the Activity Log
+// ever read it. It answers the question training charts never do: how much is
+// left in you when it counts.
+function renderRaceChart(data){
+  const races=data.filter(isRace);
+  const row=document.getElementById('raceTempRow');
+  if(races.length<2){
+    setChartEmpty('chartRace','Fewer than two activities here are marked as a race in Strava. Setting an activity’s type to Race is what fills this in.');
+    chartSummary('race',[],'');
+    return;
+  }
+  setChartEmpty('chartRace');
+  // Compare like with like: only the sports that actually contain races, and
+  // only against your ordinary sessions in that same sport.
+  const groups=[...new Set(races.map(a=>typeGroup(a.type)))];
+  const speedOf=a=>unit==='mi'?a.speed_mph:a.speed_kph;
+  const mean=(arr,pick)=>{const v=arr.map(pick).filter(x=>x>0&&isFinite(x));return v.length?v.reduce((s,x)=>s+x,0)/v.length:null;};
+  const rows=groups.map(g=>{
+    const r=races.filter(a=>typeGroup(a.type)===g);
+    const o=data.filter(a=>!isRace(a)&&typeGroup(a.type)===g);
+    return{g,n:r.length,race:mean(r,speedOf),other:mean(o,speedOf),
+      raceHr:mean(r,a=>a.hr),otherHr:mean(o,a=>a.hr)};
+  }).filter(x=>x.race!=null&&x.other!=null);
+  if(!rows.length){
+    setChartEmpty('chartRace','Your races have no ordinary sessions in the same sport to compare against.');
+    chartSummary('race',[],'');return;
+  }
+  const sub=document.getElementById('raceSub');
+  if(sub)sub.textContent=`${races.length.toLocaleString('en-GB')} race${races.length===1?'':'s'} against your ordinary sessions in the same sport — average speed in ${unit==='mi'?'mph':'km/h'}`;
+  destroyChart('race');
+  charts.race=new Chart(document.getElementById('chartRace').getContext('2d'),{
+    type:'bar',
+    data:{labels:rows.map(r=>r.g+' · '+r.n),datasets:[
+      {label:'Races',data:rows.map(r=>+r.race.toFixed(1)),backgroundColor:'#ff385c',borderRadius:0},
+      {label:'Everything else',data:rows.map(r=>+r.other.toFixed(1)),backgroundColor:'#cbd5e1',borderRadius:0}]},
+    options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},
+      tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y+(unit==='mi'?' mph':' km/h')}}},
+      responsive:true,maintainAspectRatio:false,
+      scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11}}}},
+      interaction:{mode:'index'}}
+  });
+  const big=rows.reduce((b,r)=>r.n>b.n?r:b,rows[0]);
+  const pct=Math.round((big.race-big.other)/big.other*100);
+  const chips=[{n:races.length.toLocaleString('en-GB'),label:'race'+(races.length===1?'':'s')+' logged',col:'#ff385c'},
+    {n:(pct>=0?'+':'−')+Math.abs(pct)+'%',label:'speed on '+big.g.toLowerCase()+' race day',col:pct>=0?'#16a34a':'#f59e0b'}];
+  if(big.raceHr&&big.otherHr){
+    const hd=Math.round(big.raceHr-big.otherHr);
+    chips.push({n:(hd>=0?'+':'−')+Math.abs(hd),label:'bpm',col:'#ef4444'});
+  }
+  let verdict;
+  if(pct>=5)verdict=`On ${big.g.toLowerCase()} race day you go ${pct}% faster than a normal session`
+    +(big.raceHr&&big.otherHr?` at ${Math.round(big.raceHr-big.otherHr)} bpm more`:'')+`. That gap is what a number on your back is worth.`;
+  else if(pct<=-5)verdict=`Your ${big.g.toLowerCase()} races average ${Math.abs(pct)}% slower than your ordinary sessions — usually a sign they were longer, hillier, or hotter than a normal day out.`;
+  else verdict=`Race day and an ordinary ${big.g.toLowerCase()} come out within ${Math.abs(pct)}% of each other. Either you race your training, or you train your races.`;
+  chartSummary('race',chips,verdict);
+}
+
+// ── TEMPERATURE ──
+// average_temp comes off a head unit sensor, so indoor and phone-recorded
+// activities have none. The card says its own coverage rather than quietly
+// drawing a chart of the quarter of your rides that happen to carry it.
+const TEMP_BANDS=[[-99,4,'under 4°'],[4,8,'4–8°'],[8,12,'8–12°'],[12,16,'12–16°'],[16,20,'16–20°'],[20,24,'20–24°'],[24,99,'24°+']];
+function renderTempChart(data){
+  const withTemp=data.filter(a=>a.temp!=null&&isFinite(a.temp)&&a.temp>-40&&a.temp<60);
+  const sub=document.getElementById('tempSub');
+  if(withTemp.length<10){
+    setChartEmpty('chartTemp',withTemp.length
+      ? `Only ${withTemp.length} activit${withTemp.length===1?'y has':'ies have'} a temperature reading, which is too few to compare bands.`
+      : 'No activities here carry a temperature. It comes off a head unit sensor, so indoor rides and phone-recorded sessions have none — and it only arrives from the next Strava refresh onward.');
+    if(sub)sub.textContent='Average speed by temperature band';
+    chartSummary('temp',[],'');
+    return;
+  }
+  setChartEmpty('chartTemp');
+  const cov=Math.round(withTemp.length/Math.max(1,data.length)*100);
+  if(sub)sub.textContent=`Average speed by temperature band — ${withTemp.length.toLocaleString('en-GB')} of ${data.length.toLocaleString('en-GB')} activities carry a reading (${cov}%), so this describes the sessions your head unit recorded, not all of them`;
+  const bands=TEMP_BANDS.map(([lo,hi,label])=>{
+    const inBand=withTemp.filter(a=>a.temp>=lo&&a.temp<hi);
+    const sp=inBand.map(a=>unit==='mi'?a.speed_mph:a.speed_kph).filter(v=>v>0&&isFinite(v));
+    return{label,n:inBand.length,
+      speed:sp.length?sp.reduce((s,v)=>s+v,0)/sp.length:null,
+      dist:inBand.reduce((s,a)=>s+(a.dist_mi||0),0)};
+  }).filter(b=>b.n>=3);
+  if(bands.length<2){
+    setChartEmpty('chartTemp','Your temperature readings all fall in one band, so there is nothing to compare.');
+    chartSummary('temp',[],'');return;
+  }
+  destroyChart('temp');
+  charts.temp=new Chart(document.getElementById('chartTemp').getContext('2d'),{
+    type:'bar',
+    data:{labels:bands.map(b=>b.label),datasets:[{
+      data:bands.map(b=>b.speed!=null?+b.speed.toFixed(1):null),
+      backgroundColor:bands.map(b=>{
+        const t=parseFloat(b.label)||0;
+        return t<8?'#0ea5e9':t<16?'#22c55e':t<24?'#f59e0b':'#ef4444';
+      }),borderRadius:0}]},
+    options:{plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:c=>c.parsed.y+(unit==='mi'?' mph':' km/h')+' · '+bands[c.dataIndex].n+' activities'}}},
+      responsive:true,maintainAspectRatio:false,
+      scales:{x:{grid:{display:false},ticks:{font:{size:11}}},
+        y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v+(unit==='mi'?' mph':' km/h')}}}}
+  });
+  const rated=bands.filter(b=>b.speed!=null);
+  const fastest=rated.reduce((b,x)=>x.speed>b.speed?x:b,rated[0]);
+  const busiest=bands.reduce((b,x)=>x.n>b.n?x:b,bands[0]);
+  const spread=Math.max(...rated.map(b=>b.speed))-Math.min(...rated.map(b=>b.speed));
+  chartSummary('temp',[
+    {n:busiest.label,label:'where you ride most · '+busiest.n,col:'#1d4ed8'},
+    {n:fastest.label,label:'your fastest band',col:'#16a34a'},
+    {n:spread.toFixed(1),label:(unit==='mi'?'mph':'km/h')+' between best and worst',col:'#ff385c'},
+  ],
+  (()=>{
+    const sp=unit==='mi'?'mph':'km/h';
+    if(spread<1.5)return `Speed barely moves with temperature — ${spread.toFixed(1)} ${sp} across every band. Weather changes how it feels far more than how fast you go.`;
+    const i=rated.indexOf(fastest),mid=i>0&&i<rated.length-1;
+    const slowest=rated.reduce((b,x)=>x.speed<b.speed?x:b,rated[0]);
+    // Only claim the extremes are slowest when the quickest band is actually in
+    // the middle. If your best band is the coldest one, say that instead.
+    return mid
+      ? `You are quickest in the ${fastest.label} band and slower at both ends of the range — ${spread.toFixed(1)} ${sp} separates best from worst, which is more than most people would guess.`
+      : `Your quickest riding is in the ${fastest.label} band and your slowest in ${slowest.label}, ${spread.toFixed(1)} ${sp} apart. With your best band at the edge of the range, this is as likely to be which rides you do in that weather as the weather itself.`;
+  })());
+}
+
 // ── THREE CHARTS OVER DATA THAT WAS ALREADY BEING FETCHED ──
 // Heart-rate zones, Relative Effort and time of day were all sitting in the
 // activity payload with nothing drawing them.
@@ -2141,6 +2431,10 @@ function renderExtraCharts(data,monthKeys){
   }
 
   renderMovingChart(data,monthKeys);
+  renderPowerChart(data,monthKeys);
+  renderCadenceChart(data,monthKeys);
+  renderRaceChart(data);
+  renderTempChart(data);
 
   // ── Relative Effort ──
   const monthEff={};let effTot=0;
