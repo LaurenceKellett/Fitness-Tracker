@@ -963,7 +963,9 @@ async function fetchAllActivities(accessToken, env) {
 
   const gearIds = [...new Set(all.map(a => a._gear_id).filter(Boolean))];
   const gearMap  = {};
-  await fetchGearNames(gearIds, accessToken, gearMap);
+  const knownGear = await loadGearNames(env);
+  await fetchGearNames(gearIds, accessToken, gearMap, knownGear);
+  await saveGearNames(env, knownGear);
 
   for (const a of all) {
     a.gear    = a._gear_id ? (gearMap[a._gear_id] || null) : null;
@@ -1124,15 +1126,52 @@ async function fetchBestEffortsFor(id, accessToken) {
 
 const GEAR_BATCH_SIZE   = 5;
 const GEAR_MAX_RETRIES  = 3;
+// Names are kept forever, not for a day. A bike's name does not change often
+// enough to be worth re-asking Strava for on every sync, and re-asking was the
+// whole problem: the map was rebuilt from {} each time, so one rate-limited
+// lookup turned a perfectly well-known bike into "Unidentified gear" until the
+// next successful full sync.
+const GEAR_NAME_KEY = 'gear_names_v1';
 
-async function fetchGearNames(gearIds, accessToken, gearMap) {
-  for (let i = 0; i < gearIds.length; i += GEAR_BATCH_SIZE) {
-    const batch = gearIds.slice(i, i + GEAR_BATCH_SIZE);
-    await Promise.all(batch.map(id => fetchGearName(id, accessToken, gearMap)));
+async function loadGearNames(env) {
+  try {
+    const raw = await env.CACHE.get(GEAR_NAME_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (err) {
+    console.error(`Gear name cache unreadable, starting empty: ${err.message}`);
+    return {};
   }
 }
 
-async function fetchGearName(id, accessToken, gearMap) {
+async function saveGearNames(env, known) {
+  try {
+    await env.CACHE.put(GEAR_NAME_KEY, JSON.stringify(known));
+  } catch (err) {
+    console.error(`Could not persist gear names: ${err.message}`);
+  }
+}
+
+// `known` maps id -> {name} for gear we have resolved, or {gone:true} for gear
+// Strava has deleted. Anything else is simply absent and worth asking about.
+async function fetchGearNames(gearIds, accessToken, gearMap, known) {
+  const toFetch = gearIds.filter(id => !known[id]);
+  for (let i = 0; i < toFetch.length; i += GEAR_BATCH_SIZE) {
+    const batch = toFetch.slice(i, i + GEAR_BATCH_SIZE);
+    await Promise.all(batch.map(id => fetchGearName(id, accessToken, gearMap, known)));
+  }
+  // Resolve every id against what we now know, falling back to the raw id only
+  // when we have never once succeeded for it.
+  for (const id of gearIds) {
+    const rec = known[id];
+    gearMap[id] = rec && rec.name ? rec.name : id;
+  }
+  const unresolved = gearIds.filter(id => !(known[id] && known[id].name));
+  if (unresolved.length) {
+    console.warn(`Gear still unresolved after this sync: ${unresolved.join(', ')}`);
+  }
+}
+
+async function fetchGearName(id, accessToken, gearMap, known) {
   for (let attempt = 0; attempt <= GEAR_MAX_RETRIES; attempt++) {
     try {
       const res = await fetch(`https://www.strava.com/api/v3/gear/${id}`, {
@@ -1145,23 +1184,40 @@ async function fetchGearName(id, accessToken, gearMap) {
           await new Promise(r => setTimeout(r, retryAfter * 1000));
           continue;
         }
-        console.error(`Gear lookup for ${id} rate-limited after ${attempt + 1} attempts, falling back to raw ID`);
-        gearMap[id] = id;
+        // Nothing is written to `known`: a rate limit says "ask me later", not
+        // "this gear has no name". Writing here is what used to make the failure
+        // permanent for the life of the cache.
+        console.error(`Gear lookup for ${id} rate-limited after ${attempt + 1} attempts; will retry on the next sync`);
+        return;
+      }
+
+      // 404 means the item has been deleted in Strava. It will never resolve, so
+      // remember that and stop asking rather than spending a request a day on it.
+      if (res.status === 404) {
+        console.warn(`Gear ${id} no longer exists in Strava; recording it as deleted`);
+        known[id] = { gone: true };
         return;
       }
 
       if (!res.ok) {
         console.error(`Gear lookup for ${id} failed: ${res.status} ${await res.text()}`);
-        gearMap[id] = id;
         return;
       }
 
       const data = await res.json();
-      gearMap[id] = data.name || id;
+      // brand and model are on the same response the name comes from, and cost
+      // nothing extra. A name is only recorded when Strava actually gave us one.
+      if (data.name) {
+        known[id] = {
+          name: data.name,
+          brand: data.brand_name || null,
+          model: data.model_name || null,
+          retired: !!data.retired,
+        };
+      }
       return;
     } catch (err) {
       console.error(`Gear lookup for ${id} threw: ${err.message}`);
-      gearMap[id] = id;
       return;
     }
   }

@@ -634,6 +634,9 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .gear-icon-inline{width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:var(--bg);flex:none}
 .gear-icon-inline .ms{font-size:17px}
 .gear-unresolved{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;color:var(--text-light);margin-bottom:6px}
+.gear-photo-hint{font-size:11px;color:var(--text-light);line-height:1.5;margin-top:5px}
+.gear-photo-hint.is-hidden{display:none}
+.gear-photo-hint code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;background:var(--bg);border:1px solid var(--border);padding:0 4px}
 .top-gear-photo{width:28px;height:28px;object-fit:cover;border-radius:0;flex:none}
 .gear-name{font-size:13px;font-weight:700;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gear-type{font-size:11px;font-weight:600;margin-bottom:8px}
@@ -1405,13 +1408,49 @@ function gearIconTile(group,cls){
 function gearKey(s){return String(s).toLowerCase().replace(/[^a-z0-9]/g,'');}
 const GEAR_IMAGE_INDEX={};
 Object.entries(GEAR_IMAGES).forEach(([k,v])=>{GEAR_IMAGE_INDEX[gearKey(k)]=v;});
-function gearPhoto(name){return GEAR_IMAGE_INDEX[gearKey(name)]||null;}
+// The filename a photo for this item should have. Adding a picture used to mean
+// editing the GEAR_IMAGES map above as well as dropping the file in; now the
+// file alone is enough, because an unlisted item is guessed at by name and the
+// existing onerror handler quietly swaps in the sport icon when the guess is
+// wrong. The map stays for the cases a slug cannot reach — "Eddy Merckx" and
+// "Merckx EMX-3" being one bike with one photo.
+function gearSlug(name){
+  return String(name||'').toLowerCase()
+    .replace(/[''’]/g,'')
+    .replace(/[^a-z0-9]+/g,'-')
+    .replace(/^-+|-+$/g,'');
+}
+function gearGuessPath(name){
+  const slug=gearSlug(name);
+  return slug?'gear-images/'+slug+'.jpg':null;
+}
+function gearPhoto(name){
+  const mapped=GEAR_IMAGE_INDEX[gearKey(name)];
+  // A raw Strava id is not a product, so never guess a filename from one.
+  if(isUnresolvedGear(name))return mapped||null;
+  const guess=gearGuessPath(name);
+  // A local file beats a hotlink to someone else's CDN. Three entries in the map
+  // are remote stopgaps; pointing at the local slug first means dropping the file
+  // into gear-images/ is all it takes to retire one, and until then the remote
+  // URL is carried on the element as the first fallback.
+  if(mapped&&/^https?:/i.test(mapped))return guess||mapped;
+  return mapped||guess;
+}
+// The remote URL to try if the local guess 404s, or nothing.
+function gearPhotoFallback(name){
+  const mapped=GEAR_IMAGE_INDEX[gearKey(name)];
+  return mapped&&/^https?:/i.test(mapped)?mapped:'';
+}
 // Strava gear ids look like b1234567 / g1234567. The Worker falls back to the raw id when
 // the name lookup fails, and cached activity data can still carry one.
 function isUnresolvedGear(name){return /^[bg]\d{5,}$/i.test(String(name||''));}
 function gearLabel(name){return isUnresolvedGear(name)?'Unidentified gear':name;}
 // Swap a failed photo for its icon tile rather than removing it and collapsing the card.
+// A remote fallback gets one attempt first, so a missing local file falls back to
+// the hotlink rather than straight to an icon.
 function gearPhotoFailed(img){
+  const alt=img.dataset.fallback;
+  if(alt&&img.src!==alt){img.dataset.fallback='';img.src=alt;return;}
   const d=document.createElement('div');
   d.className=img.dataset.tile||'gear-icon-tile';
   d.style.background=img.dataset.soft||'var(--bg)';
@@ -1420,7 +1459,11 @@ function gearPhotoFailed(img){
   s.style.color=img.dataset.colour||'#94a3b8';
   s.textContent=img.dataset.icon||'bolt';
   d.appendChild(s);
+  const modal=img.closest('#gearModal');
   img.replaceWith(d);
+  // Only now do we know there is no picture for this item — the guessed filename
+  // was the last thing to try. Reveal how to supply one.
+  if(modal){const h=modal.querySelector('.gear-photo-hint');if(h)h.classList.remove('is-hidden');}
 }
 
 // One renderer for both the Summary list and the heatmap day detail. They were written
@@ -1716,7 +1759,7 @@ function renderSummary(){
     return`
     <div class="top-gear-row">
       <div class="top-gear-rank">${i+1}</div>
-      ${img?`<img class="top-gear-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" loading="lazy" data-tile="gear-icon-inline" data-soft="${groupSoft(grp)}" data-colour="${groupColor(grp)}" data-icon="${gearIconName(grp)}" onerror="gearPhotoFailed(this)">`:gearIconTile(grp,'gear-icon-inline')}
+      ${img?`<img class="top-gear-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" loading="lazy" data-tile="gear-icon-inline" data-soft="${groupSoft(grp)}" data-colour="${groupColor(grp)}" data-icon="${gearIconName(grp)}" data-fallback="${escapeAttr(gearPhotoFallback(name))}" onerror="gearPhotoFailed(this)">`:gearIconTile(grp,'gear-icon-inline')}
       <div class="top-gear-name">${escapeHtml(gearLabel(name))}</div>
       <div class="top-gear-dist">${fmtDist(s.dist)} ${distUnit()} · ${s.count.toLocaleString('en-GB')} acts</div>
     </div>`;}).join('')+'<button class="gear-view-all" onclick="setTab(\"gear\")">View all gear →</button>';
@@ -3547,7 +3590,7 @@ function renderGear(){
     const col=groupColor(topType);
     const img=gearPhoto(name);
     return`<div class="gear-card" style="border-top:3px solid ${col}" data-gear="${escapeAttr(name)}">
-      ${img?`<img class="gear-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" loading="lazy" data-tile="gear-icon-tile" data-soft="${groupSoft(topType)}" data-colour="${col}" data-icon="${gearIconName(topType)}" onerror="gearPhotoFailed(this)">`:gearIconTile(topType,'gear-icon-tile')}
+      ${img?`<img class="gear-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" loading="lazy" data-tile="gear-icon-tile" data-soft="${groupSoft(topType)}" data-colour="${col}" data-icon="${gearIconName(topType)}" data-fallback="${escapeAttr(gearPhotoFallback(name))}" onerror="gearPhotoFailed(this)">`:gearIconTile(topType,'gear-icon-tile')}
       <div class="gear-name" title="${escapeAttr(gearLabel(name))}">${escapeHtml(gearLabel(name))}</div>
       ${isUnresolvedGear(name)?`<div class="gear-unresolved">${escapeHtml(name)}</div>`:''}
       <div class="gear-type" style="color:${col}">${typeEmoji(topType)} ${topType}</div>
@@ -3665,9 +3708,11 @@ function openGearModal(name){
     {label:'In use',value:daysBetween(s.first,s.last).toLocaleString('en-GB')+' days'},
   ];
   document.getElementById('gearModal').innerHTML=`
-    ${img?`<img class="gear-modal-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" data-tile="gear-modal-icon" data-soft="${groupSoft(topType)}" data-colour="${col}" data-icon="${gearIconName(topType)}" onerror="gearPhotoFailed(this)">`:gearIconTile(topType,'gear-modal-icon')}
+    ${img?`<img class="gear-modal-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" data-tile="gear-modal-icon" data-soft="${groupSoft(topType)}" data-colour="${col}" data-icon="${gearIconName(topType)}" data-fallback="${escapeAttr(gearPhotoFallback(name))}" onerror="gearPhotoFailed(this)">`:gearIconTile(topType,'gear-modal-icon')}
     <div class="gear-modal-head">
-      <div><div class="gear-modal-title">${escapeHtml(gearLabel(name))}</div><div class="gear-modal-sub" style="color:${col}">${typeEmoji(topType)} Mostly ${topType.toLowerCase()}</div>${isUnresolvedGear(name)?`<div class="gear-unresolved" style="margin-top:4px">Strava id ${escapeHtml(name)} — name could not be fetched</div>`:''}</div>
+      <div><div class="gear-modal-title">${escapeHtml(gearLabel(name))}</div><div class="gear-modal-sub" style="color:${col}">${typeEmoji(topType)} Mostly ${topType.toLowerCase()}</div>${isUnresolvedGear(name)
+        ?`<div class="gear-unresolved" style="margin-top:4px">Strava id ${escapeHtml(name)} — the name lookup failed. It is retried on every sync, so this usually fixes itself.</div>`
+        :`<div class="gear-photo-hint is-hidden">No photo yet — drop one in as <code>gear-images/${escapeHtml(gearSlug(name))}.jpg</code> and it appears here, no code change needed.</div>`}</div>
       <button class="gear-modal-close" onclick="closeGearModal()">✕</button>
     </div>
     <div class="gear-modal-body">
