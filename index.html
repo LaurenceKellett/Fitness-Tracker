@@ -198,6 +198,10 @@ a{color:inherit;text-decoration:none}
 .record-log:hover{background:var(--bg);color:var(--text);border-color:var(--border-strong)}
 .record-strava{display:inline-flex;align-items:center;gap:4px;margin-top:8px;color:#fc4c02;font-size:11px;font-weight:600;text-decoration:none;opacity:.85;transition:opacity .15s}
 .record-strava:hover{opacity:1}
+/* Takes no part in desktop layout — the two actions fall through into the card's own
+   block flow exactly as they did before the wrapper existed. The phone overrides this
+   to a flex row; see the 640px block. */
+.record-actions{display:contents}
 /* LOG */
 .log-controls{display:flex;gap:10px;margin-bottom:12px;align-items:center;flex-wrap:wrap}
 .log-search{padding:8px 12px;border:1px solid var(--border);border-radius:0;font-size:13px;outline:none;flex:1;min-width:180px;background:var(--surface)}
@@ -548,7 +552,25 @@ tbody td{padding:10px 14px;vertical-align:middle}
   .header-toolbar{height:40px}
   .zwift-list-row{min-height:44px}
   input[type=range]{height:34px}
-  .record-strava,.strava-link{min-height:32px;display:inline-flex;align-items:center}
+  .strava-link{min-height:32px;display:inline-flex;align-items:center}
+
+  /* RECORD CARDS ON A PHONE
+     At 390px each card ran to about 220px for five short facts, because the
+     full-width "Find in log" slab sat in the middle of them and the activity name
+     was stranded underneath it. Reading order is now label, figure, what it was,
+     when — then both actions together on one row at the foot of the card. Roughly
+     160px, so three fit on screen instead of one and a half. */
+  .record-card{padding:14px 15px}
+  .record-value{font-size:24px}
+  .record-name{margin-top:4px;font-size:12px;font-style:normal;color:var(--text)}
+  .record-date{margin-top:2px}
+  .record-actions{display:flex;gap:8px;margin-top:12px}
+  .record-log{margin-top:0;flex:1;min-width:0;min-height:44px;display:inline-flex;
+    align-items:center;justify-content:center;width:auto}
+  /* Given a border it reads as the pair to Find in log rather than a loose link,
+     and it carries its own 44px target instead of borrowing the row's. */
+  .record-strava{margin-top:0;flex-shrink:0;min-height:44px;justify-content:center;
+    padding:0 14px;border:1px solid var(--border);font-size:12px}
   thead th{padding:15px 14px}
 
   /* nothing below 11px */
@@ -1954,7 +1976,12 @@ function renderRecords(){
     if(!value)return'';
     const link=stravaId?`<a href="https://www.strava.com/activities/${stravaId}" target="_blank" class="record-strava">↗ View on Strava</a>`:'';
     const inLog=name?`<button class="record-log" ${logSearchAttr(name)}>Find in log</button>`:'';
-    return`<div class="record-card ${cls}"><div class="record-label">${label}</div><div class="record-value">${value}</div>${dateStr?`<div class="record-date">${dateStr}</div>`:''}${inLog}${name?`<div class="record-name">${name}</div>`:''}${link}</div>`;
+    // The two actions share a wrapper so the phone can put them on one row. On desktop
+    // the wrapper is display:contents, so it takes no part in layout and nothing moves.
+    const actions=(inLog||link)?`<div class="record-actions">${inLog}${link}</div>`:'';
+    // Name above date, and both above the actions: the button used to sit between the
+    // date and the activity name, splitting one piece of information in half.
+    return`<div class="record-card ${cls}"><div class="record-label">${label}</div><div class="record-value">${value}</div>${name?`<div class="record-name">${name}</div>`:''}${dateStr?`<div class="record-date">${dateStr}</div>`:''}${actions}</div>`;
   }
 
   const prDists=[{label:'1 km',field:'pr_1km'},{label:'1 mile',field:'pr_1mi'},{label:'5 km',field:'pr_5km'},{label:'10 km',field:'pr_10km'},{label:'Half Marathon',field:'pr_hm'},{label:'Marathon',field:'pr_mar'}];
