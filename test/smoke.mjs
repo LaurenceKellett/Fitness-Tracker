@@ -351,6 +351,34 @@ async function main() {
       assert(restored, 'focus was not returned to the row that opened the modal');
     });
 
+    await check('the page never scrolls sideways, and the header lines up with the cards', async () => {
+      // A card on an inactive tab is display:none and measures 0 — take the one on
+      // whichever panel is actually showing.
+      await page.evaluate(() => window.setTab('summary'));
+      await page.waitForTimeout(400);
+      for (const [w, h] of [[390, 844], [768, 900], [1280, 900], [1440, 900]]) {
+        await page.setViewportSize({ width: w, height: h });
+        await page.waitForTimeout(350);
+        const r = await page.evaluate(() => {
+          const hi = document.querySelector('.header-inner');
+          const card = document.querySelector('.tab-content.active .chart-card');
+          return {
+            over: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+            headerLeft: hi.getBoundingClientRect().left + parseFloat(getComputedStyle(hi).paddingLeft),
+            cardLeft: card.getBoundingClientRect().left,
+            gutter: card.getBoundingClientRect().left,
+          };
+        });
+        // The tab strip scrolls on its own; the document must not.
+        assert(r.over <= 0, `${w}px: document is ${r.over}px wider than the viewport`);
+        assert(Math.abs(r.headerLeft - r.cardLeft) < 2,
+          `${w}px: header starts at ${r.headerLeft} but cards at ${r.cardLeft}`);
+        assert(r.gutter >= 12, `${w}px: only ${r.gutter}px of side gutter`);
+      }
+      await page.setViewportSize({ width: 1400, height: 900 });
+      await page.waitForTimeout(300);
+    });
+
     await check('section explanations sit under the title, unboxed and light', async () => {
       await page.evaluate(() => window.setTab('charts'));
       await page.waitForTimeout(400);

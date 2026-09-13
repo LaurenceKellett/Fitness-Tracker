@@ -36,6 +36,14 @@
   --bg:#f7f7f7;--surface:#fff;--border:#ebebeb;--border-strong:#dddddd;--text:#222222;--text-muted:#656565;--text-light:#9ca3af;
   --accent:#ff385c;--accent-dark:#d70466;--accent-soft:#ffeef1;
   --hm-cell:clamp(16px,3.5vw,44px);--hm-gap:clamp(2px,0.3vw,4px);
+  /* ── PAGE MEASURE ──
+     One pair of values for the header and the content beneath it. They have to
+     agree or the tab strip stops lining up with the cards it sits above, and
+     before this they were two independent copies of the same two numbers.
+     1200/24 left a 64px gutter each side on a 1280px laptop before the content
+     even started; 1300/20 gives the charts about 108px more to work with without
+     letting lines of body text run long on a wide monitor. */
+  --page-max:1300px;--page-pad:20px;
   --ride:#1d4ed8;--ride-soft:#dbeafe;
   /* Virtual was #60a5fa — a second blue, 5.3 ΔE from Swim in normal vision, which is
      below the point where a full-colour reader can separate them at all, and 2.6 under
@@ -176,7 +184,7 @@ body{font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif
 a{color:inherit;text-decoration:none}
 /* HEADER */
 .header{background:var(--surface);border-bottom:1px solid var(--border-strong);position:sticky;top:0;z-index:100}
-.header-inner{max-width:1200px;margin:0 auto;padding:0 24px}
+.header-inner{max-width:var(--page-max);margin:0 auto;padding:0 var(--page-pad)}
 .hrow{display:flex;align-items:center;padding:8px 0;gap:6px}
 /* Ten tab buttons need about 1100px. Between the 640px phone breakpoint — where the
    row is swapped for a select — and roughly 1400px they were pushing the whole
@@ -246,7 +254,7 @@ a{color:inherit;text-decoration:none}
 .refresh-icon{display:inline-block;transition:transform .6s}
 .icon-btn.spinning .refresh-icon{animation:rspin .8s linear infinite}
 @keyframes rspin{to{transform:rotate(360deg)}}
-.main{max-width:1200px;margin:0 auto;padding:28px 24px}
+.main{max-width:var(--page-max);margin:0 auto;padding:28px var(--page-pad)}
 .tab-content{display:none}.tab-content.active{display:block}
 @keyframes enterFromRight{from{transform:translateX(28px);opacity:0}to{transform:translateX(0);opacity:1}}
 @keyframes enterFromLeft{from{transform:translateX(-28px);opacity:0}to{transform:translateX(0);opacity:1}}
@@ -1045,9 +1053,14 @@ tbody td{padding:10px 14px;vertical-align:middle}
   .header-toolbar .icon-btn{width:28px}
   .hrow-scope{display:none}
   .last-updated{display:none}
-  .tab-strip-wrap{order:3;flex-basis:100%;width:100%;margin:0 -24px;border-top:1px solid var(--border)}
+  /* Bleeds the strip to both screen edges by cancelling the page padding, then
+     .tab-strip puts it back as scroll padding so the first tab still lines up with
+     the cards below. Both halves have to be the same number as --page-pad: they
+     were a hardcoded 24px, so widening the page measure grew this row by the
+     difference and pushed the whole document sideways. */
+  .tab-strip-wrap{order:3;flex-basis:100%;width:100%;margin:0 calc(-1 * var(--page-pad));border-top:1px solid var(--border)}
   .tab-strip-wrap::after{content:'';position:absolute;right:0;top:0;bottom:0;width:32px;background:linear-gradient(90deg,var(--surface-fade),var(--surface) 70%);pointer-events:none}
-  .tab-strip{padding:2px 24px 0}
+  .tab-strip{padding:2px var(--page-pad) 0}
   .tab-strip .tab-btn{flex-direction:column;gap:3px;padding:6px 10px 7px;font-size:10px;line-height:1.2}
   .tab-strip .tab-btn .ms{font-size:20px}
   /* No block behind the active tab on a phone. Stacked icon-over-label, the tab is
@@ -1084,6 +1097,10 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .hm-layout-desktop{display:block}
 .hm-layout-mobile{display:none}
 @media(max-width:640px){.hm-layout-desktop{display:none}.hm-layout-mobile{display:block}}
+
+/* A phone has none of the width to spare that a laptop does: 24px each side was
+   12% of a 390px screen given over to margin. */
+@media(max-width:640px){:root{--page-pad:16px}}
 
 /* ── PHONE ──────────────────────────────────────────────────────────────────
    Measured at 390px. Three problems this fixes: almost every control was
