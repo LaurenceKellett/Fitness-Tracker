@@ -98,6 +98,63 @@ a{color:inherit;text-decoration:none}
 @keyframes enterFromLeft{from{transform:translateX(-28px);opacity:0}to{transform:translateX(0);opacity:1}}
 .tab-content.enter-from-right{animation:enterFromRight .22s ease}
 .tab-content.enter-from-left{animation:enterFromLeft .22s ease}
+/* SUMMARY — the present-tense block that now leads the page */
+.sum-hero{border-top:3px solid var(--accent);padding:24px 26px;margin-bottom:14px}
+.sum-hero-row{display:flex;gap:34px;align-items:flex-start}
+.sum-hero-fig{width:250px;flex-shrink:0}
+.sum-hero-chart{flex:1;min-width:0}
+.sum-hero-chart .chart-wrap{height:186px}
+.sum-big{font-size:52px;font-weight:800;letter-spacing:-2px;line-height:1;margin:10px 0 8px}
+.sum-big-unit{font-size:22px;font-weight:500;color:var(--text-muted);letter-spacing:0;margin-left:6px}
+.sum-ratio{display:inline-flex;align-items:baseline;gap:6px;padding:6px 11px;margin-top:14px;
+  font-size:11px;font-weight:600;border-radius:0}
+.sum-ratio strong{font-size:14px;font-weight:700}
+/* Quiet by design: B earns its place by what it says, not by its size. */
+.sum-band{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);
+  padding:16px 22px;display:flex;align-items:flex-start;gap:14px;margin-bottom:22px}
+.sum-band:empty{display:none}
+.sum-band .ms{font-size:17px;color:var(--text-muted);vertical-align:0;flex-shrink:0;margin-top:1px}
+.sum-band-text{font-size:16px;font-weight:600;line-height:1.5}
+.sum-two{display:grid;grid-template-columns:1.6fr 1fr;gap:18px;margin-bottom:26px}
+.sum-two .chart-wrap{height:172px}
+.sum-consistency{display:flex;flex-direction:column}
+.sum-cal{display:grid;grid-template-columns:repeat(14,1fr);gap:3px;margin-top:16px}
+.sum-cal i{aspect-ratio:1;display:block;border-radius:0}
+.sum-cal-ends{display:flex;justify-content:space-between;margin-top:6px;font-size:9px;color:var(--text-light)}
+.sum-streaks{border-top:1px solid var(--border);margin-top:auto;padding-top:14px;
+  display:flex;justify-content:space-between}
+.sum-sports{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:26px}
+.sum-sport-note{margin-left:auto;margin-bottom:0;text-align:right;max-width:46%}
+.sum-sport-card{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);
+  padding:18px;border-top-width:3px;border-top-style:solid}
+.sum-sport-head{display:flex;align-items:center;gap:7px;margin-bottom:14px}
+.sum-sport-head .ms{font-size:17px;vertical-align:0}
+.sum-sport-name{font-size:13px;font-weight:700}
+.sum-sport-big{font-size:30px;font-weight:800;letter-spacing:-1.2px;line-height:1}
+.sum-sport-rows{border-top:1px solid var(--border);margin-top:14px;padding-top:12px;
+  display:flex;flex-direction:column;gap:9px}
+.sum-sport-row{display:flex;justify-content:space-between;align-items:baseline}
+.sum-sport-row span:first-child{font-size:11px;color:var(--text-muted)}
+.sum-sport-row span:last-child{font-size:12px;font-weight:600}
+/* The trophies, demoted to one line. */
+.sum-career{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);
+  padding:14px 22px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:24px}
+.sum-career-fig{display:flex;align-items:baseline;gap:6px}
+.sum-career-fig b{font-size:13px;font-weight:700}
+.sum-career-fig span{font-size:11px;color:var(--text-muted)}
+.sum-career-sep{width:1px;height:14px;background:var(--border)}
+@media(max-width:1000px){
+  .sum-hero-row{flex-direction:column;gap:18px}
+  .sum-hero-fig{width:auto}
+  .sum-two{grid-template-columns:1fr}
+  .sum-sports{grid-template-columns:repeat(2,1fr)}
+  .sum-sport-note{display:none}
+}
+@media(max-width:640px){
+  .sum-big{font-size:44px}
+  .sum-sports{grid-template-columns:1fr}
+  .sum-hero{padding:18px}
+}
 /* STATS */
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:14px;margin-bottom:24px}
 .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:18px 20px;box-shadow:var(--shadow)}
@@ -960,6 +1017,54 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
 <!-- SUMMARY -->
 <div id="tab-summary" class="tab-content active">
+  <!-- The page answers "where am I right now" before it answers "what have I ever
+       done". The career totals are still here, on one line at the bottom, handed
+       back to the tabs that own them. -->
+  <div class="sum-hero chart-card">
+    <div class="sum-hero-row">
+      <div class="sum-hero-fig">
+        <div class="stat-label">This week</div>
+        <div class="sum-big" id="sumWeekHours">—<span class="sum-big-unit">hours</span></div>
+        <div class="chart-sub" id="sumWeekBase" style="margin-bottom:0"></div>
+        <div id="sumWeekRatio"></div>
+      </div>
+      <div class="sum-hero-chart">
+        <div class="chart-sub" id="sumLoadSub">Rolling 7-day and 28-day moving time</div>
+        <div class="chart-wrap"><canvas id="chartSumLoad"></canvas></div>
+      </div>
+    </div>
+    <div id="sumLoadChips" class="chart-chips"></div>
+    <div id="sumLoadVerdict" class="chart-verdict"></div>
+  </div>
+
+  <!-- The read across all three signals at once. Deliberately quiet type: it is not
+       the hero, and it is not the load chart's own verdict one size smaller either —
+       it is the only line on the page that speaks to load, year and sport together. -->
+  <div class="sum-band" id="sumBand"></div>
+
+  <div class="sum-two">
+    <div class="chart-card">
+      <div class="chart-title">Against the same point last year</div>
+      <div class="chart-sub" id="sumCumSub">Cumulative distance by day of year</div>
+      <div class="chart-wrap"><canvas id="chartSumCum"></canvas></div>
+      <div id="sumCumChips" class="chart-chips"></div>
+      <div id="sumCumVerdict" class="chart-verdict"></div>
+    </div>
+    <div class="chart-card sum-consistency">
+      <div class="chart-title">Consistency</div>
+      <div class="chart-sub">The last 28 days</div>
+      <div id="sumConsistency"></div>
+    </div>
+  </div>
+
+  <div class="section-header">
+    <h2>Where each sport stands</h2>
+    <span class="badge" id="sumSportBadge"></span>
+    <span class="chart-sub sum-sport-note">Never averaged together — one mean speed across a
+      swim, a dog walk and a century describes none of them.</span>
+  </div>
+  <div class="sum-sports" id="sumSportCards"></div>
+
   <div class="stats-grid" id="heroStats"></div>
   <div class="two-col two-col-fill">
     <div>
@@ -1837,45 +1942,34 @@ function renderSummary(){
   // Same figure the Mex tab shows, over the same filtered set, so the two never disagree.
   const summaryMex=mexOf(mexBuckets(data));
 
-  document.getElementById('heroStats').innerHTML=`
-    <div class="stat-card">
-      <div class="stat-label">Total Distance</div>
-      <div class="stat-value">${fmtDist(totalDist)}<span class="stat-unit">${distUnit()}</span></div>
-      ${delta!=null
-        ?`<div class="stat-delta ${delta>=0?'up':'down'}">${deltaStr}</div>`
-        :`<div class="stat-sub">${activeYear==='All'
-            ?`Across ${spanYears} year${spanYears===1?'':'s'}`
-            :`Nothing recorded in ${prevYear} to compare with`}</div>`}
+  // The career totals, demoted from eleven equal cards to one line.
+  //
+  // Two of the eleven are gone rather than moved. "Avg Speed" was a mean across
+  // swims, dog walks and centuries, and "Avg Heart Rate" the same across every
+  // sport: numbers that describe no activity you have ever done. The per-sport row
+  // above is what replaces them. Longest Ride, Longest Run and Eddington are not
+  // repeated here either — they are the Records tab's headline, and this page links
+  // there rather than restating it.
+  const careerFigs=[
+    [fmtDist(totalDist)+' '+distUnit(), activeYear==='All'?`logged over ${spanYears} year${spanYears===1?'':'s'}`:'in '+activeYear],
+    [data.length.toLocaleString('en-GB'), 'activities'],
+    [fmtNum(totalTime/3600)+' h', 'moving'],
+    [fmtNum(fmtElevVal(totalElv))+fmtElevUnit(), 'climbed'],
+    [String(eddington), 'Eddington'],
+    [summaryMex+' '+distUnit(), 'Mex'],
+  ];
+  document.getElementById('heroStats').outerHTML=`<div class="sum-career" id="heroStats">
+    <div class="stat-label" style="margin:0 4px 0 0">${activeYear==='All'?'All time':activeYear}</div>
+    ${careerFigs.map(([n,l],k)=>
+      `<div class="sum-career-fig"><b>${n}</b><span>${l}</span></div>`+
+      (k===careerFigs.length-1?'':'<div class="sum-career-sep"></div>')).join('')}
+    <div style="margin-left:auto;display:flex;gap:14px">
+      <a href="#" onclick="setTab('records');return false" style="font-size:11px;font-weight:600;color:var(--accent)">Records →</a>
+      <a href="#" onclick="setTab('mex');return false" style="font-size:11px;font-weight:600;color:var(--accent)">Mex →</a>
     </div>
-    <div class="stat-card">
-      <div class="stat-label">Moving Time</div>
-      <div class="stat-value">${fmtNum(totalTime/3600)}<span class="stat-unit">hrs</span></div>
-      <div class="stat-sub">${fmtNum(totalTime/86400)} days</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Activities</div>
-      <div class="stat-value">${data.length.toLocaleString('en-GB')}</div>
-      <div class="stat-sub">${new Set(data.map(a=>a.date)).size.toLocaleString('en-GB')} unique days</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Elevation Gain</div>
-      <div class="stat-value">${fmtNum(fmtElevVal(totalElv))}<span class="stat-unit">${fmtElevUnit()}</span></div>
-      <div class="stat-sub">${(totalElv/29029).toFixed(1)}× Everest</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Calories</div>
-      <div class="stat-value">${(totalCal/1000).toFixed(0)}<span class="stat-unit">K kcal</span></div>
-      <div class="stat-sub">${fmtCal(totalCal)} total</div>
-    </div>
-    ${avgSpeed?`<div class="stat-card"><div class="stat-label">Avg Speed</div><div class="stat-value">${fmtSpeed(avgSpeed)}</div><div class="stat-sub">across ${data.filter(a=>a.speed_mph>0).length} activities</div></div>`:''}<div class="stat-card">
-      <div class="stat-label">Avg Heart Rate</div>
-      <div class="stat-value">${avgHR?Math.round(avgHR):'—'}<span class="stat-unit">${avgHR?'bpm':''}</span></div>
-    </div>
-    ${longestRide?`<div class="stat-card"><div class="stat-label">Longest Ride</div><div class="stat-value">${fmtDist(longestRide.dist_mi)}<span class="stat-unit">${distUnit()}</span></div><div class="stat-sub">${fmtDate(longestRide.date)}</div></div>`:''}
-    ${longestRun?`<div class="stat-card"><div class="stat-label">Longest Run</div><div class="stat-value">${fmtDist(longestRun.dist_mi)}<span class="stat-unit">${distUnit()}</span></div><div class="stat-sub">${fmtDate(longestRun.date)}</div></div>`:''}
-    <div class="stat-card"><div class="stat-label">Eddington №<span class="edd-info-wrap"><span class="edd-info-icon">?</span><span class="edd-tooltip-box">The largest number E where you've had at least E days with E or more ${distUnit()} of activity. For example E=74 means 74 days where you did 74+ ${distUnit()}. A tough benchmark that only grows harder to improve.</span></span></div><div class="stat-value">${eddington}</div><div class="stat-sub">${eddington} days ≥${eddington} ${distUnit()}</div></div>
-    <div class="stat-card stat-card-link" onclick="setTab('mex')" title="Open the Mex tab"><div class="stat-label">Mex Score<span class="edd-info-wrap"><span class="edd-info-icon">?</span><span class="edd-tooltip-box">One activity at every whole ${distUnit()} in ascending order. Your Mex is the highest unbroken rung before the first gap, so one missing distance caps it however far you have gone. Eddington's opposite in temperament: it rewards a single short outing, where Eddington only ever moves on long ones.</span></span></div><div class="stat-value">${summaryMex}<span class="stat-unit">${distUnit()}</span></div><div class="stat-sub">First gap at ${summaryMex+1} ${distUnit()}</div></div>
-  `;
+  </div>`;
+
+  renderSummaryNow(data);
 
   // Type cards
   const groups={};
@@ -1959,6 +2053,163 @@ function toggleEarlyYears(){
   const hidden=body.style.display==='none';
   body.style.display=hidden?'':'none';
   row.textContent=hidden?'▼ Hide earlier years (2013–2018)':'▶ Show earlier years (2013–2018)';
+}
+
+// ── THE PRESENT-TENSE SUMMARY ──
+// The page used to open on eleven equal cards of career totals, so nothing was read
+// and none of it was about now: a lifetime distance moves by about a twentieth of a
+// percent per session, which is to say it cannot tell you anything about this week.
+// Those totals are still here, on one line at the bottom. What leads is the week.
+//
+// Nothing below averages across sports. Two of the old cards — a mean speed and a
+// mean heart rate taken across swims, dog walks and centuries — described no activity
+// anyone had ever done, which is the defect the per-sport row exists to answer.
+
+// Hours per week, over a trailing window ending today.
+function sumWindowHours(data,days,endMs){
+  const byDay={};
+  data.forEach(a=>{byDay[a.date]=(byDay[a.date]||0)+(a.mt||0);});
+  let t=0;
+  for(let k=0;k<days;k++)t+=byDay[new Date(endMs-k*86400000).toISOString().slice(0,10)]||0;
+  return t/3600;
+}
+
+// "an 11.2 hour base", not "a". Eight, eleven and eighteen are the figures that read
+// with a vowel sound however they are spelled.
+// The group names are labels, not nouns you can drop into a sentence.
+const SPORT_PLURAL={Ride:'rides',Run:'runs',Virtual:'virtual rides',Walk:'walks',
+  Swim:'swims',Other:'other sessions'};
+function artFor(n){return /^(8|11|18)(\D|$)/.test(String(n))?'an':'a';}
+
+function renderSummaryNow(data){
+  const today=new Date().toISOString().slice(0,10);
+  const endMs=new Date(today+'T12:00:00').getTime();
+  const a7=sumWindowHours(data,7,endMs);
+  const c28=sumWindowHours(data,28,endMs)/4;   // ÷4 puts 28 days on a weekly scale
+  const ratio=c28>0?a7/c28:0;
+
+  // ── Hero figure ──
+  const bigEl=document.getElementById('sumWeekHours');
+  if(bigEl)bigEl.innerHTML=`${a7.toFixed(1)}<span class="sum-big-unit">hours</span>`;
+  const baseEl=document.getElementById('sumWeekBase');
+  if(baseEl)baseEl.textContent=c28>0
+    ? `against ${artFor(c28.toFixed(1))} ${c28.toFixed(1)} h/week base built over the last 28 days`
+    : 'no training in the last 28 days to compare against';
+  const ratioEl=document.getElementById('sumWeekRatio');
+  if(ratioEl){
+    if(!c28){ratioEl.innerHTML='';}
+    else{
+      const [col,word]=ratio>1.5?['#dc2626','stepping up hard']
+        :ratio>1.3?['#b45309','building']
+        :ratio<0.6?['#b45309','backing off']
+        :ratio<0.8?['#b45309','easing off']
+        :['#16a34a','steady'];
+      ratioEl.innerHTML=`<div class="sum-ratio" style="color:${col};background:${col}1a">`+
+        `<strong>${ratio.toFixed(2)}×</strong> ${word}</div>`;
+    }
+  }
+
+  renderLoad(data,SUM_LOAD_TARGET);
+  renderCumulative(data,SUM_CUM_TARGET);
+
+  // ── Consistency: days trained out of the last 28, plus the streaks ──
+  const trained=new Set(data.map(a=>a.date));
+  const cells=[];
+  for(let k=27;k>=0;k--)cells.push(trained.has(new Date(endMs-k*86400000).toISOString().slice(0,10)));
+  const active=cells.filter(Boolean).length;
+  const streak=recLongestStreak(data);
+  let cur=0;
+  for(let k=0;;k++){
+    const d=new Date(endMs-k*86400000).toISOString().slice(0,10);
+    if(trained.has(d))cur++;
+    // Today not being logged yet is not a broken streak, so the count may start
+    // at yesterday. Any earlier gap ends it.
+    else if(k>0)break;
+    if(k>400)break;
+  }
+  const consEl=document.getElementById('sumConsistency');
+  if(consEl)consEl.innerHTML=
+    `<div class="stat-value" style="font-size:34px;margin-top:12px">${active}`+
+      `<span class="stat-unit" style="font-size:15px">of 28 days</span></div>`+
+    `<div class="chart-sub" style="margin:6px 0 0">You trained on ${Math.round(active/28*100)}% of them</div>`+
+    `<div class="sum-cal">${cells.map(x=>
+      `<i style="background:${x?getAccentColor():'var(--border)'}"></i>`).join('')}</div>`+
+    `<div class="sum-cal-ends"><span>4 weeks ago</span><span>today</span></div>`+
+    `<div class="sum-streaks">`+
+      `<div><div style="font-size:16px;font-weight:700">${cur} day${cur===1?'':'s'}</div>`+
+        `<div class="chart-sub" style="margin:0">current streak</div></div>`+
+      `<div style="text-align:right"><div style="font-size:16px;font-weight:700">`+
+        `${streak?streak.len+' day'+(streak.len===1?'':'s'):'—'}</div>`+
+        `<div class="chart-sub" style="margin:0">${streak?'longest, '+fmtDate(streak.to):'no streak yet'}</div></div>`+
+    `</div>`;
+
+  // ── Per sport, never averaged together ──
+  const groups=['Ride','Run','Virtual','Walk','Swim','Other'];
+  const thisYear=new Date().getFullYear().toString();
+  const doyNow=todayDoy();
+  const cards=[];
+  groups.forEach(g=>{
+    const all=ALL_DATA.filter(a=>typeGroup(a.type)===g);
+    if(!all.length)return;
+    const wk=sumWindowHours(all,7,endMs);
+    const base=sumWindowHours(all,28,endMs)/4;
+    const wkDist=all.filter(a=>a.date>new Date(endMs-7*86400000).toISOString().slice(0,10))
+      .reduce((s,a)=>s+(a.dist_mi||0),0);
+    const ytd=all.filter(a=>a.date.slice(0,4)===thisYear).reduce((s,a)=>s+(a.dist_mi||0),0);
+    // Like for like: last year counted only as far into the year as today.
+    const prev=all.filter(a=>a.date.slice(0,4)===String(+thisYear-1)&&dayOfYear(a.date)<=doyNow)
+      .reduce((s,a)=>s+(a.dist_mi||0),0);
+    const d=prev>0?Math.round((ytd-prev)/prev*100):null;
+    cards.push({g,wk,base,wkDist,ytd,d,n:all.length});
+  });
+  cards.sort((x,y)=>y.n-x.n);
+  const badge=document.getElementById('sumSportBadge');
+  if(badge)badge.textContent='Week to '+fmtDate(today);
+  const wrap=document.getElementById('sumSportCards');
+  if(wrap)wrap.innerHTML=cards.slice(0,5).map(c=>{
+    const col=groupColor(c.g);
+    return`<div class="sum-sport-card" style="border-top-color:${col}">
+      <div class="sum-sport-head">
+        <span class="ms" style="color:${col}">${gearIconName(c.g)}</span>
+        <span class="sum-sport-name" style="color:${col}">${c.g}</span>
+      </div>
+      <div class="sum-sport-big">${c.wk.toFixed(1)}h</div>
+      <div class="chart-sub" style="margin:4px 0 0">this week${c.wkDist>0?' · '+fmtDist(c.wkDist)+' '+distUnit():''}</div>
+      <div class="sum-sport-rows">
+        <div class="sum-sport-row"><span>28-day base</span><span>${c.base.toFixed(1)}h/wk</span></div>
+        <div class="sum-sport-row"><span>${thisYear} so far</span><span>${fmtDist(c.ytd)} ${distUnit()}</span></div>
+        <div class="sum-sport-row"><span>on last year</span><span style="color:${
+          c.d==null?'var(--text-muted)':c.d>=0?'#16a34a':'#dc2626'}">${
+          c.d==null?'—':(c.d>=0?'+':'')+c.d+'%'}</span></div>
+      </div>
+    </div>`;}).join('');
+
+  // ── The band. One line across all three signals, which is the only thing it says
+  //    that the hero's own verdict does not. ──
+  const band=document.getElementById('sumBand');
+  if(band){
+    const ytdAll=cards.reduce((s,c)=>s+c.ytd,0);
+    const prevAll=ALL_DATA.filter(a=>a.date.slice(0,4)===String(+thisYear-1)&&dayOfYear(a.date)<=doyNow)
+      .reduce((s,a)=>s+(a.dist_mi||0),0);
+    const yd=prevAll>0?Math.round((ytdAll-prevAll)/prevAll*100):null;
+    // Which sport moved furthest from its own base — the "what is missing" clause.
+    const moved=cards.filter(c=>c.base>0.2).sort((x,y)=>(x.wk-x.base)-(y.wk-y.base))[0];
+    if(!c28){band.innerHTML='';}
+    else{
+      const state=ratio>1.3?'building':ratio<0.8?'backing off':'holding steady';
+      const stateCol=ratio>1.3?'#b45309':ratio<0.8?'#b45309':'#16a34a';
+      const yearBit=yd==null?'':
+        ` and <span style="color:${yd>=0?'#16a34a':'#dc2626'}">${Math.abs(yd)}% ${yd>=0?'ahead of':'behind'}</span> `+
+        `where you stood this time last year`;
+      const sportBit=(moved&&moved.wk<moved.base*0.7)
+        ? ` It is the <span style="color:${groupColor(moved.g)}">${SPORT_PLURAL[moved.g]||moved.g.toLowerCase()}</span> that are missing.`
+        : '';
+      band.innerHTML=`<span class="ms">insights</span><div class="sum-band-text">You are `+
+        `<span style="color:${stateCol}">${state}</span> — ${a7.toFixed(1)} hours this week against `+
+        `${artFor(c28.toFixed(1))} `+
+        `${c28.toFixed(1)} hour base${yearBit}.${sportBit}</div>`;
+    }
+  }
 }
 
 // ── CHARTS ──
@@ -2740,6 +2991,14 @@ function renderYearCalendarChart(year,data){
   document.getElementById('firstChartCalendar').innerHTML=`<div class="ycal-grid">${hdr}${rows}</div>`;
 }
 
+// Where each of these two charts draws. The Summary hero and the Charts tab show the
+// same figures from the same computation against different canvases, rather than two
+// implementations that can drift apart.
+const LOAD_TARGET={canvas:'chartLoad',key:'load',sub:'loadSub',chips:'load'};
+const CUM_TARGET ={canvas:'chartCumulative',key:'cumulative',sub:'cumSub',chips:'cum'};
+const SUM_LOAD_TARGET={canvas:'chartSumLoad',key:'sumload',sub:'sumLoadSub',chips:'sumLoad'};
+const SUM_CUM_TARGET ={canvas:'chartSumCum',key:'sumcum',sub:'sumCumSub',chips:'sumCum'};
+
 // ── DAY OF YEAR ──
 // The unit that makes a part-finished year comparable with a finished one. A
 // year-to-date total held up against a full previous year is not a comparison,
@@ -2781,10 +3040,10 @@ function yearRamp(n,i){
 // time, not Relative Effort: `score` only exists on activities with heart-rate
 // data, and a load chart that silently drops a third of your training is worse
 // than no load chart.
-function renderLoad(data){
+function renderLoad(data,t=LOAD_TARGET){
   if(!data.length){
-    setChartEmpty('chartLoad','No activities in this filter.');
-    chartSummary('load',[],'');
+    setChartEmpty(t.canvas,'No activities in this filter.');
+    chartSummary(t.chips,[],'');
     return;
   }
   const byDay={};
@@ -2815,17 +3074,17 @@ function renderLoad(data){
     chronic.push(+(sumBack(ms,28)/4/3600).toFixed(2)); // ÷4 puts 28 days on a weekly scale
   }
   if(!dates.some(d=>d>=label[0]&&d<=end)){
-    setChartEmpty('chartLoad','No activities in the last year of this filter.');
-    chartSummary('load',[],'');
+    setChartEmpty(t.canvas,'No activities in the last year of this filter.');
+    chartSummary(t.chips,[],'');
     return;
   }
-  setChartEmpty('chartLoad');
+  setChartEmpty(t.canvas);
 
-  document.getElementById('loadSub').textContent=
+  document.getElementById(t.sub).textContent=
     `Hours per week — the last ${SPAN===365?'365 days':'year'}, ending ${fmtDate(end)}. The 28-day line is what you are conditioned for; the 7-day is what you just did.`;
 
-  destroyChart('load');
-  charts.load=new Chart(document.getElementById('chartLoad').getContext('2d'),{
+  destroyChart(t.key);
+  charts[t.key]=new Chart(document.getElementById(t.canvas).getContext('2d'),{
     type:'line',
     data:{labels:label,datasets:[
       {label:'28-day average',data:chronic,borderColor:'#94a3b8',backgroundColor:'rgba(148,163,184,.14)',fill:true,tension:.25,pointRadius:0,borderWidth:2,order:1},
@@ -2848,7 +3107,7 @@ function renderLoad(data){
   const a7=acute[last],c28=chronic[last];
   const ratio=c28>0?a7/c28:0;
   const peak=Math.max(...acute);
-  chartSummary('load',[
+  chartSummary(t.chips,[
     {n:chipNum(a7,1)+'h',label:'last 7 days',col:getAccentColor()},
     {n:chipNum(c28,1)+'h',label:'28-day average',col:'#94a3b8'},
     {n:c28>0?ratio.toFixed(2)+'×':'—',label:'acute vs chronic',col:ratio>1.5?'#ef4444':ratio<0.8?'#f59e0b':'#22c55e'},
@@ -2868,9 +3127,9 @@ function renderLoad(data){
 // ── CUMULATIVE, BY DAY OF YEAR ──
 // The chart the Year-over-Year bars could not be: it holds today against the same
 // date in every previous year rather than against those years' finished totals.
-function renderCumulative(data){
+function renderCumulative(data,t=CUM_TARGET){
   const years=[...new Set(ALL_DATA.map(a=>a.date.slice(0,4)))].sort().reverse();
-  if(!years.length){setChartEmpty('chartCumulative','No activities.');chartSummary('cum',[],'');return;}
+  if(!years.length){setChartEmpty(t.canvas,'No activities.');chartSummary(t.chips,[],'');return;}
 
   // This chart is about years, so the header's year filter would empty it. It
   // takes the sport filter and picks its own set of years around the one in view.
@@ -2886,10 +3145,10 @@ function renderCumulative(data){
     (byYear[y]=byYear[y]||new Array(367).fill(0))[d]+=distIn(a);
   });
   if(!Object.keys(byYear).length){
-    setChartEmpty('chartCumulative','No activities of this type in the years shown.');
-    chartSummary('cum',[],'');return;
+    setChartEmpty(t.canvas,'No activities of this type in the years shown.');
+    chartSummary(t.chips,[],'');return;
   }
-  setChartEmpty('chartCumulative');
+  setChartEmpty(t.canvas);
 
   const isCurrent=focus===new Date().getFullYear().toString();
   const cutoff=isCurrent?todayDoy():366;
@@ -2904,8 +3163,8 @@ function renderCumulative(data){
     cum[y]=out;
   });
 
-  destroyChart('cumulative');
-  charts.cumulative=new Chart(document.getElementById('chartCumulative').getContext('2d'),{
+  destroyChart(t.key);
+  charts[t.key]=new Chart(document.getElementById(t.canvas).getContext('2d'),{
     type:'line',
     data:{labels:Array.from({length:366},(_,i)=>i+1),
       datasets:show.map((y,i)=>({
@@ -2937,7 +3196,7 @@ function renderCumulative(data){
   const hereNow=at(focus,cutoff),thenPrev=prev!=null?at(prev,cutoff):null;
   const fmtD=v=>fmtDist(unit==='mi'?v:v/1.60934);
 
-  document.getElementById('cumSub').textContent=isCurrent
+  document.getElementById(t.sub).textContent=isCurrent
     ? `Distance run up from 1 January, ${focus} against the ${show.length-1} years before it. The comparison is made on day ${cutoff}, the point ${focus} has actually reached.`
     : `Distance run up from 1 January, ${focus} against the years around it.`;
 
@@ -2949,7 +3208,7 @@ function renderCumulative(data){
   }
   if(isCurrent&&hereNow>0)chips.push({n:fmtD(hereNow/cutoff*365)+' '+distUnit(),label:'on pace for',col:'#8b5cf6'});
 
-  chartSummary('cum',chips,(()=>{
+  chartSummary(t.chips,chips,(()=>{
     if(thenPrev==null||!thenPrev)return `No comparable year before ${focus} in this filter.`;
     const d=Math.round((hereNow-thenPrev)/thenPrev*100);
     const gap=fmtD(Math.abs(hereNow-thenPrev))+' '+distUnit();
