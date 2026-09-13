@@ -329,6 +329,85 @@ function periodPhrase(scope){
 }
 function isValidScope(v){return v==='All'||isYearScope(v)||isRollingScope(v);}
 
+/* ── ROLLING WEEKLY SERIES ──
+ * The shape behind both hero charts: for every day in the window, the total over
+ * the preceding 7 days and the preceding 28 days put on the same weekly scale.
+ *
+ * `pick` decides what is being totalled, and returns it in its final unit — hours
+ * for training load, miles or kilometres for distance. Keeping the conversion in
+ * the caller is what lets one function serve both without knowing about either.
+ *
+ * Days before the window still count towards a 28-day average that reaches back
+ * over its edge, so the first plotted point is a real average rather than a ramp
+ * up from zero. Only the plotting starts at the window.
+ *
+ * Dates are anchored at local noon and stepped in whole days. Midnight would drift
+ * across a DST boundary and produce a repeated or skipped day in the series.
+ */
+function rollingWeekly(acts,pick,opts){
+  const o=opts||{};
+  const today=o.today||todayISO();
+  const scope=o.scope===undefined?activeYear:o.scope;
+
+  const byDay={};
+  (acts||[]).forEach(a=>{byDay[a.date]=(byDay[a.date]||0)+(pick(a)||0);});
+
+  // The window ends today for an open-ended scope, or on the last day of the year
+  // being looked at — showing "the last 365 days" of 2019 would end the line on a
+  // date that has not happened in that year's terms.
+  const end=isYearScope(scope)
+    ? (String(scope)<today.slice(0,4)?scope+'-12-31':today)
+    : today;
+  // A rolling scope plots its own length plus the 28-day base it is measured
+  // against, so the first point still has a full base behind it.
+  const span=isYearScope(scope)?370
+    :(isRollingScope(scope)?ROLLING_PERIODS[scope].days+28:365);
+
+  const endMs=new Date(end+'T12:00:00').getTime();
+  const startMs=endMs-(span-1)*86400000;
+  const dayAt=ms=>{
+    const d=new Date(ms);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  };
+  const sumBack=(ms,days)=>{
+    let t=0;
+    for(let k=0;k<days;k++)t+=byDay[dayAt(ms-k*86400000)]||0;
+    return t;
+  };
+
+  const labels=[],acute=[],chronic=[];
+  for(let ms=startMs;ms<=endMs;ms+=86400000){
+    labels.push(dayAt(ms));
+    acute.push(+sumBack(ms,7).toFixed(2));
+    chronic.push(+(sumBack(ms,28)/4).toFixed(2));   // ÷4 puts 28 days on a weekly scale
+  }
+
+  const dates=Object.keys(byDay);
+  return{
+    labels,acute,chronic,end,span,
+    hasData:dates.some(d=>d>=labels[0]&&d<=end),
+    latest:{acute:acute[acute.length-1]||0,chronic:chronic[chronic.length-1]||0},
+    peak:acute.length?Math.max.apply(null,acute):0,
+  };
+}
+
+// Shared by both hero figures, so "steady" means the same thing in hours and miles.
+const RATIO_BANDS=[
+  {over:1.5,tone:'danger', word:'stepping up hard'},
+  {over:1.3,tone:'warn',   word:'building'},
+  {under:0.6,tone:'warn',  word:'backing off'},
+  {under:0.8,tone:'warn',  word:'easing off'},
+  {tone:'good',            word:'steady'},
+];
+function ratioBand(ratio){
+  for(const b of RATIO_BANDS){
+    if(b.over!==undefined){if(ratio>b.over)return b;continue;}
+    if(b.under!==undefined){if(ratio<b.under)return b;continue;}
+    return b;
+  }
+  return RATIO_BANDS[RATIO_BANDS.length-1];
+}
+
 /* ── TEST HOOKS ──
  * Browser-invisible: `module` is undefined in a classic script, so this whole
  * block is skipped there. In Node it exposes the functions plus a setter for the
@@ -343,7 +422,7 @@ if (typeof module !== 'undefined' && module.exports) {
     decodePolylinePts,gearKey,gearSlug,socCanon,socInitials,extractPartners,formatUpdatedAt,
     recLongestStreak,recCurrentStreak,mexBuckets,mexOf,actDistIn,distIn,
     ROLLING_PERIODS,ROLLING_ORDER,todayISO,isYearScope,isRollingScope,periodStart,
-    scopeIncludes,periodLabel,periodPhrase,isValidScope,
+    scopeIncludes,periodLabel,periodPhrase,isValidScope,rollingWeekly,ratioBand,RATIO_BANDS,
     setScope(s){
       if(s.unit!==undefined)unit=s.unit;
       if(s.activeYear!==undefined)activeYear=s.activeYear;

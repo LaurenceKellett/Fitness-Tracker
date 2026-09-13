@@ -8,7 +8,7 @@ const {
   monthLabel, haversineMi, decodePolylinePts, gearKey, gearSlug, socCanon, socInitials,
   extractPartners, formatUpdatedAt, recLongestStreak, recCurrentStreak, mexBuckets, mexOf,
   actDistIn, distIn, ROLLING_ORDER, todayISO, isYearScope, isRollingScope, periodStart,
-  scopeIncludes, periodLabel, periodPhrase, isValidScope,
+  scopeIncludes, periodLabel, periodPhrase, isValidScope, rollingWeekly, ratioBand,
   setScope,
 } = calc;
 
@@ -482,6 +482,128 @@ describe('recCurrentStreak', () => {
 
   it('is zero with nothing logged', () => {
     expect(recCurrentStreak([], '2026-09-13')).toBe(0);
+  });
+});
+
+// ── ROLLING WEEKLY SERIES ─────────────────────────────────────────────────────
+// Both hero charts on the Summary tab are this function with a different `pick`.
+// It replaced an inline copy inside renderLoad, so these also pin the behaviour
+// that chart had before the extraction.
+
+describe('rollingWeekly', () => {
+  const hours = (a) => (a.mt || 0) / 3600;
+  const dist = (a) => a.dist_mi || 0;
+  const day = (from, n) => {
+    const d = new Date(from + 'T12:00:00');
+    d.setDate(d.getDate() - n);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  it('totals the trailing seven days into the acute series', () => {
+    const acts = [0, 1, 2].map((n) => ({ date: day('2026-09-13', n), mt: 3600 }));
+    const r = rollingWeekly(acts, hours, { today: '2026-09-13', scope: 'All' });
+    expect(r.latest.acute).toBe(3);
+  });
+
+  it('puts the 28-day total on a weekly scale by dividing by four', () => {
+    const acts = Array.from({ length: 28 }, (_, n) => ({ date: day('2026-09-13', n), mt: 3600 }));
+    const r = rollingWeekly(acts, hours, { today: '2026-09-13', scope: 'All' });
+    expect(r.latest.acute).toBe(7);     // 7 days x 1h
+    expect(r.latest.chronic).toBe(7);   // 28h over 28 days is the same 7h/week
+  });
+
+  it('drops activities older than the window out of the acute total', () => {
+    const acts = [{ date: day('2026-09-13', 0), mt: 3600 }, { date: day('2026-09-13', 10), mt: 36000 }];
+    const r = rollingWeekly(acts, hours, { today: '2026-09-13', scope: 'All' });
+    expect(r.latest.acute).toBe(1);
+  });
+
+  it('counts days from before the window towards the first plotted average', () => {
+    // The first label is 364 days back; an activity the day before it must still
+    // reach the 28-day average there, or the line ramps up from a false zero.
+    const acts = [{ date: day('2026-09-13', 364), mt: 3600 }];
+    const r = rollingWeekly(acts, hours, { today: '2026-09-13', scope: 'All' });
+    expect(r.chronic[0]).toBeGreaterThan(0);
+  });
+
+  it('returns whatever unit pick returns, so one function serves both charts', () => {
+    const acts = [{ date: '2026-09-13', mt: 7200, dist_mi: 25 }];
+    const opts = { today: '2026-09-13', scope: 'All' };
+    expect(rollingWeekly(acts, hours, opts).latest.acute).toBe(2);
+    expect(rollingWeekly(acts, dist, opts).latest.acute).toBe(25);
+  });
+
+  it('spans a year for all-time, a year plus a base for a calendar year', () => {
+    const o = { today: '2026-09-13' };
+    expect(rollingWeekly([], hours, { ...o, scope: 'All' }).span).toBe(365);
+    expect(rollingWeekly([], hours, { ...o, scope: '2026' }).span).toBe(370);
+  });
+
+  it('gives a rolling scope its own length plus the 28-day base behind it', () => {
+    const o = { today: '2026-09-13' };
+    expect(rollingWeekly([], hours, { ...o, scope: '30d' }).span).toBe(58);
+    expect(rollingWeekly([], hours, { ...o, scope: '90d' }).span).toBe(118);
+  });
+
+  it('ends a past year on its own last day, not on today', () => {
+    const o = { today: '2026-09-13' };
+    expect(rollingWeekly([], hours, { ...o, scope: '2024' }).end).toBe('2024-12-31');
+    // The current year still ends today — 31 December has not happened yet.
+    expect(rollingWeekly([], hours, { ...o, scope: '2026' }).end).toBe('2026-09-13');
+    expect(rollingWeekly([], hours, { ...o, scope: 'All' }).end).toBe('2026-09-13');
+  });
+
+  it('reports whether anything falls inside the window at all', () => {
+    const o = { today: '2026-09-13', scope: 'All' };
+    expect(rollingWeekly([{ date: '2026-09-01', mt: 60 }], hours, o).hasData).toBe(true);
+    expect(rollingWeekly([{ date: '2019-01-01', mt: 60 }], hours, o).hasData).toBe(false);
+    expect(rollingWeekly([], hours, o).hasData).toBe(false);
+  });
+
+  it('reports the biggest week in the window', () => {
+    const acts = [{ date: '2026-09-13', mt: 3600 }, { date: '2026-05-01', mt: 36000 }];
+    const r = rollingWeekly(acts, hours, { today: '2026-09-13', scope: 'All' });
+    expect(r.peak).toBe(10);
+  });
+
+  it('produces one label per day with no repeats or gaps across a clock change', () => {
+    // 2026-03-29 is the UK spring change. Stepping in fixed 24h from midnight
+    // would repeat or skip a date here; the noon anchor is what prevents it.
+    const r = rollingWeekly([], hours, { today: '2026-04-05', scope: 'All' });
+    expect(new Set(r.labels).size).toBe(r.labels.length);
+    expect(r.labels.length).toBe(365);
+    const i = r.labels.indexOf('2026-03-28');
+    expect(r.labels[i + 1]).toBe('2026-03-29');
+    expect(r.labels[i + 2]).toBe('2026-03-30');
+  });
+
+  it('survives an empty history without throwing', () => {
+    const r = rollingWeekly([], hours, { today: '2026-09-13', scope: 'All' });
+    expect(r.latest.acute).toBe(0);
+    expect(r.peak).toBe(0);
+  });
+});
+
+describe('ratioBand', () => {
+  it('names each band of acute against chronic', () => {
+    expect(ratioBand(1.8).word).toBe('stepping up hard');
+    expect(ratioBand(1.4).word).toBe('building');
+    expect(ratioBand(1.0).word).toBe('steady');
+    expect(ratioBand(0.7).word).toBe('easing off');
+    expect(ratioBand(0.4).word).toBe('backing off');
+  });
+
+  it('puts the boundaries where the thresholds say, not one side out', () => {
+    expect(ratioBand(1.5).word).toBe('building');   // > 1.5, not >=
+    expect(ratioBand(1.3).word).toBe('steady');
+    expect(ratioBand(0.8).word).toBe('steady');
+    expect(ratioBand(0.6).word).toBe('easing off');
+  });
+
+  it('carries a tone so both hero figures colour the same way', () => {
+    expect(ratioBand(1.8).tone).toBe('danger');
+    expect(ratioBand(1.0).tone).toBe('good');
+    expect(ratioBand(0.5).tone).toBe('warn');
   });
 });
 

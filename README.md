@@ -121,7 +121,7 @@ is the one the theme swaps; the cache is dropped whenever the theme changes.
 
 | Tab | What it shows |
 |-----|---------------|
-| Summary | Leads with the present tense — this week's hours against your 28-day base, a one-line read across load/year/sport, cumulative distance against the same day last year, consistency over 28 days, and a per-sport row. Career totals sit on one line at the bottom. Then activity breakdown, year-by-year table, location pills, top gear and recent activities (see below) |
+| Summary | Leads with the present tense — this week's hours against your 28-day base, then the same week in distance with its own rolling chart and a per-sport split of the last seven days, a one-line read across load/year/sport, cumulative distance against the same day last year, consistency over 28 days, and a per-sport row. Career totals sit on one line at the bottom. Then activity breakdown, year-by-year table, location pills, top gear and recent activities (see below) |
 | Map | Route heatmap — all GPS routes rendered as semi-transparent polylines on a dark basemap, coloured by sport type — plus **route replay** and **Ground covered** (see below) |
 | Charts | Three sections. **Volume** — training load, cumulative against last year, monthly distance, rolling twelve months, activity mix, elevation. **Intensity** — heart-rate zones, Relative Effort, pace against distance, speed per heartbeat, power, cadence. **Habits** — time of day, moving vs stopped, race day, temperature |
 | Heatmap | GitHub-style activity calendar, coloured by the sport you spent most time on each day, with every prior year listed beneath |

@@ -419,6 +419,74 @@ async function main() {
       await page.waitForTimeout(400);
     });
 
+    await check('the distance-per-week hero sits under the hours one and adds up', async () => {
+      await page.evaluate(() => { window.setYear('All'); window.setType('All'); window.setUnit('mi'); window.setTab('summary'); });
+      await page.waitForTimeout(800);
+
+      const r = await page.evaluate(() => {
+        const heroes = [...document.querySelectorAll('.sum-hero')];
+        const hours = document.getElementById('sumWeekHours');
+        const dist = document.getElementById('sumWeekDist');
+        if (!hours || !dist) return null;
+        const keys = [...document.querySelectorAll('#sumDistSplit .split-key span')].map((e) => e.innerText);
+        const widths = [...document.querySelectorAll('#sumDistSplit .split-bar span')]
+          .map((e) => parseFloat(e.style.width));
+        return {
+          order: heroes.indexOf(hours.closest('.sum-hero')) < heroes.indexOf(dist.closest('.sum-hero')),
+          hoursText: hours.innerText.replace(/\s+/g, ' '),
+          distText: dist.innerText.replace(/\s+/g, ' '),
+          unit: document.getElementById('sumWeekDistUnit').textContent,
+          base: document.getElementById('sumDistBase').textContent,
+          chips: [...document.querySelectorAll('#sumDistChips .chart-chip')].map((e) => e.innerText.replace(/\s+/g, ' ')),
+          verdict: document.getElementById('sumDistVerdict').textContent,
+          keys, widths,
+          chart: !!(typeof charts !== 'undefined' && charts.sumdist),
+        };
+      });
+      assert(r, 'the distance hero did not render');
+      assert(r.order, 'the distance hero is not below the hours one');
+      assert(/miles/.test(r.distText) && r.unit === 'miles', `figure reads "${r.distText}"`);
+      assert(!/—/.test(r.distText), 'the figure is still a placeholder');
+      assert(/mi\/week base/.test(r.base), `base line reads "${r.base}"`);
+      assert(r.chips.length === 4, `${r.chips.length} chips`);
+      assert(r.verdict.length > 0, 'no verdict');
+      assert(r.chart, 'no distance chart instance');
+
+      // The split is this week only, by sport, and it is a share of one total.
+      assert(r.keys.length >= 2, `split shows ${r.keys.length} sports`);
+      const sum = r.widths.reduce((a, b) => a + b, 0);
+      assert(Math.abs(sum - 100) < 0.5, `split bar widths sum to ${sum.toFixed(2)}%, not 100`);
+      // Sorted biggest first, so the bar reads left to right.
+      for (let i = 1; i < r.widths.length; i++) {
+        assert(r.widths[i] <= r.widths[i - 1] + 0.01, 'split is not sorted by size');
+      }
+    });
+
+    await check('the distance hero follows the unit toggle', async () => {
+      const read = () => page.evaluate(() => ({
+        unit: document.getElementById('sumWeekDistUnit').textContent,
+        fig: parseFloat(document.getElementById('sumWeekDist').innerText),
+        sub: document.getElementById('sumDistSub').textContent,
+        key: (document.querySelector('#sumDistSplit .split-key span') || {}).innerText || '',
+      }));
+      await page.evaluate(() => window.setUnit('mi'));
+      await page.waitForTimeout(600);
+      const mi = await read();
+      await page.evaluate(() => window.setUnit('km'));
+      await page.waitForTimeout(600);
+      const km = await read();
+
+      assert(km.unit === 'km' && mi.unit === 'miles', `units are ${mi.unit}/${km.unit}`);
+      assert(/Kilometres per week/.test(km.sub), `km subtitle reads "${km.sub}"`);
+      assert(/Miles per week/.test(mi.sub), `mi subtitle reads "${mi.sub}"`);
+      // Same week, bigger number in km — the conversion has to reach the figure,
+      // the axis and the per-sport split alike.
+      assert(km.fig > mi.fig * 1.5, `${mi.fig} mi became ${km.fig} km`);
+      assert(/km/.test(km.key) && /mi/.test(mi.key), `split key reads "${km.key}" in km mode`);
+      await page.evaluate(() => window.setUnit('mi'));
+      await page.waitForTimeout(500);
+    });
+
     await check('the gear photo runs to the top and both sides of its card', async () => {
       await page.evaluate(() => window.setTab('gear'));
       await page.waitForTimeout(800);

@@ -294,6 +294,15 @@ a{color:inherit;text-decoration:none}
 .sum-band:empty{display:none}
 .sum-band .ms{font-size:17px;color:var(--text-muted);vertical-align:0;flex-shrink:0;margin-top:1px}
 .sum-band-text{font-size:16px;font-weight:600;line-height:1.5}
+/* The per-sport split under the distance hero. Tighter than the Social one it
+   borrows from: it sits inside a card that already carries a chart. */
+.sum-split{margin-top:18px;padding-top:16px;border-top:1px solid var(--border)}
+.sum-split-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.sum-split-t{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-light)}
+.sum-split-n{font-size:11.5px;color:var(--text-muted)}
+.sum-split .split-bar{height:14px;margin:9px 0 9px}
+.sum-split .split-key{gap:5px 16px}
+.sum-split-empty{font-size:12px;color:var(--text-muted);margin-top:9px}
 .sum-two{display:grid;grid-template-columns:1.6fr 1fr;gap:18px;margin-bottom:26px}
 .sum-two .chart-wrap{height:172px}
 .sum-consistency{display:flex;flex-direction:column}
@@ -557,11 +566,11 @@ details:not([open])>*:not(summary){display:none}
 .soc-lead-top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .soc-lead-n{font-family:var(--f-fig);font-size:30px;font-weight:var(--w-fig);letter-spacing:-1px;line-height:1}
 .soc-lead-t{font-size:13px;color:var(--text-muted);padding-bottom:2px}
-.soc-split{display:flex;height:26px;margin:14px 0 10px;overflow:hidden}
-.soc-split span{display:block;height:100%}
-.soc-key{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:11.5px;color:var(--text-muted)}
-.soc-key i{width:9px;height:9px;display:inline-block;margin-right:5px;font-style:normal}
-.soc-key b{font-weight:700;color:var(--text)}
+.split-bar{display:flex;height:26px;margin:14px 0 10px;overflow:hidden}
+.split-bar span{display:block;height:100%}
+.split-key{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:11.5px;color:var(--text-muted)}
+.split-key i{width:9px;height:9px;display:inline-block;margin-right:5px;font-style:normal}
+.split-key b{font-weight:700;color:var(--text)}
 .soc-caveat{margin-top:14px;padding-top:13px;border-top:1px solid var(--border);display:flex;align-items:flex-start;gap:10px}
 .soc-caveat .ms{font-size:17px;color:var(--warn-icon);flex-shrink:0}
 .soc-caveat div{font-size:12px;color:var(--text-muted);line-height:1.6}
@@ -1442,6 +1451,31 @@ body.is-loading .stats-grid *{visibility:hidden}
     </div>
     <div id="sumLoadChips" class="chart-chips"></div>
     <div id="sumLoadVerdict" class="chart-verdict"></div>
+  </div>
+
+  <!-- The same week in the other unit. Hours say what training cost you; distance
+       says what it covered, and the two come apart — a week of hard short sessions
+       and a week of long easy ones can post the same hours and very different
+       mileage. Same shape as the card above it on purpose: one idea, two measures,
+       not two designs. -->
+  <div class="sum-hero chart-card">
+    <div class="sum-hero-row">
+      <div class="sum-hero-fig">
+        <div class="stat-label">This week</div>
+        <div class="sum-big" id="sumWeekDist">—<span class="sum-big-unit" id="sumWeekDistUnit">miles</span></div>
+        <div class="chart-sub" id="sumDistBase" style="margin-bottom:0"></div>
+        <div id="sumDistRatio"></div>
+      </div>
+      <div class="sum-hero-chart">
+        <div class="chart-sub" id="sumDistSub">Rolling 7-day and 28-day distance</div>
+        <div class="chart-wrap"><canvas id="chartSumDist"></canvas></div>
+      </div>
+    </div>
+    <!-- This week only, by sport. The chart above is one line for everything, which
+         cannot say whether a big week was a big ride or a lot of walking. -->
+    <div id="sumDistSplit"></div>
+    <div id="sumDistChips" class="chart-chips"></div>
+    <div id="sumDistVerdict" class="chart-verdict"></div>
   </div>
 
   <!-- The read across all three signals at once. Deliberately quiet type: it is not
@@ -2724,17 +2758,14 @@ function renderSummaryNow(data){
   if(ratioEl){
     if(!c28){ratioEl.innerHTML='';}
     else{
-      const [col,word]=ratio>1.5?['#dc2626','stepping up hard']
-        :ratio>1.3?['#b45309','building']
-        :ratio<0.6?['#b45309','backing off']
-        :ratio<0.8?['#b45309','easing off']
-        :['#16a34a','steady'];
+      const [col,word]=ratioTone(ratio);
       ratioEl.innerHTML=`<div class="sum-ratio" style="color:${col};background:${col}1a">`+
         `<strong>${ratio.toFixed(2)}×</strong> ${word}</div>`;
     }
   }
 
   renderLoad(data,SUM_LOAD_TARGET);
+  renderWeekDistance(data,SUM_DIST_TARGET);
   renderCumulative(data,SUM_CUM_TARGET);
 
   // ── Consistency: days trained out of the last 28, plus the streaks ──
@@ -3706,6 +3737,7 @@ const LOAD_TARGET={canvas:'chartLoad',key:'load',sub:'loadSub',chips:'load'};
 const CUM_TARGET ={canvas:'chartCumulative',key:'cumulative',sub:'cumSub',chips:'cum'};
 const SUM_LOAD_TARGET={canvas:'chartSumLoad',key:'sumload',sub:'sumLoadSub',chips:'sumLoad'};
 const SUM_CUM_TARGET ={canvas:'chartSumCum',key:'sumcum',sub:'sumCumSub',chips:'sumCum'};
+const SUM_DIST_TARGET={canvas:'chartSumDist',key:'sumdist',sub:'sumDistSub',chips:'sumDist'};
 
 function todayDoy(){return dayOfYear(new Date().toISOString().slice(0,10));}
 // Day-of-year of the first of each month, for axis ticks. Uses a non-leap year:
@@ -3743,36 +3775,11 @@ function renderLoad(data,t=LOAD_TARGET){
     chartSummary(t.chips,[],'');
     return;
   }
-  const byDay={};
-  data.forEach(a=>{byDay[a.date]=(byDay[a.date]||0)+(a.mt||0);});
-
-  // The window ends today for an open-ended scope, or on the last day of the year
-  // being looked at. Showing "the last 365 days" of 2019 would end the line on a
-  // date that has not happened in that year's terms.
-  const today=new Date().toISOString().slice(0,10);
-  const dates=Object.keys(byDay).sort();
-  const end=isYearScope(activeYear)?(activeYear<today.slice(0,4)?activeYear+'-12-31':today):today;
-  // A rolling window plots its own length plus the 28-day base it is measured
-  // against, so the first point on the chart still has a full base behind it.
-  const SPAN=isYearScope(activeYear)?370:(isRollingScope(activeYear)?ROLLING_PERIODS[activeYear].days+28:365);
-  const endMs=new Date(end+'T12:00:00').getTime();
-  const startMs=endMs-(SPAN-1)*86400000;
-  // Days before the window still count towards a 28-day average that reaches back
-  // over its edge, so the first plotted point is a real average and not a ramp up
-  // from zero. Only the plotting starts at the window.
-  const label=[],acute=[],chronic=[];
-  const sumBack=(ms,days)=>{
-    let t=0;
-    for(let k=0;k<days;k++)t+=byDay[new Date(ms-k*86400000).toISOString().slice(0,10)]||0;
-    return t;
-  };
-  for(let ms=startMs;ms<=endMs;ms+=86400000){
-    const ds=new Date(ms).toISOString().slice(0,10);
-    label.push(ds);
-    acute.push(+(sumBack(ms,7)/3600).toFixed(2));
-    chronic.push(+(sumBack(ms,28)/4/3600).toFixed(2)); // ÷4 puts 28 days on a weekly scale
-  }
-  if(!dates.some(d=>d>=label[0]&&d<=end)){
+  // The windowing is shared with the distance hero below it, and lives in calc.js
+  // where it can be tested. pick() returns hours, so the series comes back in them.
+  const w=rollingWeekly(data,a=>(a.mt||0)/3600,{today:_today()});
+  const {labels:label,acute,chronic,end,span:SPAN}=w;
+  if(!w.hasData){
     setChartEmpty(t.canvas,'No activities in the last year of this filter.');
     chartSummary(t.chips,[],'');
     return;
@@ -3802,10 +3809,9 @@ function renderLoad(data,t=LOAD_TARGET){
         y:{grid:{color:chartGrid()},beginAtZero:true,ticks:{font:{size:11},callback:v=>v+'h'}}}}
   });
 
-  const last=acute.length-1;
-  const a7=acute[last],c28=chronic[last];
+  const a7=w.latest.acute,c28=w.latest.chronic;
   const ratio=c28>0?a7/c28:0;
-  const peak=Math.max(...acute);
+  const peak=w.peak;
   chartSummary(t.chips,[
     {n:chipNum(a7,1)+'h',label:'last 7 days',col:getAccentColor()},
     {n:chipNum(c28,1)+'h',label:'28-day average',col:'#94a3b8'},
@@ -3826,6 +3832,148 @@ function renderLoad(data,t=LOAD_TARGET){
 // ── CUMULATIVE, BY DAY OF YEAR ──
 // The chart the Year-over-Year bars could not be: it holds today against the same
 // date in every previous year rather than against those years' finished totals.
+// Tone for the acute-vs-chronic ratio, shared by both hero figures so "steady"
+// means the same thing whether you are reading hours or miles. Colours come from
+// the cascade rather than literals, so they follow the theme.
+function ratioTone(ratio){
+  const b=ratioBand(ratio);
+  const col=b.tone==='danger'?cssVar('--danger','#dc2626')
+    :b.tone==='warn'?cssVar('--warn-icon','#b45309')
+    :cssVar('--success-fg','#16a34a');
+  return[col,b.word];
+}
+
+// ── DISTANCE PER WEEK ──
+// The same window as the load chart above it, measuring distance instead of time,
+// plus this week broken down by sport — which is the question the single line
+// cannot answer: whether a big week was one long ride or a fortnight of walking.
+function renderWeekDistance(data,t=SUM_DIST_TARGET){
+  const u=distUnit();
+  const unitWord=u==='mi'?'miles':'km';
+
+  const setFig=(big,base,ratioHtml)=>{
+    const b=document.getElementById('sumWeekDist');
+    // The id goes back on the span each time: this innerHTML replaces the element
+    // that carries it, so updating it separately beforehand would be overwritten.
+    if(b)b.innerHTML=`${big}<span class="sum-big-unit" id="sumWeekDistUnit">${unitWord}</span>`;
+    const s2=document.getElementById('sumDistBase');
+    if(s2)s2.textContent=base;
+    const r=document.getElementById('sumDistRatio');
+    if(r)r.innerHTML=ratioHtml||'';
+  };
+
+  if(!data.length){
+    setFig('—','No activities in this filter.','');
+    setChartEmpty(t.canvas,'No activities in this filter.');
+    chartSummary(t.chips,[],'');
+    renderWeekSplit([],0);
+    return;
+  }
+
+  // actDistIn rather than distIn: it prefers Strava's own kilometre figure over
+  // converting the mile one, which differ in the last decimal.
+  const w=rollingWeekly(data,a=>actDistIn(a),{today:_today()});
+  const a7=w.latest.acute,c28=w.latest.chronic;
+  const ratio=c28>0?a7/c28:0;
+
+  setFig(
+    chipNum(a7,a7<100?1:0),
+    c28>0
+      ? `against a ${chipNum(c28,c28<100?1:0)} ${u}/week base built over the last 28 days`
+      : 'no training in the last 28 days to compare against',
+    c28>0?(()=>{
+      const[col,word]=ratioTone(ratio);
+      return `<div class="sum-ratio" style="color:${col};background:${col}1a"><strong>${ratio.toFixed(2)}×</strong> ${word}</div>`;
+    })():''
+  );
+
+  if(!w.hasData){
+    setChartEmpty(t.canvas,'No activities in the last year of this filter.');
+    chartSummary(t.chips,[],'');
+    renderWeekSplit([],0);
+    return;
+  }
+  setChartEmpty(t.canvas);
+
+  document.getElementById(t.sub).textContent=
+    `${u==='mi'?'Miles':'Kilometres'} per week — the last ${w.span===365?'365 days':'year'}, ending ${fmtDate(w.end)}. The 28-day line is the distance you have been holding; the 7-day is what you just covered.`;
+
+  destroyChart(t.key);
+  charts[t.key]=upsertChart(t.key,document.getElementById(t.canvas).getContext('2d'),{
+    type:'line',
+    data:{labels:w.labels,datasets:[
+      {label:'28-day average',data:w.chronic,borderColor:cssVar('--other','#94a3b8'),backgroundColor:'rgba(148,163,184,.14)',fill:true,tension:.25,pointRadius:0,borderWidth:2,order:1},
+      {label:'7-day total',data:w.acute,borderColor:getAccentColor(),backgroundColor:'transparent',fill:false,tension:.2,pointRadius:0,borderWidth:2,order:0},
+    ]},
+    options:{
+      plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},
+        tooltip:{mode:'index',intersect:false,callbacks:{
+          title:c=>fmtDate(c[0].label),
+          label:c=>`${c.dataset.label}: ${chipNum(c.parsed.y,1)} ${u}/week`}}},
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      scales:{
+        x:{grid:{display:false},ticks:{font:{size:9},maxRotation:0,autoSkip:true,maxTicksLimit:12,
+          callback:function(v){const d=this.getLabelForValue(v);return d?monthLabel(d.slice(0,7)):'';}}},
+        y:{grid:{color:chartGrid()},beginAtZero:true,ticks:{font:{size:11},callback:v=>chipNum(v,0)}}}}
+  });
+
+  // ── This week, by sport ──
+  const from=new Date(_today()+'T12:00:00').getTime()-6*86400000;
+  const fromDay=new Date(from);
+  const fromISO=`${fromDay.getFullYear()}-${String(fromDay.getMonth()+1).padStart(2,'0')}-${String(fromDay.getDate()).padStart(2,'0')}`;
+  const week=data.filter(a=>a.date>=fromISO&&a.date<=_today());
+  const bySport={};
+  week.forEach(a=>{const g=typeGroup(a.type);bySport[g]=(bySport[g]||0)+actDistIn(a);});
+  const split=Object.entries(bySport).filter(([,d])=>d>0).sort((a,b)=>b[1]-a[1]);
+  renderWeekSplit(split,a7);
+
+  chartSummary(t.chips,[
+    {n:chipNum(a7,1)+' '+u,label:'last 7 days',col:getAccentColor()},
+    {n:chipNum(c28,1)+' '+u,label:'28-day average',col:cssVar('--other','#94a3b8')},
+    {n:c28>0?ratio.toFixed(2)+'×':'—',label:'acute vs chronic',col:ratioTone(ratio)[0]},
+    {n:chipNum(w.peak,1)+' '+u,label:'biggest week in view',col:cssVar('--virtual','#8b5cf6')},
+  ],
+  (()=>{
+    if(!c28)return 'Not enough recent training to have a baseline to compare against.';
+    if(a7===0)return `Nothing covered in the last seven days, against a ${chipNum(c28,1)} ${u}/week base.`;
+    const top=split[0];
+    const share=top?Math.round(top[1]/a7*100):0;
+    const mix=top&&split.length>1
+      ? ` ${top[0]} carried ${share}% of it, across ${split.length} sports.`
+      : top?` All of it ${top[0].toLowerCase()}.`:'';
+    if(ratio>1.5)return `${chipNum(a7,1)} ${u} — ${ratio.toFixed(1)}× your 28-day base. A jump that size is worth a look even when it felt easy.${mix}`;
+    if(ratio>1.3)return `${chipNum(a7,1)} ${u}, ${Math.round((ratio-1)*100)}% above your 28-day base.${mix}`;
+    if(ratio<0.6)return `${chipNum(a7,1)} ${u}, ${Math.round((1-ratio)*100)}% below your base.${mix}`;
+    if(ratio<0.8)return `${chipNum(a7,1)} ${u} against a ${chipNum(c28,1)} ${u} base — a little down on where you have been.${mix}`;
+    return `${chipNum(a7,1)} ${u} against a ${chipNum(c28,1)} ${u} base.${mix}`;
+  })());
+}
+
+// The stacked bar and its key. Same pattern the Social tab uses for solo vs
+// company, which is why those classes are no longer named for it.
+function renderWeekSplit(split,total){
+  const el=document.getElementById('sumDistSplit');
+  if(!el)return;
+  const u=distUnit();
+  if(!split.length||!(total>0)){
+    el.innerHTML=`<div class="sum-split"><div class="sum-split-head"><span class="sum-split-t">This week by sport</span></div>`+
+      `<div class="sum-split-empty">Nothing logged in the last seven days.</div></div>`;
+    return;
+  }
+  const pct=d=>d/total*100;
+  el.innerHTML=`<div class="sum-split">
+    <div class="sum-split-head">
+      <span class="sum-split-t">This week by sport</span>
+      <span class="sum-split-n">${escapeHtml(chipNum(total,1))} ${escapeHtml(u)} across ${split.length} ${split.length===1?'sport':'sports'}</span>
+    </div>
+    <div class="split-bar">${split.map(([g,d])=>
+      `<span style="width:${pct(d).toFixed(2)}%;background:${groupColor(g)}" title="${escapeAttr(g+' · '+chipNum(d,1)+' '+u)}"></span>`).join('')}</div>
+    <div class="split-key">${split.map(([g,d])=>
+      `<span><i style="background:${groupColor(g)}"></i><b>${escapeHtml(chipNum(d,1))} ${escapeHtml(u)}</b> ${escapeHtml(g)} · ${Math.round(pct(d))}%</span>`).join('')}</div>
+  </div>`;
+}
+
 function renderCumulative(data,t=CUM_TARGET){
   const years=[...new Set(ALL_DATA.map(a=>a.date.slice(0,4)))].sort().reverse();
   if(!years.length){setChartEmpty(t.canvas,'No activities.');chartSummary(t.chips,[],'');return;}
@@ -4979,12 +5127,12 @@ function renderSocial(){
         <div class="soc-lead-n">${withCo.length.toLocaleString('en-GB')}</div>
         <div class="soc-lead-t">of your ${known.length.toLocaleString('en-GB')} activities had someone else there — ${fmtDist(coDist)} ${distUnit()} in company</div>
       </div>
-      <div class="soc-split">
+      <div class="split-bar">
         <span style="width:${pct(alone).toFixed(1)}%;background:#e2e8f0"></span>
         <span style="width:${pct(pair).toFixed(1)}%;background:var(--ride)"></span>
         <span style="width:${pct(group).toFixed(1)}%;background:var(--accent)"></span>
       </div>
-      <div class="soc-key">
+      <div class="split-key">
         <span><i style="background:#e2e8f0"></i><b>${alone.toLocaleString('en-GB')}</b> alone</span>
         <span><i style="background:var(--ride)"></i><b>${pair.toLocaleString('en-GB')}</b> with one other</span>
         <span><i style="background:var(--accent)"></i><b>${group.toLocaleString('en-GB')}</b> in a group of three or more</span>
