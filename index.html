@@ -893,11 +893,24 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .partner-type{font-size:10px;color:var(--text-muted)}
 /* GEAR */
 .gear-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:24px}
-.gear-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:16px 18px;box-shadow:var(--shadow);cursor:pointer;transition:transform .1s,box-shadow .1s}
+/* The photo bleeds out to the card's edges, so the padding is a variable rather
+   than a literal — the two have to be the same number and they are set in
+   different rules. */
+.gear-card{--gear-pad-y:16px;--gear-pad-x:18px;
+  background:var(--surface);border:1px solid var(--border);border-radius:0;
+  padding:var(--gear-pad-y) var(--gear-pad-x);box-shadow:var(--shadow);cursor:pointer;
+  transition:transform .1s,box-shadow .1s}
 .gear-card:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(15,23,42,.06),0 8px 20px rgba(15,23,42,.09)}
-.gear-photo{width:100%;height:110px;object-fit:cover;border-radius:0;margin-bottom:8px;display:block;background:var(--bg)}
+/* Flush to the top of the card and to both sides, under the sport-coloured rule.
+   An <img> is a replaced element, so `width:auto` would resolve to its intrinsic
+   width rather than stretching — the padding has to be added back explicitly. */
+.gear-photo,.gear-icon-tile{
+  width:calc(100% + var(--gear-pad-x,0px) * 2);
+  margin:calc(-1 * var(--gear-pad-y,0px)) calc(-1 * var(--gear-pad-x,0px)) 12px;
+  display:block;background:var(--bg);border-radius:0}
+.gear-photo{height:110px;object-fit:cover}
 /* Same 110px block whether or not the item has a photo, so a row of cards stays level. */
-.gear-icon-tile{width:100%;height:110px;margin-bottom:8px;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+.gear-icon-tile{height:110px;display:flex;align-items:center;justify-content:center}
 .gear-icon-tile .ms{font-size:34px}
 .gear-icon-inline{width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:var(--bg);flex:none}
 .gear-icon-inline .ms{font-size:17px}

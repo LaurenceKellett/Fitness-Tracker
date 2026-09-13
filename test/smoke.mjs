@@ -419,6 +419,36 @@ async function main() {
       await page.waitForTimeout(400);
     });
 
+    await check('the gear photo runs to the top and both sides of its card', async () => {
+      await page.evaluate(() => window.setTab('gear'));
+      await page.waitForTimeout(800);
+      const r = await page.evaluate(() => {
+        const card = document.querySelector('.gear-card');
+        if (!card) return null;
+        // Either a real photo or the fallback tile that replaces it on a 404 —
+        // both occupy the same slot and both should bleed.
+        const ph = card.querySelector('.gear-photo, .gear-icon-tile');
+        if (!ph) return null;
+        const c = card.getBoundingClientRect(), i = ph.getBoundingClientRect();
+        const cs = getComputedStyle(card);
+        const bl = parseFloat(cs.borderLeftWidth), bt = parseFloat(cs.borderTopWidth),
+              br = parseFloat(cs.borderRightWidth);
+        return {
+          top: i.top - (c.top + bt),
+          left: i.left - (c.left + bl),
+          right: (c.right - br) - i.right,
+          padded: parseFloat(cs.paddingLeft),
+        };
+      });
+      assert(r, 'no gear card to measure');
+      assert(r.padded > 0, 'the card has no padding, so this proves nothing');
+      for (const side of ['top', 'left', 'right']) {
+        assert(Math.abs(r[side]) < 1, `${side} gap is ${r[side].toFixed(1)}px, not flush`);
+      }
+      await page.evaluate(() => window.setTab('summary'));
+      await page.waitForTimeout(300);
+    });
+
     await check('a collapsed disclosure actually hides its content', async () => {
       // The prior-year heatmaps are the case that was broken: their content carries
       // an explicit display, which a closed <details> does not reliably suppress, so
