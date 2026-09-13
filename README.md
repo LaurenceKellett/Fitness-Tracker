@@ -92,6 +92,27 @@ layer would make "why am I seeing yesterday's numbers" unanswerable.
 A load failure is always visible: the dashboard reports the status it got back and offers a
 retry, rather than sitting on "Syncing…" forever.
 
+### The on-device copy
+
+Every successful pull is written to `localStorage` under `fitness_dashboard_v1`, so the
+data the page falls back to offline is always the newest that has ever reached the device.
+
+That write used to be a single attempt in a try/catch. `localStorage` is a few MB per
+origin and a long history with a route polyline on every activity goes past it, so the
+attempt would throw `QuotaExceededError`, get logged to a console nobody has open, and
+leave a months-old entry sitting there as "your offline data" — a fallback that is
+out of date precisely on the histories big enough to care about.
+
+It degrades rather than failing now. Polylines are by far the largest field and only the
+Map tab reads them, so they go first and the numbers every other tab is built from
+survive. Each step is tried in turn until one fits: the whole envelope, then routes for
+the last 300 activities only, then no routes, then the newest 2,000, then the newest 500.
+Whatever it settles on is recorded on the entry as `partial`, and if the network is then
+dead the inline offline message says which — "Showing the last data saved on this device
+(routes not cached)". If nothing fits at all the stale entry is **deleted**: an offline
+page that says it has nothing is more use than one showing last spring's totals as though
+they were current.
+
 ---
 
 ## Settings
@@ -213,13 +234,23 @@ Also in Worker → Settings → Bindings:
 
 ### KV namespace
 
-The Worker caches all activity data under the key `activities_v2` with a 24-hour TTL. Force a fresh pull at any time with `?refresh=true`.
+The Worker caches all activity data under the key `activities_v3` with a 24-hour TTL. Force a fresh pull at any time with `?refresh=true`.
 
 **The cron keeps it warm.** Each scheduled run refreshes that cache after the Notion
 sync, so the dashboard is current when you open it rather than serving up-to-24-hour-old
 data — and you never land on the slow first visit that pays a full Strava pull because the
 TTL lapsed. Fires run at most 9 hours apart against a 24-hour TTL, so in normal operation
 the entry never actually expires; the TTL is the safety net, not the refresh mechanism.
+
+**And a second copy that never expires.** Every successful refresh writes the same
+envelope twice: to `activities_v3`, which is meant to go stale because that is what makes
+a refresh happen, and to `activities_last_good_v3`, which has no TTL at all. The serving
+copy was previously the only copy, so once it expired the last known good data went with
+it — and if the token had died or Strava was down, `/activities` had nothing to answer
+with and returned an error to a dashboard perfectly capable of showing yesterday's
+numbers. The fallback copy is read only when a refresh fails, and the response then
+carries `X-Cache: STALE` rather than `HIT` or `MISS`. Only a Worker that has never
+completed a single refresh can now fail the request.
 
 The scheduled refresh does **not** regenerate the AI summary. The dashboard no longer
 renders it, so regenerating three times a day would be paying Workers AI for output nobody
@@ -752,9 +783,38 @@ and up to four earlier years in greys stepping lighter with age. The first versi
 the accent towards grey instead, which sounds like the same idea and is not: five steps
 between green and grey are five greens, and the years were indistinguishable.
 
-`dayOfYear()` is what makes any of this possible, and `typeMatches()` — one predicate for
-the header's sport filter, which had been written out by hand in three places — is what
-makes it agree with every other tab. Note that `mapFilterMatches()` deliberately has no
+### Which sports the filter offers
+
+The sport row is built from the period on screen, not from a fixed list. A sport with
+nothing in the period is a button whose only effect is to empty the page — 2026 has no
+swims in it, so 2026 does not offer Swim. `sportsInScope()` answers this, scoped by period
+only and never by the sport filter, since it is the list the filter is built from and
+filtering it by the current selection would leave a row with one button in it.
+
+The one exception is the sport already selected, which stays on the row even when the
+period has none of it, dimmed and marked. A control that deletes itself while it is active
+leaves the page filtered to nothing with no visible way back — and stepping year by year
+through one sport is exactly when you meet an empty year, so dropping the selection there
+would also lose your place.
+
+The same rule applies where a sport would otherwise take up space saying nothing: the
+monthly distance chart drops series with no data in the period rather than listing them in
+the legend at zero height, and the year-by-year table drops a sport's column rather than
+ruling a line of em dashes down the page.
+
+### Which activities count as which sport
+
+`typeGroup()` is the single answer, and `Swim` means swimming. Kayaking used to be folded
+in there on the grounds that it happens in water, and the Records tab duly reported paddled
+distances as swimming bests — 5 km "swims" nobody swam. Being *on* the water and being *in*
+it are different sports at different speeds, and nothing downstream can tell them apart
+once they share a group. Strava has one `Swim` type covering pool, indoor and open water;
+the craft you sit on rather than swim in — Kayaking, Canoeing, Rowing, StandUpPaddling,
+Surfing, Kitesurf, Windsurf, Sail — go to `Other` with everything else.
+
+`dayOfYear()` is what makes the cumulative chart possible, and `typeMatches()` — one
+predicate for the header's sport filter, which had been written out by hand in three
+places — is what makes it agree with every other tab. Note that `mapFilterMatches()` deliberately has no
 `All` case, because the Map branches on that before calling it; using it as a general
 predicate is why this chart first rendered empty.
 

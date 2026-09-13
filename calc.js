@@ -69,12 +69,19 @@ function escapeHtml(s){
   return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// Swim means swimming. Kayaking used to be folded in here on the grounds that it
+// happens in water, and the Records tab then reported a paddled distance as a
+// swimming best — 5km "swims" nobody swam. Being on the water and being in it are
+// different sports with different speeds, and nothing downstream can tell them
+// apart once they share a group. Strava has one `Swim` type covering pool, indoor
+// and open water; the boats (Kayaking, Canoeing, Rowing, StandUpPaddling, Surfing,
+// Kitesurf, Windsurf, Sail) are craft you sit on and go to Other with the rest.
 function typeGroup(t){
   if(t==='VirtualRide')return'Virtual';
   if(['Ride','EBikeRide','Velomobile'].includes(t))return'Ride';
   if(['Run','TrailRun'].includes(t))return'Run';
   if(t==='Walk')return'Walk';
-  if(['Swim','Kayaking'].includes(t))return'Swim';
+  if(t==='Swim')return'Swim';
   return'Other';
 }
 

@@ -28,6 +28,19 @@ const WORKER_URL = 'https://activities-api.lk-ff7.workers.dev/';
 const CACHE_KEY  = 'activities_v3';
 const CACHE_TTL  = 60 * 60 * 24; // 24 hours in seconds
 
+// The same envelope again, under a key with NO expiry. The serving cache above is
+// meant to go stale — that is what makes a refresh happen — but it was also the
+// only copy, so once it expired the last known good data was gone with it. If the
+// token had died or Strava was down, /activities then had nothing to answer with
+// and returned an error to a dashboard that was perfectly capable of showing
+// yesterday's numbers.
+//
+// Every successful refresh writes both. This one is only ever read when a refresh
+// fails, and it is never allowed to expire, so there is always something to serve.
+// Two copies of the history is a few MB in a KV store with no size pressure —
+// cheap next to the page having nothing to show.
+const LAST_GOOD_KEY = 'activities_last_good_v3';
+
 // Segment PBs (1k, 1 mile, 5k, 10k, half, marathon) are not on the bulk activity
 // endpoint — they only come back from GET /activities/{id}, one request each. A
 // full history is far too many requests to make in one go, so they are collected
@@ -225,13 +238,26 @@ async function handleActivities(request, env) {
     }
   }
 
-  const envelope = await refreshActivitiesCache(env);
+  let envelope, cacheState = 'MISS';
+  try {
+    envelope = await refreshActivitiesCache(env);
+  } catch (err) {
+    // Strava is down, rate-limiting, or the token has died. Serving the last good
+    // envelope is strictly better than an error: the dashboard can say how old the
+    // numbers are, and it cannot say anything at all about a 500. Only if there has
+    // never been a successful refresh does the failure reach the client.
+    console.error('Activity refresh failed, falling back to last known good:', err.message);
+    const lastGood = env.CACHE ? await env.CACHE.get(LAST_GOOD_KEY) : null;
+    if (!lastGood) throw err;
+    envelope = lastGood;
+    cacheState = 'STALE';
+  }
 
   return new Response(envelope, {
     headers: {
       ...CORS,
       'Content-Type': 'application/json',
-      'X-Cache':       'MISS',
+      'X-Cache':       cacheState,
     },
   });
 }
@@ -288,7 +314,12 @@ async function refreshActivitiesCache(env, { regenerateAi = true, backfillPrs = 
   });
 
   if (env.CACHE) {
-    await env.CACHE.put(CACHE_KEY, envelope, { expirationTtl: CACHE_TTL });
+    // Both copies, every time, so the fallback is never older than the last
+    // successful pull. The serving copy expires; the fallback never does.
+    await Promise.all([
+      env.CACHE.put(CACHE_KEY, envelope, { expirationTtl: CACHE_TTL }),
+      env.CACHE.put(LAST_GOOD_KEY, envelope),
+    ]);
   }
 
   return envelope;

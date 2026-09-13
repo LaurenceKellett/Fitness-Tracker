@@ -248,8 +248,21 @@ describe('typeGroup', () => {
     expect(typeGroup('TrailRun')).toBe('Run');
   });
 
-  it('groups kayaking with swimming, and sends the rest to Other', () => {
-    expect(typeGroup('Kayaking')).toBe('Swim');
+  it('counts only actual swims as swimming', () => {
+    // Strava has one Swim type; pool, indoor and open water all arrive as this.
+    expect(typeGroup('Swim')).toBe('Swim');
+  });
+
+  it('keeps the boats out of swimming', () => {
+    // These used to group as Swim because they happen in water, which put paddled
+    // distances into the Records tab as swimming bests.
+    for (const boat of ['Kayaking', 'Canoeing', 'Rowing', 'StandUpPaddling',
+                        'Surfing', 'Kitesurf', 'Windsurf', 'Sail']) {
+      expect(typeGroup(boat)).toBe('Other');
+    }
+  });
+
+  it('sends everything unrecognised to Other', () => {
     expect(typeGroup('WeightTraining')).toBe('Other');
     expect(typeGroup(undefined)).toBe('Other');
   });

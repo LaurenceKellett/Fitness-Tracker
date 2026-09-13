@@ -26,10 +26,16 @@ function fixture() {
   const out = [];
   const today = new Date();
   const sports = ['Ride', 'VirtualRide', 'Run', 'Walk', 'Swim', 'WeightTraining'];
+  const thisYear = String(today.getFullYear());
   for (let i = 0; i < 420; i++) {
     const d = new Date(today.getTime() - i * 36e5 * 20);
     const iso = d.toISOString().slice(0, 10);
-    const type = sports[i % sports.length];
+    // Swimming stopped at the end of last year. It is the case the sport filter has
+    // to handle: present across all time, absent from the year you are looking at.
+    // Kayaking takes its place — the sport that used to be filed under Swim and put
+    // paddled distances into the Records tab as swimming bests.
+    let type = sports[i % sports.length];
+    if (type === 'Swim' && iso.slice(0, 4) === thisYear) type = 'Kayaking';
     out.push({
       id: 1000 + i,
       date: iso,
@@ -274,6 +280,63 @@ async function main() {
       assert(after.updated > before.updated, `no charts updated in place (updated ${before.updated} → ${after.updated})`);
       const created = after.created - before.created;
       assert(created === 0, `${created} charts were rebuilt from scratch on a unit toggle`);
+    });
+
+    await check('a sport with nothing in the period is not offered for it', async () => {
+      const sportsOffered = () => page.evaluate(() =>
+        [...document.querySelectorAll('#headerTypeFilters .type-btn')].map((b) => b.dataset.type));
+
+      await page.evaluate(() => window.setYear('All'));
+      await page.waitForTimeout(300);
+      assert((await sportsOffered()).includes('Swim'), 'all time should still offer Swim');
+
+      // The fixture's swimming all happened last year.
+      await page.evaluate(() => window.setYear(String(new Date().getFullYear())));
+      await page.waitForTimeout(300);
+      const now = await sportsOffered();
+      assert(!now.includes('Swim'), `this year still offers Swim: ${now}`);
+      assert(now.includes('All') && now.includes('Ride') && now.includes('Run'),
+        `the sports that did happen went missing too: ${now}`);
+
+      await page.evaluate(() => window.setYear('All'));
+      await page.waitForTimeout(300);
+      assert((await sportsOffered()).includes('Swim'), 'Swim did not come back on all time');
+    });
+
+    await check('the selected sport stays put when its year runs out, marked empty', async () => {
+      // Otherwise the control removes itself while active and the page is filtered to
+      // nothing with no visible way back.
+      await page.evaluate(() => window.setType('Swim'));
+      await page.evaluate(() => window.setYear(String(new Date().getFullYear())));
+      await page.waitForTimeout(400);
+      const btn = await page.evaluate(() => {
+        const b = document.querySelector('#headerTypeFilters .type-btn[data-type="Swim"]');
+        return b && { empty: b.classList.contains('type-btn-empty'), active: b.classList.contains('active') };
+      });
+      assert(btn, 'the selected sport vanished from the row');
+      assert(btn.active && btn.empty, `Swim button state: ${JSON.stringify(btn)}`);
+      assert((await page.evaluate(() => activeType)) === 'Swim', 'the selection was changed behind my back');
+      await page.evaluate(() => { window.setType('All'); window.setYear('All'); });
+      await page.waitForTimeout(300);
+    });
+
+    await check('kayaking is not filed as a swim', async () => {
+      // It happens in water; it is not swimming, and a paddled distance showing up as
+      // a swimming best is what made this worth fixing.
+      assert((await page.evaluate(() => typeGroup('Kayaking'))) === 'Other', 'Kayaking still groups as Swim');
+      const counts = await page.evaluate(() => {
+        const out = { Swim: 0, Other: 0 };
+        for (const a of ALL_DATA) {
+          if (a.type === 'Swim') out.Swim++;
+          if (a.type === 'Kayaking') out.Other++;
+        }
+        return out;
+      });
+      assert(counts.Other > 0, 'the fixture has no kayaking to check');
+      // Every activity the app calls a Swim is a Strava Swim.
+      const misfiled = await page.evaluate(() =>
+        ALL_DATA.filter((a) => typeGroup(a.type) === 'Swim' && a.type !== 'Swim').length);
+      assert(misfiled === 0, `${misfiled} non-swims are grouped as swimming`);
     });
 
     await check('rolling date scopes filter the data', async () => {
@@ -1000,6 +1063,49 @@ async function main() {
 
     await page.goto(base + '/index.html', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !document.body.classList.contains('is-loading'), null, { timeout: 20000 });
+
+    await check('every successful pull rewrites the on-device fallback', async () => {
+      const cached = () => page.evaluate(() => {
+        const raw = localStorage.getItem('fitness_dashboard_v1');
+        if (!raw) return null;
+        const p = JSON.parse(raw);
+        return { n: p.data.length, updatedAt: p.updatedAt, partial: p.partial || null };
+      });
+      const first = await cached();
+      assert(first, 'the first successful load cached nothing');
+      assert(first.n === ENVELOPE.data.length, `cached ${first.n} of ${ENVELOPE.data.length} activities`);
+      assert(!first.partial, `a history this size should fit whole, got "${first.partial}"`);
+
+      // A later pull brings one more activity and a newer timestamp. The device copy
+      // has to move with it — a fallback that is only ever written once is a fallback
+      // that is out of date by definition.
+      const later = {
+        ...ENVELOPE,
+        data: [...ENVELOPE.data, { ...ENVELOPE.data[0], id: 999999, name: 'Brand new ride' }],
+        updatedAt: new Date(Date.now() + 60000).toISOString(),
+      };
+      await page.unroute('**/activities**');
+      await page.route('**/activities**', (r) =>
+        fail ? r.abort('failed')
+             : r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(later) }));
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => !document.body.classList.contains('is-loading'), null, { timeout: 20000 });
+      await page.waitForTimeout(400);
+
+      const second = await cached();
+      assert(second.n === later.data.length, `fallback still holds ${second.n}, not ${later.data.length}`);
+      assert(second.updatedAt === later.updatedAt, 'the cached timestamp did not move with the data');
+
+      // And the newer copy is what a dead network then falls back to.
+      fail = true;
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForSelector('#appError.show.inline', { timeout: 15000 });
+      const n = await page.evaluate(() => ALL_DATA.length);
+      assert(n === later.data.length, `offline page fell back to ${n} activities, not ${later.data.length}`);
+      fail = false;
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => !document.body.classList.contains('is-loading'), null, { timeout: 20000 });
+    });
 
     await check('a failed refresh keeps the cached page and says so inline', async () => {
       fail = true;

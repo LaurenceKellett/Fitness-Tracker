@@ -267,6 +267,12 @@ a{color:inherit;text-decoration:none}
 .type-btn[data-type="Walk"].active{background:var(--walk-soft);color:var(--walk-fg)}
 .type-btn[data-type="Swim"].active{background:var(--swim-soft);color:var(--swim-fg)}
 .type-btn[data-type="Other"].active{background:var(--other-soft);color:var(--other-fg)}
+/* Only ever the selected sport, kept on the row after the period stopped containing
+   any of it. Dimmed, so an empty page below reads as "you have filtered it away"
+   rather than as "the dashboard broke". */
+.type-btn-empty{opacity:.45}
+.type-btn-empty .type-dot{filter:grayscale(1)}
+.type-btn-note{font-size:10px;font-weight:500;color:var(--text-light)}
 .type-dot{width:7px;height:7px;border-radius:0;flex-shrink:0}
 .refresh-icon{display:inline-block;transition:transform .6s}
 .icon-btn.spinning .refresh-icon{animation:rspin .8s linear infinite}
@@ -2426,6 +2432,25 @@ function getFilteredForYear(year){
   return ALL_DATA.filter(a=>a.date.slice(0,4)===year&&typeMatches(a));
 }
 
+// Which sports actually happened in the period on screen.
+//
+// Scoped by period only, never by the sport filter — this is the list the sport
+// filter is built from, so filtering it by the current selection would leave a row
+// with one button in it. Cached on the same generation key as getFiltered, because
+// it walks the whole history and the filter row is rebuilt on every state change.
+let _sportsCache={key:null,val:null};
+function sportsInScope(){
+  const t=_today();
+  const key=_dataGen+'|'+activeYear+'|'+t;
+  if(_sportsCache.key===key)return _sportsCache.val;
+  const val=new Set();
+  for(const a of ALL_DATA){
+    if(scopeIncludes(a.date,activeYear,t))val.add(typeGroup(a.type));
+  }
+  _sportsCache={key,val};
+  return val;
+}
+
 function buildYearStepper(){
   const years=[...new Set(ALL_DATA.map(a=>a.date.slice(0,4)))].sort();
   const mostRecent=years[years.length-1];
@@ -2454,19 +2479,39 @@ function stepYear(dir){
   idx=Math.max(0,Math.min(years.length-1,idx));
   setYear(years[idx]);
 }
-function setYear(y){activeYear=y;buildYearStepper();writeView(false);renderAll();}
+// buildTypeFilters as well as buildYearStepper: which sports are on offer now
+// depends on the period, so changing the period has to redraw the sport row.
+function setYear(y){activeYear=y;buildYearStepper();buildTypeFilters();writeView(false);renderAll();}
 
 const TYPE_GROUPS=['All','Ride','Virtual','Run','Walk','Swim','Other'];
+// The sports worth offering for the period on screen. A sport with nothing in it is
+// a button whose only effect is to empty the page: 2026 has no swims in it, so 2026
+// should not offer Swim.
+//
+// The exception is the sport already selected, which stays on the row even when the
+// period has none of it. A control that deletes itself while it is active leaves the
+// page filtered to nothing with no visible way back — and stepping year by year
+// through one sport is exactly when you meet an empty year, so dropping the
+// selection there would also lose your place. It is marked empty instead, which is
+// the honest reading of a page with nothing on it.
+function typeFilterGroups(){
+  const present=sportsInScope();
+  return TYPE_GROUPS.filter(t=>t==='All'||present.has(t)||t===activeType)
+    .map(t=>({t,empty:t!=='All'&&!present.has(t)}));
+}
+
 function buildTypeFilters(){
+  const groups=typeFilterGroups();
   const el=document.getElementById('headerTypeFilters');
-  if(el)el.innerHTML=TYPE_GROUPS.map(t=>{
+  if(el)el.innerHTML=groups.map(({t,empty})=>{
     const dot=t!=='All'?`<span class="type-dot" style="background:${groupColor(t)}"></span>`:'';
-    return`<button class="type-btn${t===activeType?' active':''}" data-type="${t}" onclick="setType('${t}')">${dot}${t}</button>`;
+    return`<button class="type-btn${t===activeType?' active':''}${empty?' type-btn-empty':''}" data-type="${t}"${
+      empty?` title="No ${t.toLowerCase()} activities in this period"`:''} onclick="setType('${t}')">${dot}${t}</button>`;
   }).join('');
   const st=document.getElementById('sheetTypes');
-  if(st)st.innerHTML=TYPE_GROUPS.map(t=>{
+  if(st)st.innerHTML=groups.map(({t,empty})=>{
     const dot=t!=='All'?`<span class="type-dot" style="background:${groupColor(t)}"></span>`:'';
-    return`<button class="${t===activeType?'active':''}" onclick="setType('${t}')">${dot}${t==='All'?'All sports':t}</button>`;
+    return`<button class="${t===activeType?'active':''}${empty?' type-btn-empty':''}" onclick="setType('${t}')">${dot}${t==='All'?'All sports':t}${empty?' <span class="type-btn-note">none here</span>':''}</button>`;
   }).join('');
   updateScopeChip();
 }
@@ -3128,8 +3173,10 @@ function renderSummary(){
     return`<div class="dow-col"><div class="dow-bar-wrap"><div class="dow-bar" style="height:${pct.toFixed(1)}%;background:${accent}"></div></div><div class="dow-label">${d}</div><div class="dow-count">${dowCounts[i].toLocaleString('en-GB')}</div></div>`;
   }).join('');
 
-  // Year table with early years toggle
-  const typeKeys=['Ride','Virtual','Run','Walk','Swim','Other'];
+  // Year table with early years toggle. Sports with nothing anywhere in the table
+  // lose their column rather than ruling a line of em dashes down the page.
+  const presentHere=new Set(data.map(a=>typeGroup(a.type)));
+  const typeKeys=['Ride','Virtual','Run','Walk','Swim','Other'].filter(t=>presentHere.has(t));
   const allYears=[...new Set(data.map(a=>a.date.slice(0,4)))].sort().reverse();
   const recentYears=allYears.filter(y=>parseInt(y)>=2019);
   const earlyYears=allYears.filter(y=>parseInt(y)<2019);
@@ -3485,11 +3532,14 @@ function renderCharts(){
     destroyChart('monthly');
     charts.monthly=upsertChart('monthly',document.getElementById('chartMonthly').getContext('2d'),{
       type:'bar',
+      // A sport with nothing in the period gets no series at all. A stack of zero
+      // height draws nothing but still claims a legend swatch, so the legend ends up
+      // listing sports the chart has no data for.
       data:{labels:monthKeys.map(monthLabel),datasets:typeKeys.map((t,i)=>{
         const visible=!isSpecificType||(activeType==='Ride'?(t==='Ride'||t==='Virtual'):t===activeType);
         return{label:t,data:monthKeys.map(m=>{const v=(monthDist[m]||{})[t]||0;return unit==='mi'?+v.toFixed(1):+(v*1.60934).toFixed(1);})
           ,backgroundColor:colorFull[i],borderRadius:0,borderSkipped:false,hidden:!visible};
-      })},
+      }).filter(ds=>ds.data.some(v=>v>0))},
       options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}}},responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:true,grid:{color:chartGrid()},ticks:{font:{size:11},callback:v=>v+' '+distUnit()}}},interaction:{mode:'index'}}
     });
   }
@@ -6854,6 +6904,64 @@ function setUpdatedAt(isoString) {
 
 const CACHE_KEY = 'fitness_dashboard_v1';
 
+// Write the freshly pulled history to the device, so the copy the page falls back
+// to when the network is gone is always the newest data that ever reached it.
+//
+// The write used to be one attempt in a try/catch. localStorage is a few MB per
+// origin and a long history with a route polyline on every activity goes past it,
+// so the attempt would throw QuotaExceededError, get logged to a console nobody has
+// open, and leave whatever was cached months ago sitting there as "your offline
+// data" — the exact opposite of a fallback that is always up to date.
+//
+// So it degrades instead of failing. Polylines are far the largest field and only
+// the Map tab reads them, so they go first and the numbers — which every other tab
+// is made of — survive. Each step is tried in turn until one fits.
+function cacheActivities(updatedAt) {
+  const envelope = (data, note) => ({
+    data, updatedAt, hrZones: HR_ZONE_META, gearMeta: GEAR_META,
+    // Read back on load so the page can say what it is showing rather than quietly
+    // presenting a trimmed history as the whole of it.
+    ...(note ? { partial: note } : {}),
+  });
+  const stripRoutes = (a) => { const { polylines, polyline, ...rest } = a; return rest; };
+  const newest = (n) => ALL_DATA.slice(-n);
+
+  const attempts = [
+    () => envelope(ALL_DATA),
+    // Routes for the recent past only — enough for the Map tab to be worth opening.
+    () => envelope(
+      ALL_DATA.map((a, i) => (i >= ALL_DATA.length - 300 ? a : stripRoutes(a))),
+      'routes kept for the last 300 activities'),
+    () => envelope(ALL_DATA.map(stripRoutes), 'routes not cached'),
+    () => envelope(newest(2000).map(stripRoutes), 'newest 2,000 activities, no routes'),
+    () => envelope(newest(500).map(stripRoutes), 'newest 500 activities, no routes'),
+  ];
+
+  for (const build of attempts) {
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify(build()));
+      return true;
+    } catch (e) {
+      // Anything that is not the quota is not going to be fixed by sending less.
+      if (!isQuotaError(e)) { console.error('Could not cache activities locally:', e); return false; }
+    }
+  }
+  // Nothing fit. Drop the old entry rather than leave a stale one pretending to be
+  // the fallback: an offline page that says it has nothing is more use than one
+  // showing last spring's totals as if they were current.
+  try { localStorage.removeItem(CACHE_KEY); } catch (e) { /* nothing further to try */ }
+  console.error('Could not cache activities locally: too large for this device even trimmed.');
+  return false;
+}
+
+// Browsers disagree on how they signal a full store: the name, the legacy code 22,
+// and Firefox's own code 1014 all mean the same thing here.
+function isQuotaError(e) {
+  return !!e && (e.name === 'QuotaExceededError'
+    || e.name === 'NS_ERROR_DOM_QUOTA_REACHED'
+    || e.code === 22 || e.code === 1014);
+}
+
 // Set once, on the first render after data arrives — a later refresh must not
 // yank you back to whatever the URL said when the page opened.
 let _viewApplied=false;
@@ -7034,6 +7142,9 @@ async function loadData(forceRefresh = false) {
   if (forceRefresh) _locationGroupsPromise = null; // let a manual refresh re-derive location clusters
 
   let renderedFromCache = false;
+  // Set when the device copy had to be trimmed to fit. Only worth saying out loud if
+  // the network then fails and that copy is all there is.
+  let cacheNote = null;
 
   // Render from cache immediately so the page isn't blank on first load
   if (!forceRefresh) {
@@ -7046,6 +7157,7 @@ async function loadData(forceRefresh = false) {
           _dataGen++;
           if (parsed.hrZones) HR_ZONE_META = parsed.hrZones;
           if (parsed.gearMeta) GEAR_META = parsed.gearMeta;
+          if (parsed.partial) cacheNote = parsed.partial;
           setUpdatedAt(parsed.updatedAt);
           await ensureCharts();
           renderFromData();
@@ -7086,7 +7198,8 @@ async function loadData(forceRefresh = false) {
       // and leave it be, rather than replacing a working page with an error.
       const lu = document.getElementById('lastUpdated');
       if (lu) lu.textContent = lu.textContent.replace(' · Syncing…', ' · (offline)');
-      showLoadError(detail + ' Showing the last data saved on this device.', {inline:true});
+      showLoadError(detail + ' Showing the last data saved on this device'
+        + (cacheNote ? ` (${cacheNote}).` : '.'), {inline:true});
     } else {
       showLoadError(detail);
     }
@@ -7094,15 +7207,9 @@ async function loadData(forceRefresh = false) {
     return;
   }
 
-  // Caching is best-effort: a full history can exceed the per-origin quota
-  // (QuotaExceededError), which must not stop the fresh data from rendering
-  try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify({
-      data: ALL_DATA, updatedAt, hrZones: HR_ZONE_META, gearMeta: GEAR_META
-    }));
-  } catch (e) {
-    console.error('Could not cache activities locally:', e);
-  }
+  // Every successful pull is written to the device, so the copy the page falls back
+  // to offline is always the newest data that has ever reached it.
+  cacheActivities(updatedAt);
 
   // Rendering is the step that used to throw into the void. A failure here is a
   // bug in a renderer, not a network problem, so it gets its own message — and it
