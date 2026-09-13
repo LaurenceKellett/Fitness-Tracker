@@ -55,6 +55,12 @@ a{color:inherit;text-decoration:none}
 .icon-btn:hover{color:var(--text)}
 .icon-btn:disabled{opacity:.5;cursor:not-allowed}
 .tab-btn{padding:6px 10px;font-size:12px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text-muted);border-radius:0;white-space:nowrap;transition:all .15s;font-family:inherit;display:inline-flex;align-items:center;gap:4px}
+/* The active fill runs the full height of its row rather than floating inside it. */
+#tabRow{padding-top:0;padding-bottom:0}
+#tabRow .tab-btn{padding-top:0;padding-bottom:0;align-self:stretch;min-height:42px}
+#typeRow{padding-top:0;padding-bottom:0}
+#typeRow .type-bar{align-self:stretch}
+#typeRow .type-btn{padding-top:0;padding-bottom:0;align-self:stretch;min-height:32px}
 .tab-btn .ms{font-size:14px;vertical-align:0}
 .tab-btn.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
 .tab-btn:hover:not(.active){color:var(--text)}
@@ -835,7 +841,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
       </div>
     </div>
     <!-- Row 3: type filter -->
-    <div class="hrow" id="typeRow" style="padding-top:4px;padding-bottom:4px">
+    <div class="hrow" id="typeRow">
       <div class="type-bar" id="headerTypeFilters"></div>
     </div>
     <!-- Mobile controls -->
