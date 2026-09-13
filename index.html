@@ -6,7 +6,7 @@
 <title>Fitness Dashboard</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='0' fill='%23ff385c'/><path fill='white' d='M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0 4 13.828h4.172'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20,400,0,0&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20,400,0,0&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@200;300&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
@@ -14,10 +14,27 @@
   --bg:#f7f7f7;--surface:#fff;--border:#ebebeb;--border-strong:#dddddd;--text:#222222;--text-muted:#656565;--text-light:#9ca3af;
   --accent:#ff385c;--accent-dark:#d70466;--accent-soft:#ffeef1;
   --hm-cell:clamp(16px,3.5vw,44px);--hm-gap:clamp(2px,0.3vw,4px);
-  --ride:#1d4ed8;--ride-soft:#dbeafe;--virtual:#60a5fa;--virtual-soft:#dbeafe;
+  --ride:#1d4ed8;--ride-soft:#dbeafe;
+  /* Virtual was #60a5fa — a second blue, 5.3 ΔE from Swim in normal vision, which is
+     below the point where a full-colour reader can separate them at all, and 2.6 under
+     protanopia. Violet takes the worst pair in the set to 15.9. It matters more than it
+     used to now that hue is the calendars' primary encoding. */
+  --virtual:#8b5cf6;--virtual-soft:#ede9fe;
   --run:#ef4444;--run-soft:#fee2e2;--walk:#eab308;--walk-soft:#fefce8;
   --swim:#0ea5e9;--swim-soft:#e0f2fe;--other:#94a3b8;--other-soft:#f8fafc;
   --radius:0;--radius-sm:0;
+
+  /* ── THE BIG FIGURES ──
+     Sora, light, and ONLY on figures of 24px and up. Everything else on the page keeps
+     Plus Jakarta Sans, unchanged.
+     The weight is the whole point: a thin stroke needs size to read, so 200 is reserved
+     for the 52px Summary hero and 300 does the 24–30px figures. Applied any smaller
+     than that it stops looking deliberate and starts looking faint — which is why this
+     is a size-gated rule rather than a font swap.
+     Letter-spacing tightens with size, as Sora is drawn a little wide for display use. */
+  --f-fig:'Sora',-apple-system,BlinkMacSystemFont,sans-serif;
+  --w-fig:300;
+  --w-fig-xl:200;
   --shadow:0 1px 2px rgba(15,23,42,.04),0 4px 12px rgba(15,23,42,.06);
   /* Reserved for call-out boxes only — the AI summary, sync warnings, the Mex ceiling. */
   --shadow-callout:0 2px 4px rgba(15,23,42,.06),0 10px 28px rgba(15,23,42,.13);
@@ -104,8 +121,8 @@ a{color:inherit;text-decoration:none}
 .sum-hero-fig{width:250px;flex-shrink:0}
 .sum-hero-chart{flex:1;min-width:0}
 .sum-hero-chart .chart-wrap{height:186px}
-.sum-big{font-size:52px;font-weight:800;letter-spacing:-2px;line-height:1;margin:10px 0 8px}
-.sum-big-unit{font-size:22px;font-weight:500;color:var(--text-muted);letter-spacing:0;margin-left:6px}
+.sum-big{font-family:var(--f-fig);font-size:52px;font-weight:var(--w-fig-xl);letter-spacing:-2.6px;line-height:1;margin:10px 0 8px}
+.sum-big-unit{font-size:22px;font-weight:500;color:var(--text-muted);letter-spacing:0;margin-left:11px}
 .sum-ratio{display:inline-flex;align-items:baseline;gap:6px;padding:6px 11px;margin-top:14px;
   font-size:11px;font-weight:600;border-radius:0}
 .sum-ratio strong{font-size:14px;font-weight:700}
@@ -130,7 +147,7 @@ a{color:inherit;text-decoration:none}
 .sum-sport-head{display:flex;align-items:center;gap:7px;margin-bottom:14px}
 .sum-sport-head .ms{font-size:17px;vertical-align:0}
 .sum-sport-name{font-size:13px;font-weight:700}
-.sum-sport-big{font-size:30px;font-weight:800;letter-spacing:-1.2px;line-height:1}
+.sum-sport-big{font-family:var(--f-fig);font-size:30px;font-weight:var(--w-fig);letter-spacing:-1.1px;line-height:1}
 .sum-sport-rows{border-top:1px solid var(--border);margin-top:14px;padding-top:12px;
   display:flex;flex-direction:column;gap:9px}
 .sum-sport-row{display:flex;justify-content:space-between;align-items:baseline}
@@ -161,8 +178,10 @@ a{color:inherit;text-decoration:none}
 .stat-card-link{cursor:pointer;transition:box-shadow .1s}
 .stat-card-link:hover{box-shadow:0 2px 4px rgba(15,23,42,.06),0 8px 20px rgba(15,23,42,.09)}
 .stat-label{font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:6px}
-.stat-value{font-size:24px;font-weight:700;letter-spacing:-.5px;line-height:1}
-.stat-unit{font-size:13px;font-weight:400;color:var(--text-muted);margin-left:3px}
+.stat-value{font-family:var(--f-fig);font-size:24px;font-weight:var(--w-fig);letter-spacing:-.6px;line-height:1}
+/* The figure beside this carries negative tracking, which pulls the unit in against
+   it; the extra margin pays that back. */
+.stat-unit{font-size:13px;font-weight:400;color:var(--text-muted);margin-left:6px}
 .stat-sub{font-size:12px;color:var(--text-muted);margin-top:5px}
 .stat-delta{font-size:12px;font-weight:600;margin-top:4px}
 .stat-delta.up{color:#16a34a}.stat-delta.down{color:#dc2626}
@@ -330,7 +349,7 @@ a{color:inherit;text-decoration:none}
   padding:16px 18px;box-shadow:var(--shadow);cursor:pointer;transition:border-color .15s}
 .rec-hero:hover{border-color:var(--border-strong);border-top-color:var(--hc)}
 .rec-hero-lbl{font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:7px}
-.rec-hero-val{font-size:30px;font-weight:800;letter-spacing:-.8px;line-height:1}
+.rec-hero-val{font-family:var(--f-fig);font-size:30px;font-weight:var(--w-fig);letter-spacing:-1px;line-height:1}
 .rec-hero-val .u{font-size:14px;font-weight:400;color:var(--text-muted);letter-spacing:0;margin-left:3px}
 .rec-hero-nm{font-size:12px;font-weight:600;margin-top:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rec-hero-sub{font-size:11px;color:var(--text-light);margin-top:2px}
@@ -365,7 +384,7 @@ a{color:inherit;text-decoration:none}
    explicitly the subset written into titles. */
 .soc-lead{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);padding:20px 22px}
 .soc-lead-top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
-.soc-lead-n{font-size:30px;font-weight:800;letter-spacing:-.7px;line-height:1}
+.soc-lead-n{font-family:var(--f-fig);font-size:30px;font-weight:var(--w-fig);letter-spacing:-1px;line-height:1}
 .soc-lead-t{font-size:13px;color:var(--text-muted);padding-bottom:2px}
 .soc-split{display:flex;height:26px;margin:14px 0 10px;overflow:hidden}
 .soc-split span{display:block;height:100%}
@@ -712,7 +731,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
    24px/700 as every other headline figure in the app. */
 .gear-hero{padding-top:11px;margin-top:9px;border-top:1px solid var(--border)}
 .gear-hero-label{font-size:12px;font-weight:600;color:var(--text-muted)}
-.gear-hero-value{font-size:24px;font-weight:700;letter-spacing:-.5px;margin-top:2px}
+.gear-hero-value{font-family:var(--f-fig);font-size:24px;font-weight:var(--w-fig);letter-spacing:-.6px;margin-top:2px}
 .gear-hero-value em{font-size:13px;font-weight:600;color:var(--text-muted);font-style:normal}
 .gear-trio{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px;padding-top:11px;border-top:1px solid var(--border)}
 .gear-trio-label{font-size:9.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-light)}
@@ -1484,7 +1503,7 @@ const ZWIFT_STATUS_ORDER=['Not started','Blocked','Planned','Complete'];
 let zwiftCalDate=new Date();zwiftCalDate.setDate(1);
 let zwiftCalSelected=null;
 
-const ACCENT_COLORS={All:'#22c55e',Ride:'#1d4ed8',Virtual:'#60a5fa',Run:'#ef4444',Walk:'#eab308',Swim:'#0ea5e9',Other:'#94a3b8'};
+const ACCENT_COLORS={All:'#22c55e',Ride:'#1d4ed8',Virtual:'#8b5cf6',Run:'#ef4444',Walk:'#eab308',Swim:'#0ea5e9',Other:'#94a3b8'};
 function getAccentColor(){return ACCENT_COLORS[activeType]||'#22c55e';}
 
 // Strava's API doesn't expose gear photos, so pictures are supplied manually here.
@@ -1592,8 +1611,14 @@ function mapFilterMatches(a){
   if(activeType==='Ride')return g==='Ride'||g==='Virtual';
   return g===activeType;
 }
-function groupColor(g){return{Ride:'#1d4ed8',Virtual:'#60a5fa',Run:'#ef4444',Walk:'#eab308',Swim:'#0ea5e9',Other:'#94a3b8'}[g]||'#94a3b8';}
-function groupSoft(g){return{Ride:'#dbeafe',Virtual:'#dbeafe',Run:'#fee2e2',Walk:'#fefce8',Swim:'#e0f2fe',Other:'#f8fafc'}[g]||'#f8fafc';}
+// Kept in step with the --ride/--virtual/... tokens by hand: Chart.js needs a literal
+// hex, not a CSS variable. Virtual is violet rather than a second blue — see the token.
+// NOTE: the sport palette is written out by hand in five places — this, groupSoft,
+// ACCENT_COLORS, typeDotColors and colorFull — plus the CSS tokens. Changing a sport
+// colour means changing all six, or it comes out violet on the donut and blue on the
+// filter dots. Worth consolidating; not today.
+function groupColor(g){return{Ride:'#1d4ed8',Virtual:'#8b5cf6',Run:'#ef4444',Walk:'#eab308',Swim:'#0ea5e9',Other:'#94a3b8'}[g]||'#94a3b8';}
+function groupSoft(g){return{Ride:'#dbeafe',Virtual:'#ede9fe',Run:'#fee2e2',Walk:'#fefce8',Swim:'#e0f2fe',Other:'#f8fafc'}[g]||'#f8fafc';}
 // ── CALENDAR CELL COLOUR ──
 // Both calendars — the Heatmap tab and the per-year grid on Charts — used to
 // interpolate one accent by distance, so the only thing a cell could say was "how
@@ -2005,7 +2030,7 @@ function renderSummary(){
     const totalT=yd.reduce((s,a)=>s+(a.mt||0),0),totalE=yd.reduce((s,a)=>s+(a.elv||0),0),totalC=yd.reduce((s,a)=>s+(a.cal||0),0);
     return`<tr><td style="font-weight:700">${y}</td><td>${yd.length.toLocaleString('en-GB')}</td>${typeKeys.map(t=>`<td>${byType[t]?fmtDist(byType[t]):'—'}</td>`).join('')}<td>${fmtTime(totalT)}</td><td>${fmtElv(totalE)}</td><td>${fmtNum(totalC)}</td></tr>`;
   }
-  const typeDotColors={Ride:'#1d4ed8',Virtual:'#60a5fa',Run:'#ef4444',Walk:'#eab308',Swim:'#0ea5e9',Other:'#94a3b8'};
+  const typeDotColors={Ride:'#1d4ed8',Virtual:'#8b5cf6',Run:'#ef4444',Walk:'#eab308',Swim:'#0ea5e9',Other:'#94a3b8'};
   const th=`<tr><th>Year</th><th>Acts</th>${typeKeys.map(t=>`<th><span style="display:inline-block;width:8px;height:8px;border-radius:0;background:${typeDotColors[t]||'#94a3b8'};margin-right:4px;vertical-align:middle"></span>${t} (${distUnit()})</th>`).join('')}<th>Time</th><th>Elev</th><th>Cal</th></tr>`;
   const earlyHtml=earlyYears.length?`
     <tbody id="earlyYearsBody" style="display:none">${earlyYears.map(yearRow).join('')}</tbody>
@@ -2225,7 +2250,8 @@ function renderCharts(){
   const data=getFiltered();
   const monthKeys=getMonthKeys();
   const typeKeys=['Ride','Virtual','Run','Walk','Swim','Other'];
-  const colorFull=['#1d4ed8','#60a5fa','#ef4444','#eab308','#0ea5e9','#94a3b8'];
+  // Order matches typeKeys: Ride, Virtual, Run, Walk, Swim, Other.
+  const colorFull=['#1d4ed8','#8b5cf6','#ef4444','#eab308','#0ea5e9','#94a3b8'];
   const isSpecificYear=activeYear!=='All';
   const isSpecificType=activeType!=='All';
 
