@@ -9,7 +9,7 @@ const {
   extractPartners, formatUpdatedAt, recLongestStreak, recCurrentStreak, mexBuckets, mexOf,
   actDistIn, distIn, ROLLING_ORDER, todayISO, isYearScope, isRollingScope, periodStart,
   scopeIncludes, periodLabel, periodPhrase, isValidScope, rollingWeekly, ratioBand,
-  CHRONIC_DAYS, CHRONIC_WEIGHTS,
+  CHRONIC_DAYS, CHRONIC_WEIGHTS, weeklyLoadStats, MONOTONY_CAP,
   setScope,
 } = calc;
 
@@ -870,5 +870,78 @@ describe('small formatters', () => {
     expect(distUnit()).toBe('mi');
     km();
     expect(distUnit()).toBe('km');
+  });
+});
+
+// ── TRAINING MONOTONY ───────────────────────────────────────────────────────────
+// The point of monotony is that it separates two weeks a total cannot: the same
+// hours spread evenly and the same hours in two sessions. These tests are built
+// around exactly that pair.
+
+describe('weeklyLoadStats', () => {
+  const hours = (a) => (a.mt || 0) / 3600;
+  // 2026-09-14 is a Monday, so a week built from it lines up with the Monday-start
+  // weeks the function uses and nothing straddles a boundary.
+  const MON = '2026-09-14';
+  const day = (n) => {
+    const d = new Date(MON + 'T12:00:00');
+    d.setDate(d.getDate() + n);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  // A week of equal days, and a week of the same total in two sessions.
+  const evenWeek = Array.from({ length: 7 }, (_, n) => ({ date: day(n), mt: 3600 }));
+  const spikyWeek = [{ date: day(0), mt: 3.5 * 3600 }, { date: day(3), mt: 3.5 * 3600 }];
+  const opts = { end: day(6) };
+
+  it('scores a week of identical days at the cap, because its spread is zero', () => {
+    const [w] = weeklyLoadStats(evenWeek, hours, opts);
+    expect(w.total).toBe(7);
+    expect(w.sd).toBe(0);
+    expect(w.monotony).toBe(MONOTONY_CAP);
+  });
+
+  it('separates two weeks a total cannot tell apart', () => {
+    const [even] = weeklyLoadStats(evenWeek, hours, opts);
+    const [spiky] = weeklyLoadStats(spikyWeek, hours, opts);
+    expect(even.total).toBe(spiky.total);          // identical volume
+    expect(spiky.monotony).toBeLessThan(even.monotony);
+    expect(spiky.strain).toBeLessThan(even.strain);
+  });
+
+  it('counts rest days as zeros, which is what creates the spread', () => {
+    const [w] = weeklyLoadStats(spikyWeek, hours, opts);
+    expect(w.days).toBe(2);
+    expect(w.mean).toBeCloseTo(1, 6);             // 7 hours over SEVEN days, not two
+    // [3.5,0,0,3.5,0,0,0] against a mean of 1: squared deviations are 2.5^2 twice
+    // and 1^2 five times, so sd = sqrt(17.5/7) = sqrt(2.5).
+    expect(w.sd).toBeCloseTo(Math.sqrt(2.5), 2);
+    expect(w.monotony).toBeCloseTo(1 / Math.sqrt(2.5), 2);
+  });
+
+  it('reports strain as the week total times its monotony', () => {
+    const [w] = weeklyLoadStats(spikyWeek, hours, opts);
+    expect(w.strain).toBeCloseTo(w.total * w.monotony, 1);
+  });
+
+  it('skips a week with nothing in it rather than dividing by zero', () => {
+    // Two weeks apart, so the week between them is empty.
+    const acts = [{ date: day(0), mt: 3600 }, { date: day(14), mt: 3600 }];
+    const out = weeklyLoadStats(acts, hours, { end: day(20) });
+    expect(out).toHaveLength(2);
+    expect(out.every((w) => w.total > 0)).toBe(true);
+  });
+
+  it('leaves out the week still in progress', () => {
+    // Ending mid-week, the later days are zeros that have not happened yet — which
+    // would otherwise score as the most varied week of the year.
+    const acts = Array.from({ length: 10 }, (_, n) => ({ date: day(n), mt: 3600 }));
+    const out = weeklyLoadStats(acts, hours, { end: day(9) });
+    expect(out).toHaveLength(1);
+    expect(out[0].week).toBe(day(0));
+  });
+
+  it('returns nothing at all for no activities', () => {
+    expect(weeklyLoadStats([], hours, opts)).toEqual([]);
+    expect(weeklyLoadStats(null, hours, opts)).toEqual([]);
   });
 });

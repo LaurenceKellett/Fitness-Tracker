@@ -1740,6 +1740,13 @@ body.is-loading .stats-grid *{visibility:hidden}
       <div id="mixChips" class="chart-chips"></div>
       <div id="mixVerdict" class="chart-verdict"></div>
     </div>
+    <div class="chart-card span-full" data-panel="mixyear">
+      <div class="chart-title">How the mix has shifted</div>
+      <div class="chart-sub" id="mixYearSub">Share of moving time by sport, per year</div>
+      <div class="chart-wrap"><canvas id="chartMixYear"></canvas></div>
+      <div id="mixyearChips" class="chart-chips"></div>
+      <div id="mixyearVerdict" class="chart-verdict"></div>
+    </div>
     <div class="chart-card span-full" data-panel="elev">
       <div class="chart-title">Monthly Elevation Gain</div>
       <div class="chart-sub" id="elevChartSub">Feet climbed per month</div>
@@ -1756,6 +1763,13 @@ body.is-loading .stats-grid *{visibility:hidden}
       <div class="chart-wrap"><canvas id="chartZones"></canvas></div>
       <div id="zoneChips" class="chart-chips"></div>
       <div id="zoneVerdict" class="chart-verdict"></div>
+    </div>
+    <div class="chart-card span-full" id="maxHrCard" data-panel="maxhr">
+      <div class="chart-title">How hard you actually go</div>
+      <div class="chart-sub" id="maxHrSub">Peak and average heart rate per month</div>
+      <div class="chart-wrap"><canvas id="chartMaxHr"></canvas></div>
+      <div id="maxhrChips" class="chart-chips"></div>
+      <div id="maxhrVerdict" class="chart-verdict"></div>
     </div>
     <div class="chart-card" id="effortCard" data-panel="effort">
       <div class="chart-title">Relative Effort</div>
@@ -1795,6 +1809,13 @@ body.is-loading .stats-grid *{visibility:hidden}
   </div>
   <div class="section-header"><h2>Habits</h2><span class="badge">How you train — the patterns you don't choose</span></div>
   <div class="charts-grid chart-zone" data-zone="habits" data-zone-label="Habits">
+    <div class="chart-card span-full" data-panel="monotony">
+      <div class="chart-title">Same week, different training</div>
+      <div class="chart-sub" id="monoSub">Training monotony, week by week</div>
+      <div class="chart-wrap"><canvas id="chartMono"></canvas></div>
+      <div id="monoChips" class="chart-chips"></div>
+      <div id="monoVerdict" class="chart-verdict"></div>
+    </div>
     <div class="chart-card" data-panel="tod">
       <div class="chart-title">When you train</div>
       <div class="chart-sub" id="todSub">Activities by hour of day</div>
@@ -1885,6 +1906,17 @@ body.is-loading .stats-grid *{visibility:hidden}
   <div class="span-full" data-panel="soc-partners" data-panel-label="Named partners">
     <div class="section-header" style="margin-top:28px"><h2>Named partners</h2><span class="badge" id="socPartnerBadge"></span></div>
     <div id="socPartners"></div>
+  </div>
+  <div class="span-full" data-panel="soc-kudos" data-panel-label="What gets a reaction">
+  <div class="charts-grid wide" style="margin-top:24px">
+    <div class="chart-card">
+      <div class="chart-title">What gets a reaction</div>
+      <div class="chart-sub" id="kudosSub">Average kudos per activity, per month</div>
+      <div class="chart-wrap"><canvas id="chartKudos"></canvas></div>
+      <div id="kudosChips" class="chart-chips"></div>
+      <div id="kudosVerdict" class="chart-verdict"></div>
+    </div>
+  </div>
   </div>
   <div class="span-full" data-panel="soc-chart" data-panel-label="Solo and in company, by month">
   <div class="charts-grid wide" style="margin-top:24px">
@@ -3902,6 +3934,211 @@ function renderCharts(){
   renderCumulative(data);
   renderPaceScatter(data);
   renderEfficiency(data);
+  renderMixByYear();
+  renderMaxHr(data,monthKeys);
+  renderMonotony(data);
+}
+
+// ── HOW THE MIX HAS SHIFTED ──
+// The donut is a snapshot: it says what the split is now and nothing about how it
+// got there. Five years of 100% bars say whether you have quietly become a cyclist.
+//
+// Moving time rather than the donut's activity count, because a count treats a
+// twenty-minute swim and a five-hour ride as one each. Time is where the training
+// actually went. The year filter is ignored on purpose — a chart of one year's
+// share against itself is a single bar — and the sport filter too, since filtering
+// to one sport would leave a chart that reads 100% every year.
+function renderMixByYear(){
+  const years=[...new Set(ALL_DATA.map(a=>a.date.slice(0,4)))].sort();
+  const groups=['Ride','Virtual','Run','Walk','Swim','Other'];
+  const byYear={};
+  ALL_DATA.forEach(a=>{
+    const y=a.date.slice(0,4);
+    (byYear[y]=byYear[y]||{})[typeGroup(a.type)]=((byYear[y]||{})[typeGroup(a.type)]||0)+(a.mt||0);
+  });
+  const totals=years.map(y=>groups.reduce((s,g)=>s+((byYear[y]||{})[g]||0),0));
+  const live=years.filter((y,i)=>totals[i]>0);
+  if(live.length<2){
+    setChartEmpty('chartMixYear','Two years of activities are needed before a shift can be shown.');
+    chartSummary('mixyear',[],'');
+    return;
+  }
+  setChartEmpty('chartMixYear');
+  const pct=(y,g)=>{
+    const t=groups.reduce((s,k)=>s+((byYear[y]||{})[k]||0),0);
+    return t?+(((byYear[y]||{})[g]||0)/t*100).toFixed(1):0;
+  };
+  // Sports that never appear get no series rather than a legend entry at zero.
+  const present=groups.filter(g=>live.some(y=>pct(y,g)>0));
+  destroyChart('mixyear');
+  charts.mixyear=upsertChart('mixyear',document.getElementById('chartMixYear').getContext('2d'),{
+    type:'bar',
+    data:{labels:live,datasets:present.map(g=>({
+      label:g,data:live.map(y=>pct(y,g)),backgroundColor:groupColor(g),
+      borderRadius:0,borderSkipped:false,
+    }))},
+    options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},
+      tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y}% of moving time`}}},
+      responsive:true,maintainAspectRatio:false,
+      scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:11}}},
+        y:{stacked:true,grid:{color:chartGrid()},max:100,
+          ticks:{font:{size:11},callback:v=>v+'%'}}}}
+  });
+
+  const first=live[0],last=live[live.length-1];
+  const moved=present.map(g=>({g,d:pct(last,g)-pct(first,g)})).sort((a,b)=>Math.abs(b.d)-Math.abs(a.d));
+  const top=present.map(g=>({g,p:pct(last,g)})).sort((a,b)=>b.p-a.p)[0];
+  const chips=[{n:top.p+'%',label:`${top.g.toLowerCase()} in ${last}`,col:groupColor(top.g)}];
+  moved.slice(0,2).forEach(m=>chips.push({
+    n:(m.d>=0?'+':'')+m.d.toFixed(0)+'pt',label:`${m.g.toLowerCase()} since ${first}`,
+    col:m.d>=0?'#22c55e':'#ef4444'}));
+  document.getElementById('mixYearSub').textContent=
+    `Share of moving time by sport, ${first} to ${last} — every bar is a whole year`;
+  chartSummary('mixyear',chips,(()=>{
+    const big=moved[0];
+    if(!big||Math.abs(big.d)<5)return`The balance has barely moved since ${first}. Whatever you are, you have been it for ${live.length} years.`;
+    const second=moved[1]&&Math.abs(moved[1].d)>=5?moved[1]:null;
+    // Which way the second sport moved decides the phrase. "At its expense" is only
+    // true when the two moved in opposite directions AND this one went up; a sport
+    // that fell while another rose lost its share TO it, not at its expense.
+    let tail='';
+    if(second){
+      const opposed=(big.d>0)!==(second.d>0);
+      tail=opposed
+        ? (big.d>0?`, mostly at ${second.g.toLowerCase()}'s expense`
+                  :`, with ${second.g.toLowerCase()} taking up the slack`)
+        : `, and ${second.g.toLowerCase()} has moved the same way`;
+    }
+    return`${big.g} has gone ${big.d>0?'up':'down'} ${Math.abs(big.d).toFixed(0)} points of your training time since ${first}${tail}. `+
+      `Shares are of time, so this is where the hours went rather than how many sessions you logged.`;
+  })());
+}
+
+// ── HOW HARD YOU ACTUALLY GO ──
+// The zone chart is built from average heart rates, which is a fair picture of a
+// session as a whole and says nothing about its hardest minute. max_hr has been
+// stored on every activity all along and appeared in exactly one place: the detail
+// modal of a single activity. Monthly peaks against monthly averages is the shape
+// that answers "am I still going hard, or just going often".
+function renderMaxHr(data,monthKeys){
+  const withHr=data.filter(a=>a.max_hr>0);
+  if(withHr.length<5){
+    setChartEmpty('chartMaxHr','Fewer than five activities here have heart-rate data.');
+    chartSummary('maxhr',[],'');
+    return;
+  }
+  setChartEmpty('chartMaxHr');
+  const byMonth={};
+  withHr.forEach(a=>{
+    const m=a.date.slice(0,7);
+    (byMonth[m]=byMonth[m]||{peak:0,avg:[],n:0});
+    byMonth[m].peak=Math.max(byMonth[m].peak,a.max_hr);
+    if(a.hr>0)byMonth[m].avg.push(a.hr);
+    byMonth[m].n++;
+  });
+  const mean=v=>v.length?v.reduce((s,x)=>s+x,0)/v.length:null;
+  const peaks=monthKeys.map(m=>byMonth[m]?Math.round(byMonth[m].peak):null);
+  const avgs=monthKeys.map(m=>byMonth[m]?(mean(byMonth[m].avg)==null?null:Math.round(mean(byMonth[m].avg))):null);
+  destroyChart('maxhr');
+  charts.maxhr=upsertChart('maxhr',document.getElementById('chartMaxHr').getContext('2d'),{
+    type:'line',
+    // The fill runs BETWEEN the two lines rather than down to the axis. Filling to
+    // the axis shades the whole 0–190 bpm block, which reads as an accumulating
+    // quantity — and a heart rate does not accumulate. The band between peak and
+    // average is the thing the chart is actually about: how much headroom there is
+    // between a typical session and the hardest minute of the month.
+    data:{labels:monthKeys.map(monthLabel),datasets:[
+      {label:'Hardest beat that month',data:peaks,borderColor:'#ef4444',
+       backgroundColor:'rgba(239,68,68,.12)',fill:{target:1},tension:.25,pointRadius:0,borderWidth:2,spanGaps:true},
+      {label:'Average heart rate',data:avgs,borderColor:'#94a3b8',
+       backgroundColor:'transparent',fill:false,tension:.25,pointRadius:0,borderWidth:2,spanGaps:true},
+    ]},
+    options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},
+      tooltip:{mode:'index',intersect:false,callbacks:{label:c=>c.parsed.y==null?null:`${c.dataset.label}: ${c.parsed.y} bpm`}}},
+      responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      scales:{x:{grid:{display:false},ticks:{font:{size:10},maxRotation:0,autoSkip:true,maxTicksLimit:12}},
+        y:{grid:{color:chartGrid()},ticks:{font:{size:11},callback:v=>v+' bpm'}}}}
+  });
+
+  const everPeak=Math.max(...withHr.map(a=>a.max_hr));
+  const livePeaks=peaks.filter(v=>v!=null),liveAvgs=avgs.filter(v=>v!=null);
+  const recent=livePeaks.slice(-3),earlier=livePeaks.slice(0,-3);
+  const gap=liveAvgs.length&&livePeaks.length?Math.round(mean(livePeaks)-mean(liveAvgs)):null;
+  const chips=[
+    {n:Math.round(everPeak)+' bpm',label:'highest in view',col:'#ef4444'},
+    {n:Math.round(mean(livePeaks))+' bpm',label:'typical monthly peak',col:'#f59e0b'},
+  ];
+  if(gap!=null)chips.push({n:gap+' bpm',label:'peak above average',col:'#8b5cf6'});
+  chartSummary('maxhr',chips,(()=>{
+    if(!earlier.length)return`Your hardest effort in view reached ${Math.round(everPeak)} bpm. The red line is the single hardest beat of each month, not its average — a month can be busy and never touch it.`;
+    const d=Math.round(mean(recent)-mean(earlier));
+    if(Math.abs(d)<3)return`Monthly peaks are steady at around ${Math.round(mean(livePeaks))} bpm. You are still finding the top end about as often as you were.`;
+    return d<0
+      ? `Your monthly peaks are ${Math.abs(d)} bpm lower over the last three months than before them. That is what a block of steady volume looks like — worth knowing if you meant to be sharpening.`
+      : `Your monthly peaks are ${d} bpm higher over the last three months. Something in the recent block is taking you to the top end more often.`;
+  })());
+}
+
+// ── SAME WEEK, DIFFERENT TRAINING ──
+// The load chart can tell you a week was ten hours. It cannot tell you whether that
+// was ten hours spread evenly or ten hours in two sessions, because a total is all
+// it has — and those are different training with the same number on them.
+function renderMonotony(data){
+  const weeks=weeklyLoadStats(data,a=>(a.mt||0)/3600,{today:_today()});
+  if(weeks.length<4){
+    setChartEmpty('chartMono','Four full weeks of training are needed before a pattern means anything.');
+    chartSummary('mono',[],'');
+    return;
+  }
+  setChartEmpty('chartMono');
+  const shortLabel=w=>{const[y,m,d]=w.split('-');return`${+d} ${MONTH_ABBR[+m-1]}`;};
+  destroyChart('mono');
+  charts.mono=upsertChart('mono',document.getElementById('chartMono').getContext('2d'),{
+    type:'line',
+    data:{labels:weeks.map(w=>shortLabel(w.week)),datasets:[
+      {label:'Monotony',data:weeks.map(w=>w.monotony),borderColor:getAccentColor(),
+       backgroundColor:'transparent',fill:false,tension:.25,pointRadius:0,borderWidth:2},
+      // The flagged level, drawn rather than described. A line you have to hold a
+      // number against in your head is a number, not a chart.
+      {label:`Flagged above ${MONOTONY_CAUTION.toFixed(1)}`,data:weeks.map(()=>MONOTONY_CAUTION),
+       borderColor:'#f59e0b',borderDash:[5,4],backgroundColor:'transparent',
+       fill:false,pointRadius:0,borderWidth:1.5},
+    ]},
+    options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},
+      tooltip:{mode:'index',intersect:false,callbacks:{
+        title:c=>'Week of '+fmtDate(weeks[c[0].dataIndex].week),
+        label:c=>c.datasetIndex?null:
+          `Monotony ${weeks[c.dataIndex].monotony} · ${fmtHours(weeks[c.dataIndex].total*3600)} over ${weeks[c.dataIndex].days} day${weeks[c.dataIndex].days===1?'':'s'}`}}},
+      responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      scales:{x:{grid:{display:false},ticks:{font:{size:10},maxRotation:0,autoSkip:true,maxTicksLimit:12}},
+        y:{grid:{color:chartGrid()},beginAtZero:true,ticks:{font:{size:11}}}}}
+  });
+
+  const latest=weeks[weeks.length-1];
+  const flagged=weeks.filter(w=>w.monotony>=MONOTONY_CAUTION).length;
+  const hardest=weeks.reduce((b,w)=>w.strain>b.strain?w:b,weeks[0]);
+  const peak=weeks.reduce((b,w)=>w.monotony>b.monotony?w:b,weeks[0]);
+  // Strain is a raw index — hours times monotony — and a bare "27" on a chip means
+  // nothing without the weeks either side of it to compare against. It gets a
+  // sentence in the verdict instead, where there is room to say what it is. The
+  // chips stay on scales the chart itself shows: the same axis, and a count with
+  // its denominator.
+  chartSummary('mono',[
+    {n:latest.monotony.toFixed(2),label:'last full week',
+     col:latest.monotony>=MONOTONY_CAUTION?'#f59e0b':'#22c55e'},
+    {n:`${flagged} of ${weeks.length}`,label:`weeks above ${MONOTONY_CAUTION.toFixed(1)}`,
+     col:flagged?'#ef4444':'#22c55e'},
+    {n:peak.monotony.toFixed(2),label:'most samey week',col:'#8b5cf6'},
+  ],
+  (()=>{
+    const base=`Monotony is a week's average day divided by how much its days vary — high means every day looked like every other one. `+
+      `Strain is the week's hours multiplied by that, so ${fmtDate(hardest.week)} (${fmtHours(hardest.total*3600)} across ${hardest.days} days) `+
+      `cost the most of any week here.`;
+    if(latest.monotony>=MONOTONY_CAUTION)
+      return base+` Your last full week is at ${latest.monotony.toFixed(2)} — same-again territory. An easy day made easier and a hard day made harder brings it down without losing an hour.`;
+    if(flagged===0)return base+` Nothing here is flagged: your weeks have enough shape in them that the hard days stay hard.`;
+    return base+` Your last full week is at ${latest.monotony.toFixed(2)}, comfortably varied.`;
+  })());
 }
 
 
@@ -4855,6 +5092,29 @@ function renderCumulative(data,t=CUM_TARGET){
     cum[y]=out;
   });
 
+  // ── Where the year lands if nothing changes ──
+  // The chart already made you ask the question and then left you to do the
+  // arithmetic: the "on pace for" figure was a chip with no line under it, so there
+  // was nothing to hold it against. Drawn, it runs out to 31 December alongside the
+  // years that actually finished, which is the only way to see whether being ahead
+  // in September means finishing ahead.
+  //
+  // Same rate as the chip — the year-to-date average — so the line and the number
+  // cannot contradict each other. Dashed, because it is the one series on this chart
+  // that has not happened.
+  const yearLen=(+focus%4===0&&(+focus%100!==0||+focus%400===0))?366:365;
+  const hereNowForProj=(cum[focus]||[])[cutoff-1]||0;
+  let projection=null,projEnd=null;
+  if(isCurrent&&hereNowForProj>0&&cutoff<yearLen){
+    const rate=hereNowForProj/cutoff;
+    projEnd=hereNowForProj+(yearLen-cutoff)*rate;
+    projection=Array.from({length:366},(_,i)=>{
+      const d=i+1;
+      if(d<cutoff||d>yearLen)return null;
+      return +(hereNowForProj+(d-cutoff)*rate).toFixed(1);
+    });
+  }
+
   destroyChart(t.key);
   charts[t.key]=upsertChart(t.key,document.getElementById(t.canvas).getContext('2d'),{
     type:'line',
@@ -4865,7 +5125,12 @@ function renderCumulative(data,t=CUM_TARGET){
         backgroundColor:'transparent',
         borderWidth:i===0?2.5:1.5,
         pointRadius:0,tension:.1,fill:false,spanGaps:false,
-      }))},
+      })).concat(projection?[{
+        label:`${focus} at this rate`,data:projection,
+        borderColor:yearRamp(show.length,0),borderDash:[6,5],
+        backgroundColor:'transparent',borderWidth:1.5,
+        pointRadius:0,tension:0,fill:false,spanGaps:false,
+      }]:[])},
     options:{
       plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},
         tooltip:{mode:'index',intersect:false,callbacks:{
@@ -4898,7 +5163,20 @@ function renderCumulative(data,t=CUM_TARGET){
     const d=Math.round((hereNow-thenPrev)/thenPrev*100);
     chips.push({n:(d>=0?'+':'')+d+'%',label:'on the year before',col:d>=0?'#22c55e':'#ef4444'});
   }
-  if(isCurrent&&hereNow>0)chips.push({n:fmtD(hereNow/cutoff*365)+' '+distUnit(),label:'on pace for',col:'#8b5cf6'});
+  if(isCurrent&&projEnd)chips.push({n:fmtD(projEnd)+' '+distUnit(),label:'on pace for',col:'#8b5cf6'});
+  // The same question asked of the last 28 days rather than the whole year. One
+  // number would be false precision: a year-to-date rate cannot see that you have
+  // stopped, and a 28-day rate cannot see that you always stop in November. Both
+  // together are a range, which is the honest answer.
+  if(isCurrent&&projEnd){
+    const t28=_today(),from=new Date(t28+'T12:00:00');
+    from.setDate(from.getDate()-27);
+    const since=`${from.getFullYear()}-${String(from.getMonth()+1).padStart(2,'0')}-${String(from.getDate()).padStart(2,'0')}`;
+    const recent=ALL_DATA.filter(a=>typeMatches(a)&&a.date>=since&&a.date<=t28)
+      .reduce((s,a)=>s+distIn(a),0)/28;
+    const projRecent=hereNow+(yearLen-cutoff)*recent;
+    chips.push({n:fmtD(projRecent)+' '+distUnit(),label:'at the last 28 days’ rate',col:'#0ea5e9'});
+  }
 
   chartSummary(t.chips,chips,(()=>{
     if(thenPrev==null||!thenPrev)return `No comparable year before ${focus} in this filter.`;
@@ -6146,6 +6424,71 @@ function renderSocial(){
       return `${pctActs}% of activities and ${pctMiles}% of distance — company is spread evenly across your week rather than concentrated in the big days out.`;
     })());
   }else chartSummary('social',[],'');
+
+  renderKudos(data);
+}
+
+// ── WHAT GETS A REACTION ──
+// kudos has been stored on every activity all along and shown in exactly one place:
+// the detail modal of a single activity. It is the only number in the dataset that
+// is about other people rather than about you, which is why it belongs here and not
+// on Charts — and it is worth saying plainly that it measures your followers' habits
+// at least as much as your training.
+function renderKudos(data){
+  const withK=data.filter(a=>typeof a.kudos==='number');
+  const total=withK.reduce((s,a)=>s+a.kudos,0);
+  if(!withK.length||!total){
+    setChartEmpty('chartKudos','No kudos on the activities in this filter.');
+    chartSummary('kudos',[],'');
+    return;
+  }
+  setChartEmpty('chartKudos');
+  const mk=getMonthKeys(),byMonth={};
+  withK.forEach(a=>{
+    const m=a.date.slice(0,7);
+    (byMonth[m]=byMonth[m]||{k:0,n:0});
+    byMonth[m].k+=a.kudos;byMonth[m].n++;
+  });
+  // An average per activity, not a monthly total: a total rewards a busy month and
+  // says nothing about whether any given outing landed.
+  const avg=mk.map(m=>byMonth[m]&&byMonth[m].n?+(byMonth[m].k/byMonth[m].n).toFixed(2):null);
+  destroyChart('kudos');
+  charts.kudos=upsertChart('kudos',document.getElementById('chartKudos').getContext('2d'),{
+    type:'bar',
+    data:{labels:mk.map(monthLabel),datasets:[{
+      data:avg,backgroundColor:'#ff385c',borderRadius:0,borderSkipped:false}]},
+    options:{plugins:{legend:{display:false},tooltip:{callbacks:{
+      label:c=>{const m=mk[c.dataIndex],b=byMonth[m];
+        return b?`${c.parsed.y} kudos per activity · ${b.k.toLocaleString('en-GB')} across ${b.n}`:null;}}}},
+      responsive:true,maintainAspectRatio:false,
+      scales:{x:{grid:{display:false},ticks:{font:{size:10},maxRotation:0,autoSkip:true,maxTicksLimit:12}},
+        y:{grid:{color:chartGrid()},beginAtZero:true,ticks:{font:{size:11}}}}}
+  });
+
+  const best=withK.reduce((b,a)=>a.kudos>b.kudos?a:b,withK[0]);
+  const perAct=total/withK.length;
+  // Which sport does best per outing, rather than in total — the same reason the
+  // chart is an average.
+  const bySport={};
+  withK.forEach(a=>{const g=typeGroup(a.type);(bySport[g]=bySport[g]||{k:0,n:0});bySport[g].k+=a.kudos;bySport[g].n++;});
+  const ranked=Object.entries(bySport).filter(([,v])=>v.n>=5)
+    .map(([g,v])=>({g,per:v.k/v.n})).sort((a,b)=>b.per-a.per);
+  const chips=[
+    {n:perAct.toFixed(1),label:'kudos per activity',col:'#ff385c'},
+    {n:best.kudos.toLocaleString('en-GB'),label:'best single activity',col:'#8b5cf6'},
+  ];
+  if(ranked.length)chips.push({n:ranked[0].per.toFixed(1),
+    label:`per ${ranked[0].g.toLowerCase()}, your best sport for it`,col:groupColor(ranked[0].g)});
+  chartSummary('kudos',chips,(()=>{
+    // No escapeHtml: chartSummary writes the verdict with textContent, so escaping
+    // here would put a literal &amp; on screen for anyone who trains with Dave & Sarah.
+    const head=`${total.toLocaleString('en-GB')} kudos across ${withK.length.toLocaleString('en-GB')} activities. `+
+      `The best single one was ${best.name||best.type} on ${fmtDate(best.date)} with ${best.kudos}. `;
+    const tail=ranked.length>1
+      ? `${ranked[0].g} outings draw ${(ranked[0].per/Math.max(ranked[ranked.length-1].per,0.01)).toFixed(1)}× what ${ranked[ranked.length-1].g.toLowerCase()} ones do. `
+      : '';
+    return head+tail+`Worth holding loosely: this tracks when your followers are online as much as what you did.`;
+  })());
 }
 
 

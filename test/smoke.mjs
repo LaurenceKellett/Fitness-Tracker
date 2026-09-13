@@ -54,6 +54,10 @@ function fixture() {
       et: 1900 + (i % 20) * 600,
       elv: (i % 30) * 40,
       hr: 120 + (i % 40),
+      // The Worker sends both of these on every activity; without them the charts
+      // built on them would be tested only in their empty state.
+      max_hr: 150 + (i % 30),
+      kudos: i % 17,
       cad: 80 + (i % 15),
       cal: 400 + i,
       speed_mph: +(8 + (i % 12)).toFixed(1),
@@ -366,6 +370,58 @@ async function main() {
       const misfiled = await page.evaluate(() =>
         ALL_DATA.filter((a) => typeGroup(a.type) === 'Swim' && a.type !== 'Swim').length);
       assert(misfiled === 0, `${misfiled} non-swims are grouped as swimming`);
+    });
+
+    await check('the five newest charts draw rather than sitting empty', async () => {
+      // "Every tab renders without a console error" catches a throw. It does not
+      // catch a chart that quietly decided it had no data and put a sentence in
+      // place of itself, which is the way a new chart usually fails.
+      const drawn = async (tab, canvas) => {
+        await page.evaluate((t) => window.setTab(t), tab);
+        await page.waitForTimeout(500);
+        return page.evaluate((c) => {
+          const cv = document.getElementById(c);
+          if (!cv) return 'no canvas';
+          if (cv.style.display === 'none') {
+            const n = cv.parentElement.querySelector('.chart-empty');
+            return 'empty: ' + (n ? n.textContent : '?');
+          }
+          const card = cv.closest('.chart-card');
+          const chips = card.querySelector('.chart-chips');
+          const verdict = card.querySelector('.chart-verdict');
+          return {
+            chips: chips ? chips.children.length : 0,
+            verdict: verdict ? verdict.textContent.trim().length : 0,
+          };
+        }, canvas);
+      };
+      for (const [tab, canvas, name] of [
+        ['charts', 'chartMixYear', 'how the mix has shifted'],
+        ['charts', 'chartMaxHr', 'how hard you actually go'],
+        ['charts', 'chartMono', 'training monotony'],
+        ['social', 'chartKudos', 'what gets a reaction'],
+      ]) {
+        const r = await drawn(tab, canvas);
+        assert(typeof r === 'object', `${name}: ${r}`);
+        assert(r.chips > 0, `${name} drew no chips`);
+        assert(r.verdict > 20, `${name} drew no verdict`);
+      }
+
+      // The projection is a dataset on an existing chart, so it is checked by name.
+      await page.evaluate(() => window.setTab('charts'));
+      await page.waitForTimeout(400);
+      const proj = await page.evaluate(() => {
+        const c = window.Chart.getChart(document.getElementById('chartCumulative'));
+        const ds = c && c.data && c.data.datasets ? c.data.datasets : [];
+        const p = ds.find((d) => /at this rate/.test(d.label || ''));
+        if (!p) return { found: false, labels: ds.map((d) => d.label) };
+        const pts = p.data.filter((v) => v != null);
+        return { found: true, n: pts.length, rising: pts[pts.length - 1] > pts[0], dashed: !!p.borderDash };
+      });
+      assert(proj.found, `no projection dataset: ${JSON.stringify(proj.labels)}`);
+      assert(proj.n > 1, 'the projection has nothing to draw');
+      assert(proj.rising, 'the projection does not run forwards');
+      assert(proj.dashed, 'the projection is not dashed, so it reads as something that happened');
     });
 
     await check('rolling date scopes filter the data', async () => {

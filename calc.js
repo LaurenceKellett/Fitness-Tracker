@@ -445,6 +445,71 @@ function rollingWeekly(acts,pick,opts){
   };
 }
 
+/* ── TRAINING MONOTONY AND STRAIN ──
+ * Foster's pair. Monotony is a week's mean daily load divided by the standard
+ * deviation of those same seven days; strain is the week's total load multiplied
+ * by its monotony.
+ *
+ * What they add that a total cannot: two weeks can carry identical volume and be
+ * completely different training. Ten hours spread evenly across seven days and ten
+ * hours in two sessions have the same total and nothing else in common, and the
+ * load chart cannot tell them apart, because a total is all it has. Monotony is
+ * the number that separates them — high means every day looks like every other
+ * day, which is the pattern associated with staleness rather than adaptation.
+ *
+ * Rest days count as zeros, deliberately. They are most of what creates the
+ * variation in the first place, and a week averaged over "the days you trained"
+ * would score a hard-easy week and a relentless one identically.
+ *
+ * Population SD (over n), not the sample estimate (n-1): these seven days are the
+ * whole week, not a sample drawn from a larger one.
+ */
+const MONOTONY_CAUTION=2.0;   // the level the literature flags; drawn on the chart
+const MONOTONY_CAP=5;         // seven identical non-zero days divide by zero
+function weeklyLoadStats(acts,pick,opts){
+  const o=opts||{};
+  const end=o.end||o.today||todayISO();
+  const byDay={};
+  (acts||[]).forEach(a=>{if(a&&a.date)byDay[a.date]=(byDay[a.date]||0)+(pick(a)||0);});
+  const dates=Object.keys(byDay).sort();
+  if(!dates.length)return[];
+
+  // Anchored at local noon and stepped in whole days, for the same reason
+  // rollingWeekly is: midnight drifts across a DST boundary and repeats or skips one.
+  const dayAt=ms=>{
+    const d=new Date(ms);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  };
+  // Weeks run Monday to Sunday, because that is the week people plan in.
+  const first=new Date(dates[0]+'T12:00:00');
+  first.setDate(first.getDate()-((first.getDay()+6)%7));
+  const endMs=new Date(end+'T12:00:00').getTime();
+
+  const out=[];
+  for(let ms=first.getTime();ms<=endMs;ms+=7*86400000){
+    const days=[];
+    for(let k=0;k<7;k++)days.push(byDay[dayAt(ms+k*86400000)]||0);
+    // A week still in progress is not a week: its later days are zeros that have
+    // not happened yet, which would read as the most varied week of the year.
+    if(ms+6*86400000>endMs)break;
+    const total=days.reduce((s,v)=>s+v,0);
+    if(total<=0)continue;                       // a week off has no monotony to report
+    const mean=total/7;
+    const sd=Math.sqrt(days.reduce((s,v)=>s+(v-mean)*(v-mean),0)/7);
+    const monotony=sd>0?Math.min(mean/sd,MONOTONY_CAP):MONOTONY_CAP;
+    out.push({
+      week:dayAt(ms),
+      total:+total.toFixed(2),
+      mean:+mean.toFixed(3),
+      sd:+sd.toFixed(3),
+      monotony:+monotony.toFixed(2),
+      strain:+(total*monotony).toFixed(1),
+      days:days.filter(v=>v>0).length,
+    });
+  }
+  return out;
+}
+
 // Shared by both hero figures, so "steady" means the same thing in hours and miles.
 const RATIO_BANDS=[
   {over:1.5,tone:'danger', word:'stepping up hard'},
@@ -477,7 +542,7 @@ if (typeof module !== 'undefined' && module.exports) {
     recLongestStreak,recCurrentStreak,mexBuckets,mexOf,actDistIn,distIn,
     ROLLING_PERIODS,ROLLING_ORDER,todayISO,isYearScope,isRollingScope,periodStart,
     scopeIncludes,periodLabel,periodPhrase,isValidScope,rollingWeekly,ratioBand,RATIO_BANDS,
-    CHRONIC_DAYS,CHRONIC_WEIGHTS,
+    CHRONIC_DAYS,CHRONIC_WEIGHTS,weeklyLoadStats,MONOTONY_CAUTION,MONOTONY_CAP,
     setScope(s){
       if(s.unit!==undefined)unit=s.unit;
       if(s.activeYear!==undefined)activeYear=s.activeYear;

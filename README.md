@@ -828,6 +828,78 @@ distance, which is what lets the same code draw both without knowing about eithe
 
 ---
 
+## Training monotony
+
+The load chart can tell you a week was ten hours. It cannot tell you whether that was ten
+hours spread evenly or ten hours in two sessions, because a total is all it has — and those
+are different training carrying the same number.
+
+Foster's pair fills that in. **Monotony** is a week's mean daily load divided by the standard
+deviation of those same seven days; **strain** is the week's total multiplied by its
+monotony. High monotony means every day looked like every other one, which is the pattern
+associated with staleness rather than adaptation. The commonly cited caution level of 2.0 is
+drawn on the chart rather than described, because a line you have to hold a number against in
+your head is a number, not a chart.
+
+Two decisions worth stating:
+
+- **Rest days count as zeros.** They are most of what creates the variation in the first
+  place, and a week averaged over "the days you trained" would score a hard-easy week and a
+  relentless one identically.
+- **Population SD, not the sample estimate.** Those seven days are the whole week, not a
+  sample drawn from a larger one.
+
+A week still in progress is left out — its later days are zeros that have not happened yet,
+which would read as the most varied week of the year. A week with nothing in it is skipped
+rather than divided by zero, and seven identical non-zero days (SD of zero) are capped rather
+than returning infinity.
+
+Strain is deliberately **not** a chip. It is a raw index — hours times monotony — and a bare
+"27" means nothing without the weeks either side to compare against, so it gets a sentence in
+the verdict where there is room to say what it is. The chips stay on scales the chart itself
+shows.
+
+---
+
+## How hard you actually go
+
+The zone chart is built from average heart rates, which is a fair picture of a session as a
+whole and says nothing about its hardest minute. `max_hr` has been stored on every activity
+all along and appeared in exactly one place: the detail modal of a single activity. Monthly
+peaks against monthly averages is the shape that answers "am I still going hard, or just
+going often".
+
+The fill runs **between the two lines**, not down to the axis. Filling to the axis shades the
+whole 0–190 bpm block, which reads as an accumulating quantity — and a heart rate does not
+accumulate. The band between peak and average is what the chart is about.
+
+---
+
+## How the mix has shifted
+
+The Activity Mix donut is a snapshot: it says what the split is now and nothing about how it
+got there. This is the same question asked of every year at once, as 100% stacked bars.
+
+It uses **moving time**, not the donut's activity count, because a count treats a
+twenty-minute swim and a five-hour ride as one each. Time is where the training actually
+went. It ignores both header filters on purpose — a chart of one year's share against itself
+is a single bar, and filtering to one sport would read 100% every year.
+
+---
+
+## What gets a reaction
+
+`kudos` is stored on every activity and was shown in exactly one place, the activity modal.
+It is charted as an **average per activity per month**, not a monthly total: a total rewards a
+busy month and says nothing about whether any given outing landed.
+
+It lives on Social rather than Charts because it is the only number in the dataset that is
+about other people rather than about you — and the verdict says so plainly. It tracks when
+your followers are online at least as much as what you did, and a chart that did not admit
+that would be flattering rather than useful.
+
+---
+
 ## Against the same point last year
 
 The chart the Year-over-Year bars could not be.
@@ -910,6 +982,20 @@ it are different sports at different speeds, and nothing downstream can tell the
 once they share a group. Strava has one `Swim` type covering pool, indoor and open water;
 the craft you sit on rather than swim in — Kayaking, Canoeing, Rowing, StandUpPaddling,
 Surfing, Kitesurf, Windsurf, Sail — go to `Other` with everything else.
+
+### Where the year lands if nothing changes
+
+The chart made you ask the question and then left you to do the arithmetic: "on pace for" was
+a chip with no line under it, so there was nothing to hold it against. Drawn, the projection
+runs out to 31 December alongside the years that actually finished — which is the only way to
+see whether being ahead in September means finishing ahead.
+
+It uses the same year-to-date rate the chip does, so the line and the number cannot
+contradict each other, and it is dashed because it is the one series on the chart that has
+not happened. A second chip gives the same projection at the **last 28 days' rate**. One
+number would be false precision: a year-to-date rate cannot see that you have stopped, and a
+28-day rate cannot see that you always stop in November. Both together are a range, which is
+the honest answer.
 
 `dayOfYear()` is what makes the cumulative chart possible, and `typeMatches()` — one
 predicate for the header's sport filter, which had been written out by hand in three
