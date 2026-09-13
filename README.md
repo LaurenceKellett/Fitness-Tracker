@@ -94,12 +94,21 @@ retry, rather than sitting on "Syncing…" forever.
 
 ---
 
-## Theme
+## Settings
 
-Three states, cycled from the header: follow the system, force light, force dark. The choice
-is stamped on `<html>` by a tiny inline script in `<head>`, before any stylesheet resolves,
-so an explicit dark choice never flashes light first. Everything below that is token
-overrides — no rule in the sheet knows which theme it is in.
+Units, theme, refresh and the Strava profile link all sit behind **one button** in the
+header. They were five separate controls in a 30px strip that was already colliding with
+the tab row on a phone, and none of them is navigation — they are preferences and
+utilities, so they belong behind a single affordance. It opens as a popover anchored to the
+button on a desktop and as the same bottom sheet the scope control uses below 640px.
+
+### Theme
+
+Three explicit choices rather than a button that cycles: a cycling control never tells you
+what the other states are, and "follow the system" is not a state anyone guesses is hiding
+behind a sun icon. The choice is stamped on `<html>` by a tiny inline script in `<head>`,
+before any stylesheet resolves, so an explicit dark choice never flashes light first.
+Everything below that is token overrides — no rule in the sheet knows which theme it is in.
 
 ---
 

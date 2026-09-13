@@ -984,6 +984,38 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .sheet-chips{display:flex;gap:7px;flex-wrap:wrap}
 .sheet-chips button{display:flex;align-items:center;gap:6px;font-family:inherit;font-size:12px;font-weight:600;padding:8px 12px;border:1px solid var(--border);border-radius:0;background:var(--surface);color:var(--text-muted);cursor:pointer}
 .sheet-chips button.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+/* ── SETTINGS MENU ──
+   A popover hung off the button on a desktop, the same bottom sheet the scope
+   control already uses on a phone. It reuses .sheet-title/.sheet-lbl/.sheet-chips
+   wholesale so the two panels are visibly the same idea rather than two designs
+   that happen to sit in the same header. */
+/* Fixed, and placed from the button's own rect at open time. An absolutely
+   positioned menu inside .header-toolbar would be trapped in the sticky header's
+   stacking context and render underneath the backdrop; one outside it has no
+   ancestor to anchor to. Measuring is the way out of both. */
+.settings-menu{display:none;position:fixed;z-index:201;
+  width:290px;background:var(--surface);border:1px solid var(--border-strong);
+  box-shadow:var(--shadow-callout);padding:14px 16px 12px}
+.settings-menu.open{display:block;animation:sheetUp .14s ease-out}
+.settings-btn.open{background:var(--accent-soft);color:var(--accent)}
+.settings-menu .sheet-chips button{flex:1;justify-content:center}
+.settings-menu .sheet-chips .ms{font-size:15px}
+.settings-actions{margin-top:16px;border-top:1px solid var(--border);padding-top:6px}
+.settings-row{display:flex;align-items:center;gap:9px;width:100%;padding:9px 6px;
+  font-family:inherit;font-size:12.5px;font-weight:600;color:var(--text);
+  background:transparent;border:none;cursor:pointer;text-align:left;text-decoration:none}
+.settings-row:hover:not(:disabled){background:var(--bg)}
+.settings-row:disabled{opacity:.5;cursor:not-allowed}
+.settings-row .refresh-icon{font-size:15px;width:13px;text-align:center;color:var(--text-muted)}
+.settings-row svg{color:var(--text-muted);flex-shrink:0}
+.settings-row-note{margin-left:auto;font-size:10.5px;font-weight:500;color:var(--text-light);white-space:nowrap}
+.settings-row.spinning .refresh-icon{animation:rspin .8s linear infinite}
+/* Only the bottom sheet needs it — a popover closes by clicking away from it. */
+.settings-done{display:none}
+/* The toolbar is one button now, so its old segmented border is just a box
+   around a single icon. */
+.header-toolbar{border:none;height:auto}
+.settings-btn{width:32px;height:30px;border:1px solid var(--border-strong)}
 .sheet-done{margin-top:16px;width:100%;background:var(--text);color:var(--surface);font-family:inherit;font-size:13px;font-weight:700;padding:12px;border:none;border-radius:0;cursor:pointer}
 /* Between the phone breakpoint and 1100px the labels are what overflows, so
    they go and the icons carry the row. Ten icons plus gaps is about 320px. */
@@ -1061,7 +1093,14 @@ tbody td{padding:10px 14px;vertical-align:middle}
     display:inline-flex;align-items:center;justify-content:center}
   .log-search{height:44px}
   .unit-opt,.icon-btn{min-height:40px}
-  .header-toolbar{height:40px}
+  .header-toolbar{height:auto}
+  .settings-btn{width:40px;height:40px}
+  /* Full-width bottom sheet below 640px, matching the scope panel exactly. */
+  .settings-done{display:block;margin-top:14px}
+  .settings-menu{position:fixed;top:auto;left:0;right:0;bottom:0;width:auto;
+    border:none;border-top:1px solid var(--border-strong);
+    box-shadow:0 -8px 24px rgba(15,23,42,.12);
+    padding:16px 16px calc(14px + env(safe-area-inset-bottom))}
   .zwift-list-row{min-height:44px}
   input[type=range]{height:34px}
   .strava-link{min-height:32px;display:inline-flex;align-items:center}
@@ -1191,14 +1230,17 @@ body.is-loading .stats-grid *{visibility:hidden}
           <button class="tab-btn" role="tab" id="tabbtn-zwift" aria-controls="tab-zwift" aria-selected="false" tabindex="-1" onclick="setTab('zwift')"><span class="ms">route</span><span class="tab-label">Zwift Routes</span></button>
         </div>
       </div>
+      <!-- One control, not five. Units, theme, refresh and the profile link all
+           lived here as separate buttons in a 30px strip that was already
+           colliding with the tab row on a phone. They are preferences and
+           utilities, not navigation, so they belong behind a single affordance.
+           `tune` rather than `settings`: the Gear tab already owns that glyph. -->
       <div class="header-toolbar">
-        <button class="unit-opt active" data-unit="mi" onclick="setUnit('mi')">mi</button>
-        <button class="unit-opt" data-unit="km" onclick="setUnit('km')">km</button>
-        <button class="icon-btn" id="themeBtn" onclick="cycleTheme()" title="Theme: follow system" aria-label="Theme: follow system"><span class="ms" id="themeIcon">brightness_auto</span></button>
-        <button class="icon-btn" id="refreshBtn" onclick="refreshData()" title="Pull latest from Strava"><span class="refresh-icon">↻</span></button>
-        <a class="icon-btn" href="https://www.strava.com/athletes/263104" target="_blank" title="Strava profile">
-          <svg viewBox="0 0 24 24" width="12" height="12"><path fill="currentColor" d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0 4 13.828h4.172"/></svg>
-        </a>
+        <button class="icon-btn settings-btn" id="settingsBtn" onclick="toggleSettings(event)"
+                aria-haspopup="dialog" aria-expanded="false" aria-controls="settingsMenu"
+                title="Settings" aria-label="Settings">
+          <span class="ms">tune</span>
+        </button>
       </div>
     </div>
     <!-- Band 2 — SCOPE: the two controls that change what every number means -->
@@ -1225,6 +1267,42 @@ body.is-loading .stats-grid *{visibility:hidden}
     </div>
   </div>
 </div>
+<div class="sheet-backdrop" id="settingsBackdrop" onclick="closeSettings()"></div>
+<div class="settings-menu" id="settingsMenu" role="dialog" aria-modal="true" aria-label="Settings">
+  <div class="sheet-title">Settings</div>
+  <div class="sheet-sec">
+    <div class="sheet-lbl">Units</div>
+    <div class="sheet-chips" id="settingsUnits">
+      <button class="unit-opt active" data-unit="mi" onclick="setUnit('mi')">Miles</button>
+      <button class="unit-opt" data-unit="km" onclick="setUnit('km')">Kilometres</button>
+    </div>
+  </div>
+  <div class="sheet-sec">
+    <div class="sheet-lbl">Theme</div>
+    <!-- Three explicit choices rather than a button that cycles: a cycling control
+         never tells you what the other states are, and "follow system" is not a
+         state anyone guesses is hiding behind a sun icon. -->
+    <div class="sheet-chips" id="settingsTheme">
+      <button data-theme-opt="system" onclick="setTheme('system')"><span class="ms">brightness_auto</span>System</button>
+      <button data-theme-opt="light" onclick="setTheme('light')"><span class="ms">light_mode</span>Light</button>
+      <button data-theme-opt="dark" onclick="setTheme('dark')"><span class="ms">dark_mode</span>Dark</button>
+    </div>
+  </div>
+  <div class="settings-actions">
+    <button class="settings-row" id="refreshBtn" onclick="refreshData()">
+      <span class="refresh-icon">↻</span>
+      <span>Refresh from Strava</span>
+      <span class="settings-row-note" id="settingsUpdated"></span>
+    </button>
+    <a class="settings-row" href="https://www.strava.com/athletes/263104" target="_blank" rel="noopener noreferrer">
+      <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0 4 13.828h4.172"/></svg>
+      <span>Strava profile</span>
+      <span class="settings-row-note">opens Strava</span>
+    </a>
+  </div>
+  <button class="sheet-done settings-done" onclick="closeSettings()">Done</button>
+</div>
+
 <div class="sheet-backdrop" id="scopeBackdrop" onclick="closeScopeSheet()"></div>
 <div class="scope-sheet" id="scopeSheet" role="dialog" aria-label="Scope" aria-modal="true">
   <div class="sheet-title">Scope</div>
@@ -1740,8 +1818,6 @@ function ensureLeaflet(){
 // explicit states set it and win over the query in both directions.
 const THEME_KEY='fitness_theme';
 const THEME_ORDER=['system','light','dark'];
-const THEME_ICON={system:'brightness_auto',light:'light_mode',dark:'dark_mode'};
-const THEME_TITLE={system:'Theme: follow system',light:'Theme: light',dark:'Theme: dark'};
 
 function readTheme(){
   try{const t=localStorage.getItem(THEME_KEY);if(t==='dark'||t==='light')return t;}catch(e){}
@@ -1756,14 +1832,16 @@ function applyTheme(t){
   if(t==='system')document.documentElement.removeAttribute('data-theme');
   else document.documentElement.setAttribute('data-theme',t);
   try{t==='system'?localStorage.removeItem(THEME_KEY):localStorage.setItem(THEME_KEY,t);}catch(e){}
-  const btn=document.getElementById('themeBtn'),icon=document.getElementById('themeIcon');
-  if(icon)icon.textContent=THEME_ICON[t];
-  if(btn){btn.title=THEME_TITLE[t];btn.setAttribute('aria-label',THEME_TITLE[t]);}
+  document.querySelectorAll('#settingsTheme button').forEach(b=>{
+    const on=b.dataset.themeOpt===t;
+    b.classList.toggle('active',on);
+    b.setAttribute('aria-pressed',on?'true':'false');
+  });
   syncChartTheme();
 }
-function cycleTheme(){
-  const next=THEME_ORDER[(THEME_ORDER.indexOf(readTheme())+1)%THEME_ORDER.length];
-  applyTheme(next);
+function setTheme(t){
+  if(THEME_ORDER.indexOf(t)===-1)return;
+  applyTheme(t);
   // Charts bake their colours in at construction, so they are the one thing a
   // token swap cannot reach on its own.
   redrawChartsForTheme();
@@ -2137,6 +2215,61 @@ function updateScopeChip(){
   const t=activeType==='All'?'all sports':activeType.toLowerCase();
   el.innerHTML=`${escapeHtml(y)}<span class="scope-chip-sport">· ${escapeHtml(t)}</span>`;
 }
+// ── SETTINGS MENU ──
+// A popover on a desktop, a bottom sheet on a phone — the breakpoint is the same
+// 640px the scope panel uses, and below it the CSS takes over positioning entirely.
+const SETTINGS_SHEET_MAX=640;
+
+function settingsIsOpen(){
+  const m=document.getElementById('settingsMenu');
+  return !!(m&&m.classList.contains('open'));
+}
+
+function positionSettingsMenu(){
+  const menu=document.getElementById('settingsMenu');
+  const btn=document.getElementById('settingsBtn');
+  if(!menu||!btn)return;
+  if(window.innerWidth<=SETTINGS_SHEET_MAX){
+    // Let the bottom-sheet rules win; an inline top/right would beat the media query.
+    menu.style.top=menu.style.right='';
+    return;
+  }
+  const r=btn.getBoundingClientRect();
+  menu.style.top=(r.bottom+6)+'px';
+  menu.style.right=Math.max(8,window.innerWidth-r.right)+'px';
+}
+
+function openSettings(){
+  const menu=document.getElementById('settingsMenu');
+  const btn=document.getElementById('settingsBtn');
+  if(!menu)return;
+  closeScopeSheet();
+  positionSettingsMenu();
+  menu.classList.add('open');
+  document.getElementById('settingsBackdrop').classList.add('open');
+  if(btn){btn.classList.add('open');btn.setAttribute('aria-expanded','true');}
+  trapFocus('settingsMenu');
+}
+
+function closeSettings(){
+  const menu=document.getElementById('settingsMenu');
+  const btn=document.getElementById('settingsBtn');
+  if(!menu||!menu.classList.contains('open'))return;
+  menu.classList.remove('open');
+  document.getElementById('settingsBackdrop').classList.remove('open');
+  if(btn){btn.classList.remove('open');btn.setAttribute('aria-expanded','false');}
+  releaseFocus();
+}
+
+function toggleSettings(e){
+  if(e&&e.stopPropagation)e.stopPropagation();
+  settingsIsOpen()?closeSettings():openSettings();
+}
+
+// Reposition rather than close on a resize: closing a panel out from under someone
+// who merely rotated their phone is its own small annoyance.
+window.addEventListener('resize',()=>{if(settingsIsOpen())positionSettingsMenu();});
+
 function openScopeSheet(){
   document.getElementById('scopeBackdrop').classList.add('open');
   document.getElementById('scopeSheet').classList.add('open');
@@ -5046,7 +5179,7 @@ document.getElementById('gearCards').addEventListener('click',e=>{
   const card=e.target.closest('.gear-card');
   if(card)openGearModal(card.dataset.gear);
 });
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeGearModal();closeActivityModal();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSettings();closeGearModal();closeActivityModal();}});
 
 // One delegated handler covers the recent-activity rows on the Summary and the Log's
 // table rows, both now and after any re-render. Links and buttons inside a row keep
@@ -5096,6 +5229,8 @@ function openDialogId(){
     const el=document.getElementById(id);
     if(el&&el.classList.contains('open'))return id==='actModalBackdrop'?'actModal':'gearModal';
   }
+  const st=document.getElementById('settingsMenu');
+  if(st&&st.classList.contains('open'))return 'settingsMenu';
   if(document.getElementById('scopeSheet')&&document.getElementById('scopeSheet').classList.contains('open'))return 'scopeSheet';
   return null;
 }
@@ -5907,8 +6042,12 @@ function renderAll(){
 
 
 function setUpdatedAt(isoString) {
+  const text = formatUpdatedAt(isoString);
   const el = document.getElementById('lastUpdated');
-  if (el) el.textContent = formatUpdatedAt(isoString);
+  if (el) el.textContent = text;
+  // Repeated beside the Refresh row, where it is the reason you would press it.
+  const inMenu = document.getElementById('settingsUpdated');
+  if (inMenu) inMenu.textContent = text.replace(/^Updated /, '');
 }
 
 const CACHE_KEY = 'fitness_dashboard_v1';
@@ -6185,6 +6324,8 @@ async function refreshData() {
   if (btn) { btn.disabled = true; btn.classList.add('spinning'); }
   if (retry) retry.disabled = true;
   if (label) label.textContent = 'Refreshing…';
+  const menuNote = document.getElementById('settingsUpdated');
+  if (menuNote) menuNote.textContent = 'refreshing…';
 
   await loadData(true);
 

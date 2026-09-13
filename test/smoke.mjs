@@ -351,20 +351,94 @@ async function main() {
       assert(restored, 'focus was not returned to the row that opened the modal');
     });
 
-    await check('theme toggle cycles system → light → dark and paints dark', async () => {
-      const seen = [];
-      for (let i = 0; i < 3; i++) {
-        await page.click('#themeBtn');
-        await page.waitForTimeout(250);
-        seen.push(await page.evaluate(() => document.documentElement.getAttribute('data-theme')));
-      }
-      assert(seen.includes('light') && seen.includes('dark'), `cycle produced ${JSON.stringify(seen)}`);
-      await page.evaluate(() => window.applyTheme('dark'));
-      await page.waitForTimeout(300);
+    await check('the header carries one control, not a row of them', async () => {
+      const n = await page.evaluate(() =>
+        document.querySelectorAll('.header-toolbar > *').length);
+      assert(n === 1, `header toolbar holds ${n} controls`);
+      assert(await page.locator('#settingsBtn').isVisible(), 'no settings button');
+      assert(!(await page.locator('#settingsMenu.open').count()), 'menu starts open');
+    });
+
+    await check('the settings menu opens, closes and reports its state', async () => {
+      await page.click('#settingsBtn');
+      await page.waitForSelector('#settingsMenu.open', { timeout: 3000 });
+      assert((await page.getAttribute('#settingsBtn', 'aria-expanded')) === 'true', 'aria-expanded not set');
+      assert(await page.locator('#settingsBackdrop.open').count(), 'no backdrop');
+      // Anchored to the button rather than floating at the viewport edge.
+      const { menu, btn } = await page.evaluate(() => ({
+        menu: document.getElementById('settingsMenu').getBoundingClientRect().right,
+        btn: document.getElementById('settingsBtn').getBoundingClientRect().right,
+      }));
+      assert(Math.abs(menu - btn) < 40, `menu right edge ${menu} vs button ${btn}`);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(250);
+      assert(!(await page.locator('#settingsMenu.open').count()), 'Escape did not close it');
+      assert((await page.getAttribute('#settingsBtn', 'aria-expanded')) === 'false', 'aria-expanded stuck');
+    });
+
+    await check('units and theme are both set from that one menu', async () => {
+      await page.click('#settingsBtn');
+      await page.waitForSelector('#settingsMenu.open');
+
+      await page.click('#settingsUnits button[data-unit="km"]');
+      await page.waitForTimeout(400);
+      assert((await page.evaluate(() => unit)) === 'km', 'unit did not change');
+      assert(await page.locator('#settingsUnits button[data-unit="km"].active').count(), 'km chip not marked active');
+
+      await page.click('#settingsTheme button[data-theme-opt="dark"]');
+      await page.waitForTimeout(400);
+      assert((await page.evaluate(() => document.documentElement.getAttribute('data-theme'))) === 'dark', 'theme did not change');
       const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
       const [r, g, b] = bg.match(/\d+/g).map(Number);
       assert((r + g + b) / 3 < 60, `dark body background is ${bg}`);
-      await page.evaluate(() => window.applyTheme('system'));
+
+      // All three states are offered, not hidden behind a cycling button.
+      const opts = await page.evaluate(() =>
+        [...document.querySelectorAll('#settingsTheme button')].map((b) => b.dataset.themeOpt));
+      assert(opts.join(',') === 'system,light,dark', `theme options are ${opts}`);
+      assert(
+        (await page.locator('#settingsTheme button.active').count()) === 1,
+        'more or less than one theme marked active'
+      );
+
+      await page.click('#settingsTheme button[data-theme-opt="system"]');
+      await page.evaluate(() => window.setUnit('mi'));
+      await page.click('#settingsBackdrop');
+      await page.waitForTimeout(250);
+      assert(!(await page.locator('#settingsMenu.open').count()), 'clicking the backdrop did not close it');
+    });
+
+    await check('refresh and the profile link live in the menu too', async () => {
+      await page.click('#settingsBtn');
+      await page.waitForSelector('#settingsMenu.open');
+      assert(await page.locator('#settingsMenu #refreshBtn').count(), 'no refresh row');
+      const note = await page.locator('#settingsUpdated').innerText();
+      assert(note.trim().length, 'refresh row shows no last-updated time');
+      const href = await page.getAttribute('#settingsMenu a[target="_blank"]', 'href');
+      assert(/strava\.com/.test(href), `profile link is ${href}`);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(200);
+    });
+
+    await check('the menu becomes a bottom sheet on a phone', async () => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.click('#settingsBtn');
+      await page.waitForSelector('#settingsMenu.open');
+      // The sheet slides up over 140ms; measuring mid-animation reads its
+      // transform, not its resting position.
+      await page.waitForTimeout(400);
+      const box = await page.evaluate(() => {
+        const r = document.getElementById('settingsMenu').getBoundingClientRect();
+        return { left: r.left, right: r.right, bottom: r.bottom, w: window.innerWidth, h: window.innerHeight };
+      });
+      assert(box.left <= 1 && Math.abs(box.right - box.w) <= 1, `sheet is not full width: ${JSON.stringify(box)}`);
+      assert(Math.abs(box.bottom - box.h) <= 1, 'sheet is not pinned to the bottom');
+      assert(await page.locator('.settings-done').isVisible(), 'no Done button on the sheet');
+      await page.click('.settings-done');
+      await page.waitForTimeout(250);
+      assert(!(await page.locator('#settingsMenu.open').count()), 'Done did not close the sheet');
+      await page.setViewportSize({ width: 1400, height: 900 });
+      await page.waitForTimeout(200);
     });
 
     await ctx.close();
