@@ -44,6 +44,12 @@
      even started; 1300/20 gives the charts about 108px more to work with without
      letting lines of body text run long on a wide monitor. */
   --page-max:1300px;--page-pad:20px;
+  /* ── HEADER CONTROL HEIGHT ──
+     The brand tile, the scope chip and the settings button sit on one row and each
+     used to size itself: 26px, whatever its own padding and line-height came to,
+     and 40px. Three heights on three adjacent boxes reads as sloppy rather than
+     deliberate. One number, and the row lines up. */
+  --ctl-h:30px;
   --ride:#1d4ed8;--ride-soft:#dbeafe;
   /* Virtual was #60a5fa — a second blue, 5.3 ΔE from Swim in normal vision, which is
      below the point where a full-colour reader can separate them at all, and 2.6 under
@@ -211,7 +217,9 @@ a{color:inherit;text-decoration:none}
 .scope-sep{width:1px;height:18px;background:var(--border-strong);flex-shrink:0}
 .scope-chip{display:none}
 .logo-wrap{display:flex;align-items:center;gap:8px}
-.logo-icon{width:26px;height:26px;background:#fc4c02;border-radius:0;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.logo-icon{width:var(--ctl-h);height:var(--ctl-h);background:#fc4c02;border-radius:0;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+/* The mark keeps its proportion inside the tile whatever height the row takes. */
+.logo-icon svg{width:calc(var(--ctl-h) * .5);height:calc(var(--ctl-h) * .5)}
 .logo-name{font-size:15px;font-weight:700;letter-spacing:-.3px;color:var(--text)}
 .last-updated{font-size:10px;color:var(--text-light);white-space:nowrap}
 .header-toolbar{display:flex;align-items:stretch;border:1px solid var(--border-strong);border-radius:0;overflow:hidden;flex-shrink:0;height:30px}
@@ -1027,7 +1035,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 /* SCOPE CHIP + SHEET (phone) — one chip stating the scope in words, which is
    also the control that changes it. Replaces two selects and a 24px read-only
    line that said the same thing a third time. */
-.scope-chip{align-items:center;gap:7px;flex:1;min-width:0;border:1px solid var(--border-strong);border-radius:0;background:var(--surface);padding:7px 10px;font-family:inherit;font-size:12.5px;color:var(--text);cursor:pointer;text-align:left}
+.scope-chip{align-items:center;gap:7px;flex:1;min-width:0;height:var(--ctl-h);border:1px solid var(--border-strong);border-radius:0;background:var(--surface);padding:0 10px;font-family:inherit;font-size:12.5px;color:var(--text);cursor:pointer;text-align:left}
 .scope-chip .ms{font-size:16px;color:var(--text-muted);flex-shrink:0}
 .scope-chip-text{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .scope-chip-sport{font-weight:500;color:var(--text-muted);margin-left:4px}
@@ -1077,7 +1085,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 /* The toolbar is one button now, so its old segmented border is just a box
    around a single icon. */
 .header-toolbar{border:none;height:auto}
-.settings-btn{width:32px;height:30px;border:1px solid var(--border-strong)}
+.settings-btn{width:var(--ctl-h);height:var(--ctl-h);border:1px solid var(--border-strong)}
 .sheet-done{margin-top:16px;width:100%;background:var(--text);color:var(--surface);font-family:inherit;font-size:13px;font-weight:700;padding:12px;border:none;border-radius:0;cursor:pointer}
 /* Between the phone breakpoint and 1100px the labels are what overflows, so
    they go and the icons carry the row. Ten icons plus gaps is about 320px. */
@@ -1087,14 +1095,15 @@ tbody td{padding:10px 14px;vertical-align:middle}
   .hrow-nav .tab-btn .ms{font-size:17px}
 }
 @media(max-width:640px){
+  /* A 40px row clears the touch-target minimum the rest of this block enforces,
+     and every control on it follows from the one value. */
+  :root{--ctl-h:40px}
   .hrow-nav{flex-wrap:wrap;gap:9px;padding:8px 0 0}
   .logo-name{display:none}
   /* The caret already says this opens something, so the calendar glyph is
      23px spent on decoration the chip's own text can't afford. */
-  .scope-chip{display:flex;padding:7px 8px;gap:5px}
+  .scope-chip{display:flex;padding:0 8px;gap:5px}
   .scope-chip .ms{display:none}
-  .header-toolbar .unit-opt{padding:0 7px}
-  .header-toolbar .icon-btn{width:28px}
   .hrow-scope{display:none}
   .last-updated{display:none}
   /* Bleeds the strip to both screen edges by cancelling the page padding, then
@@ -1163,9 +1172,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
   .loc-pill,.hm-nav-btn,.page-btn,.zwift-status-bar .type-btn,.partner-log-btn{
     display:inline-flex;align-items:center;justify-content:center}
   .log-search{height:44px}
-  .unit-opt,.icon-btn{min-height:40px}
+  .unit-opt,.icon-btn{min-height:var(--ctl-h)}
   .header-toolbar{height:auto}
-  .settings-btn{width:40px;height:40px}
   /* Full-width bottom sheet below 640px, matching the scope panel exactly. */
   .settings-done{display:block;margin-top:14px}
   .settings-menu{position:fixed;top:auto;left:0;right:0;bottom:0;width:auto;

@@ -530,6 +530,33 @@ async function main() {
       await page.waitForTimeout(300);
     });
 
+    await check('the brand tile, scope chip and settings button are one height', async () => {
+      for (const [w, h] of [[390, 844], [1280, 900]]) {
+        await page.setViewportSize({ width: w, height: h });
+        await page.waitForTimeout(350);
+        const boxes = await page.evaluate(() =>
+          ['.logo-icon', '.scope-chip', '.settings-btn']
+            .map((sel) => {
+              const e = document.querySelector(sel);
+              if (!e || getComputedStyle(e).display === 'none') return null;
+              const r = e.getBoundingClientRect();
+              return { sel, h: Math.round(r.height), top: Math.round(r.top), bottom: Math.round(r.bottom) };
+            })
+            .filter(Boolean));
+        assert(boxes.length >= 2, `${w}px: only ${boxes.length} header control visible`);
+        const hs = [...new Set(boxes.map((b) => b.h))];
+        assert(hs.length === 1, `${w}px: heights are ${JSON.stringify(boxes.map((b) => [b.sel, b.h]))}`);
+        // Equal heights are not enough — they have to sit on the same line too.
+        assert([...new Set(boxes.map((b) => b.top))].length === 1, `${w}px: tops differ`);
+        assert([...new Set(boxes.map((b) => b.bottom))].length === 1, `${w}px: bottoms differ`);
+        // The phone row must still clear the touch-target minimum the rest of the
+        // phone styles enforce.
+        if (w === 390) assert(hs[0] >= 40, `${w}px: controls are only ${hs[0]}px tall`);
+      }
+      await page.setViewportSize({ width: 1400, height: 900 });
+      await page.waitForTimeout(300);
+    });
+
     await check('the header carries one control, not a row of them', async () => {
       const n = await page.evaluate(() =>
         document.querySelectorAll('.header-toolbar > *').length);
