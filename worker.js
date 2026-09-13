@@ -22,7 +22,10 @@
 const WORKER_URL = 'https://activities-api.lk-ff7.workers.dev/';
 // ---------------------------------------------------------------------------
 
-const CACHE_KEY  = 'activities_v2';
+// Bumped from v2 when temp, np and pwr_real were added: entries cached under the
+// old key have no such fields, and the charts reading them would show an empty
+// state for up to a day rather than a rebuild.
+const CACHE_KEY  = 'activities_v3';
 const CACHE_TTL  = 60 * 60 * 24; // 24 hours in seconds
 
 // Segment PBs (1k, 1 mile, 5k, 10k, half, marathon) are not on the bulk activity
@@ -74,7 +77,6 @@ export default {
       case '/zwift-routes':       return handleZwiftRoutes(request, env);
       case '/sync-training-log':  return handleSyncTrainingLog(env);
       case '/backfill-prs':       return handleBackfillPrs(env);
-      case '/backfill-weather':   return handleBackfillWeather(env);
       default:
         if (url.pathname.startsWith('/zwift-routes/') && request.method === 'PATCH') {
           const pageId = url.pathname.slice('/zwift-routes/'.length);
@@ -99,7 +101,7 @@ export default {
       try {
         // backfillPrs: the cron is the only place that spends Strava requests on
         // segment PBs, a slice at a time, so it never delays a page load.
-        await refreshActivitiesCache(env, { regenerateAi: false, backfillPrs: true, backfillWx: true });
+        await refreshActivitiesCache(env, { regenerateAi: false, backfillPrs: true });
       } catch (err) {
         // The previous cache entry stays put, so a failed refresh serves stale
         // data rather than none.
@@ -243,7 +245,7 @@ async function handleActivities(request, env) {
 // output nobody reads — but a scheduled refresh should not be the thing that
 // destroys the last good summary either, so it carries the existing one
 // forward rather than writing the placeholder over it.
-async function refreshActivitiesCache(env, { regenerateAi = true, backfillPrs = false, backfillWx = false } = {}) {
+async function refreshActivitiesCache(env, { regenerateAi = true, backfillPrs = false } = {}) {
   const accessToken = await getAccessToken(env);
   const activities  = await fetchAllActivities(accessToken, env);
 
@@ -260,22 +262,6 @@ async function refreshActivitiesCache(env, { regenerateAi = true, backfillPrs = 
     }
   } else {
     applyBestEfforts(activities, await loadBestEfforts(env));
-  }
-
-  // Weather is the same bargain as the PBs: collecting it costs one request per
-  // activity so only the cron does that, but writing what has already been
-  // collected costs a single KV read and happens on every refresh. Open-Meteo is
-  // a different service from Strava, so this does not compete for Strava's quota.
-  if (backfillWx) {
-    try {
-      const res = await backfillWeather(env, activities);
-      console.log(`Weather backfill: checked ${res.checked}, found ${res.found}, ${res.settled} with no GPS settled, ${res.remaining} to do, ${res.waiting} waiting on the archive`);
-    } catch (err) {
-      console.error('Weather backfill failed:', err.message);
-      applyWeather(activities, await loadWeather(env));
-    }
-  } else {
-    applyWeather(activities, await loadWeather(env));
   }
 
   let aiSummary = 'No AI summary generated.';
@@ -297,6 +283,8 @@ async function refreshActivitiesCache(env, { regenerateAi = true, backfillPrs = 
     // How the zone boundaries were arrived at, so the chart can say so rather than
     // asserting "your Strava zones" whether or not they loaded.
     hrZones: _hrZoneMeta,
+    // Keyed by gear name, because that is what each activity carries.
+    gearMeta: _gearMeta,
   });
 
   if (env.CACHE) {
@@ -723,37 +711,10 @@ async function handleSyncTrainingLog(env) {
 // collected are on screen straight away. Reports how many runs are still to do —
 // call it again in fifteen minutes to take the next slice.
 async function handleBackfillPrs(env) {
-  return runBackfill(env, async (env2, accessToken, activities) => {
-    const summary = await backfillBestEfforts(env2, accessToken, activities);
-    // The other store is written on unconditionally, so a PB backfill does not
-    // publish a cache entry with every temperature stripped back out of it.
-    applyWeather(activities, await loadWeather(env2));
-    return summary;
-  });
-}
-
-// Manual trigger for the weather backfill, the same bargain as /backfill-prs.
-// Open-Meteo's limits are generous and this spends none of Strava's, so it can be
-// called back to back until `remaining` reaches zero. `waiting` counts the recent
-// activities the ERA5 archive has not caught up with — those resolve on their own.
-async function handleBackfillWeather(env) {
-  return runBackfill(env, async (env2, accessToken, activities) => {
-    const summary = await backfillWeather(env2, activities);
-    applyBestEfforts(activities, await loadBestEfforts(env2));
-    return summary;
-  });
-}
-
-// Both manual backfills do the same three things: pull the history, collect one
-// slice, then republish the cache so what was just collected is on screen without
-// waiting for the cron. The envelope has to carry `hrZones` like the scheduled
-// refresh does — writing it without meant the zone chart lost the provenance it
-// prints under itself and silently fell back to claiming a derived max.
-async function runBackfill(env, collect) {
   try {
     const accessToken = await getAccessToken(env);
     const activities  = await fetchAllActivities(accessToken, env);
-    const summary     = await collect(env, accessToken, activities);
+    const summary     = await backfillBestEfforts(env, accessToken, activities);
 
     if (env.CACHE) {
       let aiSummary = 'No AI summary generated.';
@@ -763,6 +724,10 @@ async function runBackfill(env, collect) {
       } catch {
         // Keep the default rather than fail a successful backfill.
       }
+      // The envelope has to carry `hrZones` the way the scheduled refresh does.
+      // Writing it without meant a manual backfill republished the cache with the
+      // zone chart's provenance stripped out, so the chart silently fell back to
+      // claiming a derived max whether or not Strava's real zones had loaded.
       await env.CACHE.put(CACHE_KEY, JSON.stringify({
         data: activities,
         aiSummary,
@@ -1005,7 +970,20 @@ async function fetchAllActivities(accessToken, env) {
 
   const gearIds = [...new Set(all.map(a => a._gear_id).filter(Boolean))];
   const gearMap  = {};
-  await fetchGearNames(gearIds, accessToken, gearMap);
+  const knownGear = await loadGearNames(env);
+  await fetchGearNames(gearIds, accessToken, gearMap, knownGear);
+  await saveGearNames(env, knownGear);
+  _gearMeta = {};
+  for (const id of gearIds) {
+    const rec = knownGear[id];
+    if (rec && rec.name) {
+      _gearMeta[rec.name] = {
+        brand:   rec.brand   || null,
+        model:   rec.model   || null,
+        retired: !!rec.retired,
+      };
+    }
+  }
 
   for (const a of all) {
     a.gear    = a._gear_id ? (gearMap[a._gear_id] || null) : null;
@@ -1155,173 +1133,6 @@ async function fetchBestEffortsFor(id, accessToken) {
 }
 
 // =============================================================================
-// WEATHER
-// `temp` sat in transformActivity as a null stub from the beginning. Strava does
-// not return weather on any endpoint, so it comes from Open-Meteo's ERA5 archive,
-// which is free, needs no key, and takes a lat/lng and a date.
-//
-// Collected exactly like the segment PBs, and for the same reason: one request
-// per activity is far too many to make while somebody waits on /activities. Each
-// cron run takes a slice, and the store is permanent — historical weather does
-// not change, so an entry is never re-fetched.
-//
-// Two rules decide what can be asked about at all:
-//
-// - **It needs coordinates.** A turbo session or a pool swim has no lat/lng, so
-//   it is recorded as null immediately without spending a request. Activities
-//   starting near home have coordinates snapped to ~100 m, which is irrelevant
-//   at the scale weather varies.
-// - **It needs to be at least ARCHIVE_LAG_DAYS old.** ERA5 is a reanalysis
-//   product and trails real time by about five days. Asking about yesterday
-//   returns nulls, and recording those as "asked" would mean every recent
-//   activity is permanently blank. They are left pending instead and picked up
-//   by a later run, once the archive has caught up.
-// =============================================================================
-
-const WEATHER_KEY    = 'weather_v1';
-const WEATHER_BUDGET = 60;  // requests per cron run — 3 crons/day ≈ 180
-const WEATHER_BATCH  = 4;   // concurrent, matching the caution used everywhere else
-const ARCHIVE_LAG_DAYS = 6; // ERA5 trails real time by ~5; 6 is the safety margin
-
-async function loadWeather(env) {
-  if (!env.CACHE) return {};
-  try {
-    const raw = await env.CACHE.get(WEATHER_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    // A corrupt store costs a re-fetch, not a failed refresh.
-    return {};
-  }
-}
-
-async function saveWeather(env, store) {
-  if (!env.CACHE) return;
-  // No expirationTtl. The weather on a day in 2019 is not going to be revised.
-  await env.CACHE.put(WEATHER_KEY, JSON.stringify(store));
-}
-
-// Write what has been collected onto the activity objects. Anything not yet asked
-// about keeps its null, which the dashboard renders as absent rather than as zero.
-function applyWeather(activities, store) {
-  for (const a of activities) {
-    const w = store[a.id];
-    if (!w) continue;
-    if (w.temp   != null) a.temp   = w.temp;
-    if (w.wind   != null) a.wind   = w.wind;
-    if (w.precip != null) a.precip = w.precip;
-  }
-}
-
-// Can this activity ever have weather? No coordinates means no, permanently.
-function canHaveWeather(activity) {
-  return activity.lat != null && activity.lng != null;
-}
-
-// Has the archive caught up with this date yet?
-function withinArchive(dateStr) {
-  const cutoff = new Date(Date.now() - ARCHIVE_LAG_DAYS * 86400000)
-    .toISOString().slice(0, 10);
-  return dateStr <= cutoff;
-}
-
-async function backfillWeather(env, activities) {
-  const store = await loadWeather(env);
-
-  // An activity with no coordinates is settled without spending anything: record
-  // the null now so it never enters the pending list again.
-  let settled = 0;
-  for (const a of activities) {
-    if (!(a.id in store) && !canHaveWeather(a)) {
-      store[a.id] = null;
-      settled++;
-    }
-  }
-
-  // Newest first, same reasoning as the PBs: this year's weather is the weather
-  // you can still remember riding in.
-  const pending = activities
-    .filter(a => canHaveWeather(a) && withinArchive(a.date) && !(a.id in store))
-    .sort((x, y) => y.date.localeCompare(x.date))
-    .slice(0, WEATHER_BUDGET);
-
-  let found = 0;
-  for (let i = 0; i < pending.length; i += WEATHER_BATCH) {
-    const batch = pending.slice(i, i + WEATHER_BATCH);
-    const results = await Promise.all(batch.map(a => fetchWeatherFor(a)));
-    results.forEach((w, n) => {
-      // undefined means the request failed — left out of the store entirely so the
-      // next run retries it. null means asked and the archive genuinely had nothing.
-      if (w === undefined) return;
-      store[batch[n].id] = w;
-      if (w) found++;
-    });
-  }
-
-  if (pending.length || settled) await saveWeather(env, store);
-  applyWeather(activities, store);
-
-  const remaining = activities.filter(
-    a => canHaveWeather(a) && withinArchive(a.date) && !(a.id in store)
-  ).length;
-  // `waiting` is the recent tail the archive has not reached yet. It is not
-  // failure and it is not work to be done — it resolves itself with time.
-  const waiting = activities.filter(
-    a => canHaveWeather(a) && !withinArchive(a.date) && !(a.id in store)
-  ).length;
-
-  return { checked: pending.length, found, settled, remaining, waiting };
-}
-
-async function fetchWeatherFor(activity) {
-  const url = 'https://archive-api.open-meteo.com/v1/archive'
-    + `?latitude=${activity.lat}&longitude=${activity.lng}`
-    + `&start_date=${activity.date}&end_date=${activity.date}`
-    + '&hourly=temperature_2m,wind_speed_10m,precipitation'
-    // timezone=auto makes the returned hourly timestamps local to the coordinates,
-    // which is the same clock `time` is on. Without it the hour lookup below would
-    // be off by the local offset — an hour wrong in the UK and eight in California.
-    + '&timezone=auto';
-
-  try {
-    const res = await fetch(url);
-    if (res.status === 429) {
-      console.error(`Weather for ${activity.id} rate-limited; will retry next run`);
-      return undefined;
-    }
-    if (!res.ok) {
-      console.error(`Weather for ${activity.id} failed: ${res.status}`);
-      return undefined;
-    }
-    const body = await res.json();
-    const hourly = body?.hourly;
-    if (!hourly || !Array.isArray(hourly.time)) return null;
-
-    // Pick the hour the activity started. An activity with no recorded start time
-    // falls back to midday, which is a better guess than midnight for every sport.
-    const hour = /^\d{2}:\d{2}$/.test(activity.time || '') ? +activity.time.slice(0, 2) : 12;
-    const idx = hourly.time.findIndex(t => +t.slice(11, 13) === hour);
-    if (idx < 0) return null;
-
-    const temp   = hourly.temperature_2m?.[idx];
-    const wind   = hourly.wind_speed_10m?.[idx];
-    const precip = hourly.precipitation?.[idx];
-    // The archive returns nulls for a date it has not reached. Recording those as a
-    // real answer is exactly the trap ARCHIVE_LAG_DAYS exists to avoid, so treat a
-    // null temperature as "no answer yet" and let the next run ask again.
-    if (temp == null) return undefined;
-
-    return {
-      temp:   round(temp, 1),            // °C
-      wind:   wind   != null ? round(wind, 1) : null,  // km/h
-      precip: precip != null ? round(precip, 1) : null, // mm in that hour
-    };
-  } catch (err) {
-    console.error(`Weather for ${activity.id} threw: ${err.message}`);
-    return undefined;
-  }
-}
-
-// =============================================================================
 // GEAR NAME LOOKUP
 // Strava rate-limits short bursts fairly aggressively, and a full history
 // re-sync can already burn through most of that quota on pagination alone.
@@ -1333,15 +1144,52 @@ async function fetchWeatherFor(activity) {
 
 const GEAR_BATCH_SIZE   = 5;
 const GEAR_MAX_RETRIES  = 3;
+// Names are kept forever, not for a day. A bike's name does not change often
+// enough to be worth re-asking Strava for on every sync, and re-asking was the
+// whole problem: the map was rebuilt from {} each time, so one rate-limited
+// lookup turned a perfectly well-known bike into "Unidentified gear" until the
+// next successful full sync.
+const GEAR_NAME_KEY = 'gear_names_v1';
 
-async function fetchGearNames(gearIds, accessToken, gearMap) {
-  for (let i = 0; i < gearIds.length; i += GEAR_BATCH_SIZE) {
-    const batch = gearIds.slice(i, i + GEAR_BATCH_SIZE);
-    await Promise.all(batch.map(id => fetchGearName(id, accessToken, gearMap)));
+async function loadGearNames(env) {
+  try {
+    const raw = await env.CACHE.get(GEAR_NAME_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (err) {
+    console.error(`Gear name cache unreadable, starting empty: ${err.message}`);
+    return {};
   }
 }
 
-async function fetchGearName(id, accessToken, gearMap) {
+async function saveGearNames(env, known) {
+  try {
+    await env.CACHE.put(GEAR_NAME_KEY, JSON.stringify(known));
+  } catch (err) {
+    console.error(`Could not persist gear names: ${err.message}`);
+  }
+}
+
+// `known` maps id -> {name} for gear we have resolved, or {gone:true} for gear
+// Strava has deleted. Anything else is simply absent and worth asking about.
+async function fetchGearNames(gearIds, accessToken, gearMap, known) {
+  const toFetch = gearIds.filter(id => !known[id]);
+  for (let i = 0; i < toFetch.length; i += GEAR_BATCH_SIZE) {
+    const batch = toFetch.slice(i, i + GEAR_BATCH_SIZE);
+    await Promise.all(batch.map(id => fetchGearName(id, accessToken, gearMap, known)));
+  }
+  // Resolve every id against what we now know, falling back to the raw id only
+  // when we have never once succeeded for it.
+  for (const id of gearIds) {
+    const rec = known[id];
+    gearMap[id] = rec && rec.name ? rec.name : id;
+  }
+  const unresolved = gearIds.filter(id => !(known[id] && known[id].name));
+  if (unresolved.length) {
+    console.warn(`Gear still unresolved after this sync: ${unresolved.join(', ')}`);
+  }
+}
+
+async function fetchGearName(id, accessToken, gearMap, known) {
   for (let attempt = 0; attempt <= GEAR_MAX_RETRIES; attempt++) {
     try {
       const res = await fetch(`https://www.strava.com/api/v3/gear/${id}`, {
@@ -1354,23 +1202,40 @@ async function fetchGearName(id, accessToken, gearMap) {
           await new Promise(r => setTimeout(r, retryAfter * 1000));
           continue;
         }
-        console.error(`Gear lookup for ${id} rate-limited after ${attempt + 1} attempts, falling back to raw ID`);
-        gearMap[id] = id;
+        // Nothing is written to `known`: a rate limit says "ask me later", not
+        // "this gear has no name". Writing here is what used to make the failure
+        // permanent for the life of the cache.
+        console.error(`Gear lookup for ${id} rate-limited after ${attempt + 1} attempts; will retry on the next sync`);
+        return;
+      }
+
+      // 404 means the item has been deleted in Strava. It will never resolve, so
+      // remember that and stop asking rather than spending a request a day on it.
+      if (res.status === 404) {
+        console.warn(`Gear ${id} no longer exists in Strava; recording it as deleted`);
+        known[id] = { gone: true };
         return;
       }
 
       if (!res.ok) {
         console.error(`Gear lookup for ${id} failed: ${res.status} ${await res.text()}`);
-        gearMap[id] = id;
         return;
       }
 
       const data = await res.json();
-      gearMap[id] = data.name || id;
+      // brand and model are on the same response the name comes from, and cost
+      // nothing extra. A name is only recorded when Strava actually gave us one.
+      if (data.name) {
+        known[id] = {
+          name: data.name,
+          brand: data.brand_name || null,
+          model: data.model_name || null,
+          retired: !!data.retired,
+        };
+      }
       return;
     } catch (err) {
       console.error(`Gear lookup for ${id} threw: ${err.message}`);
-      gearMap[id] = id;
       return;
     }
   }
@@ -1408,6 +1273,10 @@ function normalCDF(x, mean, std) {
 // refreshActivitiesCache, which needs it for the envelope. Same request, no
 // concurrency: a Worker isolate handles one refresh at a time.
 let _hrZoneMeta = { athleteMaxHr: null, source: 'derived' };
+// Gear brand, model and retired flag, keyed by the gear NAME the activities
+// carry. The lookup that produces them is already made and already cached; this
+// just stops the extra fields being thrown away at the door.
+let _gearMeta = {};
 
 // The athlete's maximum heart rate, derived from the history itself.
 //
@@ -1565,14 +1434,24 @@ function transformActivity(a, zones = []) {
     pr_1mi:  null,
     pr_hm:   null,
     pr_mar:  null,
+    // The highest and lowest point the activity reached, in feet to match elv.
+    // Free on the summary object; this is a record rather than a trend, so the
+    // Records page is where it surfaces.
+    elev_hi: a.elev_high != null ? round(a.elev_high * 3.28084, 0) : null,
+    elev_lo: a.elev_low  != null ? round(a.elev_low  * 3.28084, 0) : null,
     pwr:     a.average_watts || null,
     max_pwr: a.max_watts     || null,
+    // Normalised power weights the surges, so it beats a flat average on anything
+    // with hills or junctions in it. Strava gives it free on the summary object.
+    np:      a.weighted_average_watts || null,
+    // Whether those watts came off a power meter or were estimated from speed and
+    // weight. An estimate is not wrong, but a power trend built on one is really a
+    // speed trend, and the chart should be able to say so.
+    pwr_real: a.device_watts === true,
     dow:     DAYS[date.getDay()],
-    // Filled in from Open-Meteo's archive by the weather backfill, not by Strava,
-    // which returns no weather on any endpoint. Null until that has run.
-    temp:    null,
-    wind:    null,
-    precip:  null,
+    // 0 °C is a real temperature, so the usual `|| null` idiom would silently
+    // discard every freezing ride. Only an absent reading becomes null.
+    temp:    a.average_temp != null ? a.average_temp : null,
   };
 }
 

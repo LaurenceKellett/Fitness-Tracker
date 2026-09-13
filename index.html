@@ -39,32 +39,35 @@ a{color:inherit;text-decoration:none}
    row is swapped for a select — and roughly 1400px they were pushing the whole
    document wider than the viewport, so every tab scrolled sideways on a tablet or a
    small laptop. The row scrolls on its own now instead of dragging the page with it. */
-#tabRow{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;-ms-overflow-style:none}
-#tabRow::-webkit-scrollbar{display:none}
-#tabRow .tab-btn{flex-shrink:0}
 .hrow+.hrow{border-top:1px solid var(--border)}
+/* Two bands, grouped by kind: "place" (brand, destinations, utilities) then
+   "scope" (the two controls that change what every number on the page means).
+   The year stepper used to live at the end of the tab row, which pushed its
+   right edge to 1078px — off-screen on anything narrower, with no hint it was
+   there. Moving it here returns 137px to the tabs and fixes that outright. */
+.hrow-nav{gap:16px;padding:9px 0}
+.hrow-scope{gap:10px;padding:5px 0}
+.tab-strip-wrap{display:flex;flex:1;min-width:0;position:relative}
+.tab-strip{display:flex;align-items:center;gap:2px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+.tab-strip::-webkit-scrollbar{display:none}
+.tab-strip .tab-btn{flex-shrink:0}
+.scope-sep{width:1px;height:18px;background:var(--border-strong);flex-shrink:0}
+.scope-chip{display:none}
 .logo-wrap{display:flex;align-items:center;gap:8px}
 .logo-icon{width:26px;height:26px;background:#fc4c02;border-radius:0;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .logo-name{font-size:15px;font-weight:700;letter-spacing:-.3px;color:var(--text)}
 .last-updated{font-size:10px;color:var(--text-light);white-space:nowrap}
 .header-toolbar{display:flex;align-items:stretch;border:1px solid var(--border-strong);border-radius:0;overflow:hidden;flex-shrink:0;height:30px}
-.toolbar-divider{width:1px;background:var(--border-strong);flex-shrink:0}
 .unit-opt{padding:0 9px;font-size:11px;font-weight:600;color:var(--text-muted);border:none;background:transparent;cursor:pointer;line-height:1;font-family:inherit;display:flex;align-items:center}
 .unit-opt.active{background:var(--text);color:#fff}
 .icon-btn{width:32px;border:none;background:transparent;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);font-size:15px;text-decoration:none;flex-shrink:0;transition:color .15s;font-family:inherit}
 .icon-btn:hover{color:var(--text)}
 .icon-btn:disabled{opacity:.5;cursor:not-allowed}
 .tab-btn{padding:6px 10px;font-size:12px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text-muted);border-radius:0;white-space:nowrap;transition:all .15s;font-family:inherit;display:inline-flex;align-items:center;gap:4px}
-/* The active fill runs the full height of its row rather than floating inside it. */
-#tabRow{padding-top:0;padding-bottom:0}
-#tabRow .tab-btn{padding-top:0;padding-bottom:0;align-self:stretch;min-height:42px}
-#typeRow{padding-top:0;padding-bottom:0}
-#typeRow .type-bar{align-self:stretch}
-#typeRow .type-btn{padding-top:0;padding-bottom:0;align-self:stretch;min-height:32px}
 .tab-btn .ms{font-size:14px;vertical-align:0}
 .tab-btn.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
 .tab-btn:hover:not(.active){color:var(--text)}
-.year-bar{display:flex;align-items:center;gap:5px;margin-left:auto;flex-shrink:0}
+.year-bar{display:flex;align-items:center;gap:5px;flex-shrink:0}
 .year-all{padding:5px 10px;font-size:11px;font-weight:600;color:var(--text-muted);border:1px solid var(--border-strong);border-radius:0;background:transparent;cursor:pointer;transition:all .15s;font-family:inherit}
 .year-all.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent-soft)}
 .year-ctl{display:flex;align-items:center;border:1px solid var(--border-strong);border-radius:0;overflow:hidden}
@@ -123,10 +126,6 @@ a{color:inherit;text-decoration:none}
 .chart-chip strong{font-size:13px;font-weight:700}
 .chart-verdict{font-size:11px;color:var(--text-muted);line-height:1.55;margin-top:12px}
 .chart-verdict:empty,.chart-chips:empty{display:none}
-.zone-split{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
-.zone-chip{display:flex;align-items:baseline;gap:6px;padding:5px 11px;font-size:11px;font-weight:600}
-.zone-chip strong{font-size:13px;font-weight:700}
-.zone-verdict{font-size:11px;color:var(--text-muted);line-height:1.55;margin-top:12px}
 /* ── THE MAP AND ITS CONTROLS, AS ONE OBJECT ──
    There used to be three strips above the map in three different treatments: a bare
    legend-and-fade row, a row of eight jump pills, and a bordered, shadowed replay bar.
@@ -228,9 +227,6 @@ a{color:inherit;text-decoration:none}
 .year-cal-dow-lbl{height:14px;font-size:9px;color:var(--text-light);line-height:14px}
 .year-cal-wrap{display:flex;margin-top:8px}
 /* HEATMAP */
-.heatmap-sport-legend{flex-wrap:wrap;gap:10px;margin-top:6px}
-.hm-sport-key{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-muted)}
-.hm-sport-dot{width:9px;height:9px;border-radius:0;display:inline-block;flex-shrink:0}
 .heatmap-wrap{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:24px;box-shadow:var(--shadow)}
 .heatmap-title{font-size:14px;font-weight:600;margin-bottom:4px}
 .heatmap-sub{font-size:12px;color:var(--text-muted);margin-bottom:16px}
@@ -246,7 +242,13 @@ a{color:inherit;text-decoration:none}
 .hm-cell.active{cursor:pointer}.hm-cell.active:hover{opacity:.75}
 .heatmap-legend{display:flex;align-items:center;gap:4px;margin-top:10px;font-size:11px;color:var(--text-muted)}
 .hm-prior{margin-top:24px;padding-top:20px;border-top:1px solid var(--border)}
-.hm-prior-head{display:flex;align-items:baseline;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.hm-prior>summary{cursor:pointer;list-style:none}
+.hm-prior>summary::-webkit-details-marker{display:none}
+.hm-prior>summary::after{content:'▸';margin-left:auto;color:var(--text-light);font-size:11px;transition:transform .15s}
+.hm-prior[open]>summary::after{transform:rotate(90deg)}
+.hm-prior-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.hm-prior-spark{display:flex;align-items:flex-end;gap:2px;height:18px;width:132px;flex-shrink:0}
+.hm-prior-spark i{flex:1;display:block;font-style:normal}
 .hm-prior-year{font-size:15px;font-weight:700}
 .hm-prior-meta{font-size:11px;color:var(--text-muted)}
 .heatmap-legend-cells{display:flex;gap:2px}
@@ -318,35 +320,64 @@ a{color:inherit;text-decoration:none}
 .soc-caveat div{font-size:12px;color:var(--text-muted);line-height:1.6}
 .soc-caveat strong{color:var(--text);font-weight:700}
 .soc-tbl{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow)}
-.soc-head,.soc-row{display:grid;grid-template-columns:36px 150px 1fr 86px 98px 110px 86px;gap:12px;align-items:center;padding:0 16px}
+.soc-head,.soc-row{display:grid;grid-template-columns:34px minmax(0,2fr) minmax(92px,.8fr) minmax(100px,.8fr) minmax(104px,.9fr) 92px;gap:14px;align-items:center;padding:0 16px}
 .soc-head{height:32px;background:var(--bg);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;color:var(--text-light)}
-.soc-row{height:48px;border-bottom:1px solid var(--bg);font-size:12.5px;cursor:pointer;transition:background .12s}
+.soc-row{min-height:52px;border-bottom:1px solid var(--bg);font-size:12.5px;cursor:pointer;transition:background .12s}
 .soc-row:last-child{border-bottom:none}
 .soc-row:hover{background:var(--bg)}
-.soc-av{width:26px;height:26px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700}
-.soc-nm{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.soc-nm small{display:block;font-size:10.5px;font-weight:400;color:var(--text-light);margin-top:1px}
-.soc-mix{display:flex;height:8px;overflow:hidden}
-.soc-mix span{display:block;height:100%}
-.soc-num{font-weight:700;font-variant-numeric:tabular-nums}
-.soc-mut{color:var(--text-muted);font-size:11.5px;font-variant-numeric:tabular-nums}
-.soc-warm{font-size:10px;font-weight:700;padding:1px 6px;white-space:nowrap}
+.soc-av{width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700}
+.soc-nm{min-width:0}
+.soc-nm-top{display:flex;align-items:center;gap:7px;font-weight:700;min-width:0}
+.soc-nm-top>:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.soc-dots{display:inline-flex;gap:3px;flex-shrink:0}
+.soc-dots i{width:7px;height:7px;display:block;font-style:normal}
+.soc-nm small{display:block;font-size:10.5px;font-weight:400;color:var(--text-light);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.soc-also{font-style:normal;color:var(--text-muted)}
+/* display:contents lets one wrapper hold the three figures for the phone layout
+   without disturbing the desktop grid, where they stay individual columns. */
+.soc-meta{display:contents}
+.soc-cell{font-variant-numeric:tabular-nums;white-space:nowrap}
+.soc-cell b{font-weight:700;font-size:13.5px}
+.soc-cell span{color:var(--text-light);font-size:11px}
+.soc-cell::before{content:attr(data-lbl) ': ';display:none;color:var(--text-light);font-size:11px}
+.soc-last{display:flex;align-items:center;min-width:0}
+.soc-ago{color:var(--text-muted)}
+.soc-ago b{font-weight:400}
+.soc-warm{font-size:10px;font-weight:700;padding:2px 7px;white-space:nowrap}
 .soc-note{font-size:11.5px;color:var(--text-muted);margin-top:10px;max-width:104ch;line-height:1.6}
+.soc-note strong{color:var(--text);font-weight:700}
 /* Partner panel, on the gear/activity modal shell. */
 .soc-modal-head{display:flex;align-items:center;gap:14px;padding:20px 22px 0}
 .soc-modal-av{width:52px;height:52px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:21px;font-weight:700;flex-shrink:0}
+.soc-variants{display:flex;flex-wrap:wrap;gap:7px}
+.soc-variant{display:inline-flex;align-items:baseline;gap:6px;font-size:12px;padding:5px 10px;border:1px solid var(--border);color:var(--text-muted)}
+.soc-variant.is-primary{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:700}
+.soc-variant b{font-weight:700;font-size:11px;opacity:.7}
+.soc-variant-note{font-size:11px;color:var(--text-light);line-height:1.6;margin-top:8px}
 @media(max-width:900px){
-  .soc-head,.soc-row{grid-template-columns:36px 1fr 84px 104px 86px}
-  .soc-head>:nth-child(3),.soc-row>:nth-child(3),
-  .soc-head>:nth-child(5),.soc-row>:nth-child(5){display:none}
+  .soc-head,.soc-row{grid-template-columns:34px minmax(0,1.6fr) 78px 92px 96px 88px;gap:10px}
 }
 @media(max-width:640px){
   .soc-lead{padding:16px 17px}
   .soc-lead-n{font-size:26px}
-  .soc-head,.soc-row{grid-template-columns:32px 1fr 84px;gap:10px;padding:0 14px}
-  .soc-head>:nth-child(5),.soc-row>:nth-child(5),
-  .soc-head>:nth-child(6),.soc-row>:nth-child(6){display:none}
-  .soc-row{height:56px}
+  /* Two lines instead of five columns. The old rule dropped distance and
+     last-out on a phone, which hid the two figures the table exists for. */
+  .soc-head{display:none}
+  .soc-row{display:grid;grid-template-columns:32px 1fr auto;grid-template-areas:'av nm warm' '. meta meta';
+    gap:5px 10px;padding:11px 14px;min-height:0;align-items:center}
+  .soc-avc{grid-area:av;align-self:start;padding-top:1px}
+  .soc-nm{grid-area:nm}
+  .soc-last{grid-area:warm;align-self:start}
+  .soc-meta{display:block;grid-area:meta;font-size:12px;line-height:1.5}
+  .soc-cell{display:inline;white-space:normal}
+  /* "34 out · 733 mi" needs no labels — the units say which is which. Only the
+     date does, and it gets the short form so the line stays on one row. */
+  .soc-cell::before{display:none}
+  .soc-cell+.soc-cell::before{content:' · ';display:inline}
+  .soc-cell.soc-ago::before{content:' · last out ';display:inline}
+  .soc-cell b{font-size:12.5px}
+  .soc-ago{color:var(--text-muted)}
+  .soc-nm small{white-space:normal}
 }
 @media(max-width:900px){
   .rec-head,.rec-row{grid-template-columns:150px 104px 1fr 104px}
@@ -609,9 +640,27 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .gear-icon-inline{width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:var(--bg);flex:none}
 .gear-icon-inline .ms{font-size:17px}
 .gear-unresolved{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;color:var(--text-light);margin-bottom:6px}
+.gear-photo-hint{font-size:11px;color:var(--text-light);line-height:1.5;margin-top:5px}
+.gear-photo-hint.is-hidden{display:none}
+.gear-brand{color:var(--text-light);font-weight:500}
+.gear-retired-tag{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;background:#f1f5f9;color:#64748b;padding:1px 5px;margin-left:4px;vertical-align:1px}
+.gear-card.is-retired{opacity:.72}
+.gear-card.is-retired:hover{opacity:1}
+.gear-photo-hint code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;background:var(--bg);border:1px solid var(--border);padding:0 4px}
 .top-gear-photo{width:28px;height:28px;object-fit:cover;border-radius:0;flex:none}
 .gear-name{font-size:13px;font-weight:700;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gear-type{font-size:11px;font-weight:600;margin-bottom:8px}
+/* The card used to be six label/value rows where Distance — the thing you came
+   to see — had the same weight as "First used". It leads now, at the same
+   24px/700 as every other headline figure in the app. */
+.gear-hero{padding-top:11px;margin-top:9px;border-top:1px solid var(--border)}
+.gear-hero-label{font-size:12px;font-weight:600;color:var(--text-muted)}
+.gear-hero-value{font-size:24px;font-weight:700;letter-spacing:-.5px;margin-top:2px}
+.gear-hero-value em{font-size:13px;font-weight:600;color:var(--text-muted);font-style:normal}
+.gear-trio{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px;padding-top:11px;border-top:1px solid var(--border)}
+.gear-trio-label{font-size:9.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-light)}
+.gear-trio-value{font-size:13px;font-weight:700;margin-top:2px;letter-spacing:-.2px}
+.gear-span{display:flex;justify-content:space-between;gap:10px;font-size:10.5px;color:var(--text-light);margin-top:11px;padding-top:9px;border-top:1px solid var(--border)}
 .gear-stat{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--bg)}
 .gear-stat-label{color:var(--text-muted)}.gear-stat-value{font-weight:600}
 .gear-forecast{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
@@ -700,13 +749,53 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
 .top-gear-name{flex:1;font-weight:500}
 .top-gear-dist{font-weight:700;color:var(--text-muted);font-size:12px}
-/* MOBILE SELECTS */
-.mobile-select-row{display:none;gap:8px;padding:10px 0 0}
-.mobile-select-wrap{position:relative;flex:1;min-width:0}
-.mobile-select-wrap-tab{display:none;margin:8px 0 6px}
-.mobile-select-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--text-muted);pointer-events:none}
-.mobile-select,.mobile-tab-select{display:none;width:100%;height:36px;padding:0 28px 0 34px;border:1px solid var(--border);border-radius:0;font-size:13px;font-weight:600;background:var(--surface);color:var(--text);cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;box-shadow:var(--shadow);box-sizing:border-box}
-@media(max-width:640px){#tabRow{display:none}#typeRow{display:none}.last-updated{display:none}.mobile-select-row{display:flex}.mobile-select-wrap-tab{display:block}.mobile-select,.mobile-tab-select{display:block}}
+/* SCOPE CHIP + SHEET (phone) — one chip stating the scope in words, which is
+   also the control that changes it. Replaces two selects and a 24px read-only
+   line that said the same thing a third time. */
+.scope-chip{align-items:center;gap:7px;flex:1;min-width:0;border:1px solid var(--border-strong);border-radius:0;background:var(--surface);padding:7px 10px;font-family:inherit;font-size:12.5px;color:var(--text);cursor:pointer;text-align:left}
+.scope-chip .ms{font-size:16px;color:var(--text-muted);flex-shrink:0}
+.scope-chip-text{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.scope-chip-sport{font-weight:500;color:var(--text-muted);margin-left:4px}
+.scope-chip.open .scope-chip-sport{color:var(--accent)}
+.scope-chip-caret{margin-left:auto;color:var(--text-light);font-size:10px;flex-shrink:0}
+.scope-chip.open{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.scope-chip.open .ms,.scope-chip.open .scope-chip-caret{color:var(--accent)}
+.sheet-backdrop{display:none;position:fixed;inset:0;background:rgba(15,23,42,.32);z-index:200}
+.sheet-backdrop.open{display:block}
+.scope-sheet{display:none;position:fixed;left:0;right:0;bottom:0;z-index:201;background:var(--surface);border-top:1px solid var(--border-strong);box-shadow:0 -8px 24px rgba(15,23,42,.12);padding:16px 16px calc(20px + env(safe-area-inset-bottom))}
+.scope-sheet.open{display:block;animation:sheetUp .18s ease-out}
+@keyframes sheetUp{from{transform:translateY(16px);opacity:.5}to{transform:none;opacity:1}}
+.sheet-title{font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-muted)}
+.sheet-sec{margin-top:14px}
+.sheet-lbl{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-light);margin-bottom:7px}
+.sheet-chips{display:flex;gap:7px;flex-wrap:wrap}
+.sheet-chips button{display:flex;align-items:center;gap:6px;font-family:inherit;font-size:12px;font-weight:600;padding:8px 12px;border:1px solid var(--border);border-radius:0;background:var(--surface);color:var(--text-muted);cursor:pointer}
+.sheet-chips button.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.sheet-done{margin-top:16px;width:100%;background:var(--text);color:#fff;font-family:inherit;font-size:13px;font-weight:700;padding:12px;border:none;border-radius:0;cursor:pointer}
+/* Between the phone breakpoint and 1100px the labels are what overflows, so
+   they go and the icons carry the row. Ten icons plus gaps is about 320px. */
+@media(min-width:641px) and (max-width:1100px){
+  .hrow-nav .tab-label{display:none}
+  .hrow-nav .tab-btn{padding:6px 9px}
+  .hrow-nav .tab-btn .ms{font-size:17px}
+}
+@media(max-width:640px){
+  .hrow-nav{flex-wrap:wrap;gap:9px;padding:8px 0 0}
+  .logo-name{display:none}
+  /* The caret already says this opens something, so the calendar glyph is
+     23px spent on decoration the chip's own text can't afford. */
+  .scope-chip{display:flex;padding:7px 8px;gap:5px}
+  .scope-chip .ms{display:none}
+  .header-toolbar .unit-opt{padding:0 7px}
+  .header-toolbar .icon-btn{width:28px}
+  .hrow-scope{display:none}
+  .last-updated{display:none}
+  .tab-strip-wrap{order:3;flex-basis:100%;width:100%;margin:0 -24px;border-top:1px solid var(--border)}
+  .tab-strip-wrap::after{content:'';position:absolute;right:0;top:0;bottom:0;width:32px;background:linear-gradient(90deg,rgba(255,255,255,0),var(--surface) 70%);pointer-events:none}
+  .tab-strip{padding:2px 24px 0}
+  .tab-strip .tab-btn{flex-direction:column;gap:3px;padding:6px 10px 7px;font-size:10px;line-height:1.2}
+  .tab-strip .tab-btn .ms{font-size:20px}
+}
 /* PARTNER LOG BTN */
 .partner-log-btn{width:100%;margin-top:8px;padding:5px 8px;border:1px solid var(--border);border-radius:0;font-size:11px;color:var(--text-muted);background:transparent;cursor:pointer;transition:all .15s;font-family:inherit;text-align:center}
 .partner-log-btn:hover{background:var(--bg);color:var(--text)}
@@ -800,77 +889,69 @@ tbody td{padding:10px 14px;vertical-align:middle}
 <body>
 <div class="header">
   <div class="header-inner">
-    <!-- Row 1: brand bar -->
-    <div class="hrow">
+    <!-- Band 1 — PLACE: brand, destinations, utilities -->
+    <div class="hrow hrow-nav">
       <div class="logo-wrap">
         <div class="logo-icon"><svg viewBox="0 0 24 24" width="15" height="15"><path fill="white" d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0 4 13.828h4.172"/></svg></div>
         <span class="logo-name">Fitness</span>
       </div>
-      <div style="flex:1"></div>
-      <span class="last-updated" id="lastUpdated"></span>
+      <button class="scope-chip" id="scopeChip" onclick="openScopeSheet()" aria-haspopup="dialog">
+        <span class="ms">calendar_month</span>
+        <span class="scope-chip-text" id="scopeChipText">All time · all sports</span>
+        <span class="scope-chip-caret">&#9662;</span>
+      </button>
+      <div class="tab-strip-wrap">
+        <div class="tab-strip" id="tabRow">
+          <button class="tab-btn active" onclick="setTab('summary')"><span class="ms">home</span><span class="tab-label">Summary</span></button>
+          <button class="tab-btn" onclick="setTab('map')"><span class="ms">map</span><span class="tab-label">Map</span></button>
+          <button class="tab-btn" onclick="setTab('charts')"><span class="ms">bar_chart</span><span class="tab-label">Charts</span></button>
+          <button class="tab-btn" onclick="setTab('heatmap')"><span class="ms">grid_view</span><span class="tab-label">Heatmap</span></button>
+          <button class="tab-btn" onclick="setTab('records')"><span class="ms">emoji_events</span><span class="tab-label">Records</span></button>
+          <button class="tab-btn" onclick="setTab('mex')"><span class="ms">stairs</span><span class="tab-label">Mex</span></button>
+          <button class="tab-btn" onclick="setTab('social')"><span class="ms">thumb_up</span><span class="tab-label">Social</span></button>
+          <button class="tab-btn" onclick="setTab('gear')"><span class="ms">settings</span><span class="tab-label">Gear</span></button>
+          <button class="tab-btn" onclick="setTab('log')"><span class="ms">format_list_bulleted</span><span class="tab-label">Activity Log</span></button>
+          <button class="tab-btn" onclick="setTab('zwift')"><span class="ms">route</span><span class="tab-label">Zwift Routes</span></button>
+        </div>
+      </div>
       <div class="header-toolbar">
         <button class="unit-opt active" data-unit="mi" onclick="setUnit('mi')">mi</button>
         <button class="unit-opt" data-unit="km" onclick="setUnit('km')">km</button>
-        <span class="toolbar-divider"></span>
         <button class="icon-btn" id="refreshBtn" onclick="refreshData()" title="Pull latest from Strava"><span class="refresh-icon">↻</span></button>
-        <span class="toolbar-divider"></span>
         <a class="icon-btn" href="https://www.strava.com/athletes/263104" target="_blank" title="Strava profile">
           <svg viewBox="0 0 24 24" width="12" height="12"><path fill="currentColor" d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0 4 13.828h4.172"/></svg>
         </a>
       </div>
     </div>
-    <!-- Row 2: tabs + year stepper -->
-    <div class="hrow" id="tabRow">
-      <button class="tab-btn active" onclick="setTab('summary')"><span class="ms">home</span><span class="tab-label">Summary</span></button>
-      <button class="tab-btn" onclick="setTab('map')"><span class="ms">map</span><span class="tab-label">Map</span></button>
-      <button class="tab-btn" onclick="setTab('charts')"><span class="ms">bar_chart</span><span class="tab-label">Charts</span></button>
-      <button class="tab-btn" onclick="setTab('heatmap')"><span class="ms">grid_view</span><span class="tab-label">Heatmap</span></button>
-      <button class="tab-btn" onclick="setTab('records')"><span class="ms">emoji_events</span><span class="tab-label">Records</span></button>
-      <button class="tab-btn" onclick="setTab('mex')"><span class="ms">stairs</span><span class="tab-label">Mex</span></button>
-      <button class="tab-btn" onclick="setTab('social')"><span class="ms">thumb_up</span><span class="tab-label">Social</span></button>
-      <button class="tab-btn" onclick="setTab('gear')"><span class="ms">settings</span><span class="tab-label">Gear</span></button>
-      <button class="tab-btn" onclick="setTab('log')"><span class="ms">format_list_bulleted</span><span class="tab-label">Activity Log</span></button>
-      <button class="tab-btn" onclick="setTab('zwift')"><span class="ms">route</span><span class="tab-label">Zwift Routes</span></button>
+    <!-- Band 2 — SCOPE: the two controls that change what every number means -->
+    <div class="hrow hrow-scope" id="typeRow">
       <div class="year-bar">
-        <button class="year-all active" id="yearAll" onclick="setYear('All')">All</button>
+        <button class="year-all active" id="yearAll" onclick="setYear('All')">All time</button>
         <div class="year-ctl">
           <button class="year-arrow" id="yearPrev" onclick="stepYear(-1)">&#8249;</button>
           <span class="year-label" id="yearDisplay">—</span>
           <button class="year-arrow" id="yearNext" onclick="stepYear(1)">&#8250;</button>
         </div>
       </div>
-    </div>
-    <!-- Row 3: type filter -->
-    <div class="hrow" id="typeRow">
+      <span class="scope-sep"></span>
       <div class="type-bar" id="headerTypeFilters"></div>
-    </div>
-    <!-- Mobile controls -->
-    <div class="mobile-select-row">
-      <div class="mobile-select-wrap">
-        <span class="ms mobile-select-icon">calendar_month</span>
-        <select class="mobile-select" id="yearSelectMobile" onchange="setYear(this.value)"></select>
-      </div>
-      <div class="mobile-select-wrap">
-        <span class="ms mobile-select-icon">tune</span>
-        <select class="mobile-select" id="typeSelectMobile" onchange="setType(this.value)"></select>
-      </div>
-    </div>
-    <div class="mobile-select-wrap mobile-select-wrap-tab">
-      <span class="ms mobile-select-icon">apps</span>
-      <select class="mobile-tab-select" id="tabSelectMobile" onchange="setTab(this.value)">
-        <option value="summary">Summary</option>
-        <option value="map">Map</option>
-        <option value="charts">Charts</option>
-        <option value="heatmap">Heatmap</option>
-        <option value="records">Records</option>
-        <option value="mex">Mex</option>
-        <option value="social">Social</option>
-        <option value="gear">Gear</option>
-        <option value="log">Activity Log</option>
-        <option value="zwift">Zwift Routes</option>
-      </select>
+      <div style="flex:1"></div>
+      <span class="last-updated" id="lastUpdated"></span>
     </div>
   </div>
+</div>
+<div class="sheet-backdrop" id="scopeBackdrop" onclick="closeScopeSheet()"></div>
+<div class="scope-sheet" id="scopeSheet" role="dialog" aria-label="Scope" aria-modal="true">
+  <div class="sheet-title">Scope</div>
+  <div class="sheet-sec">
+    <div class="sheet-lbl">Period</div>
+    <div class="sheet-chips" id="sheetYears"></div>
+  </div>
+  <div class="sheet-sec">
+    <div class="sheet-lbl">Sport</div>
+    <div class="sheet-chips" id="sheetTypes"></div>
+  </div>
+  <button class="sheet-done" onclick="closeScopeSheet()">Done</button>
 </div>
 <div id="dashTooltip" class="dash-tooltip"></div>
 <div class="main">
@@ -909,9 +990,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
 <!-- CHARTS -->
 <div id="tab-charts" class="tab-content">
-  <!-- Load leads the tab. Every other chart here buckets by month, which averages
-       four or five sessions into one bar; this is the only one at the scale a
-       training decision is actually made on. -->
+  <div class="section-header"><h2>Volume</h2><span class="badge">How much — miles, feet, and whether you're ahead of yourself</span></div>
   <div class="charts-grid wide">
     <div class="chart-card">
       <div class="chart-title">Training load</div>
@@ -942,15 +1021,18 @@ tbody td{padding:10px 14px;vertical-align:middle}
   </div>
   <div class="charts-grid" id="yoyDonutGrid">
     <div class="chart-card" id="yoyChartCard">
-      <div class="chart-title">Year-over-Year Distance</div>
-      <div class="chart-sub" id="yoyChartSub">Total distance per year</div>
+      <div class="chart-title">Rolling 12 Months</div>
+      <div class="chart-sub" id="yoyChartSub">Distance in the twelve months ending each month</div>
       <div class="chart-wrap"><canvas id="chartYoY"></canvas></div>
+      <div id="rollChips" class="chart-chips"></div>
+      <div id="rollVerdict" class="chart-verdict"></div>
     </div>
     <div class="chart-card" id="donutChartCard">
       <div class="chart-title">Activity Mix</div>
       <div class="chart-sub">Share of activities by type</div>
       <div class="chart-wrap"><canvas id="chartDonut"></canvas></div>
       <div id="mixChips" class="chart-chips"></div>
+      <div id="mixVerdict" class="chart-verdict"></div>
     </div>
   </div>
   <div class="charts-grid wide">
@@ -962,59 +1044,86 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <div id="elevVerdict" class="chart-verdict"></div>
     </div>
   </div>
-  <div class="charts-grid" id="paceChartRow">
-    <div class="chart-card" id="paceScatterCard">
-      <div class="chart-title">Pace against distance</div>
-      <div class="chart-sub" id="paceSub">One point per run, coloured by year</div>
-      <div class="chart-wrap"><canvas id="chartPace"></canvas></div>
-      <div id="paceChips" class="chart-chips"></div>
-      <div id="paceVerdict" class="chart-verdict"></div>
-    </div>
-    <div class="chart-card" id="effCard">
-      <div class="chart-title">Speed per heartbeat</div>
-      <div class="chart-sub" id="effSub">How fast you go at a given heart rate</div>
-      <div class="chart-wrap"><canvas id="chartEff"></canvas></div>
-      <div id="effChips" class="chart-chips"></div>
-      <div id="effVerdict" class="chart-verdict"></div>
-    </div>
-  </div>
-  <div class="charts-grid" id="weatherCalRow">
-    <div class="chart-card" id="weatherCard">
-      <div class="chart-title">Pace against temperature</div>
-      <div class="chart-sub" id="wxSub">Average pace or speed in each temperature band</div>
-      <div class="chart-wrap"><canvas id="chartWeather"></canvas></div>
-      <div id="wxChips" class="chart-chips"></div>
-      <div id="wxVerdict" class="chart-verdict"></div>
-    </div>
-    <div class="chart-card">
-      <div class="chart-title">Calories Burned</div>
-      <div class="chart-sub">Monthly total calories</div>
-      <div class="chart-wrap"><canvas id="chartCals"></canvas></div>
-    </div>
-  </div>
+  <div class="section-header"><h2>Intensity</h2><span class="badge">How hard — the half of training volume can't tell you</span></div>
   <div class="charts-grid wide">
     <div class="chart-card" id="zoneCard">
       <div class="chart-title">Where your heart rate actually sits</div>
       <div class="chart-sub" id="zoneSub">Time in each heart-rate zone, across every activity with HR data</div>
       <div class="chart-wrap"><canvas id="chartZones"></canvas></div>
-      <div id="zoneSplit" class="zone-split"></div>
-      <div id="zoneVerdict" class="zone-verdict"></div>
+      <div id="zoneChips" class="chart-chips"></div>
+      <div id="zoneVerdict" class="chart-verdict"></div>
     </div>
   </div>
-  <div class="charts-grid" id="effortTimeRow">
-    <div class="chart-card">
+  <div class="charts-grid" id="paceChartRow">
+    <div class="chart-card" id="effortCard">
       <div class="chart-title">Relative Effort</div>
       <div class="chart-sub" id="effortSub">Strava's suffer score, totalled per month</div>
       <div class="chart-wrap"><canvas id="chartEffort"></canvas></div>
       <div id="effortChips" class="chart-chips"></div>
       <div id="effortVerdict" class="chart-verdict"></div>
     </div>
+    <div class="chart-card" id="paceCard">
+      <div class="chart-title">Pace against distance</div>
+      <div class="chart-sub" id="paceSub">One point per run</div>
+      <div class="chart-wrap"><canvas id="chartPace"></canvas></div>
+      <div id="paceChips" class="chart-chips"></div>
+      <div id="paceVerdict" class="chart-verdict"></div>
+    </div>
+  </div>
+  <div class="charts-grid" id="powerCadRow">
+    <div class="chart-card" id="powerCard">
+      <div class="chart-title">Speed per heartbeat</div>
+      <div class="chart-sub" id="effSub">How fast you go at a given heart rate</div>
+      <div class="chart-wrap"><canvas id="chartEff"></canvas></div>
+      <div id="effChips" class="chart-chips"></div>
+      <div id="effVerdict" class="chart-verdict"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Power Trend</div>
+      <div class="chart-sub" id="powerSub">Average and normalised watts per month</div>
+      <div class="chart-wrap"><canvas id="chartPower"></canvas></div>
+      <div id="powerChips" class="chart-chips"></div>
+      <div id="powerVerdict" class="chart-verdict"></div>
+    </div>
+    <div class="chart-card" id="cadCard">
+      <div class="chart-title">Cadence Trend</div>
+      <div class="chart-sub" id="cadSub">Average cadence per month</div>
+      <div class="chart-wrap"><canvas id="chartCad"></canvas></div>
+      <div id="cadChips" class="chart-chips"></div>
+      <div id="cadVerdict" class="chart-verdict"></div>
+    </div>
+  </div>
+  <div class="section-header"><h2>Habits</h2><span class="badge">How you train — the patterns you don't choose</span></div>
+  <div class="charts-grid" id="effortTimeRow">
     <div class="chart-card">
       <div class="chart-title">When you train</div>
       <div class="chart-sub" id="todSub">Activities by hour of day</div>
       <div class="chart-wrap"><canvas id="chartTod"></canvas></div>
       <div id="todChips" class="chart-chips"></div>
       <div id="todVerdict" class="chart-verdict"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Moving vs stopped</div>
+      <div class="chart-sub" id="moveSub">Share of elapsed time actually spent moving, per month</div>
+      <div class="chart-wrap"><canvas id="chartMove"></canvas></div>
+      <div id="moveChips" class="chart-chips"></div>
+      <div id="moveVerdict" class="chart-verdict"></div>
+    </div>
+  </div>
+  <div class="charts-grid" id="raceTempRow">
+    <div class="chart-card" id="raceCard">
+      <div class="chart-title">Race day vs everything else</div>
+      <div class="chart-sub" id="raceSub">Races against your ordinary sessions in the same sport</div>
+      <div class="chart-wrap"><canvas id="chartRace"></canvas></div>
+      <div id="raceChips" class="chart-chips"></div>
+      <div id="raceVerdict" class="chart-verdict"></div>
+    </div>
+    <div class="chart-card" id="tempCard">
+      <div class="chart-title">The weather you actually train in</div>
+      <div class="chart-sub" id="tempSub">Average speed by temperature band</div>
+      <div class="chart-wrap"><canvas id="chartTemp"></canvas></div>
+      <div id="tempChips" class="chart-chips"></div>
+      <div id="tempVerdict" class="chart-verdict"></div>
     </div>
   </div>
   <div id="yearCalDayDetail"></div>
@@ -1024,11 +1133,10 @@ tbody td{padding:10px 14px;vertical-align:middle}
 <div id="tab-heatmap" class="tab-content">
   <div class="heatmap-wrap">
     <div class="heatmap-title">Activity Calendar</div>
-    <div class="heatmap-sub">Each cell is one day. The colour is the sport you spent most time on that day; how dark it is, how far you went. Click a day to see its activities below. Every earlier year is listed underneath, all on one shared intensity scale so they can be read against each other.</div>
+    <div class="heatmap-sub">Each cell = one day. Darker = more distance. Click a day to see its activities below. Every earlier year is listed underneath, all on one shared colour scale so they can be read against each other.</div>
     <div class="heatmap-year-nav" id="heatmapYearNav"></div>
     <div id="heatmapContainer"></div>
     <div class="heatmap-legend"><span>Less</span><div class="heatmap-legend-cells" id="heatmapLegend"></div><span>More</span></div>
-    <div class="heatmap-legend heatmap-sport-legend" id="heatmapSportLegend"></div>
     <div id="heatmapPriorYears"></div>
   </div>
   <div id="heatmapDayDetail" style="display:none"></div>
@@ -1040,18 +1148,19 @@ tbody td{padding:10px 14px;vertical-align:middle}
   <div class="section-header"><h2 id="recHeroTitle">The ones that stand out</h2><span class="badge" id="recHeroBadge"></span></div>
   <div class="rec-hero-grid" id="recHero"></div>
   <div id="recTables"></div>
-  <div class="section-header" style="margin-top:28px"><h2>How the running bests were won</h2><span class="badge" id="prProgBadge"></span></div>
-  <div class="charts-grid wide">
-    <div class="chart-card">
-      <div class="chart-sub" id="prProgSub">Each line steps up every time you beat your own best at that distance</div>
-      <div class="chart-wrap tall"><canvas id="chartPrProg"></canvas></div>
-      <div id="prProgChips" class="chart-chips"></div>
-      <div id="prProgVerdict" class="chart-verdict"></div>
-    </div>
-  </div>
   <div class="section-header" style="margin-top:28px"><h2>All time</h2><span class="badge" id="recTotalsBadge"></span></div>
   <div class="rec-totals" id="recTotals"></div>
   <div class="records-note" id="runPRNote"></div>
+  <div class="section-header" style="margin-top:28px"><h2>How your bests got there</h2><span class="badge" id="prProgBadge"></span></div>
+  <div class="charts-grid wide">
+    <div class="chart-card">
+      <div class="chart-title">Personal best progression</div>
+      <div class="chart-sub" id="prProgSub">Your best time at each distance, as it stood on each date</div>
+      <div class="chart-wrap tall"><canvas id="chartPrProg"></canvas></div>
+      <div id="prprogChips" class="chart-chips"></div>
+      <div id="prprogVerdict" class="chart-verdict"></div>
+    </div>
+  </div>
 </div>
 
 <!-- MEX -->
@@ -1086,8 +1195,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
       <div class="chart-wrap tall"><canvas id="chartGearDist"></canvas></div>
     </div>
     <div class="chart-card">
-      <div class="chart-title">Top Gear by Activities</div>
-      <div class="chart-sub">Number of activities per item</div>
+      <div class="chart-title">Gear over time</div>
+      <div class="chart-sub" id="gearTimeSub">Distance per quarter by item</div>
       <div class="chart-wrap tall"><canvas id="chartGearCount"></canvas></div>
     </div>
   </div>
@@ -1211,6 +1320,43 @@ tbody td{padding:10px 14px;vertical-align:middle}
 <script>
 let ALL_DATA = [];
 
+// ── VIEW STATE, IN THE URL AND REMEMBERED ──
+// These four were plain defaults, so every reload dumped you back on Summary /
+// all time / all sports / miles, and there was no way to link or bookmark a
+// view. They now live in the query string — which makes the back button work
+// and a view shareable — and fall back to the last one you used.
+const VIEW_KEY='ft-view-v1';
+const VALID_TABS=['summary','map','charts','heatmap','records','mex','social','gear','log','zwift'];
+function readView(){
+  let saved={};
+  try{saved=JSON.parse(localStorage.getItem(VIEW_KEY)||'{}');}catch(e){}
+  const q=new URLSearchParams(location.search);
+  const pick=(k,fallback,ok)=>{
+    const v=q.get(k)!=null?q.get(k):saved[k];
+    return (v!=null&&(!ok||ok(v)))?v:fallback;
+  };
+  return{
+    tab:pick('tab','summary',v=>VALID_TABS.includes(v)),
+    year:pick('year','All',v=>v==='All'||/^\d{4}$/.test(v)),
+    type:pick('type','All',v=>TYPE_GROUPS.includes(v)),
+    unit:pick('unit','mi',v=>v==='mi'||v==='km'),
+  };
+}
+// Called after any state change. replaceState rather than pushState for the
+// filters — a back button that stepped through every sport you tried would be
+// worse than none — but the tab does push, because moving between tabs is the
+// navigation people expect back to undo.
+function writeView(push){
+  const st={tab:activeTab,year:activeYear,type:activeType,unit};
+  try{localStorage.setItem(VIEW_KEY,JSON.stringify(st));}catch(e){}
+  const q=new URLSearchParams();
+  if(st.tab!=='summary')q.set('tab',st.tab);
+  if(st.year!=='All')q.set('year',st.year);
+  if(st.type!=='All')q.set('type',st.type);
+  if(st.unit!=='mi')q.set('unit',st.unit);
+  const url=location.pathname+(q.toString()?'?'+q:'')+location.hash;
+  try{history[push?'pushState':'replaceState'](st,'',url);}catch(e){}
+}
 let unit='mi',activeYear='All',activeType='All',activeTab='summary';
 let logPage=1;const LOG_PAGE_SIZE=50;
 let hmShowAll=false;let recentShowAll=false;
@@ -1282,6 +1428,10 @@ const GEAR_IMAGES={
   'Under Armour UA Thrill 3':'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS5wY6VS80V-woI10KU9YfYvQYc9oN0iPfqP-tDacNOiQ&s',
 };
 let GEAR_DATA={};
+// Brand, model and retired flag by gear name, from the Worker envelope. The
+// lookup that produces them was already being made; this is what stops the
+// extra fields being discarded.
+let GEAR_META={};
 
 function fmtDist(v){if(v==null)return'—';const d=unit==='mi'?v:v*1.60934;return parseFloat(d>=100?d.toFixed(0):d.toFixed(1)).toLocaleString('en-GB');}
 function distUnit(){return unit;}
@@ -1296,10 +1446,6 @@ function fmtSpeed(mph){if(!mph||mph<=0)return'—';const v=unit==='mi'?mph:mph*1
 function fmtPace(s_per_mi){if(!s_per_mi||s_per_mi<=0||s_per_mi>3600)return'—';const raw=unit==='mi'?s_per_mi:s_per_mi/1.60934;const t=Math.round(raw);const m=Math.floor(t/60),sec=t%60;return m+':'+String(sec).padStart(2,'0')+'/'+(unit==='mi'?'mi':'km');}
 function fmtDate(d){if(!d)return'—';const[y,m,dn]=d.split('-');return dn+'/'+m+'/'+y;}
 function fmtNum(n){return n!=null?Math.round(n).toLocaleString('en-GB'):'—';}
-// Temperature stays in Celsius whatever the mi/km switch says: the switch is about
-// how far you went, and nobody measures distance in Fahrenheit.
-function fmtTemp(c){return c==null?'—':(Math.round(c*10)/10)+'°C';}
-function fmtWind(kph){if(kph==null)return'—';return unit==='mi'?(kph*0.621371).toFixed(0)+' mph':kph.toFixed(0)+' km/h';}
 function fmtCal(c){return c?c.toLocaleString('en-GB'):'—';}
 function escapeAttr(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;');}
 // escapeHtml lives further down, next to the Zwift detail renderer. There used to be a
@@ -1321,9 +1467,11 @@ function mapTypeGroup(t){
   if(t==='Swim')return'Swim';
   return'Other';
 }
+// The Map used to match the raw Strava type, so choosing Ride silently excluded
+// VirtualRide and EBikeRide while every other tab folded them in.
 // Does this activity pass the header's sport filter? The rule — All matches
 // everything, Ride folds Virtual in with it, anything else is exact — was written
-// out by hand in four places, which is three too many for something every tab
+// out by hand in three places, which is two too many for something every tab
 // depends on agreeing about.
 function typeMatches(a){
   if(activeType==='All')return true;
@@ -1341,7 +1489,6 @@ function mapFilterMatches(a){
 }
 function groupColor(g){return{Ride:'#1d4ed8',Virtual:'#60a5fa',Run:'#ef4444',Walk:'#eab308',Swim:'#0ea5e9',Other:'#94a3b8'}[g]||'#94a3b8';}
 function groupSoft(g){return{Ride:'#dbeafe',Virtual:'#dbeafe',Run:'#fee2e2',Walk:'#fefce8',Swim:'#e0f2fe',Other:'#f8fafc'}[g]||'#f8fafc';}
-
 // ── CALENDAR CELL COLOUR ──
 // Both calendars — the Heatmap tab and the per-year grid on Charts — used to
 // interpolate one accent by distance, so the only thing a cell could say was "how
@@ -1393,13 +1540,64 @@ function gearIconTile(group,cls){
 function gearKey(s){return String(s).toLowerCase().replace(/[^a-z0-9]/g,'');}
 const GEAR_IMAGE_INDEX={};
 Object.entries(GEAR_IMAGES).forEach(([k,v])=>{GEAR_IMAGE_INDEX[gearKey(k)]=v;});
-function gearPhoto(name){return GEAR_IMAGE_INDEX[gearKey(name)]||null;}
+// The filename a photo for this item should have. Adding a picture used to mean
+// editing the GEAR_IMAGES map above as well as dropping the file in; now the
+// file alone is enough, because an unlisted item is guessed at by name and the
+// existing onerror handler quietly swaps in the sport icon when the guess is
+// wrong. The map stays for the cases a slug cannot reach — "Eddy Merckx" and
+// "Merckx EMX-3" being one bike with one photo.
+function gearSlug(name){
+  return String(name||'').toLowerCase()
+    .replace(/[''’]/g,'')
+    .replace(/[^a-z0-9]+/g,'-')
+    .replace(/^-+|-+$/g,'');
+}
+function gearGuessPath(name){
+  const slug=gearSlug(name);
+  return slug?'gear-images/'+slug+'.jpg':null;
+}
+function gearPhoto(name){
+  const mapped=GEAR_IMAGE_INDEX[gearKey(name)];
+  // A raw Strava id is not a product, so never guess a filename from one.
+  if(isUnresolvedGear(name))return mapped||null;
+  const guess=gearGuessPath(name);
+  // A local file beats a hotlink to someone else's CDN. Three entries in the map
+  // are remote stopgaps; pointing at the local slug first means dropping the file
+  // into gear-images/ is all it takes to retire one, and until then the remote
+  // URL is carried on the element as the first fallback.
+  if(mapped&&/^https?:/i.test(mapped))return guess||mapped;
+  return mapped||guess;
+}
+// The remote URL to try if the local guess 404s, or nothing.
+function gearPhotoFallback(name){
+  const mapped=GEAR_IMAGE_INDEX[gearKey(name)];
+  return mapped&&/^https?:/i.test(mapped)?mapped:'';
+}
 // Strava gear ids look like b1234567 / g1234567. The Worker falls back to the raw id when
 // the name lookup fails, and cached activity data can still carry one.
 function isUnresolvedGear(name){return /^[bg]\d{5,}$/i.test(String(name||''));}
+// "Nike · Pegasus 40" rather than making you read it out of the free-text name.
+// Only shown when it adds something the name does not already say.
+function gearMetaLine(name){
+  const m=GEAR_META[name];if(!m)return'';
+  const bits=[m.brand,m.model].filter(Boolean);
+  if(!bits.length)return'';
+  const joined=bits.join(' ');
+  if(gearKey(joined)===gearKey(name))return'';
+  return ` <span class="gear-brand">· ${escapeHtml(joined)}</span>`;
+}
+function gearRetiredTag(name){
+  const m=GEAR_META[name];
+  return m&&m.retired?' <span class="gear-retired-tag">Retired</span>':'';
+}
+function isRetiredGear(name){const m=GEAR_META[name];return !!(m&&m.retired);}
 function gearLabel(name){return isUnresolvedGear(name)?'Unidentified gear':name;}
 // Swap a failed photo for its icon tile rather than removing it and collapsing the card.
+// A remote fallback gets one attempt first, so a missing local file falls back to
+// the hotlink rather than straight to an icon.
 function gearPhotoFailed(img){
+  const alt=img.dataset.fallback;
+  if(alt&&img.src!==alt){img.dataset.fallback='';img.src=alt;return;}
   const d=document.createElement('div');
   d.className=img.dataset.tile||'gear-icon-tile';
   d.style.background=img.dataset.soft||'var(--bg)';
@@ -1408,7 +1606,11 @@ function gearPhotoFailed(img){
   s.style.color=img.dataset.colour||'#94a3b8';
   s.textContent=img.dataset.icon||'bolt';
   d.appendChild(s);
+  const modal=img.closest('#gearModal');
   img.replaceWith(d);
+  // Only now do we know there is no picture for this item — the guessed filename
+  // was the last thing to try. Reveal how to supply one.
+  if(modal){const h=modal.querySelector('.gear-photo-hint');if(h)h.classList.remove('is-hidden');}
 }
 
 // One renderer for both the Summary list and the heatmap day detail. They were written
@@ -1459,9 +1661,10 @@ function buildYearStepper(){
   if(display)display.textContent=displayYear||'—';
   if(prev)prev.disabled=activeYear!=='All'&&idx===0;
   if(next)next.disabled=activeYear!=='All'&&idx===years.length-1;
-  const msel=document.getElementById('yearSelectMobile');
-  const allOpts=['All',...years.slice().reverse()];
-  if(msel)msel.innerHTML=allOpts.map(y=>`<option value="${y}"${y===activeYear?' selected':''}>${y}</option>`).join('');
+  const sy=document.getElementById('sheetYears');
+  if(sy)sy.innerHTML=['All',...years.slice().reverse()].map(y=>
+    `<button class="${y===activeYear?'active':''}" onclick="setYear('${y}')">${y==='All'?'All time':y}</button>`).join('');
+  updateScopeChip();
 }
 function stepYear(dir){
   const years=[...new Set(ALL_DATA.map(a=>a.date.slice(0,4)))].sort();
@@ -1469,7 +1672,7 @@ function stepYear(dir){
   idx=Math.max(0,Math.min(years.length-1,idx));
   setYear(years[idx]);
 }
-function setYear(y){activeYear=y;buildYearStepper();renderAll();}
+function setYear(y){activeYear=y;buildYearStepper();writeView(false);renderAll();}
 
 const TYPE_GROUPS=['All','Ride','Virtual','Run','Walk','Swim','Other'];
 function buildTypeFilters(){
@@ -1478,13 +1681,40 @@ function buildTypeFilters(){
     const dot=t!=='All'?`<span class="type-dot" style="background:${groupColor(t)}"></span>`:'';
     return`<button class="type-btn${t===activeType?' active':''}" data-type="${t}" onclick="setType('${t}')">${dot}${t}</button>`;
   }).join('');
-  const tsel=document.getElementById('typeSelectMobile');
-  if(tsel)tsel.innerHTML=TYPE_GROUPS.map(t=>`<option value="${t}"${t===activeType?' selected':''}>${t}</option>`).join('');
+  const st=document.getElementById('sheetTypes');
+  if(st)st.innerHTML=TYPE_GROUPS.map(t=>{
+    const dot=t!=='All'?`<span class="type-dot" style="background:${groupColor(t)}"></span>`:'';
+    return`<button class="${t===activeType?'active':''}" onclick="setType('${t}')">${dot}${t==='All'?'All sports':t}</button>`;
+  }).join('');
+  updateScopeChip();
 }
-function setType(t){activeType=t;buildTypeFilters();renderAll();}
+function setType(t){activeType=t;buildTypeFilters();writeView(false);renderAll();}
+
+// ── SCOPE CHIP + SHEET (phone) ──
+// The chip states the scope in words and is also the control that changes it,
+// so the read-only line this used to duplicate can go.
+function updateScopeChip(){
+  const el=document.getElementById('scopeChipText');if(!el)return;
+  const y=activeYear==='All'?'All time':activeYear;
+  const t=activeType==='All'?'all sports':activeType.toLowerCase();
+  el.innerHTML=`${escapeHtml(y)}<span class="scope-chip-sport">· ${escapeHtml(t)}</span>`;
+}
+function openScopeSheet(){
+  document.getElementById('scopeBackdrop').classList.add('open');
+  document.getElementById('scopeSheet').classList.add('open');
+  document.getElementById('scopeChip').classList.add('open');
+}
+function closeScopeSheet(){
+  document.getElementById('scopeBackdrop').classList.remove('open');
+  document.getElementById('scopeSheet').classList.remove('open');
+  document.getElementById('scopeChip').classList.remove('open');
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&document.getElementById('scopeSheet').classList.contains('open'))closeScopeSheet();
+});
 
 const TAB_ORDER=['summary','map','charts','heatmap','records','mex','social','gear','log','zwift'];
-function setTab(tab,dir){
+function setTab(tab,dir,fromPop){
   if(tab==='mex'&&activeTab!=='mex')mexAnimate=true;
   // A replay left running on a tab you cannot see is a requestAnimationFrame loop
   // burning battery for nothing.
@@ -1499,10 +1729,16 @@ function setTab(tab,dir){
     el.classList.add(cls);
     el.addEventListener('animationend',()=>el.classList.remove(cls),{once:true});
   }
-  const mts=document.getElementById('tabSelectMobile');if(mts)mts.value=tab;
+  // The tab strip is the navigation now, so a tab reached by swiping has to be
+  // scrolled back into view or you lose track of where you are.
+  const activeBtn=document.querySelector('#tabRow .tab-btn.active');
+  if(activeBtn&&activeBtn.scrollIntoView)activeBtn.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'});
   // Map and Zwift return before renderAll(), so the scope line has to be refreshed
   // here too — otherwise they inherit whatever the previous tab was showing.
   renderScope();
+  // Skipped when the change came from the back button, which is already at the
+  // right URL — pushing again would trap you in the history.
+  if(!fromPop)writeView(true);
   if(tab==='map'){renderMap(activeType==='All'?ALL_DATA:ALL_DATA.filter(a=>mapFilterMatches(a)));return;}
   if(tab==='zwift'){loadZwiftRoutes();return;}
   renderAll();
@@ -1510,7 +1746,20 @@ function setTab(tab,dir){
   // would wipe an animation started on the previous tab's cards.
   staggerCards(el);
 }
-function setUnit(u){unit=u;document.querySelectorAll('.unit-opt').forEach(b=>b.classList.toggle('active',b.dataset.unit===u));renderAll();}
+function setUnit(u){unit=u;document.querySelectorAll('.unit-opt').forEach(b=>b.classList.toggle('active',b.dataset.unit===u));writeView(false);renderAll();}
+
+// Put the whole view on screen at once, from a URL or from the back button.
+function applyView(v,fromPop){
+  unit=v.unit;
+  document.querySelectorAll('.unit-opt').forEach(b=>b.classList.toggle('active',b.dataset.unit===unit));
+  activeYear=v.year;activeType=v.type;
+  buildYearStepper();buildTypeFilters();
+  setTab(v.tab,null,fromPop);
+}
+window.addEventListener('popstate',()=>{
+  if(!ALL_DATA||!ALL_DATA.length)return;
+  applyView(readView(),true);
+});
 
 // ── SWIPE BETWEEN TABS ──
 (function(){
@@ -1561,18 +1810,17 @@ function renderSummary(){
 
   // The year-on-year line under Total Distance.
   //
-  // It used to hold the selected year's running total against the *finished*
-  // total of the year before, so from January to December the current year was
-  // always behind by however much of it had not happened yet. In September it
-  // read "down 25%" in a year that was in fact ahead. Where the year in view is
-  // still running, the comparison is now made at the same day of year on both
-  // sides; a finished year is still compared whole, because there it is a fair
-  // comparison already. The label says which of the two it did.
+  // It used to hold the selected year's running total against the *finished* total
+  // of the year before, so from January to December the current year was always
+  // behind by however much of it had not happened yet. In September it read "down
+  // 31%" in a year that was in fact 10% behind. Where the year in view is still
+  // running the comparison is now made at the same day of year on both sides; a
+  // finished year is still compared whole, because there that is already fair. The
+  // label says which of the two it did.
   //
-  // On "All time" there is no comparison to make at all — a year-on-year delta
-  // under an all-time total is a different question from the one the number
-  // answers. It says what the total spans instead, rather than the old
-  // "No prior year data", which was simply untrue.
+  // On "All time" there is no comparison to make — a year-on-year delta under an
+  // all-time total answers a different question from the one the number asks. It
+  // says what the total spans instead of "No prior year data", which was untrue.
   const thisYear=new Date().getFullYear().toString();
   const curYear=activeYear==='All'?thisYear:activeYear;
   const prevYear=String(parseInt(curYear)-1);
@@ -1685,7 +1933,7 @@ function renderSummary(){
     return`
     <div class="top-gear-row">
       <div class="top-gear-rank">${i+1}</div>
-      ${img?`<img class="top-gear-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" loading="lazy" data-tile="gear-icon-inline" data-soft="${groupSoft(grp)}" data-colour="${groupColor(grp)}" data-icon="${gearIconName(grp)}" onerror="gearPhotoFailed(this)">`:gearIconTile(grp,'gear-icon-inline')}
+      ${img?`<img class="top-gear-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" loading="lazy" data-tile="gear-icon-inline" data-soft="${groupSoft(grp)}" data-colour="${groupColor(grp)}" data-icon="${gearIconName(grp)}" data-fallback="${escapeAttr(gearPhotoFallback(name))}" onerror="gearPhotoFailed(this)">`:gearIconTile(grp,'gear-icon-inline')}
       <div class="top-gear-name">${escapeHtml(gearLabel(name))}</div>
       <div class="top-gear-dist">${fmtDist(s.dist)} ${distUnit()} · ${s.count.toLocaleString('en-GB')} acts</div>
     </div>`;}).join('')+'<button class="gear-view-all" onclick="setTab(\"gear\")">View all gear →</button>';
@@ -1734,7 +1982,11 @@ function renderCharts(){
   document.getElementById('donutChartCard').style.display=isSpecificType?'none':'block';
   document.getElementById('yoyChartCard').style.gridColumn=isSpecificType?'1 / -1':'';
   document.getElementById('yoyDonutGrid').style.gridTemplateColumns=isSpecificType?'1fr':'';
-  document.getElementById('paceChartRow').style.display=(activeType==='All'||activeType==='Run')?'grid':'none';
+  // Run pace only means something for runs. When it goes, Relative Effort takes
+  // the whole row rather than sitting half-width beside a hole.
+  const showPace=(activeType==='All'||activeType==='Run');
+  document.getElementById('paceCard').style.display=showPace?'block':'none';
+  document.getElementById('effortCard').style.gridColumn=showPace?'':'1 / -1';
 
   // First chart: year calendar or monthly bar
   document.getElementById('firstChartMonthly').style.display=isSpecificYear?'none':'block';
@@ -1761,31 +2013,15 @@ function renderCharts(){
     });
   }
 
-  // YoY — filter by type when specific type selected
-  const allYears=[...new Set(ALL_DATA.map(a=>a.date.slice(0,4)))].sort();
+  // ── Rolling 12 months ──
+  // This replaced a year-over-year bar chart, which could say "was last year
+  // bigger" but never "am I ahead of where I was" — a part-finished year is a
+  // short bar for a reason the chart cannot show. Every point on this line
+  // covers a full twelve months, so a rise is a real rise. It deliberately
+  // ignores the year filter: a rolling year is a multi-year measurement, and
+  // the scope line above says so.
   destroyChart('yoy');
-  let yoyDatasets;
-  if(isSpecificType){
-    const yoyTypeDist={};
-    ALL_DATA.forEach(a=>{
-      const g=typeGroup(a.type);
-      const match=activeType==='Ride'?(g==='Ride'||g==='Virtual'):g===activeType;
-      if(!match)return;
-      const y=a.date.slice(0,4);
-      yoyTypeDist[y]=(yoyTypeDist[y]||0)+(a.dist_mi||0);
-    });
-    yoyDatasets=[{label:activeType,data:allYears.map(y=>unit==='mi'?+(yoyTypeDist[y]||0).toFixed(0):+((yoyTypeDist[y]||0)*1.60934).toFixed(0)),backgroundColor:groupColor(activeType),borderRadius:0}];
-    document.getElementById('yoyChartSub').textContent=activeType+' distance per year'+yoyPartialNote(allYears);
-  }else{
-    const yoyDist={};
-    ALL_DATA.forEach(a=>{const y=a.date.slice(0,4),g=typeGroup(a.type);if(!yoyDist[y])yoyDist[y]={};yoyDist[y][g]=(yoyDist[y][g]||0)+(a.dist_mi||0);});
-    yoyDatasets=typeKeys.map((t,i)=>{return{label:t,data:allYears.map(y=>unit==='mi'?+((yoyDist[y]||{})[t]||0).toFixed(0):+(((yoyDist[y]||{})[t]||0)*1.60934).toFixed(0)),backgroundColor:colorFull[i],borderRadius:0,borderSkipped:false};});
-    document.getElementById('yoyChartSub').textContent='Total distance per year by type'+yoyPartialNote(allYears);
-  }
-  charts.yoy=new Chart(document.getElementById('chartYoY').getContext('2d'),{
-    type:'bar',data:{labels:allYears,datasets:yoyDatasets},
-    options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}}},responsive:true,maintainAspectRatio:false,scales:{x:{stacked:!isSpecificType,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:!isSpecificType,grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()}}},interaction:{mode:'index'}}
-  });
+  renderRolling12(isSpecificType);
 
   // Donut (only when All type)
   if(!isSpecificType){
@@ -1808,13 +2044,10 @@ function renderCharts(){
     options:{plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'#f0f0f0'},ticks:{callback:v=>v.toLocaleString()+elevUnitStr,font:{size:11}}}}}
   });
 
-  // Calories
-  const monthCal={};data.forEach(a=>{const m=a.date.slice(0,7);if(!monthCal[m])monthCal[m]=0;monthCal[m]+=(a.cal||0);});
-  destroyChart('cals');
-  charts.cals=new Chart(document.getElementById('chartCals').getContext('2d'),{
-    type:'bar',data:{labels:monthKeys.map(monthLabel),datasets:[{data:monthKeys.map(m=>Math.round(monthCal[m]||0)),backgroundColor:'#ec4899',borderRadius:0}]},
-    options:{plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'#f0f0f0'},ticks:{callback:v=>v.toLocaleString(),font:{size:11}}}}}
-  });
+  // Calories had its own monthly bar chart here. It was Monthly Distance with a
+  // different y-axis — calories in this data derive from distance and duration,
+  // so the two silhouettes were the same. The total survives as a chip on the
+  // distance card, which is the only part of it that was telling you anything.
 
   renderSummaryLines(data,monthKeys,typeKeys,colorFull);
   renderExtraCharts(data,monthKeys);
@@ -1822,15 +2055,76 @@ function renderCharts(){
   renderCumulative(data);
   renderPaceScatter(data);
   renderEfficiency(data);
-  renderWeather(data);
+}
+
+// Enumerate every month from first to last inclusive, including the empty ones —
+// a rolling total that skipped a month with no activities would quietly shorten
+// its own window and overstate the result.
+function monthsBetween(first,last){
+  const out=[];let [y,m]=first.split('-').map(Number);
+  const [ly,lm]=last.split('-').map(Number);
+  while(y<ly||(y===ly&&m<=lm)){out.push(y+'-'+String(m).padStart(2,'0'));m++;if(m>12){m=1;y++;}}
+  return out;
+}
+
+function renderRolling12(isSpecificType){
+  const sub=document.getElementById('yoyChartSub');
+  const match=a=>{
+    if(!isSpecificType)return true;
+    const g=typeGroup(a.type);
+    return activeType==='Ride'?(g==='Ride'||g==='Virtual'):g===activeType;
+  };
+  const byMonth={};
+  ALL_DATA.filter(match).forEach(a=>{const m=a.date.slice(0,7);byMonth[m]=(byMonth[m]||0)+(a.dist_mi||0);});
+  const present=Object.keys(byMonth).sort();
+  if(sub)sub.textContent=(isSpecificType?activeType+' distance':'Distance')+' in the twelve months ending each month — spans every year, whatever the year filter says';
+  if(present.length<12){
+    setChartEmpty('chartYoY','A rolling twelve-month total needs at least a year of history behind it. There '+(present.length===1?'is':'are')+' '+present.length+' month'+(present.length===1?'':'s')+' here.');
+    chartSummary('roll',[],'');
+    return;
+  }
+  setChartEmpty('chartYoY');
+  const months=monthsBetween(present[0],present[present.length-1]);
+  const conv=v=>unit==='mi'?v:v*1.60934;
+  const pts=[];
+  for(let i=11;i<months.length;i++){
+    let s=0;for(let j=i-11;j<=i;j++)s+=byMonth[months[j]]||0;
+    pts.push({m:months[i],v:conv(s)});
+  }
+  const col=isSpecificType?groupColor(activeType):'#1d4ed8';
+  charts.yoy=new Chart(document.getElementById('chartYoY').getContext('2d'),{
+    type:'line',
+    data:{labels:pts.map(p=>monthLabel(p.m)),datasets:[{
+      data:pts.map(p=>Math.round(p.v)),borderColor:col,backgroundColor:col+'14',
+      fill:true,tension:.25,pointRadius:0,pointHitRadius:12,borderWidth:2.5}]},
+    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toLocaleString()+' '+distUnit()+' in the year to '+c.label}}},
+      responsive:true,maintainAspectRatio:false,
+      scales:{x:{grid:{display:false},ticks:{font:{size:10},maxTicksLimit:10}},y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()}}}}
+  });
+  const last=pts[pts.length-1];
+  const yearAgo=pts.length>12?pts[pts.length-13]:null;
+  const peak=pts.reduce((b,p)=>p.v>b.v?p:b,pts[0]);
+  const chips=[{n:chipNum(last.v),label:distUnit()+', trailing year',col:'#1d4ed8'}];
+  if(yearAgo&&yearAgo.v>0){
+    const d=(last.v-yearAgo.v)/yearAgo.v*100;
+    chips.push({n:(d>=0?'+':'−')+Math.abs(Math.round(d))+'%',label:'vs a year ago',col:d>=0?'#16a34a':'#ff385c'});
+  }
+  chips.push({n:chipNum(peak.v),label:'peak · '+monthLabel(peak.m),col:'#ff385c'});
+  let verdict;
+  if(peak.m===last.m)verdict='You are at your twelve-month peak right now — no rolling year in '+pts.length+' months of history has been bigger than the one you have just finished.';
+  else{
+    const off=Math.round((peak.v-last.v)/Math.max(1,peak.v)*100);
+    verdict='Your biggest rolling year ended '+monthLabel(peak.m)+'; you are '+off+'% below it now. Every point here covers twelve full months, so that is a real change rather than a calendar artefact.';
+  }
+  chartSummary('roll',chips,verdict);
 }
 
 // ── FIGURE CHIPS AND VERDICTS ──
 // The heart-rate zone card set the pattern: tinted figures under the plot, then one
 // line saying what the shape means. Applied here to the charts that have something
-// true and non-obvious to say. Calories and Year-over-Year deliberately get neither —
-// a chip reading "total calories" under a chart of monthly calories is just the axis
-// again, and a verdict would be invented.
+// true and non-obvious to say — which, since the Calories chart was folded into a
+// chip and Year-over-Year became a rolling twelve-month line, is now every card on
+// the tab. The heart-rate card, which invented this treatment, uses the helper too.
 function renderSummaryLines(data,monthKeys,typeKeys,colorFull){
   const inScope=m=>monthKeys.includes(m);
 
@@ -1847,10 +2141,14 @@ function renderSummaryLines(data,monthKeys,typeKeys,colorFull){
     // On "All" the chart shows the last 24 months, not all time — say which, rather
     // than calling a two-year figure a total.
     const scopeWord=activeYear==='All'?distUnit()+', last 24 months':distUnit()+' in '+activeYear;
+    // Calories used to have a monthly bar chart of its own, which was this same
+    // chart in different units. The total is the part worth keeping.
+    const cals=data.reduce((s,a)=>inScope(a.date.slice(0,7))?s+(a.cal||0):s,0);
     chartSummary('dist',[
       {n:fmtDist(totalDist),label:scopeWord,col:'#1d4ed8'},
       {n:fmtDist(avg),label:distUnit()+'/month',col:'#0ea5e9'},
       {n:fmtDist(byMonth[best]),label:'best · '+monthLabel(best),col:'#ff385c'},
+      ...(cals?[{n:cals>=1e6?chipNum(cals/1e6,1)+'M':chipNum(Math.round(cals/1000))+'k',label:'kcal burned',col:'#16a34a'}]:[]),
     ],
     // Only compare years when a full previous year is in scope to compare against.
     (()=>{
@@ -1883,17 +2181,341 @@ function renderSummaryLines(data,monthKeys,typeKeys,colorFull){
     perMile>0?`That works out at ${Math.round(perMile)} ft of climbing for every mile ridden. Anything over about 60 is properly hilly territory; the Lancashire average sits nearer 50.`:'');
   }
 
-  // ── Activity mix: chips only. The donut is the verdict. ──
+  // ── Activity mix ──
+  // The chips count sessions; the verdict says what share of the distance those
+  // sessions actually carry, which is the thing a count can't tell you.
   if(activeType==='All'){
-    const counts={};
-    data.forEach(a=>{const g=typeGroup(a.type);counts[g]=(counts[g]||0)+1;});
+    const counts={},dist={};
+    data.forEach(a=>{const g=typeGroup(a.type);counts[g]=(counts[g]||0)+1;dist[g]=(dist[g]||0)+(a.dist_mi||0);});
     const total=data.length||1;
-    chartSummary('mix',typeKeys.filter(t=>counts[t]).map((t,i)=>({
+    const distTot=Object.values(dist).reduce((s,v)=>s+v,0);
+    const present=typeKeys.filter(t=>counts[t]);
+    let verdict='';
+    if(present.length>1&&distTot>0){
+      const topByCount=present.reduce((b,t)=>counts[t]>counts[b]?t:b,present[0]);
+      const topByDist=present.reduce((b,t)=>dist[t]>dist[b]?t:b,present[0]);
+      const cShare=Math.round(counts[topByCount]/total*100);
+      const dShare=Math.round(dist[topByDist]/distTot*100);
+      verdict=topByCount===topByDist
+        ? `${topByCount} leads on both counts — ${cShare}% of your sessions and ${dShare}% of your distance.`
+        : `${topByCount} is your most frequent activity at ${cShare}% of sessions, but ${topByDist} carries ${dShare}% of the distance. The frequent ones are short.`;
+    }
+    chartSummary('mix',present.map(t=>({
       n:Math.round(counts[t]/total*100)+'%',
       label:t.toLowerCase()+' · '+counts[t].toLocaleString('en-GB'),
       col:colorFull[typeKeys.indexOf(t)],
-    })),'');
+    })),verdict);
   }else chartSummary('mix',[],'');
+}
+
+// ── MOVING VS STOPPED ──
+// mt and et are on every single activity and were charted nowhere. The gap
+// between them is cafe stops, junctions, regroups and waiting at lights.
+function renderMovingChart(data,monthKeys){
+  // Guard against the records that would make this meaningless: a paused watch
+  // left running overnight gives an elapsed time with no relationship to the
+  // ride, so anything claiming more than four hours stopped per hour moving is
+  // treated as a recording artefact rather than a very long coffee.
+  const usable=data.filter(a=>a.mt>0&&a.et>0&&a.et>=a.mt&&a.et<=a.mt*5);
+  if(usable.length<5){
+    setChartEmpty('chartMove','Not enough activities here record both moving and elapsed time.');
+    chartSummary('move',[],'');
+    return;
+  }
+  setChartEmpty('chartMove');
+  const byMonth={};
+  usable.forEach(a=>{
+    const m=a.date.slice(0,7);if(!monthKeys.includes(m))return;
+    if(!byMonth[m])byMonth[m]={mt:0,et:0};
+    byMonth[m].mt+=a.mt;byMonth[m].et+=a.et;
+  });
+  const months=monthKeys.filter(m=>byMonth[m]&&byMonth[m].et>0);
+  destroyChart('move');
+  charts.move=new Chart(document.getElementById('chartMove').getContext('2d'),{
+    type:'line',
+    data:{labels:months.map(monthLabel),datasets:[{
+      data:months.map(m=>+(byMonth[m].mt/byMonth[m].et*100).toFixed(1)),
+      borderColor:'#1d4ed8',backgroundColor:'#1d4ed814',fill:true,tension:.25,
+      pointRadius:0,pointHitRadius:12,borderWidth:2.5}]},
+    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y+'% of elapsed time moving'}}},
+      responsive:true,maintainAspectRatio:false,
+      scales:{x:{grid:{display:false},ticks:{font:{size:10},maxTicksLimit:10}},
+        y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v+'%'}}}}
+  });
+  const mtAll=usable.reduce((s,a)=>s+a.mt,0),etAll=usable.reduce((s,a)=>s+a.et,0);
+  const stopped=etAll-mtAll;
+  const share=Math.round(mtAll/etAll*100);
+  // Long days out are where stoppage actually accumulates, so compare the top
+  // quarter by distance against the rest rather than quoting one average.
+  const sorted=usable.slice().sort((a,b)=>(b.dist_mi||0)-(a.dist_mi||0));
+  const longs=sorted.slice(0,Math.max(1,Math.floor(sorted.length/4)));
+  const longShare=Math.round(longs.reduce((s,a)=>s+(a.et-a.mt),0)/Math.max(1,longs.reduce((s,a)=>s+a.et,0))*100);
+  chartSummary('move',[
+    {n:share+'%',label:'of elapsed time moving',col:'#1d4ed8'},
+    {n:fmtHours(stopped),label:'stopped, all in',col:'#ff385c'},
+    {n:longShare+'%',label:'stopped on your longest quarter',col:'#f59e0b'},
+  ],
+  stopped>86400
+    ? `That is ${(stopped/86400).toFixed(1)} days of logged life spent stationary. On your longest quarter of outings ${longShare}% of the clock is stopped — the price of a long day out is mostly not riding.`
+    : `${share}% of your elapsed time is spent actually moving, rising to ${100-longShare}% on your longest quarter of outings.`);
+}
+
+// Average a numeric field per month, skipping months with nothing to average.
+function monthlyMean(acts,monthKeys,pick){
+  const acc={};
+  acts.forEach(a=>{
+    const v=pick(a);if(v==null||!isFinite(v))return;
+    const m=a.date.slice(0,7);if(!monthKeys.includes(m))return;
+    if(!acc[m])acc[m]={s:0,n:0};
+    acc[m].s+=v;acc[m].n++;
+  });
+  const months=monthKeys.filter(m=>acc[m]&&acc[m].n);
+  return{months,mean:m=>acc[m].s/acc[m].n,count:months.reduce((s,m)=>s+acc[m].n,0)};
+}
+
+// ── POWER ──
+// There is a power record on the Records page but no trend anywhere, and watts
+// are the one number here that cannot be inflated by simply riding more often.
+function renderPowerChart(data,monthKeys){
+  const withPwr=data.filter(a=>a.pwr>0);
+  if(withPwr.length<5){
+    setChartEmpty('chartPower','No activities in this filter record power. Watts arrive with a power meter, or with Strava’s estimate on a ride recorded by a head unit.');
+    chartSummary('power',[],'');
+    return;
+  }
+  setChartEmpty('chartPower');
+  const avg=monthlyMean(withPwr,monthKeys,a=>a.pwr);
+  const np=monthlyMean(withPwr,monthKeys,a=>a.np);
+  // device_watts says whether these came off a meter. An estimate is not useless,
+  // but a trend built on one is really a speed trend, so the card says which.
+  const real=withPwr.filter(a=>a.pwr_real).length;
+  const sub=document.getElementById('powerSub');
+  if(sub)sub.textContent=`Average${np.months.length?' and normalised':''} watts per month — ${withPwr.length.toLocaleString('en-GB')} activit${withPwr.length===1?'y':'ies'} with power`
+    +(real===0?', all of it estimated by Strava from speed and weight rather than measured'
+      :real===withPwr.length?', all measured by a power meter'
+      :`, ${Math.round(real/withPwr.length*100)}% of it measured rather than estimated`);
+  if(!avg.months.length){
+    setChartEmpty('chartPower','No power inside the charted months.');
+    chartSummary('power',[],'');return;
+  }
+  const sets=[{label:'Average',data:avg.months.map(m=>Math.round(avg.mean(m))),
+    borderColor:'#6d28d9',backgroundColor:'#6d28d914',fill:true,tension:.25,pointRadius:0,pointHitRadius:12,borderWidth:2.5}];
+  if(np.months.length>=avg.months.length*0.5)sets.push({label:'Normalised',
+    data:avg.months.map(m=>np.months.includes(m)?Math.round(np.mean(m)):null),
+    borderColor:'#f59e0b',borderDash:[5,4],fill:false,tension:.25,pointRadius:0,pointHitRadius:12,borderWidth:2,spanGaps:true});
+  destroyChart('power');
+  charts.power=new Chart(document.getElementById('chartPower').getContext('2d'),{
+    type:'line',data:{labels:avg.months.map(monthLabel),datasets:sets},
+    options:{plugins:{legend:{display:sets.length>1,position:'bottom',labels:{boxWidth:10,font:{size:11}}},
+      tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y+'w'}}},
+      responsive:true,maintainAspectRatio:false,
+      scales:{x:{grid:{display:false},ticks:{font:{size:10},maxTicksLimit:10}},
+        y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v+'w'}}}}
+  });
+  const all=avg.months.map(m=>avg.mean(m));
+  const overall=all.reduce((s,v)=>s+v,0)/all.length;
+  const peakIdx=all.indexOf(Math.max(...all));
+  const chips=[{n:Math.round(overall)+'w',label:'average',col:'#6d28d9'}];
+  if(np.months.length)chips.push({n:Math.round(np.months.reduce((s,m)=>s+np.mean(m),0)/np.months.length)+'w',label:'normalised',col:'#f59e0b'});
+  chips.push({n:Math.round(all[peakIdx])+'w',label:'best month · '+monthLabel(avg.months[peakIdx]),col:'#1d4ed8'});
+  let verdict;
+  if(all.length>=4){
+    const half=Math.floor(all.length/2);
+    const early=all.slice(0,half).reduce((s,v)=>s+v,0)/half;
+    const late=all.slice(-half).reduce((s,v)=>s+v,0)/half;
+    const d=Math.round((late-early)/early*100);
+    chips.push({n:(d>=0?'+':'−')+Math.abs(d)+'%',label:'recent vs earlier',col:d>=0?'#16a34a':'#ff385c'});
+    verdict=d>=3?`Up ${d}% across the charted months. Distance, elevation and effort all rise when you simply do more; watts do not, so this one is real.`
+      :d<=-3?`Down ${Math.abs(d)}% across the charted months — the only chart on this tab where a fall cannot be explained by riding less often.`
+      :`Flat within ${Math.abs(d)}% across the charted months. Steady rather than stagnant, depending on what you were training for.`;
+  }else verdict=`${all.length} month${all.length===1?'':'s'} with power in them. A trend needs a few more.`;
+  chartSummary('power',chips,verdict);
+}
+
+// ── CADENCE ──
+// Strava reports foot cadence as one leg, so runs are charted at double on their
+// own axis. Putting ~85 rpm and ~170 spm on one scale would flatten the bike line.
+function renderCadenceChart(data,monthKeys){
+  const withCad=data.filter(a=>a.cad>0);
+  if(withCad.length<5){
+    setChartEmpty('chartCad','No activities in this filter record cadence.');
+    chartSummary('cad',[],'');
+    return;
+  }
+  setChartEmpty('chartCad');
+  const wheeled=withCad.filter(a=>{const g=typeGroup(a.type);return g==='Ride'||g==='Virtual';});
+  const footed=withCad.filter(a=>{const g=typeGroup(a.type);return g==='Run'||g==='Walk';});
+  const rpm=monthlyMean(wheeled,monthKeys,a=>a.cad);
+  const spm=monthlyMean(footed,monthKeys,a=>a.cad*2);
+  const months=monthKeys.filter(m=>rpm.months.includes(m)||spm.months.includes(m));
+  if(!months.length){
+    setChartEmpty('chartCad','No cadence inside the charted months.');
+    chartSummary('cad',[],'');return;
+  }
+  const sub=document.getElementById('cadSub');
+  if(sub)sub.textContent='Average cadence per month — '+withCad.length.toLocaleString('en-GB')+' activit'+(withCad.length===1?'y':'ies')+' with cadence'
+    +(footed.length?'. Foot cadence is doubled to steps per minute, the way you would count it':'');
+  const sets=[];
+  if(rpm.months.length)sets.push({label:'Ride · rpm',yAxisID:'y',
+    data:months.map(m=>rpm.months.includes(m)?Math.round(rpm.mean(m)):null),
+    borderColor:'#1d4ed8',backgroundColor:'#1d4ed814',fill:true,tension:.25,pointRadius:0,pointHitRadius:12,borderWidth:2.5,spanGaps:true});
+  if(spm.months.length)sets.push({label:'Run · spm',yAxisID:rpm.months.length?'y2':'y',
+    data:months.map(m=>spm.months.includes(m)?Math.round(spm.mean(m)):null),
+    borderColor:'#ef4444',fill:false,tension:.25,pointRadius:0,pointHitRadius:12,borderWidth:2.5,spanGaps:true});
+  const scales={x:{grid:{display:false},ticks:{font:{size:10},maxTicksLimit:10}},
+    y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v+(rpm.months.length?' rpm':' spm')}}};
+  if(rpm.months.length&&spm.months.length)scales.y2={position:'right',grid:{display:false},ticks:{font:{size:11},callback:v=>v+' spm'}};
+  destroyChart('cad');
+  charts.cad=new Chart(document.getElementById('chartCad').getContext('2d'),{
+    type:'line',data:{labels:months.map(monthLabel),datasets:sets},
+    options:{plugins:{legend:{display:sets.length>1,position:'bottom',labels:{boxWidth:10,font:{size:11}}}},
+      responsive:true,maintainAspectRatio:false,scales}
+  });
+  const chips=[];
+  if(rpm.months.length)chips.push({n:Math.round(rpm.months.reduce((s,m)=>s+rpm.mean(m),0)/rpm.months.length)+' rpm',label:'riding',col:'#1d4ed8'});
+  if(spm.months.length)chips.push({n:Math.round(spm.months.reduce((s,m)=>s+spm.mean(m),0)/spm.months.length)+' spm',label:'on foot',col:'#ef4444'});
+  let verdict='';
+  const trendOf=(g,unitStr)=>{
+    if(g.months.length<4)return null;
+    const vals=g.months.map(m=>g.mean(m)),half=Math.floor(vals.length/2);
+    const early=vals.slice(0,half).reduce((s,v)=>s+v,0)/half;
+    const late=vals.slice(-half).reduce((s,v)=>s+v,0)/half;
+    return{d:Math.round(late-early),unitStr};
+  };
+  const rt=trendOf(rpm,'rpm'),st=trendOf(spm,'spm');
+  if(rt&&Math.abs(rt.d)>=2){
+    chips.push({n:(rt.d>=0?'+':'−')+Math.abs(rt.d),label:'rpm since earlier',col:rt.d>=0?'#16a34a':'#f59e0b'});
+    verdict=rt.d>0?`Riding cadence is up ${rt.d} rpm on the earlier half — spinning more, grinding less.`
+      :`Riding cadence is down ${Math.abs(rt.d)} rpm on the earlier half, which usually means bigger gears or more climbing.`;
+  }
+  if(st&&Math.abs(st.d)>=3)verdict+=(verdict?' ':'')+`Running cadence has moved ${st.d>0?'up':'down'} ${Math.abs(st.d)} spm; 170–180 is the range most coaches aim at.`;
+  if(!verdict)verdict='Cadence is steady across the charted months. It is a habit more than a fitness marker, so flat is the normal answer.';
+  chartSummary('cad',chips,verdict);
+}
+
+// ── RACE DAY ──
+// wtype has been stored since the worker was written and only the Activity Log
+// ever read it. It answers the question training charts never do: how much is
+// left in you when it counts.
+function renderRaceChart(data){
+  const races=data.filter(isRace);
+  const row=document.getElementById('raceTempRow');
+  if(races.length<2){
+    setChartEmpty('chartRace','Fewer than two activities here are marked as a race in Strava. Setting an activity’s type to Race is what fills this in.');
+    chartSummary('race',[],'');
+    return;
+  }
+  setChartEmpty('chartRace');
+  // Compare like with like: only the sports that actually contain races, and
+  // only against your ordinary sessions in that same sport.
+  const groups=[...new Set(races.map(a=>typeGroup(a.type)))];
+  const speedOf=a=>unit==='mi'?a.speed_mph:a.speed_kph;
+  const mean=(arr,pick)=>{const v=arr.map(pick).filter(x=>x>0&&isFinite(x));return v.length?v.reduce((s,x)=>s+x,0)/v.length:null;};
+  const rows=groups.map(g=>{
+    const r=races.filter(a=>typeGroup(a.type)===g);
+    const o=data.filter(a=>!isRace(a)&&typeGroup(a.type)===g);
+    return{g,n:r.length,race:mean(r,speedOf),other:mean(o,speedOf),
+      raceHr:mean(r,a=>a.hr),otherHr:mean(o,a=>a.hr)};
+  }).filter(x=>x.race!=null&&x.other!=null);
+  if(!rows.length){
+    setChartEmpty('chartRace','Your races have no ordinary sessions in the same sport to compare against.');
+    chartSummary('race',[],'');return;
+  }
+  const sub=document.getElementById('raceSub');
+  if(sub)sub.textContent=`${races.length.toLocaleString('en-GB')} race${races.length===1?'':'s'} against your ordinary sessions in the same sport — average speed in ${unit==='mi'?'mph':'km/h'}`;
+  destroyChart('race');
+  charts.race=new Chart(document.getElementById('chartRace').getContext('2d'),{
+    type:'bar',
+    data:{labels:rows.map(r=>r.g+' · '+r.n),datasets:[
+      {label:'Races',data:rows.map(r=>+r.race.toFixed(1)),backgroundColor:'#ff385c',borderRadius:0},
+      {label:'Everything else',data:rows.map(r=>+r.other.toFixed(1)),backgroundColor:'#cbd5e1',borderRadius:0}]},
+    options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},
+      tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y+(unit==='mi'?' mph':' km/h')}}},
+      responsive:true,maintainAspectRatio:false,
+      scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11}}}},
+      interaction:{mode:'index'}}
+  });
+  const big=rows.reduce((b,r)=>r.n>b.n?r:b,rows[0]);
+  const pct=Math.round((big.race-big.other)/big.other*100);
+  const chips=[{n:races.length.toLocaleString('en-GB'),label:'race'+(races.length===1?'':'s')+' logged',col:'#ff385c'},
+    {n:(pct>=0?'+':'−')+Math.abs(pct)+'%',label:'speed on '+big.g.toLowerCase()+' race day',col:pct>=0?'#16a34a':'#f59e0b'}];
+  if(big.raceHr&&big.otherHr){
+    const hd=Math.round(big.raceHr-big.otherHr);
+    chips.push({n:(hd>=0?'+':'−')+Math.abs(hd),label:'bpm',col:'#ef4444'});
+  }
+  let verdict;
+  if(pct>=5)verdict=`On ${big.g.toLowerCase()} race day you go ${pct}% faster than a normal session`
+    +(big.raceHr&&big.otherHr?` at ${Math.round(big.raceHr-big.otherHr)} bpm more`:'')+`. That gap is what a number on your back is worth.`;
+  else if(pct<=-5)verdict=`Your ${big.g.toLowerCase()} races average ${Math.abs(pct)}% slower than your ordinary sessions — usually a sign they were longer, hillier, or hotter than a normal day out.`;
+  else verdict=`Race day and an ordinary ${big.g.toLowerCase()} come out within ${Math.abs(pct)}% of each other. Either you race your training, or you train your races.`;
+  chartSummary('race',chips,verdict);
+}
+
+// ── TEMPERATURE ──
+// average_temp comes off a head unit sensor, so indoor and phone-recorded
+// activities have none. The card says its own coverage rather than quietly
+// drawing a chart of the quarter of your rides that happen to carry it.
+const TEMP_BANDS=[[-99,4,'under 4°'],[4,8,'4–8°'],[8,12,'8–12°'],[12,16,'12–16°'],[16,20,'16–20°'],[20,24,'20–24°'],[24,99,'24°+']];
+function renderTempChart(data){
+  const withTemp=data.filter(a=>a.temp!=null&&isFinite(a.temp)&&a.temp>-40&&a.temp<60);
+  const sub=document.getElementById('tempSub');
+  if(withTemp.length<10){
+    setChartEmpty('chartTemp',withTemp.length
+      ? `Only ${withTemp.length} activit${withTemp.length===1?'y has':'ies have'} a temperature reading, which is too few to compare bands.`
+      : 'No activities here carry a temperature. It comes off a head unit sensor, so indoor rides and phone-recorded sessions have none — and it only arrives from the next Strava refresh onward.');
+    if(sub)sub.textContent='Average speed by temperature band';
+    chartSummary('temp',[],'');
+    return;
+  }
+  setChartEmpty('chartTemp');
+  const cov=Math.round(withTemp.length/Math.max(1,data.length)*100);
+  if(sub)sub.textContent=`Average speed by temperature band — ${withTemp.length.toLocaleString('en-GB')} of ${data.length.toLocaleString('en-GB')} activities carry a reading (${cov}%), so this describes the sessions your head unit recorded, not all of them`;
+  const bands=TEMP_BANDS.map(([lo,hi,label])=>{
+    const inBand=withTemp.filter(a=>a.temp>=lo&&a.temp<hi);
+    const sp=inBand.map(a=>unit==='mi'?a.speed_mph:a.speed_kph).filter(v=>v>0&&isFinite(v));
+    return{label,n:inBand.length,
+      speed:sp.length?sp.reduce((s,v)=>s+v,0)/sp.length:null,
+      dist:inBand.reduce((s,a)=>s+(a.dist_mi||0),0)};
+  }).filter(b=>b.n>=3);
+  if(bands.length<2){
+    setChartEmpty('chartTemp','Your temperature readings all fall in one band, so there is nothing to compare.');
+    chartSummary('temp',[],'');return;
+  }
+  destroyChart('temp');
+  charts.temp=new Chart(document.getElementById('chartTemp').getContext('2d'),{
+    type:'bar',
+    data:{labels:bands.map(b=>b.label),datasets:[{
+      data:bands.map(b=>b.speed!=null?+b.speed.toFixed(1):null),
+      backgroundColor:bands.map(b=>{
+        const t=parseFloat(b.label)||0;
+        return t<8?'#0ea5e9':t<16?'#22c55e':t<24?'#f59e0b':'#ef4444';
+      }),borderRadius:0}]},
+    options:{plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:c=>c.parsed.y+(unit==='mi'?' mph':' km/h')+' · '+bands[c.dataIndex].n+' activities'}}},
+      responsive:true,maintainAspectRatio:false,
+      scales:{x:{grid:{display:false},ticks:{font:{size:11}}},
+        y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v+(unit==='mi'?' mph':' km/h')}}}}
+  });
+  const rated=bands.filter(b=>b.speed!=null);
+  const fastest=rated.reduce((b,x)=>x.speed>b.speed?x:b,rated[0]);
+  const busiest=bands.reduce((b,x)=>x.n>b.n?x:b,bands[0]);
+  const spread=Math.max(...rated.map(b=>b.speed))-Math.min(...rated.map(b=>b.speed));
+  chartSummary('temp',[
+    {n:busiest.label,label:'where you ride most · '+busiest.n,col:'#1d4ed8'},
+    {n:fastest.label,label:'your fastest band',col:'#16a34a'},
+    {n:spread.toFixed(1),label:(unit==='mi'?'mph':'km/h')+' between best and worst',col:'#ff385c'},
+  ],
+  (()=>{
+    const sp=unit==='mi'?'mph':'km/h';
+    if(spread<1.5)return `Speed barely moves with temperature — ${spread.toFixed(1)} ${sp} across every band. Weather changes how it feels far more than how fast you go.`;
+    const i=rated.indexOf(fastest),mid=i>0&&i<rated.length-1;
+    const slowest=rated.reduce((b,x)=>x.speed<b.speed?x:b,rated[0]);
+    // Only claim the extremes are slowest when the quickest band is actually in
+    // the middle. If your best band is the coldest one, say that instead.
+    return mid
+      ? `You are quickest in the ${fastest.label} band and slower at both ends of the range — ${spread.toFixed(1)} ${sp} separates best from worst, which is more than most people would guess.`
+      : `Your quickest riding is in the ${fastest.label} band and your slowest in ${slowest.label}, ${spread.toFixed(1)} ${sp} apart. With your best band at the edge of the range, this is as likely to be which rides you do in that weather as the weather itself.`;
+  })());
 }
 
 // ── THREE CHARTS OVER DATA THAT WAS ALREADY BEING FETCHED ──
@@ -1916,18 +2538,6 @@ function chartSummary(id,chips,verdict){
     `<div class="chart-chip" style="color:${x.col};background:${x.col}1a"><strong>${escapeHtml(x.n)}</strong> ${escapeHtml(x.label)}</div>`
   ).join('');
   if(v)v.textContent=verdict||'';
-}
-
-// These bars are whole-year totals, so the year still running is always short by
-// however much of it is left — in September its bar is two thirds of a year being
-// read as a fall in form. The bars are still the right shape for finished years,
-// so rather than change what they measure, this says what the last one is and
-// points at the chart above that makes the comparison properly.
-function yoyPartialNote(years){
-  const thisYear=new Date().getFullYear().toString();
-  if(!years.includes(thisYear))return '';
-  const d=todayDoy();
-  return ` — ${thisYear} is ${Math.round(d/365*100)}% of a year in, so its bar is not yet comparable. "Against the same point last year", above, is.`;
 }
 
 // "12,480" from 12480.4, in the app's locale. Chips are figures, not prose.
@@ -1958,12 +2568,9 @@ function renderExtraCharts(data,monthKeys){
   const tot=[0,0,0,0,0];
   withHr.forEach(a=>{tot[0]+=a.z1||0;tot[1]+=a.z2||0;tot[2]+=a.z3||0;tot[3]+=a.z4||0;tot[4]+=a.z5||0;});
   const totalSec=tot.reduce((s,v)=>s+v,0);
-  const splitEl=document.getElementById('zoneSplit'),verdictEl=document.getElementById('zoneVerdict');
-
   if(!totalSec){
     setChartEmpty('chartZones','No activities in this filter have heart-rate data.');
-    if(splitEl)splitEl.innerHTML='';
-    if(verdictEl)verdictEl.textContent='';
+    chartSummary('zone',[],'');
   }else{
     setChartEmpty('chartZones');
     // Say plainly where these come from: Strava's summary endpoint gives one average
@@ -1981,21 +2588,26 @@ function renderExtraCharts(data,monthKeys){
         responsive:true,maintainAspectRatio:false,
         scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v+'h'}}}}
     });
-    if(splitEl)splitEl.innerHTML=tot.map((s,i)=>{
-      const pct=Math.round(s/totalSec*100);
-      return`<div class="zone-chip" style="color:${ZONE_COLORS[i]};background:${ZONE_COLORS[i]}1a"><strong>${pct}%</strong> ${ZONE_NAMES[i].split(' ')[0]} · ${fmtHours(s)}</div>`;
-    }).join('');
-    if(verdictEl){
-      const pc=n=>Math.round(n/totalSec*100);
-      const easy=pc(tot[0]+tot[1]),mid=pc(tot[2]),hard=pc(tot[3]+tot[4]);
-      let v;
-      if(easy>=75&&hard>=8)v=`${easy}% easy · ${mid}% tempo · ${hard}% hard — roughly the polarised shape most endurance plans aim for.`;
-      else if(easy>=75)v=`${easy}% easy · ${mid}% tempo · ${hard}% hard. The easy base is there; the sharp end is thin.`;
-      else if(mid>=25)v=`${easy}% easy · ${mid}% tempo · ${hard}% hard. A lot of this sits in the middle, which is the classic way to be permanently tired without getting faster.`;
-      else v=`${easy}% easy · ${mid}% tempo · ${hard}% hard. Most plans would have the easy number closer to 80%.`;
-      verdictEl.textContent=v;
-    }
+    // This card invented the chips-and-verdict treatment, then kept its own copy
+    // of the markup while every other card moved to the shared helper. Same
+    // output, one implementation.
+    const pc=n=>Math.round(n/totalSec*100);
+    const easy=pc(tot[0]+tot[1]),mid=pc(tot[2]),hard=pc(tot[3]+tot[4]);
+    let v;
+    if(easy>=75&&hard>=8)v=`${easy}% easy · ${mid}% tempo · ${hard}% hard — roughly the polarised shape most endurance plans aim for.`;
+    else if(easy>=75)v=`${easy}% easy · ${mid}% tempo · ${hard}% hard. The easy base is there; the sharp end is thin.`;
+    else if(mid>=25)v=`${easy}% easy · ${mid}% tempo · ${hard}% hard. A lot of this sits in the middle, which is the classic way to be permanently tired without getting faster.`;
+    else v=`${easy}% easy · ${mid}% tempo · ${hard}% hard. Most plans would have the easy number closer to 80%.`;
+    chartSummary('zone',tot.map((s,i)=>({
+      n:pc(s)+'%',label:ZONE_NAMES[i].split(' ')[0]+' · '+fmtHours(s),col:ZONE_COLORS[i],
+    })),v);
   }
+
+  renderMovingChart(data,monthKeys);
+  renderPowerChart(data,monthKeys);
+  renderCadenceChart(data,monthKeys);
+  renderRaceChart(data);
+  renderTempChart(data);
 
   // ── Relative Effort ──
   const monthEff={};let effTot=0;
@@ -2083,6 +2695,49 @@ function renderExtraCharts(data,monthKeys){
       return `Spread fairly evenly: ${p(morning)}% before noon, ${p(afternoon)}% in the afternoon, ${p(evening)}% in the evening. No single habit dominates.`;
     })());
   }
+}
+
+// Year calendar chart
+function renderYearCalendarChart(year,data){
+  const byDay={};
+  data.forEach(a=>{
+    if(!byDay[a.date])byDay[a.date]={dist:0,types:{},acts:[]};
+    byDay[a.date].dist+=a.dist_mi||0;
+    const g=typeGroup(a.type);byDay[a.date].types[g]=(byDay[a.date].types[g]||0)+1;
+    byDay[a.date].acts.push(a);
+  });
+  const maxDist=Math.max(...Object.values(byDay).map(d=>d.dist),1);
+  const sd=new Date(year,0,1),ed=new Date(year,11,31);
+  const fd=new Date(sd);const dow0=fd.getDay();fd.setDate(fd.getDate()-(dow0===0?6:dow0-1));
+  let weeks=[],cur=new Date(fd),lastMonth='';
+  while(cur<=ed){
+    const weekCells=[];let monthLabel='';
+    for(let d=0;d<7;d++){
+      const ds=cur.toISOString().slice(0,10);
+      const inY=cur>=sd&&cur<=ed;
+      const mn=cur.toLocaleString('en-GB',{month:'short'});
+      if(inY&&d===0&&mn!==lastMonth){monthLabel=mn;lastMonth=mn;}
+      const dd=inY?byDay[ds]:null;
+      let bg;
+      if(!inY)bg='transparent';
+      else if(!dd)bg='#f0f0f0';
+      else{
+        const col=getAccentColor();
+        const intensity=Math.pow(Math.min(dd.dist/(maxDist*0.6),1),.5);
+        const r1=240,g1=240,b1=240,r2=parseInt(col.slice(1,3),16),g2=parseInt(col.slice(3,5),16),b2=parseInt(col.slice(5,7),16);
+        bg=`rgb(${Math.round(r1+(r2-r1)*intensity)},${Math.round(g1+(g2-g1)*intensity)},${Math.round(b1+(b2-b1)*intensity)})`;
+      }
+      const cursor=dd?'cursor:pointer;':'';
+      weekCells.push(dd?
+        `<div class="year-cal-cell" style="${cursor}background:${bg}" onmouseenter="showDashTooltip(event,'${ds}')" onmouseleave="hideDashTooltip()" onclick="showYearCalDay('${ds}')"></div>`:
+        `<div class="year-cal-cell" style="background:${bg}"></div>`);
+      cur.setDate(cur.getDate()+1);
+    }
+    weeks.push({cells:weekCells,label:monthLabel});
+  }
+  const hdr=`<div class="ycal-header-row"><div class="ycal-month-label"></div>${['M','T','W','T','F','S','S'].map(l=>`<div class="ycal-dow-hdr">${l}</div>`).join('')}</div>`;
+  const rows=weeks.map(w=>`<div class="ycal-row"><div class="ycal-month-label">${w.label}</div>${w.cells.join('')}</div>`).join('');
+  document.getElementById('firstChartCalendar').innerHTML=`<div class="ycal-grid">${hdr}${rows}</div>`;
 }
 
 // ── DAY OF YEAR ──
@@ -2466,277 +3121,32 @@ function renderEfficiency(data){
   })());
 }
 
-// ── PACE AGAINST TEMPERATURE ──
-// Weather is joined in from Open-Meteo by the Worker's backfill, not by Strava,
-// so an activity has it only once that has reached it. The chart says which,
-// rather than quietly plotting a fraction of the filter as though it were all.
-const TEMP_BANDS=[
-  {lo:-99,hi:5,  label:'Under 5°'},
-  {lo:5,  hi:10, label:'5–10°'},
-  {lo:10, hi:15, label:'10–15°'},
-  {lo:15, hi:20, label:'15–20°'},
-  {lo:20, hi:25, label:'20–25°'},
-  {lo:25, hi:99, label:'Over 25°'},
-];
-const TEMP_COLORS=['#3b82f6','#0ea5e9','#22c55e','#eab308','#f97316','#ef4444'];
-
-function renderWeather(data){
-  const withTemp=data.filter(a=>typeof a.temp==='number'&&a.speed_mph>0);
-  if(!withTemp.length){
-    setChartEmpty('chartWeather',
-      data.some(a=>a.temp!=null)?'No activities in this filter have both a temperature and a speed.'
-        :'Temperature arrives as the weather backfill works through your history.');
-    chartSummary('wx',[],'');
-    return;
-  }
-  const grp=dominantGroup(withTemp);
-  const acts=withTemp.filter(a=>typeGroup(a.type)===grp);
-  const foot=isFootSport(grp);
-  // Five is the floor for a band to be drawn at all. Below that the average is one
-  // good day, and a bar chart makes it look like a finding.
-  const MIN_N=5;
-  const bands=TEMP_BANDS.map(b=>{
-    const inBand=acts.filter(a=>a.temp>=b.lo&&a.temp<b.hi);
-    return{...b,n:inBand.length,
-      val:inBand.length?inBand.reduce((s,a)=>s+(foot?a.pace_mi:a.speed_mph),0)/inBand.length:null};
-  });
-  const drawn=bands.filter(b=>b.n>=MIN_N);
-  if(drawn.length<2){
-    setChartEmpty('chartWeather',`Only ${acts.length.toLocaleString('en-GB')} ${grp.toLowerCase()} activities have temperature so far — not enough spread to compare bands yet.`);
-    chartSummary('wx',[],'');
-    return;
-  }
-  setChartEmpty('chartWeather');
-
-  const pct=Math.round(acts.length/data.filter(a=>typeGroup(a.type)===grp).length*100);
-  document.getElementById('wxSub').textContent=
-    `${foot?'Average pace':'Average speed'} for ${grp.toLowerCase()} activities in each temperature band — ${acts.length.toLocaleString('en-GB')} with weather so far (${pct}% of them). Bands with fewer than ${MIN_N} are left out.`;
-
-  const show=v=>foot?v/60*(unit==='mi'?1:1/1.60934):(unit==='mi'?v:v*1.60934);
-  const pts=drawn.map(b=>+show(b.val).toFixed(2));
-  // Padding so the points sit inside the plot rather than on its edges. Deliberately
-  // not a bar chart: bars promise a zero baseline, and against zero an 8% difference
-  // in average speed is five rectangles of identical height.
-  const lo=Math.min(...pts),hi=Math.max(...pts),pad=Math.max((hi-lo)*0.45,(hi||1)*0.012);
-  destroyChart('weather');
-  charts.weather=new Chart(document.getElementById('chartWeather').getContext('2d'),{
-    type:'line',
-    data:{labels:drawn.map(b=>b.label),datasets:[{
-      data:pts,
-      borderColor:'rgba(148,163,184,.55)',borderWidth:1.5,fill:false,tension:0,
-      pointRadius:7,pointHoverRadius:9,
-      pointBackgroundColor:drawn.map(b=>TEMP_COLORS[TEMP_BANDS.findIndex(t=>t.label===b.label)]),
-      pointBorderWidth:0}]},
-    options:{plugins:{legend:{display:false},
-      tooltip:{callbacks:{label:c=>{const b=drawn[c.dataIndex];
-        return`${foot?fmtPace(b.val):fmtSpeed(b.val)} · ${b.n} activities`;}}}},
-      responsive:true,maintainAspectRatio:false,
-      scales:{x:{grid:{display:false},ticks:{font:{size:10}}},
-        // Pace reverses, speed does not: on both, higher on the chart is quicker.
-        y:{reverse:foot,min:lo-pad,max:hi+pad,grid:{color:'#f0f0f0'},
-          title:{display:true,text:foot?'Average pace':'Average speed ('+(unit==='mi'?'mph':'km/h')+')',
-            font:{size:10},color:'#6b7280'},
-          ticks:{font:{size:10},maxTicksLimit:7,callback:v=>foot
-            ?Math.floor(v)+':'+String(Math.round((v-Math.floor(v))*60)).padStart(2,'0')
-            :v.toFixed((hi-lo)<1?2:1)}}}}
-  });
-
-  const best=drawn.reduce((b,x)=>(foot?x.val<b.val:x.val>b.val)?x:b,drawn[0]);
-  const worst=drawn.reduce((b,x)=>(foot?x.val>b.val:x.val<b.val)?x:b,drawn[0]);
-  const spread=foot?(worst.val-best.val):(best.val-worst.val);
-  const relPct=Math.round(spread/(foot?best.val:worst.val)*100);
-
-  chartSummary('wx',[
-    {n:best.label,label:'quickest band',col:'#22c55e'},
-    {n:foot?fmtPace(best.val):fmtSpeed(best.val),label:'average there',col:getAccentColor()},
-    {n:relPct+'%',label:'spread to the slowest band',col:relPct>=8?'#ef4444':'#94a3b8'},
-  ],
-  (()=>{
-    if(relPct<4)return `Across ${best.label.toLowerCase()} to ${worst.label.toLowerCase()} you go about the same speed. On this much data, temperature is not what is deciding your pace.`;
-    return `You are ${relPct}% quicker in ${best.label.toLowerCase()} than in ${worst.label.toLowerCase()}. Ordinary — but it is worth remembering before reading a hot-day session as a bad one. Terrain and intent are not controlled for here, only temperature.`;
-  })());
-}
-
-// Year calendar chart
-function renderYearCalendarChart(year,data){
-  const byDay={};
-  data.forEach(a=>{
-    if(!byDay[a.date])byDay[a.date]={dist:0,types:{},time:{},acts:[]};
-    byDay[a.date].dist+=a.dist_mi||0;
-    const g=typeGroup(a.type);byDay[a.date].types[g]=(byDay[a.date].types[g]||0)+1;
-    byDay[a.date].time[g]=(byDay[a.date].time[g]||0)+(a.mt||0);
-    byDay[a.date].acts.push(a);
-  });
-  const maxDist=Math.max(...Object.values(byDay).map(d=>d.dist),1);
-  const sd=new Date(year,0,1),ed=new Date(year,11,31);
-  const fd=new Date(sd);const dow0=fd.getDay();fd.setDate(fd.getDate()-(dow0===0?6:dow0-1));
-  let weeks=[],cur=new Date(fd),lastMonth='';
-  while(cur<=ed){
-    const weekCells=[];let monthLabel='';
-    for(let d=0;d<7;d++){
-      const ds=cur.toISOString().slice(0,10);
-      const inY=cur>=sd&&cur<=ed;
-      const mn=cur.toLocaleString('en-GB',{month:'short'});
-      if(inY&&d===0&&mn!==lastMonth){monthLabel=mn;lastMonth=mn;}
-      const dd=inY?byDay[ds]:null;
-      let bg;
-      if(!inY)bg='transparent';
-      else if(!dd)bg='#f0f0f0';
-      else bg=dayCellBg(dd,maxDist);
-      const cursor=dd?'cursor:pointer;':'';
-      weekCells.push(dd?
-        `<div class="year-cal-cell" style="${cursor}background:${bg}" onmouseenter="showDashTooltip(event,'${ds}')" onmouseleave="hideDashTooltip()" onclick="showYearCalDay('${ds}')"></div>`:
-        `<div class="year-cal-cell" style="background:${bg}"></div>`);
-      cur.setDate(cur.getDate()+1);
-    }
-    weeks.push({cells:weekCells,label:monthLabel});
-  }
-  const hdr=`<div class="ycal-header-row"><div class="ycal-month-label"></div>${['M','T','W','T','F','S','S'].map(l=>`<div class="ycal-dow-hdr">${l}</div>`).join('')}</div>`;
-  const rows=weeks.map(w=>`<div class="ycal-row"><div class="ycal-month-label">${w.label}</div>${w.cells.join('')}</div>`).join('');
-  document.getElementById('firstChartCalendar').innerHTML=`<div class="ycal-grid">${hdr}${rows}</div>`;
-}
-
-// ── PB PROGRESSION ──
-// The six pr_* fields cost a metered Strava request each to collect and were then
-// read exactly once, as a minimum, to fill a card. Every one of them also carries
-// the date it was set, which is the more interesting half: a best is a number, but
-// a best that has stood for four years and a best set last Tuesday are different
-// facts about the same athlete.
-//
-// Plotted as pace rather than time, because six distances from a kilometre to a
-// marathon cannot share a time axis — four minutes and four hours would flatten
-// everything short into one line along the bottom. In pace they separate the way
-// they actually differ, and the whole speed-over-distance profile is legible at
-// once: the gap between the lines is your endurance, and each line's fall is your
-// improvement at that distance. Quicker is up, matching the app's other pace axes.
-const PR_TRACKS=[
-  {f:'pr_1km', label:'1 km',      km:1,       col:'#8b5cf6'},
-  {f:'pr_1mi', label:'1 mile',    km:1.60934, col:'#0ea5e9'},
-  {f:'pr_5km', label:'5 km',      km:5,       col:'#22c55e'},
-  {f:'pr_10km',label:'10 km',     km:10,      col:'#eab308'},
-  {f:'pr_hm',  label:'Half',      km:21.0975, col:'#f97316'},
-  {f:'pr_mar', label:'Marathon',  km:42.195,  col:'#ef4444'},
-];
-
-function renderPrProgression(){
-  const badge=document.getElementById('prProgBadge');
-  // All time, whatever the year bar above says. A progression scoped to one year
-  // is a chart of that year's improvements, which is a different question — and
-  // the year a best was set is the thing this is here to show.
-  const runs=ALL_DATA.filter(a=>typeGroup(a.type)==='Run')
-    .slice().sort((x,y)=>x.date.localeCompare(y.date));
-
-  const dayNum=d=>Math.round(new Date(d+'T12:00:00').getTime()/86400000);
-  const tracks=[];
-  PR_TRACKS.forEach(t=>{
-    let best=null;const pts=[];
-    runs.forEach(a=>{
-      const v=a[t.f];
-      if(!(v>0)||v>=86400)return;
-      if(best===null||v<best){best=v;pts.push({x:dayNum(a.date),y:v,_a:a,_t:v});}
-    });
-    if(pts.length)tracks.push({...t,pts,best});
-  });
-
-  if(!tracks.length){
-    setChartEmpty('chartPrProg','No segment bests collected yet. The Worker fills these in a slice at a time — see the note under the tables.');
-    chartSummary('prProg',[],'');
-    if(badge)badge.textContent='';
-    return;
-  }
-  setChartEmpty('chartPrProg');
-
-  // Pace in the displayed unit, seconds per mile or per kilometre.
-  const paceOf=(sec,km)=>sec/(unit==='mi'?km*0.621371:km);
-  const today=dayNum(new Date().toISOString().slice(0,10));
-  const minX=Math.min(...tracks.flatMap(t=>t.pts.map(p=>p.x)));
-
-  const datasets=tracks.map(t=>({
-    label:t.label,
-    // The line is carried forward to today at the standing best. A best does not
-    // stop being your best on the day after you set it, and a line that ends in
-    // 2021 reads as if the distance were abandoned.
-    data:[...t.pts.map(p=>({x:p.x,y:+(paceOf(p.y,t.km)/60).toFixed(3),_a:p._a,_sec:p._t,_km:t.km})),
-          {x:today,y:+(paceOf(t.best,t.km)/60).toFixed(3),_a:null,_sec:t.best,_km:t.km}],
-    borderColor:t.col,backgroundColor:t.col,
-    stepped:'after',borderWidth:2,pointRadius:c=>c.dataIndex===c.dataset.data.length-1?0:3.5,
-    pointHoverRadius:5,fill:false,
-  }));
-
-  destroyChart('prprog');
-  charts.prprog=new Chart(document.getElementById('chartPrProg').getContext('2d'),{
-    type:'line',
-    data:{datasets},
-    options:{
-      plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},
-        tooltip:{callbacks:{
-          title:c=>c[0].raw._a?fmtDate(c[0].raw._a.date):'Still standing',
-          label:c=>{const r=c.raw;
-            return`${c.dataset.label}: ${fmtPRTime(r._sec)}${r._a?' · '+(r._a.name||'Untitled'):''}`;}}}},
-      responsive:true,maintainAspectRatio:false,
-      // A point is an activity, so clicking one opens it, exactly as a row does
-      // everywhere else in the app.
-      onClick:(e,els)=>{
-        if(!els.length)return;
-        const r=charts.prprog.data.datasets[els[0].datasetIndex].data[els[0].index];
-        if(r&&r._a&&r._a.id)openActivityModal(r._a.id);
-      },
-      onHover:(e,els)=>{e.native.target.style.cursor=els.length&&
-        charts.prprog.data.datasets[els[0].datasetIndex].data[els[0].index]._a?'pointer':'default';},
-      scales:{
-        x:{type:'linear',min:minX,max:today,grid:{display:false},
-          ticks:{font:{size:10},maxRotation:0,maxTicksLimit:10,
-            callback:v=>new Date(v*86400000).getFullYear()}},
-        y:{reverse:true,grid:{color:'#f0f0f0'},
-          title:{display:true,text:'Pace ('+(unit==='mi'?'per mile':'per km')+')',font:{size:10},color:'#6b7280'},
-          ticks:{font:{size:10},callback:v=>{const m=Math.floor(v),sec=Math.round((v-m)*60);
-            return m+':'+String(sec).padStart(2,'0');}}}}}
-  });
-
-  const improvements=tracks.reduce((n,t)=>n+t.pts.length,0);
-  if(badge)badge.textContent=`${tracks.length} distance${tracks.length===1?'':'s'} · ${improvements} best${improvements===1?'':'s'} set`;
-
-  // Which best is the most recent, and which has stood longest — the two facts a
-  // progression chart has that a row of current bests does not.
-  const newest=tracks.reduce((b,t)=>{const d=t.pts[t.pts.length-1]._a.date;return(!b||d>b.d)?{d,t}:b;},null);
-  const oldest=tracks.reduce((b,t)=>{const d=t.pts[t.pts.length-1]._a.date;return(!b||d<b.d)?{d,t}:b;},null);
-
-  document.getElementById('prProgSub').textContent=
-    `Quicker is higher, as on every other pace chart here, so each line steps up the day you beat your own best at that distance. All time, whatever the year is set to above — the year a best was set is the point. Click a step to open the run.`;
-
-  chartSummary('prProg',[
-    {n:fmtPRTime(tracks[tracks.length-1].best),label:'best at '+tracks[tracks.length-1].label,col:tracks[tracks.length-1].col},
-    {n:recStanding(newest.d).text,label:'most recent best · '+newest.t.label,col:'#22c55e'},
-    {n:recStanding(oldest.d).text,label:'longest standing · '+oldest.t.label,col:'#94a3b8'},
-  ],
-  (()=>{
-    const stale=Math.floor((new Date()-new Date(oldest.d+'T12:00:00'))/86400000);
-    if(recStanding(newest.d).fresh)
-      return `Your ${newest.t.label} best is from ${recStanding(newest.d).text} — the lines are still moving. The ${oldest.t.label} is the one that has not shifted in ${recStanding(oldest.d).text}.`;
-    if(stale>365*3)
-      return `Nothing has moved in ${recStanding(newest.d).text}. Every one of these was set on a specific day you went out and did it, which is the only way the lines ever step down.`;
-    return `The newest of these is ${recStanding(newest.d).text} old and the oldest ${recStanding(oldest.d).text}. A flat line is not a plateau on its own — it is a distance you have not raced lately.`;
-  })());
-}
 
 // ── HEATMAP ──
+const MNAMES=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function renderHeatmap(){
   // The year filter is deliberately not applied here. This tab lists every year at once,
   // and one colour scale shared across all of them is what lets them be read against each
   // other — a per-year scale would make a quiet year look as busy as a big one. The sport
   // filter still applies, and the year stepper still chooses which year sits at the top.
-  const data=ALL_DATA.filter(typeMatches);
+  const data=ALL_DATA.filter(a=>{
+    const g=typeGroup(a.type);
+    if(activeType==='All')return true;
+    if(activeType==='Ride')return g==='Ride'||g==='Virtual';
+    return g===activeType;
+  });
   const byDay={};
   data.forEach(a=>{
     if(!byDay[a.date])byDay[a.date]={dist:0,types:{},time:{}};
     byDay[a.date].dist+=a.dist_mi||0;
     const g=typeGroup(a.type);
     byDay[a.date].types[g]=(byDay[a.date].types[g]||0)+1;
-    // Moving time is what decides the cell's colour; the count is kept because the
-    // day-detail panel still reports how many activities there were.
+    // Moving time decides the cell's colour; the count stays because the day-detail
+    // panel still reports how many activities there were.
     byDay[a.date].time[g]=(byDay[a.date].time[g]||0)+(a.mt||0);
   });
   const maxDist=Math.max(...Object.values(byDay).map(d=>d.dist),1);
+  const accent=getAccentColor();
 
   // Which year to display (one at a time)
   const allDataYears=[...new Set(ALL_DATA.map(a=>a.date.slice(0,4)))].sort();
@@ -2759,7 +3169,7 @@ function renderHeatmap(){
     const sd=new Date(year,0,1),ed=new Date(year,11,31);
     const start=new Date(sd);
     const dow0=start.getDay();start.setDate(start.getDate()-(dow0===0?6:dow0-1));
-    const MNAMES=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
     const G=2;
 
     // Build weeks array [[{ds,inY,dd,mo}×7]×N]
@@ -2846,43 +3256,43 @@ function renderHeatmap(){
   const priorEl=document.getElementById('heatmapPriorYears');
   if(priorEl){
     const prior=allDataYears.filter(y=>y<displayYear).sort().reverse();
+    // Every earlier year used to render its full grid unconditionally. With
+    // eleven years of history that made this tab 22,150px tall on a phone —
+    // twenty-four screens of scrolling, against 6,525px for the next worst tab.
+    // They collapse now, with a summary that still says something: active days,
+    // distance, and a twelve-segment bar of the year's shape. Open by default on
+    // a wide screen, where reading the years against each other is the point and
+    // the whole tab fits in 2,700px anyway.
+    const openByDefault=!window.matchMedia('(max-width:640px)').matches;
     priorEl.innerHTML=prior.map(y=>{
       const days=Object.keys(byDay).filter(d=>d.slice(0,4)===y);
       const dist=days.reduce((s,d)=>s+byDay[d].dist,0);
-      return`<div class="hm-prior reveal">
-        <div class="hm-prior-head">
+      const months=Array.from({length:12},(_,m)=>{
+        const mk=y+'-'+String(m+1).padStart(2,'0');
+        return Object.keys(byDay).filter(d=>d.startsWith(mk)).reduce((t,d)=>t+byDay[d].dist,0);
+      });
+      const mMax=Math.max(...months,1);
+      const spark=months.map((v,m)=>
+        `<i style="height:${Math.max(8,Math.round(v/mMax*100))}%;background:${v?accent:'#e8e8e8'};opacity:${v?(0.35+0.65*v/mMax).toFixed(2):1}" title="${MNAMES[m]} ${y} · ${fmtDist(v)} ${distUnit()}"></i>`).join('');
+      return`<details class="hm-prior"${openByDefault?' open':''}>
+        <summary class="hm-prior-head">
           <span class="hm-prior-year">${y}</span>
           <span class="hm-prior-meta">${days.length.toLocaleString('en-GB')} active days · ${fmtDist(dist)} ${distUnit()}</span>
-        </div>
+          <span class="hm-prior-spark">${spark}</span>
+        </summary>
         ${renderHeatYear(y)}
-      </div>`;
+      </details>`;
     }).join('');
-    revealOnScroll(priorEl);
   }
 
   // Legend
   const steps=[0,.2,.4,.6,.8,1];
-  // The ramp is drawn in a neutral now that hue carries the sport. Keeping it in
-  // the accent would have set up exactly the confusion the recolour removes: a row
-  // of red squares beside a grid where red already means "run".
   document.getElementById('heatmapLegend').innerHTML=steps.map(i=>{
     if(i===0)return`<div class="heatmap-legend-cell" style="background:#f0f0f0"></div>`;
-    const v=Math.round(240+(90-240)*i);
-    return`<div class="heatmap-legend-cell" style="background:rgb(${v},${v},${v})"></div>`;
+    const r2l=parseInt(accent.slice(1,3),16),g2l=parseInt(accent.slice(3,5),16),b2l=parseInt(accent.slice(5,7),16);
+    const bg=`rgb(${Math.round(240+(r2l-240)*i)},${Math.round(240+(g2l-240)*i)},${Math.round(240+(b2l-240)*i)})`;
+    return`<div class="heatmap-legend-cell" style="background:${bg}"></div>`;
   }).join('');
-
-  // Only the sports actually present, in the order they take up the calendar —
-  // a swatch for swimming on a history with no swims is a key to nothing.
-  const sportEl=document.getElementById('heatmapSportLegend');
-  if(sportEl){
-    const secs={};
-    Object.values(byDay).forEach(d=>Object.entries(d.time||{}).forEach(([g,t])=>{secs[g]=(secs[g]||0)+t;}));
-    const present=Object.entries(secs).sort((a,b)=>b[1]-a[1]).map(([g])=>g);
-    sportEl.innerHTML=present.length>1
-      ? `<span>Colour</span>`+present.map(g=>
-          `<span class="hm-sport-key"><span class="hm-sport-dot" style="background:${groupColor(g)}"></span>${g}</span>`).join('')
-      : '';
-  }
 }
 
 function showDayDetail(date){
@@ -2920,6 +3330,7 @@ const REC_SPECS={
   Ride:[
     {k:'dist',label:'Longest ride'},
     {k:'elv',label:'Biggest climb'},
+    {k:'high',label:'Highest point reached'},
     {k:'speed',label:'Highest avg speed',floor:10},
     {k:'pwr',label:'Highest avg power'},
     {k:'time',label:'Longest time riding'},
@@ -2928,6 +3339,7 @@ const REC_SPECS={
     {k:'dist',label:'Longest run'},
     {k:'pace',label:'Fastest avg pace',floor:3},
     {k:'elv',label:'Biggest climb'},
+    {k:'high',label:'Highest point reached'},
     {k:'pr_1km',label:'1 km'},
     {k:'pr_1mi',label:'1 mile'},
     {k:'pr_5km',label:'5 km'},
@@ -2943,6 +3355,7 @@ const REC_SPECS={
   Walk:[
     {k:'dist',label:'Longest walk'},
     {k:'time',label:'Longest time on feet'},
+    {k:'high',label:'Highest point reached'},
   ],
   Swim:[
     {k:'dist',label:'Longest swim'},
@@ -2970,6 +3383,9 @@ function recMeasure(k){
     speed:{get:a=>a.speed_mph||0, fmt:v=>fmtSpeed(v)},
     pwr  :{get:a=>a.pwr||0,       fmt:v=>fmtNum(v)+'W'},
     time :{get:a=>a.mt||0,        fmt:v=>fmtTime(v)},
+    // The highest point the activity reached, not the height climbed on it —
+    // elev_hi is an altitude, elv is a sum of ascents.
+    high :{get:a=>a.elev_hi||0,   fmt:v=>fmtElv(v)},
     // Lower is better, and fmtPace refuses anything over an hour per mile — a swim
     // pace per mile is technically a number and tells you nothing.
     pace :{get:a=>a.pace_mi||0,   lower:true, fmt:v=>fmtPace(v)},
@@ -3138,6 +3554,87 @@ function renderRecords(){
   }
 
   renderPrProgression();
+}
+
+// ── PERSONAL BEST PROGRESSION ──
+// The pr_* fields are backfilled at forty Strava requests per cron run and then
+// shown only as a single best-ever number. This is the same data asked the more
+// interesting question: not what your best is, but when it moved.
+const PR_PROG=[
+  {k:'pr_1km', label:'1 km',          col:'#0ea5e9'},
+  {k:'pr_1mi', label:'1 mile',        col:'#22c55e'},
+  {k:'pr_5km', label:'5 km',          col:'#1d4ed8'},
+  {k:'pr_10km',label:'10 km',         col:'#6d28d9'},
+  {k:'pr_hm',  label:'Half marathon', col:'#f59e0b'},
+  {k:'pr_mar', label:'Marathon',      col:'#ff385c'},
+];
+function renderPrProgression(){
+  const badge=document.getElementById('prProgBadge');
+  const sub=document.getElementById('prProgSub');
+  // Deliberately all-time and unscoped by the year stepper: a progression that
+  // starts again each January is not a progression.
+  const runs=ALL_DATA.filter(a=>typeGroup(a.type)==='Run').sort((x,y)=>x.date.localeCompare(y.date));
+  const series=PR_PROG.map(d=>{
+    const efforts=runs.filter(a=>a[d.k]>0&&a[d.k]<86400).map(a=>({date:a.date,t:a[d.k]}));
+    if(efforts.length<2)return null;
+    // The record as it stood on each date: it only ever steps down, and a point
+    // is only added where it actually moved.
+    // x is epoch milliseconds, not a date string: Chart.js only parses dates with
+    // a date adapter, and this page loads chart.umd on its own. A linear axis with
+    // a formatting callback needs no extra library.
+    const steps=[];let best=Infinity;
+    efforts.forEach(e=>{if(e.t<best){best=e.t;steps.push({x:Date.parse(e.date+'T12:00:00'),y:e.t,d:e.date});}});
+    if(steps.length<2)return null;
+    // Carry the final value to today so the flat run since your last PB is visible
+    // rather than the line stopping the day you set it.
+    const today=new Date(),todayMs=today.getTime(),todayStr=today.toISOString().slice(0,10);
+    if(steps[steps.length-1].d!==todayStr)steps.push({x:todayMs,y:best,d:todayStr});
+    return{...d,steps,best,n:efforts.length,first:efforts[0]};
+  }).filter(Boolean);
+
+  if(!series.length){
+    setChartEmpty('chartPrProg','No distance has two or more recorded best efforts yet. Strava\u2019s best-efforts arrive a slice at a time on the daily refresh, so this fills in as they do.');
+    if(badge)badge.textContent='waiting on best efforts';
+    chartSummary('prprog',[],'');
+    return;
+  }
+  setChartEmpty('chartPrProg');
+  if(badge)badge.textContent=series.length+' distance'+(series.length===1?'':'s')+' · all time';
+  if(sub)sub.textContent='Your best time at each distance as it stood on each date. Steps down only, because a personal best cannot get worse — a flat line is a record still standing.';
+  destroyChart('prProg');
+  charts.prProg=new Chart(document.getElementById('chartPrProg').getContext('2d'),{
+    type:'line',
+    data:{datasets:series.map(d=>({
+      label:d.label,data:d.steps.map(p=>({x:p.x,y:p.y})),
+      borderColor:d.col,backgroundColor:d.col,stepped:'after',
+      fill:false,pointRadius:2.5,pointHoverRadius:4,borderWidth:2,tension:0}))},
+    options:{parsing:false,
+      plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},
+        tooltip:{callbacks:{
+          title:c=>fmtDate(new Date(c[0].parsed.x).toISOString().slice(0,10)),
+          label:c=>c.dataset.label+': '+fmtPRTime(c.parsed.y)}}},
+      responsive:true,maintainAspectRatio:false,
+      scales:{
+        x:{type:'linear',grid:{display:false},
+          ticks:{font:{size:10},maxTicksLimit:8,callback:v=>new Date(v).getFullYear()}},
+        y:{reverse:true,grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>fmtPRTime(Math.round(v))}}}}
+  });
+  // The headline distance is the one you have the most efforts at.
+  const head=series.reduce((b,d)=>d.n>b.n?d:b,series[0]);
+  const cut=head.first.t-head.best;
+  chartSummary('prprog',[
+    {n:fmtPRTime(head.best),label:head.label+' best',col:head.col},
+    {n:(cut>0?'−':'')+fmtPRTime(Math.abs(cut)),label:'off your first '+head.label,col:cut>0?'#16a34a':'#9ca3af'},
+    {n:String(series.reduce((s,d)=>s+d.steps.length-1,0)),label:'times a record moved',col:'#1d4ed8'},
+  ],(()=>{
+    // The last real record, not the carried-to-today point that every series ends on.
+    let last=null,which=null;
+    series.forEach(d=>{const p=d.steps[d.steps.length-2];if(p&&(!last||p.d>last.d)){last=p;which=d;}});
+    if(!last)return'';
+    const days=Math.floor((Date.now()-last.x)/86400000);
+    if(days<120)return `Your most recent best was the ${which.label} on ${fmtDate(last.d)}. Everything here is still moving.`;
+    return `Nothing has moved since the ${which.label} on ${fmtDate(last.d)}, ${Math.round(days/30.4)} months ago. A flat line here is a record standing, not a chart with no data.`;
+  })());
 }
 
 // Longest run of consecutive active days, and whether it is the one you are on.
@@ -3447,6 +3944,7 @@ function renderDistHistogram(data,ceiling){
   })());
 }
 
+
 // Was this activity done with other people? Strava's athlete_count is the real
 // answer; the name regex is the fallback for activities cached before the Worker
 // started asking for it, and it only ever knew about the names you typed yourself.
@@ -3479,13 +3977,48 @@ function socAgo(dateStr){
   const d=Math.floor((new Date()-new Date(dateStr+'T12:00:00'))/86400000);
   if(d<=1)return'yesterday';
   if(d<7)return d+' days ago';
-  if(d<35)return Math.round(d/7)+' weeks ago';
-  if(d<365)return Math.max(1,Math.round(d/30.4))+' months ago';
+  if(d<35){const w=Math.max(1,Math.round(d/7));return w+(w===1?' week ago':' weeks ago');}
+  if(d<365){const mo=Math.max(1,Math.round(d/30.4));return mo+(mo===1?' month ago':' months ago');}
   const y=d/365.25;
   return Math.round(y)+(Math.round(y)===1?' year ago':' years ago');
 }
 
 let SOC_PARTNERS={};
+
+// ── MERGING THE SAME PERSON WRITTEN SEVERAL WAYS ──
+// These names are free text typed into a Strava title over eleven years, with
+// no identity behind them, so "Pip", "PiP" and "Pip 💍" arrive as three people
+// and "CCC" and "CCC Chaint" as two. The only thing to match on is the text.
+//
+// Two rules, deliberately conservative:
+//   1. Canonical form — emoji, accents, apostrophes, punctuation and case all
+//      removed. This is what collapses Pip / PiP / Pip 💍.
+//   2. Whole-word prefix absorption — "ccc" swallows "ccc chaint", because the
+//      shorter name is how you usually write them and the longer one is the
+//      same person with a surname or a club suffix attached. It is a WORD
+//      prefix, not a character prefix, so "al" never swallows "alice".
+const SOC_EMOJI=/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE00}-\u{FE0F}\u{200D}]/gu;
+function socCanon(name){
+  return String(name||'')
+    .replace(SOC_EMOJI,' ')
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/['’`.]/g,'')
+    .replace(/[^A-Za-z0-9 ]+/g,' ')
+    .trim().replace(/\s+/g,' ')
+    .toLowerCase();
+}
+// Resolve every canonical form to the group it belongs to. Sorting shortest
+// first means a host is always already resolved when something absorbs into it,
+// so "ccc chaint cc" lands on "ccc" in one pass rather than needing a fixpoint.
+function socGroupMap(canons){
+  const keys=[...new Set(canons)].filter(Boolean).sort((a,b)=>a.length-b.length||a.localeCompare(b));
+  const map={};
+  keys.forEach(c=>{
+    const host=keys.find(k=>k!==c&&k.length>=2&&k.length<c.length&&c.startsWith(k+' '));
+    map[c]=host?(map[host]||host):c;
+  });
+  return map;
+}
 
 function renderSocial(){
   const data=getFiltered();
@@ -3529,19 +4062,45 @@ function renderSocial(){
   }
 
   // ── Named partners, from the titles ──
+  // Two passes: collect every spelling that appears, work out which spellings
+  // are the same person, then aggregate against the merged group.
+  const raw=[];
+  data.forEach(a=>extractPartners(a.name).forEach(p=>raw.push({p,a})));
+  const groupOf=socGroupMap(raw.map(r=>socCanon(r.p)));
   const pm={};
-  data.forEach(a=>extractPartners(a.name).forEach(p=>{
-    if(!pm[p])pm[p]={name:p,count:0,dist:0,time:0,types:{},first:a.date,last:a.date,acts:[]};
-    const e=pm[p];
+  raw.forEach(({p,a})=>{
+    const key=groupOf[socCanon(p)]||socCanon(p);
+    if(!key)return;
+    if(!pm[key])pm[key]={key,count:0,dist:0,time:0,types:{},first:a.date,last:a.date,acts:[],variants:{}};
+    const e=pm[key];
     e.count++;e.dist+=a.dist_mi||0;e.time+=a.mt||0;
+    e.variants[p]=(e.variants[p]||0)+1;
     const g=typeGroup(a.type);e.types[g]=(e.types[g]||0)+1;
     if(a.date<e.first)e.first=a.date;
     if(a.date>e.last)e.last=a.date;
     e.acts.push(a);
-  }));
+  });
+  // Which spelling to show. Frequency alone is not enough: "pip" can outnumber
+  // "Pip" and "sam!" can outnumber "Sam", and neither is the name you would
+  // write on a card. Score tidiness first — matches the group's canonical form,
+  // starts with a capital, carries no stray punctuation or emoji — and only use
+  // frequency to break the tie.
+  const tidiness=(v,key)=>
+    (socCanon(v)===key?8:0)+
+    (/^\p{Lu}/u.test(v.trim())?4:0)+
+    (/^\p{L}[\p{L} '’-]*$/u.test(v.trim())?2:0);
+  Object.values(pm).forEach(e=>{
+    const vs=Object.keys(e.variants).sort((x,y)=>
+      tidiness(y,e.key)-tidiness(x,e.key)||
+      e.variants[y]-e.variants[x]||
+      x.length-y.length||x.localeCompare(y));
+    e.name=vs[0];
+    e.alsoWritten=vs.slice(1);
+  });
   // Sorted by recency, not by lifetime total — which is what both old charts did.
   const partners=Object.values(pm).sort((x,y)=>y.last.localeCompare(x.last));
   SOC_PARTNERS={};partners.forEach((p,i)=>{p.colour=SOC_AVATAR[i%SOC_AVATAR.length];SOC_PARTNERS[p.name]=p;});
+  const mergedCount=partners.reduce((s,p)=>s+(p.alsoWritten.length?1:0),0);
 
   const pBadge=document.getElementById('socPartnerBadge');
   if(pBadge)pBadge.textContent=partners.length
@@ -3553,24 +4112,36 @@ function renderSocial(){
     if(!partners.length){
       wrap.innerHTML=`<div class="chart-empty" style="height:90px;border:1px solid var(--border);background:var(--surface)">No activity titles contain &ldquo;w/ Name&rdquo;, so there is nobody to list. Adding a name in Strava adds a row here.</div>`;
     }else{
-      const maxMix=p=>Object.entries(p.types).sort((a,b)=>b[1]-a[1]);
+      // The sport mix used to be a column of its own. It is three dots now, sized
+      // by share and sitting next to the name, which frees the width that the
+      // distance and last-out columns used to be dropped to make room for.
+      const dots=p=>Object.entries(p.types).sort((a,b)=>b[1]-a[1]).slice(0,3)
+        .map(([g,n])=>`<i style="background:${groupColor(g)};opacity:${(0.45+0.55*n/p.count).toFixed(2)}" title="${escapeAttr(g)} · ${n}"></i>`).join('');
       wrap.innerHTML=`<div class="soc-tbl">
-        <div class="soc-head"><div></div><div>Partner</div><div>Sports together</div><div>Together</div><div>Distance</div><div>Last out</div><div></div></div>
+        <div class="soc-head"><div></div><div>Partner</div><div>Together</div><div>Distance</div><div>Last out</div><div></div></div>
         ${partners.map(p=>{
           const st=socStanding(p.last);
-          const mix=maxMix(p).map(([g,n])=>`<span style="width:${n/p.count*100}%;background:${groupColor(g)}" title="${g} · ${n}"></span>`).join('');
+          const also=p.alsoWritten.length
+            ? `<em class="soc-also" title="${escapeAttr('Merged from: '+p.alsoWritten.join(', '))}">also ${escapeHtml(p.alsoWritten.slice(0,2).join(', '))}${p.alsoWritten.length>2?' +'+(p.alsoWritten.length-2):''}</em>`
+            : '';
           return `<div class="soc-row" data-partner="${escapeAttr(p.name)}">
-            <div><span class="soc-av" style="background:${p.colour}">${escapeHtml(socInitials(p.name))}</span></div>
-            <div class="soc-nm">${escapeHtml(p.name)}<small>first out ${fmtDate(p.first)}</small></div>
-            <div class="soc-mix">${mix}</div>
-            <div class="soc-num">${p.count.toLocaleString('en-GB')}</div>
-            <div class="soc-num">${fmtDist(p.dist)} ${distUnit()}</div>
-            <div class="soc-mut">${socAgo(p.last)}</div>
-            <div><span class="soc-warm" style="color:${st.col};background:${st.bg}">${st.label}</span></div>
+            <div class="soc-avc"><span class="soc-av" style="background:${p.colour}">${escapeHtml(socInitials(p.name))}</span></div>
+            <div class="soc-nm">
+              <span class="soc-nm-top">${escapeHtml(p.name)}<span class="soc-dots">${dots(p)}</span></span>
+              <small>since ${fmtDate(p.first)}${also?' · ':''}${also}</small>
+            </div>
+            <div class="soc-meta">
+              <div class="soc-cell" data-lbl="Together"><b>${p.count.toLocaleString('en-GB')}</b> <span>out</span></div>
+              <div class="soc-cell" data-lbl="Distance"><b>${fmtDist(p.dist)}</b> <span>${distUnit()}</span></div>
+              <div class="soc-cell soc-ago" data-lbl="Last out">${socAgo(p.last)}</div>
+            </div>
+            <div class="soc-last"><span class="soc-warm" style="color:${st.col};background:${st.bg}">${st.label}</span></div>
           </div>`;
         }).join('')}
       </div>
-      <div class="soc-note">One table where there were two charts: activities and distance ranked the same people in the same order, so the second said nothing the first had not. A row opens that partner, the way gear and activities do.</div>`;
+      <div class="soc-note">${mergedCount
+        ? `<strong>${mergedCount} ${mergedCount===1?'person was':'people were'} written more than one way</strong> and have been merged — case, emoji and a trailing surname or club name are ignored, so Pip, PiP and Pip&nbsp;💍 are one row. The merged spellings are listed under each name; open a row to see them all. `
+        : ''}Rows carry every figure at every width rather than dropping columns on a narrow screen. A row opens that partner, the way gear and activities do.</div>`;
     }
   }
 
@@ -3641,6 +4212,12 @@ function openPartnerModal(name){
     </div>
     <div class="gear-modal-body">
       <div class="gear-modal-stats">${stats.map(s=>`<div><div class="gear-modal-stat-label">${s.label}</div><div class="gear-modal-stat-value">${s.value}</div></div>`).join('')}</div>
+      ${p.alsoWritten&&p.alsoWritten.length?`
+      <div class="gear-modal-section-title">Also written as</div>
+      <div class="soc-variants">${[p.name,...p.alsoWritten].map(v=>
+        `<span class="soc-variant${v===p.name?' is-primary':''}">${escapeHtml(v)}<b>${(p.variants[v]||0).toLocaleString('en-GB')}</b></span>`).join('')}
+      </div>
+      <div class="soc-variant-note">These spellings were merged into one person. If any of them is someone else, the fix is in the Strava activity title — this reads the text, because that is all Strava gives it.</div>`:''}
       <div class="gear-modal-section-title">What you do together</div>
       <div class="gear-modal-types">${top.map(([g,n])=>
         `<div class="gear-modal-type-chip" style="color:${groupColor(g)}">${typeEmoji(g)} ${g} · ${n} · ${fmtDist(p.acts.filter(a=>typeGroup(a.type)===g).reduce((s,a)=>s+(a.dist_mi||0),0))} ${distUnit()}</div>`).join('')}</div>
@@ -3664,7 +4241,13 @@ function openPartnerModal(name){
 // as a forecast is worse than no forecast.
 const SHOE_LIFE_MI=500;
 
-function gearForecast(topType,s,col){
+function gearForecast(topType,s,col,name){
+  // A retired shoe does not need telling it is past its life. Report what it did
+  // and stop nagging — the wear bar is advice, and the decision is already made.
+  if(name&&isRetiredGear(name)){
+    const pctR=Math.round(s.dist/SHOE_LIFE_MI*100);
+    return`<div class="gear-forecast"><div class="gear-forecast-sub">Retired${topType==='Run'?` at ${pctR}% of the ${fmtDist(SHOE_LIFE_MI)} ${distUnit()} guideline`:''}, after ${fmtDist(s.dist)} ${distUnit()} and ${s.count.toLocaleString('en-GB')} outing${s.count===1?'':'s'}.</div></div>`;
+  }
   const now=new Date(),cutoff=new Date(now.getFullYear(),now.getMonth(),now.getDate()-90).toISOString().slice(0,10);
   const recent=s.acts.filter(a=>a.date>=cutoff).reduce((t,a)=>t+(a.dist_mi||0),0);
   const perWeek=recent/(90/7);
@@ -3717,7 +4300,11 @@ function renderGear(){
     gm[g].acts.push(a);
   });
   GEAR_DATA=gm;
-  const sorted=Object.entries(gm).sort((a,b)=>b[1].dist-a[1].dist);
+  // Retired items sink below everything still in use. They keep their figures —
+  // a retired shoe is still 3,379 miles of your life — but they stop competing
+  // with current gear for the top of the page.
+  const sorted=Object.entries(gm).sort((a,b)=>
+    (isRetiredGear(a[0])?1:0)-(isRetiredGear(b[0])?1:0)||b[1].dist-a[1].dist);
   document.getElementById('gearBadge').textContent=sorted.length+' items';
   const GEAR_COLORS=['#1d4ed8','#ef4444','#eab308','#0ea5e9','#8b5cf6','#22c55e','#f97316','#14b8a6','#84cc16','#a855f7'];
   // Gear cards (top 8)
@@ -3725,18 +4312,22 @@ function renderGear(){
     const topType=dominantType(s.types);
     const col=groupColor(topType);
     const img=gearPhoto(name);
-    return`<div class="gear-card" style="border-top:3px solid ${col}" data-gear="${escapeAttr(name)}">
-      ${img?`<img class="gear-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" loading="lazy" data-tile="gear-icon-tile" data-soft="${groupSoft(topType)}" data-colour="${col}" data-icon="${gearIconName(topType)}" onerror="gearPhotoFailed(this)">`:gearIconTile(topType,'gear-icon-tile')}
+    return`<div class="gear-card${isRetiredGear(name)?' is-retired':''}" style="border-top:3px solid ${col}" data-gear="${escapeAttr(name)}">
+      ${img?`<img class="gear-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" loading="lazy" data-tile="gear-icon-tile" data-soft="${groupSoft(topType)}" data-colour="${col}" data-icon="${gearIconName(topType)}" data-fallback="${escapeAttr(gearPhotoFallback(name))}" onerror="gearPhotoFailed(this)">`:gearIconTile(topType,'gear-icon-tile')}
       <div class="gear-name" title="${escapeAttr(gearLabel(name))}">${escapeHtml(gearLabel(name))}</div>
       ${isUnresolvedGear(name)?`<div class="gear-unresolved">${escapeHtml(name)}</div>`:''}
-      <div class="gear-type" style="color:${col}">${typeEmoji(topType)} ${topType}</div>
-      <div class="gear-stat"><span class="gear-stat-label">Distance</span><span class="gear-stat-value">${fmtDist(s.dist)} ${distUnit()}</span></div>
-      <div class="gear-stat"><span class="gear-stat-label">Activities</span><span class="gear-stat-value">${s.count.toLocaleString('en-GB')}</span></div>
-      <div class="gear-stat"><span class="gear-stat-label">Moving time</span><span class="gear-stat-value">${fmtTime(s.time)}</span></div>
-      <div class="gear-stat"><span class="gear-stat-label">Elevation</span><span class="gear-stat-value">${fmtElv(s.elv)}</span></div>
-      <div class="gear-stat"><span class="gear-stat-label">First used</span><span class="gear-stat-value">${fmtDate(s.first)}</span></div>
-      <div class="gear-stat"><span class="gear-stat-label">Last used</span><span class="gear-stat-value">${fmtDate(s.last)}</span></div>
-      ${gearForecast(topType,s,col)}
+      <div class="gear-type" style="color:${col}">${typeEmoji(topType)} ${topType}${gearMetaLine(name)}${gearRetiredTag(name)}</div>
+      <div class="gear-hero">
+        <div class="gear-hero-label">Distance</div>
+        <div class="gear-hero-value">${fmtDist(s.dist)} <em>${distUnit()}</em></div>
+      </div>
+      <div class="gear-trio">
+        <div><div class="gear-trio-label">${topType==='Run'?'Runs':topType==='Walk'?'Walks':topType==='Swim'?'Swims':'Uses'}</div><div class="gear-trio-value">${s.count.toLocaleString('en-GB')}</div></div>
+        <div><div class="gear-trio-label">Moving</div><div class="gear-trio-value" title="${escapeAttr(fmtTime(s.time))}">${Math.round(s.time/3600).toLocaleString('en-GB')}h</div></div>
+        <div><div class="gear-trio-label">Climbed</div><div class="gear-trio-value">${fmtElv(s.elv)}</div></div>
+      </div>
+      ${gearForecast(topType,s,col,name)}
+      <div class="gear-span"><span>${fmtDate(s.first)}</span><span>${fmtDate(s.last)}</span></div>
     </div>`;
   }).join('');
   // Chart: by distance
@@ -3744,10 +4335,51 @@ function renderGear(){
   document.getElementById('gearDistSub').textContent=(unit==='mi'?'Miles':'Kilometres')+' logged per item';
   destroyChart('gearDist');
   charts.gearDist=new Chart(document.getElementById('chartGearDist').getContext('2d'),{type:'bar',data:{labels:top10d.map(([n])=>n.length>22?n.slice(0,22)+'…':n),datasets:[{data:top10d.map(([,s])=>+(unit==='mi'?s.dist:s.dist*1.60934).toFixed(0)),backgroundColor:GEAR_COLORS,borderRadius:0}]},options:{indexAxis:'y',plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()+' '+distUnit()}},y:{grid:{display:false},ticks:{font:{size:11}}}}}});
-  // Chart: by count
-  const top10c=Object.entries(gm).sort((a,b)=>b[1].count-a[1].count).slice(0,10);
+  // This used to be "Top Gear by Activities" — the same items in the same order
+  // as the chart above it, because with a handful of items each in a different
+  // sport, any ranking is just a ranking of your sports. A small collection
+  // cannot support a league table, but it can support a history: when each item
+  // arrived, when it took over, and when it quietly stopped being used.
+  renderGearTimeline(gm,GEAR_COLORS);
+}
+
+function renderGearTimeline(gm,COLORS){
+  const names=Object.entries(gm).sort((a,b)=>b[1].dist-a[1].dist).slice(0,8).map(([n])=>n);
+  const sub=document.getElementById('gearTimeSub');
+  const perQ={};let minQ=null,maxQ=null;
+  names.forEach(n=>gm[n].acts.forEach(a=>{
+    const y=a.date.slice(0,4),q=Math.floor(+a.date.slice(5,7)/3.01)+1;
+    const key=y+'Q'+q;
+    if(!perQ[key])perQ[key]={};
+    perQ[key][n]=(perQ[key][n]||0)+(a.dist_mi||0);
+    if(!minQ||key<minQ)minQ=key;if(!maxQ||key>maxQ)maxQ=key;
+  }));
+  if(!minQ){
+    setChartEmpty('chartGearCount','No gear is named on the activities in this filter.');
+    return;
+  }
+  setChartEmpty('chartGearCount');
+  // Every quarter between first and last, so a gap reads as a gap.
+  const quarters=[];
+  let [qy,qq]=[+minQ.slice(0,4),+minQ.slice(5)];
+  const [ey,eq]=[+maxQ.slice(0,4),+maxQ.slice(5)];
+  while(qy<ey||(qy===ey&&qq<=eq)){quarters.push(qy+'Q'+qq);qq++;if(qq>4){qq=1;qy++;}}
+  if(sub)sub.textContent=(unit==='mi'?'Miles':'Kilometres')+' per quarter by item · '+quarters.length+' quarters, '+quarters[0].replace('Q',' Q')+' to '+quarters[quarters.length-1].replace('Q',' Q');
+  const conv=v=>+(unit==='mi'?v:v*1.60934).toFixed(0);
   destroyChart('gearCount');
-  charts.gearCount=new Chart(document.getElementById('chartGearCount').getContext('2d'),{type:'bar',data:{labels:top10c.map(([n])=>n.length>22?n.slice(0,22)+'…':n),datasets:[{data:top10c.map(([,s])=>s.count),backgroundColor:GEAR_COLORS,borderRadius:0}]},options:{indexAxis:'y',plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()}},y:{grid:{display:false},ticks:{font:{size:11}}}}}});
+  charts.gearCount=new Chart(document.getElementById('chartGearCount').getContext('2d'),{
+    type:'bar',
+    data:{labels:quarters.map(q=>q.replace('Q',' Q')),datasets:names.map((n,i)=>({
+      label:gearLabel(n),
+      data:quarters.map(q=>conv((perQ[q]||{})[n]||0)),
+      backgroundColor:COLORS[i%COLORS.length],borderRadius:0,borderSkipped:false}))},
+    options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},
+      tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toLocaleString()+' '+distUnit()}}},
+      responsive:true,maintainAspectRatio:false,
+      scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:9},maxTicksLimit:14,autoSkip:true}},
+        y:{stacked:true,grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()}}},
+      interaction:{mode:'index'}}
+  });
 }
 
 document.getElementById('gearCards').addEventListener('click',e=>{
@@ -3799,9 +4431,11 @@ function openGearModal(name){
     {label:'In use',value:daysBetween(s.first,s.last).toLocaleString('en-GB')+' days'},
   ];
   document.getElementById('gearModal').innerHTML=`
-    ${img?`<img class="gear-modal-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" data-tile="gear-modal-icon" data-soft="${groupSoft(topType)}" data-colour="${col}" data-icon="${gearIconName(topType)}" onerror="gearPhotoFailed(this)">`:gearIconTile(topType,'gear-modal-icon')}
+    ${img?`<img class="gear-modal-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" data-tile="gear-modal-icon" data-soft="${groupSoft(topType)}" data-colour="${col}" data-icon="${gearIconName(topType)}" data-fallback="${escapeAttr(gearPhotoFallback(name))}" onerror="gearPhotoFailed(this)">`:gearIconTile(topType,'gear-modal-icon')}
     <div class="gear-modal-head">
-      <div><div class="gear-modal-title">${escapeHtml(gearLabel(name))}</div><div class="gear-modal-sub" style="color:${col}">${typeEmoji(topType)} Mostly ${topType.toLowerCase()}</div>${isUnresolvedGear(name)?`<div class="gear-unresolved" style="margin-top:4px">Strava id ${escapeHtml(name)} — name could not be fetched</div>`:''}</div>
+      <div><div class="gear-modal-title">${escapeHtml(gearLabel(name))}</div><div class="gear-modal-sub" style="color:${col}">${typeEmoji(topType)} Mostly ${topType.toLowerCase()}</div>${isUnresolvedGear(name)
+        ?`<div class="gear-unresolved" style="margin-top:4px">Strava id ${escapeHtml(name)} — the name lookup failed. It is retried on every sync, so this usually fixes itself.</div>`
+        :`<div class="gear-photo-hint is-hidden">No photo yet — drop one in as <code>gear-images/${escapeHtml(gearSlug(name))}.jpg</code> and it appears here, no code change needed.</div>`}</div>
       <button class="gear-modal-close" onclick="closeGearModal()">✕</button>
     </div>
     <div class="gear-modal-body">
@@ -3857,14 +4491,8 @@ function openActivityModal(id){
     a.pwr?{label:'Avg power',value:fmtNum(a.pwr)+'W'}:null,
     a.max_pwr?{label:'Max power',value:fmtNum(a.max_pwr)+'W'}:null,
     a.cal?{label:'Calories',value:fmtCal(a.cal)+' kcal'}:null,
+    (()=>{const sh=routeShape(a);return sh?{label:'Route shape',value:sh.label,title:sh.note}:null;})(),
     a.score?{label:'Relative Effort',value:fmtNum(a.score)}:null,
-    // Weather is joined in from Open-Meteo's archive on the coordinates and the
-    // hour the activity started, not reported by Strava. Each row appears only
-    // once that activity has been reached, in keeping with the rule that a field
-    // this modal does not have is left out rather than printed as a dash.
-    (typeof a.temp==='number')?{label:'Temperature',value:fmtTemp(a.temp)}:null,
-    (typeof a.wind==='number'&&a.wind>0)?{label:'Wind',value:fmtWind(a.wind)}:null,
-    (typeof a.precip==='number'&&a.precip>0)?{label:'Rain that hour',value:a.precip.toFixed(1)+' mm'}:null,
     a.kudos?{label:'Kudos',value:a.kudos.toLocaleString('en-GB')}:null,
     (typeof a.athletes==='number'&&a.athletes>1)?{label:'Group size',value:a.athletes+' people'}:null,
     a.gear?{label:'Gear',value:escapeHtml(gearLabel(a.gear))}:null,
@@ -3908,7 +4536,7 @@ function openActivityModal(id){
       <button class="gear-modal-close" onclick="closeActivityModal()" aria-label="Close">✕</button>
     </div>
     <div class="gear-modal-body">
-      <div class="gear-modal-stats">${stats.map(s=>`<div><div class="gear-modal-stat-label">${s.label}</div><div class="gear-modal-stat-value">${s.value}</div></div>`).join('')}</div>
+      <div class="gear-modal-stats">${stats.map(s=>`<div${s.title?` title="${escapeAttr(s.title)}"`:''}><div class="gear-modal-stat-label">${s.label}</div><div class="gear-modal-stat-value">${s.value}</div></div>`).join('')}</div>
       ${zoneBlock}
       ${prs?`<div class="gear-modal-section-title" style="margin-top:20px">Segment bests on this run</div><div class="gear-modal-types">${prs}</div>`:''}
       <div class="act-actions">
@@ -4002,6 +4630,48 @@ function sortLog(col){
 function changePage(dir){const data=getLogData();const t=Math.ceil(data.length/LOG_PAGE_SIZE)||1;logPage=Math.max(1,Math.min(t,logPage+dir));renderLog();}
 // Strava's workout_type: 1 is a race for runs, 11 is a race for rides.
 function isRace(a){return a.wtype===1||a.wtype===11;}
+
+// ── ROUTE SHAPE ──
+// Loop, out-and-back, or point-to-point, read off the polyline the map already
+// decodes. No new field is needed: end_latlng would only tell you whether the
+// finish is near the start, which cannot separate a loop from an out-and-back —
+// both return to where they began. The retrace test below can.
+function haversineMi(a,b){
+  const R=3958.8,toRad=d=>d*Math.PI/180;
+  const dLat=toRad(b[0]-a[0]),dLng=toRad(b[1]-a[1]);
+  const s1=Math.sin(dLat/2),s2=Math.sin(dLng/2);
+  const h=s1*s1+Math.cos(toRad(a[0]))*Math.cos(toRad(b[0]))*s2*s2;
+  return 2*R*Math.asin(Math.min(1,Math.sqrt(h)));
+}
+function routeShape(a){
+  const segs=a.polylines||(a.polyline?[a.polyline]:[]);
+  if(!segs.length)return null;
+  // A route passing through a home zone has that part cut out for privacy, so
+  // its real start or finish may be missing. Say so rather than calling a ride
+  // point-to-point because its ends were trimmed off.
+  if(segs.length>1||a.near_home)return{label:'Route trimmed near home',note:'Part of this route sits inside a privacy zone, so its shape cannot be read from what is left.'};
+  const pts=decodePolylinePts(segs[0]);
+  if(pts.length<20)return null;
+  const start=pts[0],end=pts[pts.length-1];
+  // Span, not total distance: a big number here means the ride went somewhere.
+  let span=0;
+  for(let i=0;i<pts.length;i+=Math.max(1,Math.floor(pts.length/60)))span=Math.max(span,haversineMi(start,pts[i]));
+  if(span<=0.05)return null;
+  const gap=haversineMi(start,end);
+  if(gap>span*0.35)return{label:'Point to point',note:`Finished ${fmtDist(gap)} ${distUnit()} from where it started.`};
+  // Both ends meet. A loop and an out-and-back look identical at the endpoints,
+  // so compare the outward path against the return: on an out-and-back the point
+  // a fifth of the way in sits almost on top of the point a fifth from the end.
+  let retrace=0,n=0;
+  for(let f=0.08;f<=0.46;f+=0.04){
+    const i=Math.floor(pts.length*f),j=Math.floor(pts.length*(1-f));
+    retrace+=haversineMi(pts[i],pts[j]);n++;
+  }
+  const mean=retrace/Math.max(1,n);
+  return mean<span*0.22
+    ? {label:'Out and back',note:`Out ${fmtDist(span)} ${distUnit()} and back along the same road.`}
+    : {label:'Loop',note:`A loop reaching ${fmtDist(span)} ${distUnit()} from the start at its furthest.`};
+}
 
 // Strava reports foot cadence as one leg's revolutions per minute, so a run at
 // "88" is actually 176 steps a minute. Bikes are already whole revolutions.
@@ -4492,11 +5162,17 @@ function scopeFor(tab){
   if(tab==='charts')return{text:`${activeYear==='All'?'Last 24 months':activeYear} · ${t} · ${u} · year-over-year uses every year`,ignored};
   if(tab==='zwift')return{text:'From Notion · the year and sport filters do not apply here',ignored};
   if(tab==='log'&&logSearch)return{text:`${y} · ${t} · ${u} · matching “${logSearch}”`,ignored};
-  return{text:`${y} · ${t} · ${u}`,ignored};
+  return{text:`${y} · ${t} · ${u}`,ignored,plain:true};
 }
 function renderScope(){
   const el=document.getElementById('scopeLine');if(!el)return;
   const s=scopeFor(activeTab);
+  // The header's scope band already states the year and the sport, and it is
+  // the live control rather than an echo of it. This line only earns its 24px
+  // when the tab is doing something the header cannot say: overriding a
+  // filter, or framing what the view actually plots.
+  if(s.plain&&!s.ignored.length){el.innerHTML='';el.style.display='none';return;}
+  el.style.display='';
   el.innerHTML=`<span class="scope-badge">${escapeHtml(s.text)}</span>`+
     (s.ignored.length?`<span class="scope-warn"><span class="ms">info</span>This tab ignores the ${s.ignored.join(' and ')} filter${s.ignored.length>1?'s':''} above</span>`:'');
 }
@@ -4531,9 +5207,33 @@ function setUpdatedAt(isoString) {
 
 const CACHE_KEY = 'fitness_dashboard_v1';
 
+// Set once, on the first render after data arrives — a later refresh must not
+// yank you back to whatever the URL said when the page opened.
+let _viewApplied=false;
+
 function renderFromData() {
   buildYearStepper();
   buildTypeFilters();
+  if(!_viewApplied){
+    _viewApplied=true;
+    const v=readView();
+    // applyView renders the chosen tab itself, so nothing below needs repeating
+    // for anything other than the always-on Summary and Records.
+    unit=v.unit;
+    document.querySelectorAll('.unit-opt').forEach(b=>b.classList.toggle('active',b.dataset.unit===unit));
+    activeYear=v.year;activeType=v.type;
+    buildYearStepper();buildTypeFilters();
+    renderSummary();
+    renderRecords();
+    buildLocationPills();
+    if(v.tab!=='summary')setTab(v.tab,null,true);
+    else if(activeTab==='map')renderMap(activeType==='All'?ALL_DATA:ALL_DATA.filter(a=>mapFilterMatches(a)));
+    // After setTab, not before, or activeTab is still 'summary' and the tab drops
+    // out of the URL you just arrived on. replaceState rather than push: arriving
+    // somewhere is not a navigation to undo.
+    writeView(false);
+    return;
+  }
   renderSummary();
   renderRecords();
   buildLocationPills();
@@ -4691,6 +5391,7 @@ async function loadData(forceRefresh = false) {
       updatedAt = json.updatedAt;
       // Absent on an envelope cached before the Worker started sending it.
       if (json.hrZones) HR_ZONE_META = json.hrZones;
+      if (json.gearMeta) GEAR_META = json.gearMeta;
     }
     setUpdatedAt(updatedAt);
   } catch (e) {
