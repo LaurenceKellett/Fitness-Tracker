@@ -36,7 +36,12 @@ function fixture() {
       time: '07:30',
       type,
       sport: type,
-      name: i % 11 === 0 ? `Morning ${type} w/ Dave & Sarah` : `${type} session ${i}`,
+      // Dave and Sarah appear throughout, so they read as current. Nige only ever
+      // appears in the oldest third, which is what puts him in the dormant group —
+      // without someone on each side of the line the grouping cannot be tested.
+      name: i % 11 === 0 ? `Morning ${type} w/ Dave & Sarah`
+          : (i > 300 && i % 7 === 0) ? `Evening ${type} w/ Nige`
+          : `${type} session ${i}`,
       dist_mi: +(2 + (i % 40) * 0.9).toFixed(2),
       dist_km: +((2 + (i % 40) * 0.9) * 1.60934).toFixed(2),
       mt: 1800 + (i % 20) * 600,
@@ -288,6 +293,9 @@ async function main() {
       await page.waitForTimeout(200);
       const url = page.url();
       assert(/year=90d/.test(url), `URL does not carry the scope: ${url}`);
+      // Leave the scope where the rest of the suite expects it.
+      await page.evaluate(() => window.setYear('All'));
+      await page.waitForTimeout(300);
     });
 
     await check('tabs are exposed as a tablist with a selected tab', async () => {
@@ -349,6 +357,91 @@ async function main() {
       const restored = await page.evaluate(() =>
         document.activeElement && document.activeElement.closest('#logBody .act-row-click') !== null);
       assert(restored, 'focus was not returned to the row that opened the modal');
+    });
+
+    await check('dormant training partners are grouped behind one toggle', async () => {
+      // A narrow scope filters the dormant partners out of the data entirely, and
+      // then there is nothing to group.
+      await page.evaluate(() => { window.setYear('All'); window.setType('All'); window.setTab('social'); });
+      await page.waitForTimeout(700);
+
+      const before = await page.evaluate(() => {
+        const d = document.querySelector('.soc-dormant');
+        if (!d) return null;
+        const rowsIn = d.querySelectorAll('.soc-row').length;
+        const rowsOut = [...document.querySelectorAll('.soc-tbl > .soc-row')].length;
+        return {
+          open: d.open,
+          rowsIn,
+          rowsOut,
+          countLabel: d.querySelector('.soc-dormant-n').textContent.trim(),
+          sub: d.querySelector('.soc-dormant-sub').textContent.trim(),
+          // A closed <details> genuinely hides its contents rather than merely
+          // dimming them; measure that, not the attribute.
+          visible: [...d.querySelectorAll('.soc-row')].filter((r) => r.offsetParent !== null).length,
+        };
+      });
+      assert(before, 'no dormant group rendered');
+      assert(before.rowsOut > 0, 'every partner ended up inside the toggle');
+      assert(before.rowsIn > 0, 'the toggle holds no partners');
+      assert(!before.open, 'the group starts expanded when there are current partners');
+      assert(before.visible === 0, `${before.visible} dormant rows visible while collapsed`);
+      assert(Number(before.countLabel) === before.rowsIn,
+        `summary says ${before.countLabel} but holds ${before.rowsIn} rows`);
+      assert(/occasional|lapsed/.test(before.sub), `summary subtitle reads "${before.sub}"`);
+
+      // Only the dormant ones are hidden — the current partners stay on the page.
+      const standings = await page.evaluate(() =>
+        [...document.querySelectorAll('.soc-tbl > .soc-row .soc-warm')].map((e) => e.textContent.trim()));
+      assert(standings.length && standings.every((t) => t === 'Regular'),
+        `ungrouped rows show standings ${JSON.stringify(standings)}`);
+
+      await page.click('.soc-dormant > summary');
+      await page.waitForTimeout(350);
+      const after = await page.evaluate(() => {
+        const d = document.querySelector('.soc-dormant');
+        return { open: d.open, visible: [...d.querySelectorAll('.soc-row')].filter((r) => r.offsetParent !== null).length };
+      });
+      assert(after.open && after.visible === before.rowsIn, 'opening the toggle did not reveal the rows');
+
+      // A filter change re-renders the list; the group must not fold back up.
+      await page.evaluate(() => window.setUnit('km'));
+      await page.waitForTimeout(500);
+      assert(await page.evaluate(() => document.querySelector('.soc-dormant').open),
+        'the group closed itself on a re-render');
+      await page.evaluate(() => window.setUnit('mi'));
+      await page.waitForTimeout(400);
+
+      await page.click('.soc-dormant > summary');
+      await page.waitForTimeout(300);
+      assert(!(await page.evaluate(() => document.querySelector('.soc-dormant').open)), 'the toggle does not close');
+      await page.evaluate(() => window.setTab('summary'));
+      await page.waitForTimeout(400);
+    });
+
+    await check('a collapsed disclosure actually hides its content', async () => {
+      // The prior-year heatmaps are the case that was broken: their content carries
+      // an explicit display, which a closed <details> does not reliably suppress, so
+      // collapsing a year left its heatmap on the page and the toggle did nothing.
+      await page.evaluate(() => window.setTab('heatmap'));
+      await page.waitForTimeout(800);
+      const r = await page.evaluate(() => {
+        const d = document.querySelector('details.hm-prior');
+        if (!d) return null;
+        d.open = true;
+        const openH = [...d.children].filter((c) => c.tagName !== 'SUMMARY')
+          .reduce((s, c) => s + c.getBoundingClientRect().height, 0);
+        d.open = false;
+        const shutH = [...d.children].filter((c) => c.tagName !== 'SUMMARY')
+          .reduce((s, c) => s + c.getBoundingClientRect().height, 0);
+        d.open = true;
+        return { openH, shutH };
+      });
+      assert(r, 'no prior-year disclosure to test');
+      assert(r.openH > 0, 'the disclosure has no content when open');
+      assert(r.shutH === 0, `closed disclosure still renders ${r.shutH}px of content`);
+      await page.evaluate(() => window.setTab('summary'));
+      await page.waitForTimeout(400);
     });
 
     await check('the page never scrolls sideways, and the header lines up with the cards', async () => {

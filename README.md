@@ -122,7 +122,7 @@ Everything below that is token overrides — no rule in the sheet knows which th
 | Heatmap | GitHub-style activity calendar, coloured by the sport you spent most time on each day, with every prior year listed beneath |
 | Records | A hero row of records that stand clear, then per-sport tables with a Standing column, then all-time totals (see below) |
 | Mex | Mex Score — the ladder of whole-unit distance buckets, the first gap, which gaps are worth most, and the distance distribution the ladder reduces to a yes/no (see below) |
-| Social | One count of who you train with, the named partners as a table, and the solo-vs-company chart (see below) |
+| Social | One count of who you train with, the named partners as a table, and the solo-vs-company chart (see below). Anyone you have not been out with in the last six weeks — Occasional and Lapsed alike — is folded into one collapsed group at the foot of the table, so the people you actually train with are not pushed off the screen by a long tail. The group opens by itself when nobody is current, and remembers its state across re-renders |
 | Gear | Bike and shoe mileage, with a wear bar on running shoes |
 | Activity Log | Searchable, sortable full activity table |
 | Zwift Routes | Live two-way view of the "Zwift Routes" Notion database, grouped by map. Route catalog (name, map, distance, elevation, links) is read-only, managed in Notion; Status/Date completed/Time can be edited from the app and are written straight back to Notion |

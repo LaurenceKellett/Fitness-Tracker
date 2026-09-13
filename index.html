@@ -462,6 +462,15 @@ a{color:inherit;text-decoration:none}
 .hm-cell{width:var(--hm-cell);height:var(--hm-cell);border-radius:0;cursor:default;flex-shrink:0;transition:opacity .1s}
 .hm-cell.active{cursor:pointer}.hm-cell.active:hover{opacity:.75}
 .heatmap-legend{display:flex;align-items:center;gap:4px;margin-top:10px;font-size:11px;color:var(--text-muted)}
+/* ── DISCLOSURE CONTENT ──
+   A closed <details> does not reliably hide a child that carries an explicit
+   `display`, and all three of ours do: the prior-year heatmaps are display:block
+   (or :none, swapped at the phone breakpoint) and the partner rows are display:grid.
+   The prior years were the live symptom — collapsing one left its whole 144px
+   heatmap on the page, so the toggle appeared to do nothing at all.
+   This only enforces what a closed <details> already means. */
+details:not([open])>*:not(summary){display:none}
+
 .hm-prior{margin-top:24px;padding-top:20px;border-top:1px solid var(--border)}
 .hm-prior>summary{cursor:pointer;list-style:none}
 .hm-prior>summary::-webkit-details-marker{display:none}
@@ -565,6 +574,28 @@ a{color:inherit;text-decoration:none}
 .soc-ago{color:var(--text-muted)}
 .soc-ago b{font-weight:400}
 .soc-warm{font-size:10px;font-weight:700;padding:2px 7px;white-space:nowrap}
+/* The dormant group. Styled as a band inside the table rather than a card of its
+   own, so it reads as part of the same list — which it is — instead of a second
+   thing that happens to sit underneath. */
+.soc-dormant{border-top:1px solid var(--border)}
+.soc-dormant>summary{display:flex;align-items:center;gap:9px;padding:11px 16px;cursor:pointer;
+  list-style:none;background:var(--bg);font-size:12px;color:var(--text-muted);transition:color .12s}
+.soc-dormant>summary::-webkit-details-marker{display:none}
+.soc-dormant>summary:hover{color:var(--text)}
+.soc-dormant>summary::after{content:'▸';margin-left:auto;color:var(--text-light);font-size:11px;transition:transform .15s}
+.soc-dormant[open]>summary::after{transform:rotate(90deg)}
+.soc-dormant[open]>summary{border-bottom:1px solid var(--border)}
+.soc-dormant-n{font-weight:700;color:var(--text);font-size:13px}
+.soc-dormant-t{font-weight:500}
+.soc-dormant-sub{font-size:11px;color:var(--text-light)}
+.soc-dormant .soc-row:last-child{border-bottom:none}
+.soc-empty-current{padding:18px 16px;font-size:12px;color:var(--text-muted)}
+@media(max-width:640px){
+  .soc-dormant>summary{flex-wrap:wrap;gap:4px 8px;padding:12px 14px}
+  .soc-dormant-sub{flex-basis:100%}
+  .soc-dormant>summary::after{position:absolute;right:14px}
+  .soc-dormant{position:relative}
+}
 .soc-note{font-size:11.5px;color:var(--text-muted);margin-top:10px;max-width:104ch;line-height:1.6}
 .soc-note strong{color:var(--text);font-weight:700}
 /* Partner panel, on the gear/activity modal shell. */
@@ -4798,6 +4829,11 @@ const SOC_AVATAR=['#1d4ed8','#ef4444','#eab308','#0ea5e9','#8b5cf6','#ec4899','#
 // Regular / Occasional / Lapsed, from the last time you were out together. Whether
 // someone is still in your week is more useful than their lifetime total, which is what
 // the two old bar charts both ranked by.
+// Remembered across re-renders — a unit toggle or a sport filter must not fold
+// the group back up underneath you.
+let socDormantOpen=false;
+function onSocDormantToggle(open){socDormantOpen=open;}
+
 function socStanding(lastDate){
   const days=Math.floor((new Date()-new Date(lastDate+'T12:00:00'))/86400000);
   if(days<=45)return{label:'Regular',col:'#166534',bg:'#dcfce7',days};
@@ -4925,9 +4961,12 @@ function renderSocial(){
   const mergedCount=partners.reduce((s,p)=>s+(p.alsoWritten.length?1:0),0);
 
   const pBadge=document.getElementById('socPartnerBadge');
-  if(pBadge)pBadge.textContent=partners.length
-    ? `${partners.length} ${partners.length===1?'person':'people'} · most recent first`
-    : 'none named yet';
+  if(pBadge){
+    const reg=partners.filter(p=>socStanding(p.last).label==='Regular').length;
+    pBadge.textContent=partners.length
+      ? `${partners.length} ${partners.length===1?'person':'people'} · ${reg} out with you in the last six weeks · most recent first`
+      : 'none named yet';
+  }
 
   const wrap=document.getElementById('socPartners');
   if(wrap){
@@ -4939,9 +4978,18 @@ function renderSocial(){
       // distance and last-out columns used to be dropped to make room for.
       const dots=p=>Object.entries(p.types).sort((a,b)=>b[1]-a[1]).slice(0,3)
         .map(([g,n])=>`<i style="background:${groupColor(g)};opacity:${(0.45+0.55*n/p.count).toFixed(2)}" title="${escapeAttr(g)} · ${n}"></i>`).join('');
-      wrap.innerHTML=`<div class="soc-tbl">
-        <div class="soc-head"><div></div><div>Partner</div><div>Together</div><div>Distance</div><div>Last out</div><div></div></div>
-        ${partners.map(p=>{
+
+      // Anyone you have been out with in the last six weeks reads as current; the
+      // rest are history. Sorted by recency the two were already contiguous, but a
+      // long tail of people you last saw a year ago still pushed the ones who
+      // matter off the screen — on a phone it was most of the list.
+      const current=partners.filter(p=>socStanding(p.last).label==='Regular');
+      const dormant=partners.filter(p=>socStanding(p.last).label!=='Regular');
+      // Collapsing everything would leave an empty table, so the group opens by
+      // default when nobody is current. The toggle stays either way.
+      const dormantOpen=socDormantOpen||!current.length;
+
+      const row=p=>{
           const st=socStanding(p.last);
           const also=p.alsoWritten.length
             ? `<em class="soc-also" title="${escapeAttr('Merged from: '+p.alsoWritten.join(', '))}">also ${escapeHtml(p.alsoWritten.slice(0,2).join(', '))}${p.alsoWritten.length>2?' +'+(p.alsoWritten.length-2):''}</em>`
@@ -4959,7 +5007,24 @@ function renderSocial(){
             </div>
             <div class="soc-last"><span class="soc-warm" style="color:${st.col};background:${st.bg}">${st.label}</span></div>
           </div>`;
-        }).join('')}
+      };
+
+      const occasional=dormant.filter(p=>socStanding(p.last).label==='Occasional').length;
+      const lapsed=dormant.length-occasional;
+      const dormantLabel=[occasional?occasional+' occasional':'',lapsed?lapsed+' lapsed':''].filter(Boolean).join(' · ');
+
+      wrap.innerHTML=`<div class="soc-tbl">
+        <div class="soc-head"><div></div><div>Partner</div><div>Together</div><div>Distance</div><div>Last out</div><div></div></div>
+        ${current.map(row).join('')}
+        ${current.length?'':`<div class="soc-empty-current">Nobody in this filter has been out with you in the last six weeks.</div>`}
+        ${dormant.length?`<details class="soc-dormant"${dormantOpen?' open':''} ontoggle="onSocDormantToggle(this.open)">
+          <summary>
+            <span class="soc-dormant-n">${dormant.length}</span>
+            <span class="soc-dormant-t">${dormant.length===1?'person you have':'people you have'} not been out with recently</span>
+            <span class="soc-dormant-sub">${escapeHtml(dormantLabel)}</span>
+          </summary>
+          ${dormant.map(row).join('')}
+        </details>`:''}
       </div>
       <div class="soc-note">${mergedCount
         ? `<strong>${mergedCount} ${mergedCount===1?'person was':'people were'} written more than one way</strong> and have been merged — case, emoji and a trailing surname or club name are ignored, so Pip, PiP and Pip&nbsp;💍 are one row. The merged spellings are listed under each name; open a row to see them all. `
