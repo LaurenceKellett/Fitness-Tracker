@@ -449,6 +449,89 @@ async function main() {
       await page.waitForTimeout(300);
     });
 
+    await check('every clickable row can be reached and opened from the keyboard', async () => {
+      // Each of these is a div or a tr with a delegated click handler. A pointer
+      // could open all four; a keyboard could open none of them.
+      const cases = [
+        { tab: 'log',    sel: '#logBody .act-row-click', opens: '#actModalBackdrop.open', close: 'Escape' },
+        { tab: 'social', sel: '.soc-tbl > .soc-row',     opens: '#gearModalBackdrop.open, .soc-modal, #actModalBackdrop.open', close: 'Escape' },
+        { tab: 'gear',   sel: '.gear-card',              opens: '#gearModalBackdrop.open', close: 'Escape' },
+      ];
+      for (const c of cases) {
+        await page.evaluate((t) => window.setTab(t), c.tab);
+        await page.waitForTimeout(600);
+        const meta = await page.evaluate((sel) => {
+          const el = document.querySelector(sel);
+          if (!el) return null;
+          el.focus();
+          return {
+            focused: document.activeElement === el,
+            tabindex: el.getAttribute('tabindex'),
+            role: el.getAttribute('role'),
+            label: (el.getAttribute('aria-label') || '').trim(),
+          };
+        }, c.sel);
+        assert(meta, `${c.tab}: nothing matched ${c.sel}`);
+        assert(meta.tabindex === '0', `${c.tab}: tabindex is ${meta.tabindex}`);
+        assert(meta.role === 'button', `${c.tab}: role is ${meta.role}`);
+        assert(meta.label.length > 0, `${c.tab}: no aria-label, so a screen reader hears the whole row`);
+        assert(meta.focused, `${c.tab}: the row would not take focus`);
+
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(500);
+        assert(await page.locator(c.opens).count(), `${c.tab}: Enter did not open anything`);
+        await page.keyboard.press(c.close);
+        await page.waitForTimeout(350);
+      }
+
+      // Location pills carry an inline onclick rather than going through
+      // delegation, which is why the handler dispatches a click rather than
+      // calling an opener.
+      await page.evaluate(() => window.setTab('summary'));
+      await page.waitForTimeout(500);
+      const pill = await page.evaluate(() => {
+        const el = document.querySelector('.loc-pill');
+        return el ? { tabindex: el.getAttribute('tabindex'), role: el.getAttribute('role') } : null;
+      });
+      if (pill) {
+        assert(pill.tabindex === '0' && pill.role === 'button',
+          `location pill is tabindex=${pill.tabindex} role=${pill.role}`);
+      }
+    });
+
+    await check('sport and standing colours follow the theme', async () => {
+      const read = () => page.evaluate(() => ({
+        ride: groupColor('Ride'),
+        soft: groupSoft('Ride'),
+        lapsed: palette().standing.Lapsed.join(','),
+      }));
+      await page.evaluate(() => window.applyTheme('light'));
+      await page.waitForTimeout(300);
+      const light = await read();
+      await page.evaluate(() => window.applyTheme('dark'));
+      await page.waitForTimeout(300);
+      const dark = await read();
+
+      for (const k of ['ride', 'soft', 'lapsed']) {
+        assert(light[k] && dark[k], `${k} resolved to nothing`);
+        assert(light[k] !== dark[k], `${k} is the same in both themes (${light[k]}) — still pinned to one palette`);
+      }
+      // The soft background is what a fallback gear tile and a standing chip are
+      // painted with; in dark mode it must actually be dark.
+      const lum = (c) => { const n = c.match(/\d+/g).map(Number); return (n[0] + n[1] + n[2]) / 3; };
+      const darkSoft = await page.evaluate(() => {
+        const d = document.createElement('div');
+        d.style.background = groupSoft('Ride');
+        document.body.appendChild(d);
+        const c = getComputedStyle(d).backgroundColor;
+        d.remove();
+        return c;
+      });
+      assert(lum(darkSoft) < 90, `dark-mode soft background is ${darkSoft}, still a daylight colour`);
+      await page.evaluate(() => window.applyTheme('system'));
+      await page.waitForTimeout(300);
+    });
+
     await check('a collapsed disclosure actually hides its content', async () => {
       // The prior-year heatmaps are the case that was broken: their content carries
       // an explicit display, which a closed <details> does not reliably suppress, so

@@ -110,6 +110,11 @@ behind a sun icon. The choice is stamped on `<html>` by a tiny inline script in 
 before any stylesheet resolves, so an explicit dark choice never flashes light first.
 Everything below that is token overrides — no rule in the sheet knows which theme it is in.
 
+The same goes for JS. Sport colours, their soft backgrounds, the standing chips and the
+chart grid and tick colours are all read back out of the cascade (`palette()`, `cssVar()`)
+rather than kept as a second copy in script. There is one definition of each colour and it
+is the one the theme swaps; the cache is dropped whenever the theme changes.
+
 ---
 
 ## Dashboard tabs
