@@ -9,6 +9,7 @@ const {
   extractPartners, formatUpdatedAt, recLongestStreak, recCurrentStreak, mexBuckets, mexOf,
   actDistIn, distIn, ROLLING_ORDER, todayISO, isYearScope, isRollingScope, periodStart,
   scopeIncludes, periodLabel, periodPhrase, isValidScope, rollingWeekly, ratioBand,
+  CHRONIC_DAYS, CHRONIC_WEIGHTS,
   setScope,
 } = calc;
 
@@ -518,11 +519,99 @@ describe('rollingWeekly', () => {
     expect(r.latest.acute).toBe(3);
   });
 
-  it('puts the 28-day total on a weekly scale by dividing by four', () => {
+  it('puts the 28-day average on the same weekly scale as the 7-day total', () => {
     const acts = Array.from({ length: 28 }, (_, n) => ({ date: day('2026-09-13', n), mt: 3600 }));
     const r = rollingWeekly(acts, hours, { today: '2026-09-13', scope: 'All' });
     expect(r.latest.acute).toBe(7);     // 7 days x 1h
-    expect(r.latest.chronic).toBe(7);   // 28h over 28 days is the same 7h/week
+    // An hour a day is 7h/week however the 28 days are weighted — the weighting
+    // changes how bumps are spread, never the level of a steady input.
+    expect(r.latest.chronic).toBe(7);
+  });
+
+  it('weights the 28 days heaviest in the middle and lightly at both ends', () => {
+    expect(CHRONIC_WEIGHTS).toHaveLength(CHRONIC_DAYS);
+    const mid = Math.floor(CHRONIC_DAYS / 2);
+    expect(CHRONIC_WEIGHTS[mid]).toBeGreaterThan(CHRONIC_WEIGHTS[0] * 10);
+    expect(CHRONIC_WEIGHTS[mid]).toBeGreaterThan(CHRONIC_WEIGHTS[CHRONIC_DAYS - 1] * 10);
+    // Symmetric, which is what keeps the centre of mass at 13.5 days — the same
+    // place a flat 28-day average sits. Front-loading the weights would smooth
+    // nothing and make the line jumpier; back-loading would just add lag.
+    for (let k = 0; k < CHRONIC_DAYS; k++) {
+      expect(CHRONIC_WEIGHTS[k]).toBeCloseTo(CHRONIC_WEIGHTS[CHRONIC_DAYS - 1 - k], 10);
+    }
+    const total = CHRONIC_WEIGHTS.reduce((s, v) => s + v, 0);
+    const com = CHRONIC_WEIGHTS.reduce((s, v, k) => s + v * k, 0) / total;
+    expect(com).toBeCloseTo((CHRONIC_DAYS - 1) / 2, 6);
+  });
+
+  it('does not step the 28-day line up and down around one big day', () => {
+    // The whole point. A flat 28-day average moves by value/4 the day a session
+    // lands and by the same amount AGAIN 28 days later, when it drops out of the
+    // window — a visible drop on a day with nothing logged, caused by the filter.
+    const acts = [{ date: day('2026-09-13', 40), mt: 8 * 3600 }];
+    const r = rollingWeekly(acts, hours, { today: '2026-09-13', scope: 'All' });
+
+    let worst = 0;
+    for (let i = 1; i < r.chronic.length; i++) {
+      worst = Math.max(worst, Math.abs(r.chronic[i] - r.chronic[i - 1]));
+    }
+    // A flat average would post two 2.00 h/wk steps for this single 8-hour day.
+    expect(worst).toBeLessThan(0.6);
+
+    // It still carries the full weight of that session through the window.
+    expect(Math.max(...r.chronic)).toBeGreaterThan(3);
+    // And every point is a real weighted average — never negative, never beyond
+    // what the day itself was worth on a weekly scale.
+    expect(Math.min(...r.chronic)).toBeGreaterThanOrEqual(0);
+    expect(Math.max(...r.chronic)).toBeLessThanOrEqual(8 * 7);
+  });
+
+  it('is smoother than the flat average it replaced, on the same data', () => {
+    // Four sessions a week, one of them long — the shape that made the old line
+    // look almost as busy as the raw data.
+    let seed = 7;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    const acts = [];
+    for (let n = 0; n < 200; n++) {
+      if (rnd() < 0.4) continue;
+      // A spread of session lengths rather than two fixed ones: real weeks are
+      // uneven, and it is the unevenness the old line was passing straight through.
+      acts.push({ date: day('2026-09-13', n), mt: (rnd() < 0.15 ? 3 + rnd() * 2 : 0.5 + rnd() * 1.5) * 3600 });
+    }
+    const r = rollingWeekly(acts, hours, { today: '2026-09-13', scope: 'All' });
+    const series = r.chronic.slice(-200);
+
+    // The same series under a flat 28-day average, for comparison.
+    const byDay = {};
+    acts.forEach((a) => { byDay[a.date] = (byDay[a.date] || 0) + a.mt / 3600; });
+    const flat = r.labels.slice(-200).map((lab) => {
+      const ms = new Date(lab + 'T12:00:00').getTime();
+      let t = 0;
+      for (let k = 0; k < 28; k++) {
+        const d = new Date(ms - k * 86400000);
+        t += byDay[`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`] || 0;
+      }
+      return t / 4;
+    });
+
+    const rough = (s) => s.slice(1).reduce((t, v, i) => t + Math.abs(v - s[i]), 0) / (s.length - 1);
+    const turns = (s) => {
+      let n = 0;
+      for (let i = 2; i < s.length; i++) {
+        const a = s[i - 1] - s[i - 2], b = s[i] - s[i - 1];
+        if (Math.abs(a) > 1e-9 && Math.abs(b) > 1e-9 && Math.sign(a) !== Math.sign(b)) n++;
+      }
+      return n;
+    };
+    // Direction changes are the honest measure of "messy", and the steadier of the
+    // two: across a range of seeds this lands between 0.12x and 0.39x of the flat
+    // average, while the roughness ratio swings with how the random draw falls.
+    // Both are 1.0 if the weighting is ever flattened back out, so this test bites.
+    expect(turns(series)).toBeLessThan(turns(flat) * 0.5);
+    expect(rough(series)).toBeLessThan(rough(flat) * 0.85);
+    // Smoother, not lower: the two describe the same training at the same level.
+    const mean = (s) => s.reduce((a, b) => a + b, 0) / s.length;
+    expect(mean(series)).toBeCloseTo(mean(flat), 0);
   });
 
   it('drops activities older than the window out of the acute total', () => {

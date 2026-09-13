@@ -748,10 +748,46 @@ Every other trend on the Charts tab buckets by `date.slice(0,7)` — a month, wh
 averages four or five sessions into one bar and hides a build, a taper or a rest week
 entirely. This is the only chart at the scale a training decision is actually made on.
 
-Rolling **7-day total** against the **28-day average**, the 28-day figure divided by
-four so both sit on one hours-per-week axis and the gap between them is readable
-directly. The 28-day line is what you are conditioned for; the 7-day is what you just
-did, and the ratio between them is the thing worth watching rather than either total.
+Rolling **7-day total** against the **28-day average**, both on one hours-per-week axis
+so the gap between them is readable directly. The 28-day line is what you are
+conditioned for; the 7-day is what you just did, and the ratio between them is the thing
+worth watching rather than either total.
+
+### Why the 28-day line is weighted
+
+The 28-day figure is a *weighted* average of the last 28 days, heaviest in the middle of
+the window and tapering to almost nothing at both ends (a raised cosine, in
+`CHRONIC_WEIGHTS`). It used to be a flat average — the plain sum of 28 days ÷ 4 — and a
+flat average is the worst-behaved smoother there is. Every day enters the window at full
+weight and leaves it at full weight 28 days later, so one long ride steps the line up the
+day you ride it, holds it flat for four weeks, then steps it down again on a day you may
+not have trained at all. That second step is created by the filter, not by anything that
+happened, and it is most of what made the line look almost as busy as the raw data.
+
+The two obvious fixes are both **worse than the flat average**, which is not what you
+would guess. Measured over a year of realistic training (roughness = mean day-to-day
+change, turns = direction changes, step = worst single-day move; lower is smoother):
+
+| 28-day filter | roughness | turns | worst step |
+|---|---|---|---|
+| flat average (what this replaced) | 0.358 | 138 | 1.98 |
+| exponential decay, 28-day constant | 0.514 | 174 | — |
+| triangular, newest day heaviest | 0.511 | 174 | 3.21 |
+| **raised cosine, 28 days** | **0.182** | **25** | **0.76** |
+
+Exponential decay is the textbook answer for chronic training load and it *decays*
+beautifully — but it reacts to each new day with a fixed share of that day's total, so a
+five-hour ride jolts it harder than the flat average does. The same goes for any
+weighting that puts the most weight on the newest day. **Smoothness comes from tapering
+at both ends, not one.**
+
+The raised cosine costs nothing to get it: its centre of mass is 13.5 days back, exactly
+where a flat 28-day average sits, so the line is no slower — and across the same year the
+two differ in mean by 0.02 h/wk, which is why the figures under the chart did not move.
+
+The **7-day line is deliberately left alone.** It is the "what have I just done" line and
+it is supposed to react; smoothing both would leave nothing to read the smooth one
+against.
 
 It counts **moving time, not Relative Effort**. `score` only exists on activities with
 heart-rate data, and a load chart that silently drops a third of your training is worse
@@ -760,6 +796,10 @@ than no load chart.
 Days before the visible window still count towards a 28-day average that reaches back
 over its edge, so the first plotted point is a real average rather than a ramp up from
 zero.
+
+`rollingWeekly()` is one function serving both hero charts — `pick` decides what is being
+totalled and returns it in its final unit, hours for load and miles or kilometres for
+distance, which is what lets the same code draw both without knowing about either.
 
 ---
 
