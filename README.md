@@ -41,12 +41,12 @@ The Worker holds all secrets and does all the heavy work. The Pages frontend is 
 
 | Tab | What it shows |
 |-----|---------------|
-| Summary | Stats, year-over-year table, activity breakdown by type, recent activities, AI monthly summary, location pills |
+| Summary | Leads with the present tense — this week's hours against your 28-day base, a one-line read across load/year/sport, cumulative distance against the same day last year, consistency over 28 days, and a per-sport row. Career totals sit on one line at the bottom. Then activity breakdown, year-by-year table, location pills, top gear and recent activities (see below) |
 | Map | Route heatmap — all GPS routes rendered as semi-transparent polylines on a dark basemap, coloured by sport type — plus **route replay** and **Ground covered** (see below) |
-| Charts | Monthly distance, elevation, year-on-year bar chart, activity type doughnut, heart-rate zones, Relative Effort and time of day |
-| Heatmap | GitHub-style activity calendar, with every prior year listed beneath |
+| Charts | Three sections. **Volume** — training load, cumulative against last year, monthly distance, rolling twelve months, activity mix, elevation. **Intensity** — heart-rate zones, Relative Effort, pace against distance, speed per heartbeat, power, cadence. **Habits** — time of day, moving vs stopped, race day, temperature |
+| Heatmap | GitHub-style activity calendar, coloured by the sport you spent most time on each day, with every prior year listed beneath |
 | Records | A hero row of records that stand clear, then per-sport tables with a Standing column, then all-time totals (see below) |
-| Mex | Mex Score — the ladder of whole-unit distance buckets, the first gap, and which gaps are worth most (see below) |
+| Mex | Mex Score — the ladder of whole-unit distance buckets, the first gap, which gaps are worth most, and the distance distribution the ladder reduces to a yes/no (see below) |
 | Social | One count of who you train with, the named partners as a table, and the solo-vs-company chart (see below) |
 | Gear | Bike and shoe mileage, with a wear bar on running shoes |
 | Activity Log | Searchable, sortable full activity table |
@@ -123,7 +123,7 @@ Zwift route data is cached under `zwift_routes_v1` with a short 2-minute TTL (No
 | `GET /callback` | Exchanges the OAuth code, stores the refresh token in KV, and shows it for the secret |
 | `GET /debug` | Strava connection diagnostic — reports whether the token refresh worked and returns five activities. Never echoes the token response itself: this route has no auth |
 | `GET /sync-training-log` | Runs the Strava → Notion Training Log sync now, and returns `{ checked, created, skipped, relinked, failed, errors }`. Also runs automatically on the cron |
-| `GET /backfill-prs` | Collects one slice (40) of segment PBs from Strava's best-efforts and refreshes the cache. Returns `{ checked, found, remaining }`. Also runs automatically on the cron — see **Segment PBs** below |
+| `GET /backfill-prs` | Collects one slice (40) of segment PBs from Strava's best-efforts and refreshes the cache. Returns `{ checked, found, remaining }`. Also runs automatically on the cron — see **Segment PBs** below. The envelope it republishes carries `hrZones`; without that, running this route stripped the zone chart's provenance and dropped it silently to a derived max |
 | `GET /zwift-routes` | Returns the cached Zwift routes envelope `{ data, updatedAt }`, proxied live from Notion |
 | `GET /zwift-routes?refresh=true` | Bypasses cache, re-fetches all routes from Notion |
 | `PATCH /zwift-routes/{pageId}` | Updates `status`/`date_completed`/`time` on one route, writes straight to Notion |
@@ -203,7 +203,7 @@ is the right one.
 
 `transformActivity` in `worker.js` maps Strava's summary object to the compact
 shape the dashboard caches. Six fields were being fetched and then dropped on
-the floor; they are kept now:
+the floor, and three more have been added since; they are kept now:
 
 | Field | Source | Used by |
 |-------|--------|---------|
@@ -213,6 +213,9 @@ the floor; they are kept now:
 | `athletes` | `athlete_count` | Social group-size cards and the solo/with-others chart |
 | `commute` | `commute` | The Log's commute marker |
 | `wtype` | `workout_type` — 1 = race (run), 11 = race (ride) | The Log's RACE marker |
+| `np` | `weighted_average_watts` | Charts → Power Trend |
+| `pwr_real` | `device_watts` — true only for a real power meter, false for Strava's estimate | Lets the power chart say whether its numbers were measured or modelled |
+| `temp` | `average_temp` — degrees C, from the recording device's own thermometer | Charts → the weather chart; the activity modal. **Empty wherever the device has no sensor**, which is most phone-recorded activities, so the chart states its own coverage rather than implying the gap is a temperature of zero. `0 °C` is a real reading, which is why this uses an explicit null check instead of the usual `\|\| null` idiom |
 
 These only appear on activities cached **after** the change. Anything relying on
 them checks for the field's presence and says so on screen rather than reporting
@@ -412,6 +415,8 @@ The Worker aggregates the last 30 days of activity data and sends it to `@cf/met
 - **Shadows:** `--shadow` is the standard card lift. `--shadow-callout` is heavier and reserved for call-out boxes — the AI summary and the sync warning — so they lift off the page without needing a colour fill.
 - **Labels:** sentence case. No `text-transform: uppercase` and no letter-spacing on labels, per the house rule across the tools.
 - **Card colour:** one rule — a 3px `border-top` in the relevant colour. Not a left border, not a `::before` bar. An uncoloured card uses `var(--border)` so it keeps the same height.
+- **Chart marks:** bars promise a zero baseline, so anything compared across a narrow range uses points on a line instead — a band-average chart drawn as bars from zero turns a real 8% difference into five identical rectangles. Reversed pace axes read quicker-is-higher everywhere, and any copy describing a pace chart has to describe the picture rather than the falling number.
+- **Sport colour as data:** it now carries meaning on both calendars, not just decoration. See the CVD caveat under **Calendar colour** before changing a sport colour or adding one.
 - **Motion:** four animations, and each one points at something. The Mex ladder builds left to right on arrival at the tab (not on a filter re-render — `mexAnimate` is set by `setTab` and cleared by `renderMex`, so a re-render reusing the same DOM doesn't replay it). The first-gap cell keeps a slow pulse because it is the one cell that is a to-do. Prior heatmap years fade up as you scroll to them, via an IntersectionObserver that unobserves each element once fired. Cards in the first grid of a tab come in as a short left-to-right run when you switch to it, capped at eight steps of 26ms — `staggerCards` runs *after* `renderAll`, because `renderAll` replaces the grid's `innerHTML`, and removes the class after 700ms so a filter change is instant. All four are switched off wholesale under `prefers-reduced-motion`, which also drops every transition to 0.01ms.
 
 ---
@@ -547,6 +552,173 @@ than asserting "your Strava zones" either way.
 
 The five buckets are rescaled to sum to moving time, since the curve's tails fall
 outside the zone range.
+
+---
+
+## The Summary page
+
+The page opened on eleven equal cards of all-time totals. Nothing on it was about the
+present, and a lifetime distance moves by roughly a twentieth of a percent per session
+— which is to say it cannot tell you anything about this week. Everything had the same
+visual weight, so nothing was read.
+
+What leads now is the week:
+
+- **This week's hours against the 28-day base you built them on**, one figure at 52px,
+  with the rolling load chart beside it and an acute-to-chronic chip.
+- **One quiet line under it**, reading across all three signals at once: how the week
+  sits against the base, how the year sits against the same date last year, and which
+  sport has fallen furthest below *its own* base. It is deliberately small. Speaking to
+  load, year and sport together is the only thing it says that nothing else on the page
+  does — without that it would just be the load chart's own verdict reprinted smaller.
+- **Cumulative distance against the same day last year**, beside a **consistency** card:
+  days trained out of the last 28, the current streak and the longest.
+- **A row of five sport cards** — this week, the 28-day base, the year so far, and the
+  year-on-year figure, each computed within its own sport.
+
+### Nothing here averages across sports
+
+`Avg Speed` and `Avg Heart Rate` were deleted rather than demoted. Both were means taken
+across swims, dog walks and centuries: numbers that described no activity anyone had ever
+done. The per-sport row is what replaces them, and it is the reason the row exists.
+
+Longest Ride, Longest Run and Eddington are not repeated either — they are the Records
+tab's headline. The career totals that remain sit on one line at the bottom, linking to
+Records and Mex rather than restating their figures.
+
+### One computation, two surfaces
+
+The load and cumulative charts are the same functions the Charts tab calls, given a
+target to draw into (`LOAD_TARGET` / `SUM_LOAD_TARGET` and the cumulative pair). Two
+implementations of one figure drift apart; one implementation with two targets cannot.
+
+---
+
+## Training load
+
+Every other trend on the Charts tab buckets by `date.slice(0,7)` — a month, which
+averages four or five sessions into one bar and hides a build, a taper or a rest week
+entirely. This is the only chart at the scale a training decision is actually made on.
+
+Rolling **7-day total** against the **28-day average**, the 28-day figure divided by
+four so both sit on one hours-per-week axis and the gap between them is readable
+directly. The 28-day line is what you are conditioned for; the 7-day is what you just
+did, and the ratio between them is the thing worth watching rather than either total.
+
+It counts **moving time, not Relative Effort**. `score` only exists on activities with
+heart-rate data, and a load chart that silently drops a third of your training is worse
+than no load chart.
+
+Days before the visible window still count towards a 28-day average that reaches back
+over its edge, so the first plotted point is a real average rather than a ramp up from
+zero.
+
+---
+
+## Against the same point last year
+
+The chart the Year-over-Year bars could not be.
+
+The delta under Total Distance used to hold the selected year's running total against
+the **finished** total of the year before, so from January to December the current year
+was behind by however much of it had not happened yet. On 13 September it read *down
+31%* on a year that was in fact 10% behind. Where the year in view is still running, the
+comparison is now made at the same day of year on both sides; a finished year is still
+compared whole, because there that is already fair, and the label says which of the two
+it did.
+
+On "All time" it no longer claims "No prior year data" — there is prior year data; the
+question simply does not apply to an all-time total. It says what the total spans instead.
+
+The chart itself plots cumulative distance by day of year, the focus year in the accent
+and up to four earlier years in greys stepping lighter with age. The first version tinted
+the accent towards grey instead, which sounds like the same idea and is not: five steps
+between green and grey are five greens, and the years were indistinguishable.
+
+`dayOfYear()` is what makes any of this possible, and `typeMatches()` — one predicate for
+the header's sport filter, which had been written out by hand in three places — is what
+makes it agree with every other tab. Note that `mapFilterMatches()` deliberately has no
+`All` case, because the Map branches on that before calling it; using it as a general
+predicate is why this chart first rendered empty.
+
+---
+
+## Pace against distance
+
+`Run Pace Trend` was a monthly mean of every run in the month, so it moved with the
+**mix of sessions** — one long run among four parkruns dragged the month down — and was
+read as fitness. Chips and a verdict were later added to it, both computed off the same
+mean, which made a session-mix artefact more authoritative rather than less.
+
+It is now a point per run: distance on one axis, pace on the other, split into the last
+twelve months and everything earlier. That split is the same comparison the verdict
+makes, so the chart shows its own claim rather than asserting it.
+
+The verdict is restricted to a **comparable distance band** (3–8 mi / 5–13 km) — far
+enough into your usual range for a median to mean something, short enough that one
+marathon cannot move it. Quicker is higher, matching every other pace axis in the app.
+
+---
+
+## Speed per heartbeat
+
+Metres covered per beat: speed divided by heart rate, for the **single sport with the
+most heart-rate data in the current filter** — a ride and a run are not on one scale, and
+averaging them produces a number describing neither. The subtitle says which sport it
+picked.
+
+Pace alone cannot separate getting fitter from trying harder on the day. This controls
+for effort, so a line that climbs is a genuine improvement.
+
+Plotted as a rolling average over the raw monthly points, because metres per beat falls
+in summer heat and rises in the cold: a raw monthly line is mostly that seasonal cycle,
+and the first version was an unreadable sawtooth with the trend buried inside it.
+
+---
+
+## The distance distribution
+
+On the Mex tab, under the ladder, because Mex is already a statement about exactly this
+distribution and the ladder reduces it to a yes/no per bucket. This is the count the
+ladder throws away.
+
+Everything else in the app is a sum or a maximum, and neither says anything about shape.
+Two athletes with the same annual distance and the same longest ride can have completely
+different years: one rides the same loop ninety times, the other rides everything from a
+commute to a double century.
+
+Bucket 0 — everything under one whole unit — is included even though Mex ignores it by
+construction. It is real training, and often a large share of the count, so leaving it
+off would misdescribe the very distribution the chart exists to show.
+
+---
+
+## Calendar colour
+
+Both calendars — the Heatmap tab and the per-year grid on Charts — used to interpolate
+one accent by distance, so the only thing a cell could say was *how far*. That is the
+fact the rest of the page says loudest, and it left the calendars unable to show the
+thing only they can: what the shape of a year is made of.
+
+Hue is now the sport you spent the most **time** on that day; intensity is still
+distance. Time rather than activity count decides it, because a day with a three-hour
+ride and a ten-minute dog walk is a riding day, and counting activities calls it a draw.
+
+`dayCellBg()` is shared by both calendars so they cannot diverge. A day with no distance
+at all — a gym session, a swim logged without one — takes the intensity floor rather than
+disappearing. With the sport filter on a single sport every day resolves to that sport
+and the calendar looks exactly as it did before, which is correct rather than a
+regression. The intensity legend is drawn in neutral greys now that hue carries the
+sport; keeping it in the accent would have set up the confusion the recolour removes.
+
+### A caveat worth acting on
+
+Sport colour is now the calendars' primary encoding, which makes one weakness in the
+palette matter more than it used to. Run through a CVD checker, **Virtual `#60a5fa` and
+Swim `#0ea5e9` are ΔE 5.3 apart in normal vision** — below the 15 threshold, so they are
+hard to tell apart even with full colour vision, and 2.6 under protanopia. Moving Virtual
+to `#8b5cf6` takes the worst pair to 11.8. Not changed here, because it is a house-style
+decision, but it is the one palette change worth making.
 
 ---
 
