@@ -351,6 +351,34 @@ async function main() {
       assert(restored, 'focus was not returned to the row that opened the modal');
     });
 
+    await check('section explanations sit under the title, unboxed and light', async () => {
+      await page.evaluate(() => window.setTab('charts'));
+      await page.waitForTimeout(400);
+      const r = await page.evaluate(() => {
+        const hdr = [...document.querySelectorAll('.section-header')]
+          .find((h) => h.querySelector('.badge') && h.querySelector('.badge').textContent.trim());
+        if (!hdr) return null;
+        const h2 = hdr.querySelector('h2').getBoundingClientRect();
+        const badge = hdr.querySelector('.badge');
+        const b = badge.getBoundingClientRect();
+        const cs = getComputedStyle(badge);
+        return {
+          below: b.top >= h2.bottom - 1,
+          alignedLeft: Math.abs(b.left - h2.left) < 2,
+          border: cs.borderTopWidth,
+          bg: cs.backgroundColor,
+          text: badge.textContent.trim(),
+        };
+      });
+      assert(r, 'no section header with an explanation found');
+      assert(r.below, 'the explanation is still beside the title, not under it');
+      assert(r.alignedLeft, 'the explanation does not line up with the title');
+      assert(r.border === '0px', `the explanation still has a ${r.border} border`);
+      assert(/rgba\(0, 0, 0, 0\)|transparent/.test(r.bg), `the explanation still has a ${r.bg} box`);
+      await page.evaluate(() => window.setTab('summary'));
+      await page.waitForTimeout(300);
+    });
+
     await check('the header carries one control, not a row of them', async () => {
       const n = await page.evaluate(() =>
         document.querySelectorAll('.header-toolbar > *').length);

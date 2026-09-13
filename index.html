@@ -278,7 +278,7 @@ a{color:inherit;text-decoration:none}
 .sum-streaks{border-top:1px solid var(--border);margin-top:auto;padding-top:14px;
   display:flex;justify-content:space-between}
 .sum-sports{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:26px}
-.sum-sport-note{margin-left:auto;margin-bottom:0;text-align:right;max-width:46%}
+.sum-sport-note{flex:0 0 100%;margin-bottom:0;max-width:64ch}
 .sum-sport-card{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);
   padding:18px;border-top-width:3px;border-top-style:solid}
 .sum-sport-head{display:flex;align-items:center;gap:7px;margin-bottom:14px}
@@ -795,9 +795,19 @@ tbody td{padding:10px 14px;vertical-align:middle}
   .mex-row-label{font-size:11px}
 }
 /* LAYOUT */
-.section-header{display:flex;align-items:center;gap:12px;margin-bottom:16px;margin-top:4px}
-.section-header h2{font-size:15px;font-weight:700}
-.section-header .badge{background:var(--bg);border:1px solid var(--border);padding:2px 8px;border-radius:0;font-size:11px;color:var(--text-muted)}
+/* The line that explains a section ("How much — miles, feet, and whether you're
+   ahead of yourself") used to sit beside the title in a bordered pill. A box draws
+   the eye to itself, and these are the quietest text on the page — a subtitle, not
+   a label. They read as a subtitle now: under the title, no box, light.
+
+   The title takes a full row rather than the header becoming a column, because two
+   of these carry a second element beside the badge and a wrap keeps both flowing
+   naturally underneath instead of needing a wrapper element in the markup. */
+.section-header{display:flex;align-items:baseline;flex-wrap:wrap;gap:3px 10px;margin-bottom:16px;margin-top:4px}
+.section-header h2{font-size:15px;font-weight:700;flex:0 0 100%}
+.section-header .badge{flex:0 0 100%;background:transparent;border:none;padding:0;border-radius:0;
+  font-size:12px;font-weight:500;line-height:1.5;color:var(--text-light)}
+.section-header .badge:empty{display:none}
 .year-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:0;overflow:hidden;box-shadow:var(--shadow);margin-bottom:24px}
 .dow-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:18px 20px;box-shadow:var(--shadow)}
 .dow-bars{display:flex;gap:8px;align-items:flex-end;height:90px}
