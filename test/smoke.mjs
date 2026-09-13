@@ -894,28 +894,31 @@ async function main() {
     const chartOrder = () => page.evaluate(() =>
       [...document.querySelectorAll('#tab-charts .chart-zone')].map((z) => ({
         zone: z.dataset.zone,
-        cards: [...z.children].filter((c) => c.dataset.chart).map((c) => c.dataset.chart),
+        cards: [...z.children].filter((c) => c.dataset.panel).map((c) => c.dataset.panel),
       })));
     const flatOrder = async () => (await chartOrder()).flatMap((z) => z.cards);
-    const enterReorder = async () => {
+    // Rearranging acts on the tab you are looking at, so get there first.
+    const enterReorder = async (tab = 'charts') => {
+      await page.evaluate((t) => window.setTab(t), tab);
+      await page.waitForTimeout(350);
       await page.click('#settingsBtn');
       await page.waitForSelector('#settingsMenu.open');
       await page.click('#reorderChartsBtn');
-      await page.waitForSelector('#tab-charts.reordering', { timeout: 3000 });
+      await page.waitForSelector(`#tab-${tab}.reordering`, { timeout: 3000 });
       await page.waitForTimeout(250);
     };
 
-    await check('the menu takes you to the charts and turns reordering on there', async () => {
+    await check('the menu turns reordering on for the tab you are looking at', async () => {
       await enterReorder();
-      assert((await page.evaluate(() => activeTab)) === 'charts', 'did not switch to the charts tab');
+      assert((await page.evaluate(() => activeTab)) === 'charts', 'left the charts tab');
       assert(!(await page.locator('#settingsMenu.open').count()), 'the menu stayed open behind it');
       assert(await page.locator('#reorderBar').isVisible(), 'no reorder bar');
       // The point of the mode: every chart on one or two screens rather than five.
       const h = await page.evaluate(() =>
-        document.querySelector('#tab-charts .chart-card[data-chart]').getBoundingClientRect().height);
+        document.querySelector('#tab-charts .chart-card[data-panel]').getBoundingClientRect().height);
       assert(h > 30 && h < 80, `a collapsed card is ${Math.round(h)}px tall`);
       assert((await page.evaluate(() => getComputedStyle(
-        document.querySelector('#tab-charts .chart-card[data-chart] .chart-wrap')).display)) === 'none',
+        document.querySelector('#tab-charts .chart-card[data-panel] .chart-wrap')).display)) === 'none',
         'the canvas is still laid out');
     });
 
@@ -923,20 +926,20 @@ async function main() {
       const before = await flatOrder();
       const last = (await chartOrder())[0].cards.slice(-1)[0];   // last card in Volume
       await page.evaluate((k) => document.querySelector(
-        `#tab-charts .chart-card[data-chart="${k}"] .reorder-move[data-dir="1"]`).click(), last);
+        `#tab-charts .chart-card[data-panel="${k}"] .reorder-move[data-dir="1"]`).click(), last);
       const o = await chartOrder();
       assert(o.find((z) => z.cards.includes(last)).zone === 'intensity',
         `${last} did not cross into Intensity: ${JSON.stringify(o)}`);
       assert((await flatOrder()).length === before.length, 'a chart went missing');
       // The ends of the list say so rather than silently doing nothing.
       assert(await page.evaluate(() => document.querySelector(
-        '#tab-charts .chart-card[data-chart] .reorder-move[data-dir="-1"]').disabled),
+        '#tab-charts .chart-card[data-panel] .reorder-move[data-dir="-1"]').disabled),
         'the first card offers to move earlier');
     });
 
     await check('dragging a chart with a pointer moves it to where it was dropped', async () => {
       const at = (k) => page.evaluate((kk) => {
-        const r = document.querySelector(`#tab-charts .chart-card[data-chart="${kk}"]`).getBoundingClientRect();
+        const r = document.querySelector(`#tab-charts .chart-card[data-panel="${kk}"]`).getBoundingClientRect();
         return { x: r.x + r.width / 2, y: r.y + r.height / 2, top: r.y };
       }, k);
       const first = (await flatOrder())[0];
@@ -972,7 +975,7 @@ async function main() {
     await check('arrow keys move a focused chart and the move is announced', async () => {
       const before = await flatOrder();
       await page.evaluate((k) => document.querySelector(
-        `#tab-charts .chart-card[data-chart="${k}"]`).focus(), before[0]);
+        `#tab-charts .chart-card[data-panel="${k}"]`).focus(), before[0]);
       await page.keyboard.press('ArrowDown');
       const after = await flatOrder();
       assert(after[1] === before[0], `${before.slice(0, 3)} -> ${after.slice(0, 3)}`);
@@ -1002,7 +1005,7 @@ async function main() {
       assert(!(await page.locator('#tab-charts.reordering').count()), 'still in reorder mode');
       assert(await page.locator('#reorderBar').isHidden(), 'the bar is still on screen');
       const h = await page.evaluate(() =>
-        document.querySelector('#tab-charts .chart-card[data-chart]').getBoundingClientRect().height);
+        document.querySelector('#tab-charts .chart-card[data-panel]').getBoundingClientRect().height);
       assert(h > 200, `a card came back only ${Math.round(h)}px tall`);
       // And it does not follow you onto another tab.
       await enterReorder();
@@ -1011,6 +1014,72 @@ async function main() {
       assert(await page.locator('#reorderBar').isHidden(), 'the bar survived a tab change');
       await page.evaluate(() => window.setTab('charts'));
       await page.waitForTimeout(300);
+    });
+
+    await check('any tab with more than one panel can be rearranged, not just Charts', async () => {
+      // The tab element itself can be the zone, so it has to be in the list too.
+      const panelsOn = (tab) => page.evaluate((t) => {
+        const el = document.getElementById('tab-' + t);
+        const zones = [...el.querySelectorAll('[data-zone]')];
+        if (el.dataset.zone) zones.unshift(el);
+        return zones.flatMap((z) => [...z.children].filter((c) => c.dataset.panel).map((c) => c.dataset.panel));
+      }, tab);
+
+      for (const tab of ['summary', 'records', 'social', 'gear']) {
+        const p = await panelsOn(tab);
+        assert(p.length > 1, `${tab} exposes ${p.length} panel(s): ${p}`);
+      }
+
+      // Summary is the one with the most boxes, so it is the one worth driving.
+      await enterReorder('summary');
+      const before = await panelsOn('summary');
+      await page.evaluate((k) => document.querySelector(
+        `#tab-summary [data-panel="${k}"] .reorder-move[data-dir="1"]`).click(), before[0]);
+      const after = await panelsOn('summary');
+      assert(after[0] === before[1] && after[1] === before[0],
+        `${before.slice(0, 3)} -> ${after.slice(0, 3)}`);
+      assert(after.length === before.length, 'a panel went missing');
+
+      // Saved per zone, so rearranging Summary must not disturb Charts.
+      const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('fitness_layout_v1') || '{}'));
+      assert(Array.isArray(saved.summary), `no summary order saved: ${JSON.stringify(saved)}`);
+      assert(saved.summary[0] === after[0], 'the saved summary order does not match the page');
+
+      // And it survives a reload the same way the charts do.
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => !document.body.classList.contains('is-loading'), { timeout: 15000 });
+      await page.evaluate(() => window.setTab('summary'));
+      await page.waitForTimeout(300);
+      assert((await panelsOn('summary')).join() === after.join(), 'the summary order did not come back');
+    });
+
+    await check('a tab that is one thing says so rather than doing nothing', async () => {
+      // Heatmap is a single calendar; there is no arrangement of one box, and a
+      // pressed button that silently does nothing is worse than a sentence.
+      await page.evaluate(() => window.setTab('heatmap'));
+      await page.waitForTimeout(300);
+      await page.click('#settingsBtn');
+      await page.waitForSelector('#settingsMenu.open');
+      assert(await page.evaluate(() => document.getElementById('reorderChartsBtn').disabled),
+        'the rearrange row is offered on a tab with nothing to rearrange');
+      const note = await page.evaluate(() => document.getElementById('reorderBtnNote').textContent);
+      assert(/nothing/i.test(note), `the row says "${note}"`);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(200);
+      assert(!(await page.locator('#tab-heatmap.reordering').count()), 'it entered reorder mode anyway');
+    });
+
+    await check('the rearrange row names the tab it would act on', async () => {
+      await page.evaluate(() => window.setTab('records'));
+      await page.waitForTimeout(300);
+      await page.click('#settingsBtn');
+      await page.waitForSelector('#settingsMenu.open');
+      assert(!(await page.evaluate(() => document.getElementById('reorderChartsBtn').disabled)),
+        'Records has panels but the row is disabled');
+      const note = await page.evaluate(() => document.getElementById('reorderBtnNote').textContent);
+      assert(/records/i.test(note), `the row says "${note}" rather than naming Records`);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(200);
     });
 
     await check('reordering fits a phone without a sideways scroll', async () => {

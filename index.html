@@ -370,42 +370,58 @@ a{color:inherit;text-decoration:none}
 .chart-sub{font-size:11px;color:var(--text-muted);margin-bottom:16px}
 .chart-wrap{position:relative;height:240px}.chart-wrap.tall{height:320px}
 @media(max-width:700px){.charts-grid{grid-template-columns:1fr}}
-/* A card's own width, declared on the card rather than imposed by the row it sits
+/* A panel's own width, declared on the panel rather than imposed by the row it sits
    in. Below 700px the grid is one column and both of these collapse to the same
    thing, which is why reordering needs no separate mobile model: there is one
-   order, and the grid decides how to lay it out. */
-.chart-card.span-full{grid-column:1 / -1}
+   order, and the grid decides how to lay it out.
+   Not scoped to .chart-card: a panel that is a stats grid or a list wants to claim
+   the row just as often as one that is a chart. */
+.span-full{grid-column:1 / -1}
 /* What the current scope has nothing to say about — a whole card, or the half of a
    card that swaps between a bar chart and a calendar. A class rather than an inline
    style, because an inline `display` outranks the whole stylesheet: reorder mode
    could then neither collapse a card nor bring a hidden one back. */
 .is-hidden{display:none}
 
-/* ── REORDERING THE CHARTS ──
-   In place, on the real grid, with the cards collapsed to a title row.
+/* ── REORDERING PANELS ──
+   In place, on the real page, with every panel collapsed to a title row.
    Dragging at full height was the obvious thing and it does not work: a chart card
    is 300–400px tall, the tab is five screens long, and moving the last card to the
    top is then a four-screen drag on a phone and a scroll-chase on a desktop.
-   Collapsed, the whole tab is one or two screens and every move is a short one —
-   while still being the actual cards in their actual positions, so what you see
-   while you drag is what you get when you finish. */
-#tab-charts.reordering .chart-card{display:flex;align-items:center;gap:12px;
+   Collapsed, a whole tab is one or two screens and every move is a short one —
+   while still being the actual panels in their actual positions, so what you see
+   while you drag is what you get when you finish.
+
+   Keyed off [data-panel] rather than .chart-card so the same rules dress a chart, a
+   stats grid, a table and a list identically. The title is an element injected by
+   buildReorderControls, not a heading revealed from inside: a summary panel may
+   have a section header, a hero card has none, and a generated one has whatever it
+   was born with. One injected label is the only version that reads the same
+   everywhere. */
+.reordering [data-panel]{display:flex;align-items:center;gap:12px;
   padding:12px 14px;cursor:grab;touch-action:none;user-select:none;
-  border-color:var(--border-strong)}
-#tab-charts.reordering .chart-card>*{display:none}
-#tab-charts.reordering .chart-card>.chart-title{display:block;flex:1;min-width:0;
-  margin:0;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#tab-charts.reordering .chart-card>.reorder-grip,
-#tab-charts.reordering .chart-card>.reorder-ctl{display:flex}
-/* A chart hidden by the current scope is still yours to place. Shown greyed with a
+  background:var(--surface);border:1px solid var(--border-strong);
+  box-shadow:var(--shadow);margin:0}
+.reordering [data-zone]{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.reordering [data-panel]>*{display:none}
+.reordering [data-panel]>.reorder-grip,
+.reordering [data-panel]>.reorder-name,
+.reordering [data-panel]>.reorder-ctl{display:flex}
+.reorder-name{flex:1;min-width:0;align-items:center;font-size:12.5px;font-weight:600;
+  color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* A panel hidden by the current scope is still yours to place. Shown greyed with a
    reason, because a card you cannot see is one you cannot put anywhere. */
-#tab-charts.reordering .chart-card.is-hidden{display:flex;opacity:.55;
-  border-style:dashed}
-#tab-charts.reordering .chart-card.is-hidden>.chart-title::after{
+.reordering [data-panel].is-hidden{display:flex;opacity:.55;border-style:dashed}
+.reordering [data-panel].is-hidden>.reorder-name::after{
   content:' · hidden by this filter';color:var(--text-light);font-weight:500}
-#tab-charts.reordering .chart-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-#tab-charts.reordering .chart-card.dragging{opacity:.3;cursor:grabbing}
-#tab-charts.reordering{padding-bottom:84px}
+.reordering [data-panel]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.reordering [data-panel].dragging{opacity:.3;cursor:grabbing}
+/* Section headings belong to the panel under them once panels exist, so a loose one
+   between zones is only scaffolding while reordering. */
+.reordering>.section-header,.reordering [data-panel].span-full{grid-column:1 / -1}
+.reordering>.section-header{margin:14px 0 2px}
+.reordering{padding-bottom:84px}
+@media(max-width:700px){.reordering [data-zone]{grid-template-columns:1fr}}
 /* Boxed and clipped, both of them. A Material Symbol is a ligature: until the font
    arrives — or for good, if it never does — `drag_indicator` renders as those
    fourteen literal characters, and an unclipped 110px-wide "icon" pushes the card
@@ -1192,6 +1208,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .settings-row .refresh-icon{font-size:15px;width:13px;text-align:center;color:var(--text-muted)}
 .settings-row svg{color:var(--text-muted);flex-shrink:0}
 .settings-row-note{margin-left:auto;font-size:10.5px;font-weight:500;color:var(--text-light);white-space:nowrap}
+.settings-note{font-size:11px;line-height:1.45;color:var(--text-muted);padding:2px 6px 8px}
+.settings-note[hidden]{display:none}
 .settings-row.spinning .refresh-icon{animation:rspin .8s linear infinite}
 /* Only the bottom sheet needs it — a popover closes by clicking away from it. */
 .settings-done{display:none}
@@ -1481,14 +1499,15 @@ body.is-loading .stats-grid *{visibility:hidden}
     </div>
   </div>
   <div class="settings-actions">
-    <!-- The order of the Charts tab is a preference like units and the theme, so it
-         is set from the same place they are. The button does not open another panel:
-         it takes you to the charts and turns editing on where the charts are. -->
-    <button class="settings-row" id="reorderChartsBtn" onclick="startChartReorder()">
+    <!-- Where the boxes sit is a preference like units and the theme, so it is set
+         from the same place they are. The button does not open another panel: it
+         turns editing on wherever you already are, on whichever tab that is. -->
+    <button class="settings-row" id="reorderChartsBtn" onclick="startReorder()">
       <span class="ms">swap_vert</span>
-      <span>Reorder charts</span>
-      <span class="settings-row-note">Charts tab</span>
+      <span>Rearrange this tab</span>
+      <span class="settings-row-note" id="reorderBtnNote"></span>
     </button>
+    <div class="settings-note" id="reorderNotice" hidden></div>
     <button class="settings-row" id="refreshBtn" onclick="refreshData()">
       <span class="refresh-icon">↻</span>
       <span>Refresh from Strava</span>
@@ -1523,11 +1542,11 @@ body.is-loading .stats-grid *{visibility:hidden}
 <div class="reorder-bar" id="reorderBar" role="toolbar" aria-label="Reorder charts" hidden>
   <span class="reorder-bar-icon" aria-hidden="true"><span class="ms">drag_indicator</span></span>
   <div class="reorder-bar-text">
-    <strong>Reordering charts</strong>
-    <span id="reorderHint">Drag a card, or focus one and use the arrow keys.</span>
+    <strong id="reorderBarWhat">Rearranging</strong>
+    <span id="reorderHint">Drag a panel, or focus one and use the arrow keys.</span>
   </div>
-  <button class="reorder-reset" id="reorderResetBtn" onclick="resetChartOrder()">Reset</button>
-  <button class="reorder-done" onclick="endChartReorder()">Done</button>
+  <button class="reorder-reset" id="reorderResetBtn" onclick="resetLayout()">Reset</button>
+  <button class="reorder-done" onclick="endReorder()">Done</button>
 </div>
 <!-- Every move is announced here. A drag is self-evident on screen and silent to a
      screen reader; the arrow keys and the move buttons are the other way round. -->
@@ -1551,11 +1570,11 @@ body.is-loading .stats-grid *{visibility:hidden}
 <div class="scope-line" id="scopeLine"></div>
 
 <!-- SUMMARY -->
-<div id="tab-summary" class="tab-content active" role="tabpanel" tabindex="0" aria-labelledby="tabbtn-summary">
+<div id="tab-summary" class="tab-content active" role="tabpanel" tabindex="0" aria-labelledby="tabbtn-summary" data-zone="summary">
   <!-- The page answers "where am I right now" before it answers "what have I ever
        done". The career totals are still here, on one line at the bottom, handed
        back to the tabs that own them. -->
-  <div class="sum-hero chart-card">
+  <div class="sum-hero chart-card span-full" data-panel="sum-load" data-panel-label="This week — hours">
     <div class="sum-hero-row">
       <div class="sum-hero-fig">
         <div class="stat-label">This week</div>
@@ -1577,7 +1596,7 @@ body.is-loading .stats-grid *{visibility:hidden}
        and a week of long easy ones can post the same hours and very different
        mileage. Same shape as the card above it on purpose: one idea, two measures,
        not two designs. -->
-  <div class="sum-hero chart-card">
+  <div class="sum-hero chart-card span-full" data-panel="sum-dist" data-panel-label="This week — distance">
     <div class="sum-hero-row">
       <div class="sum-hero-fig">
         <div class="stat-label">This week</div>
@@ -1600,8 +1619,9 @@ body.is-loading .stats-grid *{visibility:hidden}
   <!-- The read across all three signals at once. Deliberately quiet type: it is not
        the hero, and it is not the load chart's own verdict one size smaller either —
        it is the only line on the page that speaks to load, year and sport together. -->
-  <div class="sum-band" id="sumBand"></div>
+  <div class="span-full" data-panel="sum-band" data-panel-label="The read across load, year and sport"><div class="sum-band" id="sumBand"></div></div>
 
+  <div class="span-full" data-panel="sum-two" data-panel-label="Against last year, and consistency">
   <div class="sum-two">
     <div class="chart-card">
       <div class="chart-title">Against the same point last year</div>
@@ -1616,41 +1636,59 @@ body.is-loading .stats-grid *{visibility:hidden}
       <div id="sumConsistency"></div>
     </div>
   </div>
-
-  <div class="section-header">
-    <h2>Where each sport stands</h2>
-    <span class="badge" id="sumSportBadge"></span>
-    <span class="chart-sub sum-sport-note">Never averaged together — one mean speed across a
-      swim, a dog walk and a century describes none of them.</span>
   </div>
-  <div class="sum-sports" id="sumSportCards"></div>
 
-  <div class="stats-grid" id="heroStats"></div>
-  <div class="two-col two-col-fill">
-    <div>
-      <div class="section-header"><h2>Activity Breakdown</h2></div>
-      <div class="type-row" id="typeCards"></div>
+  <div class="span-full" data-panel="sum-sports" data-panel-label="Where each sport stands">
+    <div class="section-header">
+      <h2>Where each sport stands</h2>
+      <span class="badge" id="sumSportBadge"></span>
+      <span class="chart-sub sum-sport-note">Never averaged together — one mean speed across a
+        swim, a dog walk and a century describes none of them.</span>
     </div>
-    <div>
-      <div class="section-header"><h2>Most Active Days</h2></div>
-      <div class="dow-card"><div class="dow-bars" id="dowBars"></div></div>
+    <div class="sum-sports" id="sumSportCards"></div>
+  </div>
+
+  <div class="span-full" data-panel="sum-stats" data-panel-label="Career totals">
+    <div class="stats-grid" id="heroStats"></div>
+  </div>
+
+  <div class="span-full" data-panel="sum-breakdown" data-panel-label="Activity breakdown and most active days">
+    <div class="two-col two-col-fill">
+      <div>
+        <div class="section-header"><h2>Activity Breakdown</h2></div>
+        <div class="type-row" id="typeCards"></div>
+      </div>
+      <div>
+        <div class="section-header"><h2>Most Active Days</h2></div>
+        <div class="dow-card"><div class="dow-bars" id="dowBars"></div></div>
+      </div>
     </div>
   </div>
-  
-<div class="section-header"><h2>Year by Year</h2></div>
-  <div class="year-table-wrap scroll-x"><table id="yearTable"></table></div>
-<!-- LOCATIONS -->
-<div class="section-header" style="margin-top:28px"><h2>Locations Found in Activities</h2></div>
-<div id="locPills" class="loc-row">
-  <span style="font-size:12px;color:var(--text-muted)">Loading…</span>
-</div>
-  <div style="height:28px"></div>
-  <div class="section-header"><h2>Top Gear</h2></div>
-  <div class="top-gear-list" id="topGearList"></div>
-  <div style="height:28px"></div>
-  <div class="section-header"><h2>Recent Activities</h2></div>
-  <div class="recent-list" id="recentList"></div>
-  <div id="recentMoreWrap"></div>
+
+  <div class="span-full" data-panel="sum-years" data-panel-label="Year by Year">
+    <div class="section-header"><h2>Year by Year</h2></div>
+    <div class="year-table-wrap scroll-x"><table id="yearTable"></table></div>
+  </div>
+
+  <div class="span-full" data-panel="sum-locations" data-panel-label="Locations Found in Activities">
+    <div class="section-header" style="margin-top:28px"><h2>Locations Found in Activities</h2></div>
+    <div id="locPills" class="loc-row">
+      <span style="font-size:12px;color:var(--text-muted)">Loading…</span>
+    </div>
+  </div>
+
+  <div class="span-full" data-panel="sum-gear" data-panel-label="Top Gear">
+    <div style="height:28px"></div>
+    <div class="section-header"><h2>Top Gear</h2></div>
+    <div class="top-gear-list" id="topGearList"></div>
+  </div>
+
+  <div class="span-full" data-panel="sum-recent" data-panel-label="Recent Activities">
+    <div style="height:28px"></div>
+    <div class="section-header"><h2>Recent Activities</h2></div>
+    <div class="recent-list" id="recentList"></div>
+    <div id="recentMoreWrap"></div>
+  </div>
 </div>
 
 <!-- CHARTS -->
@@ -1666,21 +1704,21 @@ body.is-loading .stats-grid *{visibility:hidden}
        has changed. -->
   <div class="section-header"><h2>Volume</h2><span class="badge">How much — miles, feet, and whether you're ahead of yourself</span></div>
   <div class="charts-grid chart-zone" data-zone="volume" data-zone-label="Volume">
-    <div class="chart-card span-full" data-chart="load">
+    <div class="chart-card span-full" data-panel="load">
       <div class="chart-title">Training load</div>
       <div class="chart-sub" id="loadSub">Rolling 7-day and 28-day moving time</div>
       <div class="chart-wrap tall"><canvas id="chartLoad"></canvas></div>
       <div id="loadChips" class="chart-chips"></div>
       <div id="loadVerdict" class="chart-verdict"></div>
     </div>
-    <div class="chart-card span-full" data-chart="cum">
+    <div class="chart-card span-full" data-panel="cum">
       <div class="chart-title">Against the same point last year</div>
       <div class="chart-sub" id="cumSub">Cumulative distance by day of year</div>
       <div class="chart-wrap tall"><canvas id="chartCumulative"></canvas></div>
       <div id="cumChips" class="chart-chips"></div>
       <div id="cumVerdict" class="chart-verdict"></div>
     </div>
-    <div class="chart-card span-full" data-chart="monthly">
+    <div class="chart-card span-full" data-panel="monthly">
       <div class="chart-title" id="firstChartTitle">Monthly Distance</div>
       <div class="chart-sub" id="firstChartSub">Distance per month by activity type</div>
       <div id="firstChartMonthly" class="chart-wrap tall"><canvas id="chartMonthly"></canvas></div>
@@ -1688,21 +1726,21 @@ body.is-loading .stats-grid *{visibility:hidden}
       <div id="distChips" class="chart-chips"></div>
       <div id="distVerdict" class="chart-verdict"></div>
     </div>
-    <div class="chart-card" id="yoyChartCard" data-chart="yoy">
+    <div class="chart-card" id="yoyChartCard" data-panel="yoy">
       <div class="chart-title">Rolling 12 Months</div>
       <div class="chart-sub" id="yoyChartSub">Distance in the twelve months ending each month</div>
       <div class="chart-wrap"><canvas id="chartYoY"></canvas></div>
       <div id="rollChips" class="chart-chips"></div>
       <div id="rollVerdict" class="chart-verdict"></div>
     </div>
-    <div class="chart-card" id="donutChartCard" data-chart="donut">
+    <div class="chart-card" id="donutChartCard" data-panel="donut">
       <div class="chart-title">Activity Mix</div>
       <div class="chart-sub">Share of activities by type</div>
       <div class="chart-wrap"><canvas id="chartDonut"></canvas></div>
       <div id="mixChips" class="chart-chips"></div>
       <div id="mixVerdict" class="chart-verdict"></div>
     </div>
-    <div class="chart-card span-full" data-chart="elev">
+    <div class="chart-card span-full" data-panel="elev">
       <div class="chart-title">Monthly Elevation Gain</div>
       <div class="chart-sub" id="elevChartSub">Feet climbed per month</div>
       <div class="chart-wrap"><canvas id="chartElev"></canvas></div>
@@ -1712,42 +1750,42 @@ body.is-loading .stats-grid *{visibility:hidden}
   </div>
   <div class="section-header"><h2>Intensity</h2><span class="badge">How hard — the half of training volume can't tell you</span></div>
   <div class="charts-grid chart-zone" data-zone="intensity" data-zone-label="Intensity">
-    <div class="chart-card span-full" id="zoneCard" data-chart="zones">
+    <div class="chart-card span-full" id="zoneCard" data-panel="zones">
       <div class="chart-title">Where your heart rate actually sits</div>
       <div class="chart-sub" id="zoneSub">Time in each heart-rate zone, across every activity with HR data</div>
       <div class="chart-wrap"><canvas id="chartZones"></canvas></div>
       <div id="zoneChips" class="chart-chips"></div>
       <div id="zoneVerdict" class="chart-verdict"></div>
     </div>
-    <div class="chart-card" id="effortCard" data-chart="effort">
+    <div class="chart-card" id="effortCard" data-panel="effort">
       <div class="chart-title">Relative Effort</div>
       <div class="chart-sub" id="effortSub">Strava's suffer score, totalled per month</div>
       <div class="chart-wrap"><canvas id="chartEffort"></canvas></div>
       <div id="effortChips" class="chart-chips"></div>
       <div id="effortVerdict" class="chart-verdict"></div>
     </div>
-    <div class="chart-card" id="paceCard" data-chart="pace">
+    <div class="chart-card" id="paceCard" data-panel="pace">
       <div class="chart-title">Pace against distance</div>
       <div class="chart-sub" id="paceSub">One point per run</div>
       <div class="chart-wrap"><canvas id="chartPace"></canvas></div>
       <div id="paceChips" class="chart-chips"></div>
       <div id="paceVerdict" class="chart-verdict"></div>
     </div>
-    <div class="chart-card" id="powerCard" data-chart="eff">
+    <div class="chart-card" id="powerCard" data-panel="eff">
       <div class="chart-title">Speed per heartbeat</div>
       <div class="chart-sub" id="effSub">How fast you go at a given heart rate</div>
       <div class="chart-wrap"><canvas id="chartEff"></canvas></div>
       <div id="effChips" class="chart-chips"></div>
       <div id="effVerdict" class="chart-verdict"></div>
     </div>
-    <div class="chart-card" data-chart="power">
+    <div class="chart-card" data-panel="power">
       <div class="chart-title">Power Trend</div>
       <div class="chart-sub" id="powerSub">Average and normalised watts per month</div>
       <div class="chart-wrap"><canvas id="chartPower"></canvas></div>
       <div id="powerChips" class="chart-chips"></div>
       <div id="powerVerdict" class="chart-verdict"></div>
     </div>
-    <div class="chart-card" id="cadCard" data-chart="cad">
+    <div class="chart-card" id="cadCard" data-panel="cad">
       <div class="chart-title">Cadence Trend</div>
       <div class="chart-sub" id="cadSub">Average cadence per month</div>
       <div class="chart-wrap"><canvas id="chartCad"></canvas></div>
@@ -1757,28 +1795,28 @@ body.is-loading .stats-grid *{visibility:hidden}
   </div>
   <div class="section-header"><h2>Habits</h2><span class="badge">How you train — the patterns you don't choose</span></div>
   <div class="charts-grid chart-zone" data-zone="habits" data-zone-label="Habits">
-    <div class="chart-card" data-chart="tod">
+    <div class="chart-card" data-panel="tod">
       <div class="chart-title">When you train</div>
       <div class="chart-sub" id="todSub">Activities by hour of day</div>
       <div class="chart-wrap"><canvas id="chartTod"></canvas></div>
       <div id="todChips" class="chart-chips"></div>
       <div id="todVerdict" class="chart-verdict"></div>
     </div>
-    <div class="chart-card" data-chart="move">
+    <div class="chart-card" data-panel="move">
       <div class="chart-title">Moving vs stopped</div>
       <div class="chart-sub" id="moveSub">Share of elapsed time actually spent moving, per month</div>
       <div class="chart-wrap"><canvas id="chartMove"></canvas></div>
       <div id="moveChips" class="chart-chips"></div>
       <div id="moveVerdict" class="chart-verdict"></div>
     </div>
-    <div class="chart-card" id="raceCard" data-chart="race">
+    <div class="chart-card" id="raceCard" data-panel="race">
       <div class="chart-title">Race day vs everything else</div>
       <div class="chart-sub" id="raceSub">Races against your ordinary sessions in the same sport</div>
       <div class="chart-wrap"><canvas id="chartRace"></canvas></div>
       <div id="raceChips" class="chart-chips"></div>
       <div id="raceVerdict" class="chart-verdict"></div>
     </div>
-    <div class="chart-card" id="tempCard" data-chart="temp">
+    <div class="chart-card" id="tempCard" data-panel="temp">
       <div class="chart-title">The weather you actually train in</div>
       <div class="chart-sub" id="tempSub">Average speed by temperature band</div>
       <div class="chart-wrap"><canvas id="chartTemp"></canvas></div>
@@ -1804,13 +1842,23 @@ body.is-loading .stats-grid *{visibility:hidden}
 
 <!-- RECORDS -->
 <div id="tab-records" class="tab-content" role="tabpanel" tabindex="0" aria-labelledby="tabbtn-records" hidden>
+  <!-- The year bar is navigation, not a panel: it stays at the top where the thing
+       that changes what you are looking at belongs. -->
   <div class="rec-yearbar" id="recYearBar"></div>
-  <div class="section-header"><h2 id="recHeroTitle">The ones that stand out</h2><span class="badge" id="recHeroBadge"></span></div>
-  <div class="rec-hero-grid" id="recHero"></div>
-  <div id="recTables"></div>
-  <div class="section-header" style="margin-top:28px"><h2>All time</h2><span class="badge" id="recTotalsBadge"></span></div>
-  <div class="rec-totals" id="recTotals"></div>
-  <div class="records-note" id="runPRNote"></div>
+  <div data-zone="records">
+  <div class="span-full" data-panel="rec-hero" data-panel-label="The ones that stand out">
+    <div class="section-header"><h2 id="recHeroTitle">The ones that stand out</h2><span class="badge" id="recHeroBadge"></span></div>
+    <div class="rec-hero-grid" id="recHero"></div>
+  </div>
+  <div class="span-full" data-panel="rec-tables" data-panel-label="Personal bests by distance">
+    <div id="recTables"></div>
+  </div>
+  <div class="span-full" data-panel="rec-totals" data-panel-label="All time">
+    <div class="section-header" style="margin-top:28px"><h2>All time</h2><span class="badge" id="recTotalsBadge"></span></div>
+    <div class="rec-totals" id="recTotals"></div>
+    <div class="records-note" id="runPRNote"></div>
+  </div>
+  <div class="span-full" data-panel="rec-prprog" data-panel-label="How your bests got there">
   <div class="section-header" style="margin-top:28px"><h2>How your bests got there</h2><span class="badge" id="prProgBadge"></span></div>
   <div class="charts-grid wide">
     <div class="chart-card">
@@ -1821,17 +1869,24 @@ body.is-loading .stats-grid *{visibility:hidden}
       <div id="prprogVerdict" class="chart-verdict"></div>
     </div>
   </div>
+  </div>
+  </div>
 </div>
 
 <!-- MEX -->
 <div id="tab-mex" class="tab-content" role="tabpanel" tabindex="0" aria-labelledby="tabbtn-mex" hidden></div>
 
 <!-- SOCIAL -->
-<div id="tab-social" class="tab-content" role="tabpanel" tabindex="0" aria-labelledby="tabbtn-social" hidden>
-  <div class="section-header"><h2>Who you train with</h2><span class="badge" id="socialBadge"></span></div>
-  <div class="soc-lead" id="socLead"></div>
-  <div class="section-header" style="margin-top:28px"><h2>Named partners</h2><span class="badge" id="socPartnerBadge"></span></div>
-  <div id="socPartners"></div>
+<div id="tab-social" class="tab-content" role="tabpanel" tabindex="0" aria-labelledby="tabbtn-social" hidden data-zone="social">
+  <div class="span-full" data-panel="soc-lead" data-panel-label="Who you train with">
+    <div class="section-header"><h2>Who you train with</h2><span class="badge" id="socialBadge"></span></div>
+    <div class="soc-lead" id="socLead"></div>
+  </div>
+  <div class="span-full" data-panel="soc-partners" data-panel-label="Named partners">
+    <div class="section-header" style="margin-top:28px"><h2>Named partners</h2><span class="badge" id="socPartnerBadge"></span></div>
+    <div id="socPartners"></div>
+  </div>
+  <div class="span-full" data-panel="soc-chart" data-panel-label="Solo and in company, by month">
   <div class="charts-grid wide" style="margin-top:24px">
     <div class="chart-card">
       <div class="chart-title">Solo and in company, by month</div>
@@ -1841,20 +1896,27 @@ body.is-loading .stats-grid *{visibility:hidden}
       <div id="socialVerdict" class="chart-verdict"></div>
     </div>
   </div>
+  </div>
 </div>
 
 <!-- GEAR -->
 <div id="tab-gear" class="tab-content" role="tabpanel" tabindex="0" aria-labelledby="tabbtn-gear" hidden>
   <div class="sync-indicator" id="gearSyncIndicator" style="display:none"><span class="ms" style="font-size:15px;vertical-align:-3px;color:#d97706">warning</span> Strava data is <strong class="sync-days"></strong> days old. <span style="opacity:.7;font-size:11px">Use the ↻ button in the header to pull the latest.</span></div>
-  <div class="section-header"><h2>Gear Summary</h2><span class="badge" id="gearBadge"></span></div>
-  <div class="gear-grid" id="gearCards"></div>
-  <div class="charts-grid">
-    <div class="chart-card">
+  <!-- The zone is the grid itself and the panels are the cards in it, so the two
+       charts keep the row they shared. A panel that wraps a card instead of being
+       one adds a block-level box between the grid and its item, which is what
+       stacked these the first time round. -->
+  <div class="charts-grid" data-zone="gear">
+    <div class="span-full" data-panel="gear-summary" data-panel-label="Gear Summary">
+      <div class="section-header"><h2>Gear Summary</h2><span class="badge" id="gearBadge"></span></div>
+      <div class="gear-grid" id="gearCards"></div>
+    </div>
+    <div class="chart-card" data-panel="gear-dist">
       <div class="chart-title">Top Gear by Distance</div>
       <div class="chart-sub" id="gearDistSub">Miles logged per item</div>
       <div class="chart-wrap tall"><canvas id="chartGearDist"></canvas></div>
     </div>
-    <div class="chart-card">
+    <div class="chart-card" data-panel="gear-time">
       <div class="chart-title">Gear over time</div>
       <div class="chart-sub" id="gearTimeSub">Distance per quarter by item</div>
       <div class="chart-wrap tall"><canvas id="chartGearCount"></canvas></div>
@@ -1962,12 +2024,18 @@ body.is-loading .stats-grid *{visibility:hidden}
       <div id="replayStatus" class="map-readout" style="display:none"></div>
     </div>
   </div>
-  <div class="section-header" style="margin-top:26px"><h2>Ground covered</h2><span class="badge" id="exploreBadge"></span></div>
-  <div class="stats-grid" id="exploreStats"></div>
-  <div class="chart-card" style="margin-top:4px">
-    <div class="chart-title">New ground, year by year</div>
-    <div class="chart-sub" id="exploreSub">How much of each year was somewhere you had never been before</div>
-    <div id="exploreYears"></div>
+  <div data-zone="map">
+  <div class="span-full" data-panel="map-explore-stats" data-panel-label="Ground covered">
+    <div class="section-header" style="margin-top:26px"><h2>Ground covered</h2><span class="badge" id="exploreBadge"></span></div>
+    <div class="stats-grid" id="exploreStats"></div>
+  </div>
+  <div class="span-full" data-panel="map-explore-years" data-panel-label="New ground, year by year">
+    <div class="chart-card" style="margin-top:4px">
+      <div class="chart-title">New ground, year by year</div>
+      <div class="chart-sub" id="exploreSub">How much of each year was somewhere you had never been before</div>
+      <div id="exploreYears"></div>
+    </div>
+  </div>
   </div>
   <div id="mapEmpty" style="display:none;text-align:center;padding:60px 20px;color:var(--text-muted);font-size:14px">
     <span class="ms" style="font-size:36px;display:block;margin-bottom:8px">map</span>
@@ -2554,6 +2622,17 @@ function openSettings(){
   const menu=document.getElementById('settingsMenu');
   const btn=document.getElementById('settingsBtn');
   if(!menu)return;
+  // Name the tab it would act on, and grey the row out where there is nothing to
+  // rearrange — better than letting the press be the way you find out.
+  const rr=document.getElementById('reorderChartsBtn');
+  if(rr){
+    const ok=tabIsReorderable(activeTab);
+    rr.disabled=!ok;
+    const note=document.getElementById('reorderBtnNote');
+    if(note)note.textContent=ok?tabName(activeTab):'nothing to move here';
+  }
+  const notice=document.getElementById('reorderNotice');
+  if(notice)notice.hidden=true;
   closeScopeSheet();
   positionSettingsMenu();
   menu.classList.add('open');
@@ -2581,68 +2660,123 @@ function toggleSettings(e){
 // who merely rotated their phone is its own small annoyance.
 window.addEventListener('resize',()=>{if(settingsIsOpen())positionSettingsMenu();});
 
-// ── CHART ORDER ──
-// The Charts tab is three sections of cards, and which card sits where is a
-// preference. It is stored as the id list of each section, not as a flat list of
-// every chart, so that a card can be moved between sections and still be found
-// again; and it is stored by a stable `data-chart` key rather than by index, so
-// that adding a chart later does not silently renumber somebody's saved order.
+// ── PANEL ORDER ──
+// Which box sits where is a preference, on every tab that has more than one.
 //
-// There is only ever ONE order. The desktop grid is two columns and the phone grid
-// is one, but both read the same sequence — the grid decides the shape, the saved
-// list decides the sequence. That is the whole answer to "it may get complicated
-// with mobile and desktop": it is only complicated if you let the two views hold
-// different orders, and there is no reason to.
-const CHART_ORDER_KEY='fitness_chart_order_v1';
-let chartReorderOn=false;
-let DEFAULT_CHART_LAYOUT=null;
+// Two concepts, and only two. A ZONE is a container that holds movable things and
+// carries `data-zone`; a PANEL is a movable thing inside one and carries
+// `data-panel`. A tab may have one zone (the tab itself) or several — the Charts
+// tab has three, one per section, so a chart can be moved between Volume and
+// Intensity and still be found again.
+//
+// The order is stored per zone as a list of panel keys, not as indices: adding a
+// chart or a section in a later release must not silently renumber a saved order,
+// and a panel the saved order has never seen goes back to its default position
+// rather than being swept to the end.
+//
+// There is only ever ONE order per zone. The desktop grid is two columns and the
+// phone grid is one, but both read the same sequence — the grid decides the shape,
+// the saved list decides the sequence. Holding a separate order per breakpoint is
+// the only thing that would make this complicated, and there is no reason to.
+const LAYOUT_KEY='fitness_layout_v1';
+const LEGACY_CHART_ORDER_KEY='fitness_chart_order_v1';   // charts-only, before this went tab-wide
+let reorderOn=false;
+let reorderTab=null;          // the tab being edited, so a render elsewhere cannot confuse it
+let DEFAULT_LAYOUT=null;
 
-function chartZones(){return[...document.querySelectorAll('#tab-charts .chart-zone')];}
-function chartCardsIn(zone){return[...zone.children].filter(el=>el.dataset&&el.dataset.chart);}
-// Every card on the tab, in the order it is read. Sections are part of that order,
-// so moving off the end of one lands at the start of the next.
-function allChartCards(){return chartZones().flatMap(chartCardsIn);}
-function chartCardLabel(card){
-  const t=card.querySelector('.chart-title');
-  return t?t.textContent.trim():(card.dataset.chart||'chart');
+// Scoped to one tab. Reordering is something you do to the page in front of you,
+// and a zone on a hidden tab measures zero, which no drag can hit anyway.
+function tabEl(tab){return document.getElementById('tab-'+(tab||activeTab));}
+function layoutZones(tab){
+  const el=tabEl(tab);
+  if(!el)return[];
+  // The tab element itself counts. A tab with one flat list of panels carries
+  // data-zone on the tab, and querySelectorAll only ever looks at descendants —
+  // which silently returned no zones at all for Summary and Social.
+  const inner=[...el.querySelectorAll('[data-zone]')];
+  return el.dataset.zone?[el,...inner]:inner;
+}
+function panelsIn(zone){return[...zone.children].filter(el=>el.dataset&&el.dataset.panel);}
+// Every panel on the tab, in the order it is read. Zones are part of that order, so
+// moving off the end of one lands at the start of the next.
+function allPanels(tab){return layoutZones(tab).flatMap(panelsIn);}
+function tabIsReorderable(tab){return allPanels(tab).length>1;}
+
+// What to call a panel, in the announcement and on its move buttons. Declared
+// where the markup already says it once, read from the heading where it does not,
+// rather than a third copy of every title to keep in step.
+function panelLabel(panel){
+  if(panel.dataset.panelLabel)return panel.dataset.panelLabel;
+  const t=panel.querySelector('.chart-title,.section-header h2,h2');
+  return t?t.textContent.trim():(panel.dataset.panel||'panel');
 }
 
-// Captured from the markup before any saved order is applied, and never again:
-// this is what Reset goes back to, and where a chart added in a later release gets
-// slotted in for someone who already has an order saved.
-function captureDefaultChartLayout(){
-  if(DEFAULT_CHART_LAYOUT)return;
-  DEFAULT_CHART_LAYOUT={};
-  chartZones().forEach(z=>{DEFAULT_CHART_LAYOUT[z.dataset.zone]=chartCardsIn(z).map(c=>c.dataset.chart);});
+// Captured from the markup the first time a tab is seen and never again: this is
+// what Reset goes back to, and where a panel added in a later release gets slotted
+// in for someone who already has an order saved. Per tab rather than in one pass,
+// because a tab whose markup is generated (Mex) has no zones to read until it has
+// been rendered at least once.
+function captureDefaultLayout(tab){
+  if(!DEFAULT_LAYOUT)DEFAULT_LAYOUT={};
+  layoutZones(tab).forEach(z=>{
+    if(DEFAULT_LAYOUT[z.dataset.zone])return;
+    DEFAULT_LAYOUT[z.dataset.zone]=panelsIn(z).map(p=>p.dataset.panel);
+  });
 }
 
-function readChartOrder(){
-  try{
-    const raw=JSON.parse(localStorage.getItem(CHART_ORDER_KEY)||'null');
-    return(raw&&typeof raw==='object'&&!Array.isArray(raw))?raw:null;
-  }catch(e){return null;}
+function readLayout(){
+  const parse=k=>{
+    try{
+      const raw=JSON.parse(localStorage.getItem(k)||'null');
+      return(raw&&typeof raw==='object'&&!Array.isArray(raw))?raw:null;
+    }catch(e){return null;}
+  };
+  const saved=parse(LAYOUT_KEY);
+  if(saved)return saved;
+  // Before this was tab-wide it only stored the three chart zones, under its own
+  // key. The shape is identical, so an order saved then is carried forward rather
+  // than being quietly reset by an upgrade.
+  const legacy=parse(LEGACY_CHART_ORDER_KEY);
+  if(legacy){
+    try{localStorage.setItem(LAYOUT_KEY,JSON.stringify(legacy));
+        localStorage.removeItem(LEGACY_CHART_ORDER_KEY);}catch(e){}
+    return legacy;
+  }
+  return null;
 }
 
-function saveChartOrder(){
-  const out={};
-  chartZones().forEach(z=>{out[z.dataset.zone]=chartCardsIn(z).map(c=>c.dataset.chart);});
-  try{localStorage.setItem(CHART_ORDER_KEY,JSON.stringify(out));}catch(e){}
+// Merged, never replaced: saving the Summary tab must not wipe the order somebody
+// set on Charts, and only the zones currently in the DOM can be read.
+function saveLayout(tab){
+  const out=readLayout()||{};
+  layoutZones(tab).forEach(z=>{out[z.dataset.zone]=panelsIn(z).map(p=>p.dataset.panel);});
+  try{localStorage.setItem(LAYOUT_KEY,JSON.stringify(out));}catch(e){}
 }
 
-// Rebuild each section from `layout`, which need not be complete or correct: keys
-// for charts that no longer exist are dropped, and charts the layout never mentions
-// are put back at their default index rather than swept to the end, so a new chart
-// arrives where it was designed to sit.
-function applyChartLayout(layout){
-  captureDefaultChartLayout();
+function layoutIsCustom(tab){
+  const saved=readLayout();
+  if(!saved)return false;
+  return layoutZones(tab).some(z=>{
+    const want=saved[z.dataset.zone],def=(DEFAULT_LAYOUT||{})[z.dataset.zone];
+    return Array.isArray(want)&&def&&want.join('|')!==def.join('|');
+  });
+}
+
+// Rebuild each zone from `layout`, which need not be complete or correct: keys for
+// panels that no longer exist are dropped, and panels the layout never mentions go
+// back to their default index rather than being swept to the end, so a panel added
+// later arrives where it was designed to sit.
+function applyLayout(layout,tab){
+  captureDefaultLayout(tab);
+  const zones=layoutZones(tab);
+  if(!zones.length)return;
   const byKey={};
-  document.querySelectorAll('#tab-charts .chart-card[data-chart]').forEach(c=>{byKey[c.dataset.chart]=c;});
-  const zones=chartZones();
+  zones.forEach(z=>panelsIn(z).forEach(p=>{byKey[p.dataset.panel]=p;}));
   const plan={};
   zones.forEach(z=>{
     const want=layout&&Array.isArray(layout[z.dataset.zone])?layout[z.dataset.zone]:[];
     // De-duplicated as well as filtered: a hand-edited or half-written entry could
-    // name the same chart twice, and a card can only be in one place.
+    // name the same panel twice, and a panel can only be in one place.
     const seen=new Set();
     plan[z.dataset.zone]=want.filter(k=>{
       if(!byKey[k]||seen.has(k))return false;
@@ -2650,73 +2784,112 @@ function applyChartLayout(layout){
     });
   });
   const placed=new Set(Object.values(plan).flat());
-  Object.entries(DEFAULT_CHART_LAYOUT).forEach(([zoneName,keys])=>{
-    if(!plan[zoneName])return;
-    keys.forEach((k,i)=>{
+  zones.forEach(z=>{
+    const def=(DEFAULT_LAYOUT||{})[z.dataset.zone]||[];
+    def.forEach((k,i)=>{
       if(placed.has(k)||!byKey[k])return;
-      plan[zoneName].splice(Math.min(i,plan[zoneName].length),0,k);
+      plan[z.dataset.zone].splice(Math.min(i,plan[z.dataset.zone].length),0,k);
       placed.add(k);
     });
   });
   zones.forEach(z=>plan[z.dataset.zone].forEach(k=>z.appendChild(byKey[k])));
 }
 
-function restoreChartOrder(){
-  captureDefaultChartLayout();
-  const saved=readChartOrder();
-  if(saved)applyChartLayout(saved);
-  syncReorderButtons();
+// Called after every render as well as at boot. Several tabs rebuild their panels
+// from scratch on each render — Mex replaces the whole tab — so an order applied
+// only once would survive until the first filter change and no longer.
+function restoreLayout(tab){
+  captureDefaultLayout(tab);
+  const saved=readLayout();
+  if(saved)applyLayout(saved,tab);
+  if(reorderOn)syncReorderButtons();
 }
 
-function resetChartOrder(){
-  captureDefaultChartLayout();
-  try{localStorage.removeItem(CHART_ORDER_KEY);}catch(e){}
-  applyChartLayout(DEFAULT_CHART_LAYOUT);
-  syncReorderButtons();
-  announceReorder('Chart order reset to the default.');
+// Every tab whose markup exists in the document. Tabs that generate their own
+// panels (Mex) have none until they have been rendered once, which is why
+// renderAll calls restoreLayout for the tab it just drew.
+function restoreAllLayouts(){
+  TAB_ORDER.forEach(t=>{if(tabEl(t))restoreLayout(t);});
+}
+
+function resetLayout(){
+  const tab=reorderTab||activeTab;
+  captureDefaultLayout(tab);
+  const saved=readLayout()||{};
+  // Only this tab's zones are reset. Reset sits on the bar you are editing with,
+  // so it means "put this tab back", not "put everything back".
+  layoutZones(tab).forEach(z=>{delete saved[z.dataset.zone];});
+  try{
+    Object.keys(saved).length?localStorage.setItem(LAYOUT_KEY,JSON.stringify(saved))
+                             :localStorage.removeItem(LAYOUT_KEY);
+  }catch(e){}
+  applyLayout(DEFAULT_LAYOUT,tab);
+  buildReorderControls();
+  announceReorder('Layout reset to the default for this tab.');
 }
 
 // ── Reorder mode ──
+// Rebuilt rather than patched, because several tabs replace their panels wholesale
+// on a render: a grip attached once would be thrown away with the panel it was on.
 function buildReorderControls(){
-  allChartCards().forEach(card=>{
-    if(card.querySelector(':scope > .reorder-grip'))return;
-    const grip=document.createElement('div');
-    grip.className='reorder-grip';
-    grip.setAttribute('aria-hidden','true');
-    grip.innerHTML='<span class="ms">drag_indicator</span>';
-    card.insertBefore(grip,card.firstChild);
-    // Buttons as well as dragging, and not only as a fallback: they are the whole
-    // interaction from a keyboard, they are exact where a drag is approximate, and
-    // on a phone they are the difference between reordering and fighting the page.
-    const ctl=document.createElement('div');
-    ctl.className='reorder-ctl';
-    ctl.innerHTML='<button type="button" class="reorder-move" data-dir="-1"><span class="ms">arrow_upward</span></button>'+
-                  '<button type="button" class="reorder-move" data-dir="1"><span class="ms">arrow_downward</span></button>';
-    ctl.querySelectorAll('.reorder-move').forEach(b=>{
-      b.addEventListener('click',ev=>{
-        ev.stopPropagation();
-        moveChartCard(card,+b.dataset.dir,true);
+  const tab=reorderTab||activeTab;
+  allPanels(tab).forEach(panel=>{
+    if(!panel.querySelector(':scope > .reorder-grip')){
+      const grip=document.createElement('div');
+      grip.className='reorder-grip';
+      grip.setAttribute('aria-hidden','true');
+      grip.innerHTML='<span class="ms">drag_indicator</span>';
+      panel.insertBefore(grip,panel.firstChild);
+    }
+    // Injected rather than read out of the panel: a chart card has a .chart-title, a
+    // summary panel has a section heading, a hero card has neither. One label
+    // element is the only version that looks the same on every tab.
+    let name=panel.querySelector(':scope > .reorder-name');
+    if(!name){
+      name=document.createElement('div');
+      name.className='reorder-name';
+      panel.insertBefore(name,panel.querySelector(':scope > .reorder-grip').nextSibling);
+    }
+    name.textContent=panelLabel(panel);
+    if(!panel.querySelector(':scope > .reorder-ctl')){
+      // Buttons as well as dragging, and not only as a fallback: they are the whole
+      // interaction from a keyboard, they are exact where a drag is approximate, and
+      // on a phone they are the difference between reordering and fighting the page.
+      const ctl=document.createElement('div');
+      ctl.className='reorder-ctl';
+      ctl.innerHTML='<button type="button" class="reorder-move" data-dir="-1"><span class="ms">arrow_upward</span></button>'+
+                    '<button type="button" class="reorder-move" data-dir="1"><span class="ms">arrow_downward</span></button>';
+      ctl.querySelectorAll('.reorder-move').forEach(b=>{
+        b.addEventListener('click',ev=>{
+          ev.stopPropagation();
+          movePanel(panel,+b.dataset.dir,true);
+        });
       });
-    });
-    card.appendChild(ctl);
+      panel.appendChild(ctl);
+    }
+    // Focusable as a unit as well as through its buttons: with a panel focused the
+    // arrow keys move it, which is the keyboard equivalent of picking it up.
+    panel.tabIndex=0;
+    panel.setAttribute('aria-roledescription','Reorderable panel');
   });
   syncReorderButtons();
 }
 
-// The ends of the list are the only place a move is impossible, and the buttons
-// say so rather than doing nothing when pressed.
+// The ends of the list are the only place a move is impossible, and the buttons say
+// so rather than doing nothing when pressed.
 function syncReorderButtons(){
-  const cards=allChartCards();
-  cards.forEach((card,i)=>{
-    const label=chartCardLabel(card);
-    card.querySelectorAll(':scope > .reorder-ctl .reorder-move').forEach(b=>{
+  const tab=reorderTab||activeTab;
+  const panels=allPanels(tab);
+  panels.forEach((panel,i)=>{
+    const label=panelLabel(panel);
+    panel.querySelectorAll(':scope > .reorder-ctl .reorder-move').forEach(b=>{
       const back=+b.dataset.dir<0;
-      b.disabled=back?i===0:i===cards.length-1;
+      b.disabled=back?i===0:i===panels.length-1;
       b.setAttribute('aria-label',`Move ${label} ${back?'earlier':'later'}`);
     });
   });
   const reset=document.getElementById('reorderResetBtn');
-  if(reset)reset.disabled=!readChartOrder();
+  if(reset)reset.disabled=!layoutIsCustom(tab);
 }
 
 function announceReorder(msg){
@@ -2724,65 +2897,94 @@ function announceReorder(msg){
   if(el)el.textContent=msg;
 }
 
-// One linear list across all three sections, so `insertBefore` into the target's
-// own parent is all it takes to cross a section boundary.
-function moveChartCard(card,dir,announce){
-  const cards=allChartCards();
-  const i=cards.indexOf(card);
+// One linear list across every zone on the tab, so `insertBefore` into the target's
+// own parent is all it takes to cross a zone boundary.
+function movePanel(panel,dir,announce){
+  const tab=reorderTab||activeTab;
+  const panels=allPanels(tab);
+  const i=panels.indexOf(panel);
   const j=i+dir;
-  if(i<0||j<0||j>=cards.length)return false;
-  const target=cards[j];
-  target.parentNode.insertBefore(card,dir<0?target:target.nextSibling);
-  saveChartOrder();
+  if(i<0||j<0||j>=panels.length)return false;
+  const target=panels[j];
+  target.parentNode.insertBefore(panel,dir<0?target:target.nextSibling);
+  saveLayout(tab);
   syncReorderButtons();
   if(announce){
-    const zone=card.closest('.chart-zone');
-    const within=chartCardsIn(zone);
-    announceReorder(`${chartCardLabel(card)} moved to position ${within.indexOf(card)+1} of ${within.length} in ${zone.dataset.zoneLabel}.`);
+    const zone=panel.closest('[data-zone]');
+    const within=panelsIn(zone);
+    const where=zone.dataset.zoneLabel?` in ${zone.dataset.zoneLabel}`:'';
+    announceReorder(`${panelLabel(panel)} moved to position ${within.indexOf(panel)+1} of ${within.length}${where}.`);
   }
-  if(card.focus)card.focus();
+  if(panel.focus)panel.focus();
   return true;
 }
 
-function startChartReorder(){
+// Whatever tab you are looking at. Reordering is something you do to the page in
+// front of you, so it does not drag you off to the Charts tab the way the first
+// version of this did.
+function startReorder(){
   closeSettings();
-  if(activeTab!=='charts')setTab('charts');
-  const tab=document.getElementById('tab-charts');
-  if(!tab)return;
-  chartReorderOn=true;
-  captureDefaultChartLayout();
+  const tab=activeTab;
+  const el=tabEl(tab);
+  if(!el)return;
+  if(!tabIsReorderable(tab)){
+    // Said out loud rather than leaving a pressed button doing nothing. Several tabs
+    // are a single thing — a map, a calendar, one table — and there is no
+    // arrangement of one box.
+    announceReorder('Nothing to rearrange on this tab.');
+    flashReorderNotice(`The ${tabName(tab)} tab is one panel — nothing to rearrange here.`);
+    return;
+  }
+  reorderOn=true;
+  reorderTab=tab;
+  captureDefaultLayout(tab);
   buildReorderControls();
-  // Focusable as a unit as well as through its buttons: with a card focused the
-  // arrow keys move it, which is the keyboard equivalent of picking it up.
-  allChartCards().forEach(c=>{
-    c.tabIndex=0;
-    c.setAttribute('aria-roledescription','Reorderable chart');
-  });
-  tab.classList.add('reordering');
-  document.getElementById('reorderBar').hidden=false;
+  el.classList.add('reordering');
+  const bar=document.getElementById('reorderBar');
+  bar.hidden=false;
+  const what=document.getElementById('reorderBarWhat');
+  if(what)what.textContent=`Rearranging ${tabName(tab)}`;
   syncReorderButtons();
-  announceReorder('Reorder mode on. Use the arrow keys on a focused chart, or its move buttons.');
+  announceReorder(`Reorder mode on for ${tabName(tab)}. Use the arrow keys on a focused panel, or its move buttons.`);
+}
+
+function tabName(tab){
+  const btn=document.getElementById('tabbtn-'+tab);
+  const lab=btn&&btn.querySelector('.tab-label');
+  return lab?lab.textContent.trim():tab;
+}
+
+// A one-off line under the settings button for the tabs that have nothing to move.
+function flashReorderNotice(msg){
+  const el=document.getElementById('reorderNotice');
+  if(!el)return;
+  el.textContent=msg;
+  el.hidden=false;
+  clearTimeout(flashReorderNotice._t);
+  flashReorderNotice._t=setTimeout(()=>{el.hidden=true;},4000);
 }
 
 // `leaving` is set when the tab is changing underneath us: the charts are about to
 // be hidden and repainted by setTab anyway, and stealing focus back to the settings
 // button would take it off the tab the user just pressed.
-function endChartReorder(leaving){
-  const tab=document.getElementById('tab-charts');
-  if(!chartReorderOn)return;
-  chartReorderOn=false;
+function endReorder(leaving){
+  if(!reorderOn)return;
+  const tab=reorderTab||activeTab;
+  const el=tabEl(tab);
+  reorderOn=false;
   cancelChartDrag();
-  saveChartOrder();
-  if(tab)tab.classList.remove('reordering');
+  saveLayout(tab);
+  if(el)el.classList.remove('reordering');
   const bar=document.getElementById('reorderBar');
   if(bar)bar.hidden=true;
-  allChartCards().forEach(c=>{c.removeAttribute('tabindex');c.removeAttribute('aria-roledescription');});
+  allPanels(tab).forEach(p=>{p.removeAttribute('tabindex');p.removeAttribute('aria-roledescription');});
   announceReorder('Reorder mode off.');
+  reorderTab=null;
   if(leaving)return;
-  // The canvases have been display:none the whole time and Chart.js has been sizing
-  // itself from a box that was 0×0. Re-render, then resize on the next frame, once
-  // the wrappers have a height again.
-  if(ALL_DATA&&ALL_DATA.length)renderCharts();
+  // Every canvas on the tab has been display:none the whole time and Chart.js has
+  // been sizing itself from a box that was 0×0. Re-render, then resize on the next
+  // frame, once the wrappers have a height again.
+  if(ALL_DATA&&ALL_DATA.length)renderAll();
   requestAnimationFrame(()=>{
     Object.keys(charts).forEach(k=>{try{charts[k]&&charts[k].resize();}catch(e){}});
   });
@@ -2806,10 +3008,10 @@ function cancelChartDrag(){
 }
 
 document.addEventListener('pointerdown',e=>{
-  if(!chartReorderOn||_dragCard)return;
+  if(!reorderOn||_dragCard)return;
   if(e.button!=null&&e.button!==0)return;
   if(e.target.closest('button'))return;          // the move buttons are not handles
-  const card=e.target.closest('#tab-charts .chart-card[data-chart]');
+  const card=e.target.closest('[data-panel]');
   if(!card)return;
   _dragCard=card;
   _dragStartX=_dragX=e.clientX;_dragStartY=_dragY=e.clientY;
@@ -2844,7 +3046,7 @@ function beginChartDrag(){
   _dragGhost.setAttribute('aria-hidden','true');
   _dragGhost.innerHTML='<div class="reorder-grip"><span class="ms">drag_indicator</span></div>'+
                        '<div class="chart-title"></div>';
-  _dragGhost.querySelector('.chart-title').textContent=chartCardLabel(_dragCard);
+  _dragGhost.querySelector('.chart-title').textContent=panelLabel(_dragCard);
   _dragGhost.style.width=r.width+'px';
   _dragGhost.style.height=r.height+'px';
   document.body.appendChild(_dragGhost);
@@ -2880,7 +3082,7 @@ function positionDragGhost(){
 function reorderToPointer(x,y){
   if(!_dragCard)return;
   let target=null,best=Infinity;
-  for(const c of allChartCards()){
+  for(const c of allPanels(reorderTab)){
     if(c===_dragCard||!c.offsetParent)continue;
     const b=c.getBoundingClientRect();
     const dx=Math.max(b.left-x,0,x-b.right),dy=Math.max(b.top-y,0,y-b.bottom);
@@ -2888,7 +3090,7 @@ function reorderToPointer(x,y){
     if(d<best){best=d;target=c;}
   }
   if(!target)return;
-  const zone=target.closest('.chart-zone');
+  const zone=target.closest('[data-zone]');
   if(!zone)return;
   // Which axis settles it is read off the grid itself, which is the whole of the
   // mobile story: the media query drops the section to one column, `cols` becomes 1,
@@ -2916,30 +3118,31 @@ function finishChartDrag(e){
   if(moved&&e&&e.clientX!=null)reorderToPointer(e.clientX,e.clientY);
   cancelChartDrag();
   if(!moved)return;
-  saveChartOrder();
+  saveLayout(reorderTab);
   syncReorderButtons();
-  const zone=card.closest('.chart-zone');
+  const zone=card.closest('[data-zone]');
   if(zone){
-    const within=chartCardsIn(zone);
-    announceReorder(`${chartCardLabel(card)} moved to position ${within.indexOf(card)+1} of ${within.length} in ${zone.dataset.zoneLabel}.`);
+    const within=panelsIn(zone);
+    const where=zone.dataset.zoneLabel?` in ${zone.dataset.zoneLabel}`:'';
+    announceReorder(`${panelLabel(card)} moved to position ${within.indexOf(card)+1} of ${within.length}${where}.`);
   }
 }
 document.addEventListener('pointerup',finishChartDrag);
-document.addEventListener('pointercancel',()=>{const c=_dragCard;cancelChartDrag();if(c)restoreChartOrder();});
+document.addEventListener('pointercancel',()=>{const c=_dragCard;cancelChartDrag();if(c)restoreLayout(reorderTab);});
 
 // Arrow keys on a focused card. Left/right as well as up/down because on a desktop
 // two cards on the same line read as side by side, and a user who thinks in columns
 // should not have to translate that into "one step back in the list".
 document.addEventListener('keydown',e=>{
-  if(!chartReorderOn)return;
-  const card=e.target&&e.target.closest&&e.target.closest('#tab-charts .chart-card[data-chart]');
+  if(!reorderOn)return;
+  const card=e.target&&e.target.closest&&e.target.closest('[data-panel]');
   if(!card||e.target.closest('button'))return;
   let dir=0;
   if(e.key==='ArrowUp'||e.key==='ArrowLeft')dir=-1;
   else if(e.key==='ArrowDown'||e.key==='ArrowRight')dir=1;
   else return;
   e.preventDefault();
-  moveChartCard(card,dir,true);
+  movePanel(card,dir,true);
 });
 
 function openScopeSheet(){
@@ -2962,7 +3165,7 @@ const TAB_ORDER=['summary','map','charts','heatmap','records','mex','social','ge
 function setTab(tab,dir,fromPop){
   // Leaving the charts ends the edit: the bar is fixed to the viewport and would
   // otherwise sit over the Heatmap offering to reorder something that isn't there.
-  if(chartReorderOn&&tab!=='charts')endChartReorder(true);
+  if(reorderOn&&tab!==reorderTab)endReorder(true);
   if(tab==='mex'&&activeTab!=='mex')mexAnimate=true;
   // A replay left running on a tab you cannot see is a requestAnimationFrame loop
   // burning battery for nothing.
@@ -3058,7 +3261,7 @@ window.addEventListener('popstate',()=>{
   main.addEventListener('touchstart',e=>{
     // Dragging a card sideways across the grid is a horizontal swipe by any other
     // measure, and would otherwise throw you onto the Heatmap tab mid-reorder.
-    if(e.touches.length!==1||chartReorderOn||insideHorizontalScroller(e.target)){tracking=false;return;}
+    if(e.touches.length!==1||reorderOn||insideHorizontalScroller(e.target)){tracking=false;return;}
     sx=e.touches[0].clientX;sy=e.touches[0].clientY;tracking=true;
   },{passive:true});
   main.addEventListener('touchend',e=>{
@@ -5511,6 +5714,8 @@ function renderMex(){
   el.innerHTML=`
   <div class="section-header"><h2>Mex Score</h2><span class="badge">${scope}</span></div>
 
+  <div data-zone="mex">
+  <div class="span-full" data-panel="mex-stats" data-panel-label="Mex, first gap and buckets filled">
   <div class="stats-grid">
     <div class="stat-card">
       <div class="stat-label">Your Mex</div>
@@ -5528,7 +5733,9 @@ function renderMex(){
       <div class="stat-sub">Longest single activity: ${longest} ${u}</div>
     </div>
   </div>
+  </div>
 
+  <div class="span-full" data-panel="mex-ladder" data-panel-label="The ladder">
   <div class="chart-card" style="margin-bottom:18px">
     <div class="chart-title">The ladder</div>
     <div class="chart-sub">Each cell is one whole-${u} bucket. An activity counts for the ${u} it lands in, rounded down. Where several sports fill the same bucket, the cell takes the colour of whichever has the most activities in it.</div>
@@ -5539,7 +5746,9 @@ function renderMex(){
       <div class="mex-legend-item"><div class="mex-swatch" style="background:var(--surface);border:1px dashed var(--border-strong)"></div><span>Empty bucket</span></div>
     </div>
   </div>
+  </div>
 
+  <div class="span-full" data-panel="mex-hist" data-panel-label="How far you actually go">
   <div class="chart-card" style="margin-bottom:18px">
     <div class="chart-title">How far you actually go</div>
     <div class="chart-sub" id="distHistSub">The same buckets, counted rather than ticked</div>
@@ -5547,7 +5756,9 @@ function renderMex(){
     <div id="histChips" class="chart-chips"></div>
     <div id="histVerdict" class="chart-verdict"></div>
   </div>
+  </div>
 
+  <div class="span-full" data-panel="mex-plan" data-panel-label="Fill these in order">
   <div class="two-col">
     <div class="log-table-wrap">
       <div style="padding:18px 20px 12px">
@@ -5586,6 +5797,8 @@ function renderMex(){
         </div>
       </div>
     </div>
+  </div>
+  </div>
   </div>`;
 
   renderDistHistogram(getFiltered(),ceiling);
@@ -6142,7 +6355,7 @@ document.addEventListener('keydown',e=>{
   if(e.key!=='Escape')return;
   // Reorder mode is the outermost thing Escape can close, so it goes last — a menu
   // opened on top of it should close first and leave you still reordering.
-  if(!settingsIsOpen()&&chartReorderOn){endChartReorder();return;}
+  if(!settingsIsOpen()&&reorderOn){endReorder();return;}
   closeSettings();closeGearModal();closeActivityModal();
 });
 
@@ -7015,6 +7228,11 @@ function renderAll(){
   else if(activeTab==='log')renderLog();
   else if(activeTab==='map')renderMap(activeType==='All'?ALL_DATA:ALL_DATA.filter(a=>mapFilterMatches(a)));
   else if(activeTab==='zwift')renderZwiftTable();
+  // After the render, not before. Mex rebuilds its whole tab and several others
+  // rebuild panels inside theirs, so an order applied once at boot would survive
+  // until the first filter change and no longer.
+  restoreLayout(activeTab);
+  if(reorderOn&&reorderTab===activeTab)buildReorderControls();
 }
 
 
@@ -7382,9 +7600,9 @@ if ('serviceWorker' in navigator) {
 // the head, before first paint.
 applyTheme(readTheme());
 
-// Before the first render, so the charts are drawn into the cards where they belong
-// rather than being moved after they have already been painted somewhere else.
-restoreChartOrder();
+// Before the first render, so each panel is drawn where it belongs rather than
+// being moved after it has already been painted somewhere else.
+restoreAllLayouts();
 
 loadData();
   

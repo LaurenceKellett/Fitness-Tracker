@@ -123,12 +123,19 @@ the tab row on a phone, and none of them is navigation — they are preferences 
 utilities, so they belong behind a single affordance. It opens as a popover anchored to the
 button on a desktop and as the same bottom sheet the scope control uses below 640px.
 
-### Reordering the charts
+### Rearranging a tab
 
-**Settings → Reorder charts** takes you to the Charts tab and turns editing on there. It is
-not a separate list screen: you move the real cards, in the real grid, so the arrangement you
-are looking at while you drag is the one you get when you press Done. What changes is that
-every card collapses to a title row for the duration.
+**Settings → Rearrange this tab** turns editing on for the tab you are already looking at.
+It is not a separate list screen: you move the real panels, in the real layout, so the
+arrangement you are looking at while you drag is the one you get when you press Done. What
+changes is that every panel collapses to a title row for the duration.
+
+It works on **Summary, Charts, Records, Social, Gear, Map and Mex**. The rest are one thing
+each — Heatmap is a calendar, Log and Zwift are a table with its own controls — and there is
+no arrangement of one box, so the menu row is disabled on those and says why rather than
+letting a press be how you find out. A few things stay pinned deliberately: the Records year
+bar and the Map itself are navigation, and the Gear staleness warning is a notice you should
+not be able to bury.
 
 That collapse is the whole feature. A chart card is 300–400px tall and the tab is five
 screens long, so dragging the last chart to the top at full height is a four-screen drag on a
@@ -140,7 +147,22 @@ with: drag it, press the ▲/▼ buttons on it, or focus it and use the arrow ke
 announced to a screen reader with its new position. The buttons at the ends of the list are
 disabled rather than silently inert.
 
-There is exactly **one order**, not one per breakpoint. The desktop grid is two columns and
+**Two concepts, and only two.** A *zone* is a container that holds movable things and
+carries `data-zone`; a *panel* is a movable thing inside one and carries `data-panel`. A tab
+may have one zone (the tab element itself) or several — Charts has three, one per section,
+so a chart can be moved between Volume and Intensity and still be found again. The same
+engine dresses a chart, a stats grid, a table and a list identically, because the CSS keys
+off `[data-panel]` rather than off any one component's class.
+
+The compact title on each tile is **injected**, not revealed from inside the panel: a chart
+card has a `.chart-title`, a summary panel has a section heading, a hero card has neither.
+One injected label is the only version that reads the same everywhere.
+
+Several tabs rebuild their panels on every render and **Mex replaces its whole tab**, so the
+saved order is re-applied at the end of `renderAll()` rather than once at boot — applied only
+once it would survive until the first filter change and no longer.
+
+There is exactly **one order** per zone, not one per breakpoint. The desktop grid is two columns and
 the phone grid is one, but both read the same sequence — the grid decides the shape, the
 saved list decides the sequence, and the hit test asks the grid how many columns it has
 rather than keeping a second code path in step. Sections (Volume, Intensity, Habits) stay
@@ -153,10 +175,13 @@ their own" — and a fixed row cannot be reordered without first deciding what h
 card sharing it. Now each card declares `span-full` or half and the section flows. The
 rendered layout is unchanged; only who owns the rows is.
 
-Order is saved to `localStorage` under `fitness_chart_order_v1` as the chart ids of each
-section — by id rather than index, so adding a chart in a later release does not renumber a
-saved order; a chart the saved order has never seen is slotted in at its default position.
-**Reset** clears it. A chart the current sport filter hides (Activity Mix on a single sport,
+Order is saved to `localStorage` under `fitness_layout_v1` as the panel keys of each zone —
+by key rather than index, so adding a panel in a later release does not renumber a saved
+order; a panel the saved order has never seen is slotted in at its default position. Saving
+one tab **merges** rather than replaces, so rearranging Summary cannot wipe what you set on
+Charts. An order saved under the old charts-only key is migrated on first read rather than
+being quietly reset. **Reset** clears the current tab only — it sits on the bar you are
+editing with, so it means "put this tab back", not "put everything back". A chart the current sport filter hides (Activity Mix on a single sport,
 Pace against distance on anything but runs) is shown greyed and dashed while reordering, so
 it can still be placed.
 
