@@ -798,6 +798,153 @@ async function main() {
       await page.waitForTimeout(200);
     });
 
+    // ── Reordering the charts ───────────────────────────────────────────────
+    const chartOrder = () => page.evaluate(() =>
+      [...document.querySelectorAll('#tab-charts .chart-zone')].map((z) => ({
+        zone: z.dataset.zone,
+        cards: [...z.children].filter((c) => c.dataset.chart).map((c) => c.dataset.chart),
+      })));
+    const flatOrder = async () => (await chartOrder()).flatMap((z) => z.cards);
+    const enterReorder = async () => {
+      await page.click('#settingsBtn');
+      await page.waitForSelector('#settingsMenu.open');
+      await page.click('#reorderChartsBtn');
+      await page.waitForSelector('#tab-charts.reordering', { timeout: 3000 });
+      await page.waitForTimeout(250);
+    };
+
+    await check('the menu takes you to the charts and turns reordering on there', async () => {
+      await enterReorder();
+      assert((await page.evaluate(() => activeTab)) === 'charts', 'did not switch to the charts tab');
+      assert(!(await page.locator('#settingsMenu.open').count()), 'the menu stayed open behind it');
+      assert(await page.locator('#reorderBar').isVisible(), 'no reorder bar');
+      // The point of the mode: every chart on one or two screens rather than five.
+      const h = await page.evaluate(() =>
+        document.querySelector('#tab-charts .chart-card[data-chart]').getBoundingClientRect().height);
+      assert(h > 30 && h < 80, `a collapsed card is ${Math.round(h)}px tall`);
+      assert((await page.evaluate(() => getComputedStyle(
+        document.querySelector('#tab-charts .chart-card[data-chart] .chart-wrap')).display)) === 'none',
+        'the canvas is still laid out');
+    });
+
+    await check('a chart can be walked down the list, across a section boundary', async () => {
+      const before = await flatOrder();
+      const last = (await chartOrder())[0].cards.slice(-1)[0];   // last card in Volume
+      await page.evaluate((k) => document.querySelector(
+        `#tab-charts .chart-card[data-chart="${k}"] .reorder-move[data-dir="1"]`).click(), last);
+      const o = await chartOrder();
+      assert(o.find((z) => z.cards.includes(last)).zone === 'intensity',
+        `${last} did not cross into Intensity: ${JSON.stringify(o)}`);
+      assert((await flatOrder()).length === before.length, 'a chart went missing');
+      // The ends of the list say so rather than silently doing nothing.
+      assert(await page.evaluate(() => document.querySelector(
+        '#tab-charts .chart-card[data-chart] .reorder-move[data-dir="-1"]').disabled),
+        'the first card offers to move earlier');
+    });
+
+    await check('dragging a chart with a pointer moves it to where it was dropped', async () => {
+      const at = (k) => page.evaluate((kk) => {
+        const r = document.querySelector(`#tab-charts .chart-card[data-chart="${kk}"]`).getBoundingClientRect();
+        return { x: r.x + r.width / 2, y: r.y + r.height / 2, top: r.y };
+      }, k);
+      const first = (await flatOrder())[0];
+      const moving = (await chartOrder())[0].cards.slice(-1)[0];
+      const from = await at(moving), to = await at(first);
+      await page.mouse.move(from.x, from.y);
+      await page.mouse.down();
+      await page.mouse.move(from.x, from.y - 20, { steps: 3 });   // past the drag threshold
+      await page.mouse.move(to.x, to.top + 2, { steps: 20 });
+      await page.mouse.up();
+      await page.waitForTimeout(150);
+      assert((await flatOrder())[0] === moving,
+        `dropped on the first slot but the list starts ${(await flatOrder()).slice(0, 3)}`);
+    });
+
+    await check('the order is saved, survives a reload, and Reset undoes it', async () => {
+      const before = await chartOrder();
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => !document.body.classList.contains('is-loading'), { timeout: 15000 });
+      assert(JSON.stringify(await chartOrder()) === JSON.stringify(before), 'the saved order did not come back');
+
+      await enterReorder();
+      await page.click('#reorderResetBtn');
+      await page.waitForTimeout(150);
+      const o = await flatOrder();
+      assert(o[0] === 'load' && o[1] === 'cum', `Reset left the list as ${o.slice(0, 3)}`);
+      assert(await page.evaluate(() => localStorage.getItem('fitness_chart_order_v1') === null),
+        'Reset left a saved order behind');
+      assert(await page.evaluate(() => document.getElementById('reorderResetBtn').disabled),
+        'Reset is still offered with nothing to reset');
+    });
+
+    await check('arrow keys move a focused chart and the move is announced', async () => {
+      const before = await flatOrder();
+      await page.evaluate((k) => document.querySelector(
+        `#tab-charts .chart-card[data-chart="${k}"]`).focus(), before[0]);
+      await page.keyboard.press('ArrowDown');
+      const after = await flatOrder();
+      assert(after[1] === before[0], `${before.slice(0, 3)} -> ${after.slice(0, 3)}`);
+      const said = await page.evaluate(() => document.getElementById('reorderLive').textContent);
+      assert(/position \d+ of \d+/.test(said), `announcement was "${said}"`);
+    });
+
+    await check('a chart the current filter hides can still be placed', async () => {
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(300);
+      await page.evaluate(() => window.setType('Ride'));
+      await page.waitForTimeout(300);
+      assert((await page.evaluate(() =>
+        getComputedStyle(document.getElementById('donutChartCard')).display)) === 'none',
+        'Activity Mix is meant to be hidden for a single sport');
+      await enterReorder();
+      assert((await page.evaluate(() =>
+        getComputedStyle(document.getElementById('donutChartCard')).display)) !== 'none',
+        'a filtered-out chart is unreachable in reorder mode');
+      await page.evaluate(() => window.setType('All'));
+      await page.waitForTimeout(200);
+    });
+
+    await check('leaving the mode brings the charts back at full size', async () => {
+      await page.click('.reorder-done');
+      await page.waitForTimeout(400);
+      assert(!(await page.locator('#tab-charts.reordering').count()), 'still in reorder mode');
+      assert(await page.locator('#reorderBar').isHidden(), 'the bar is still on screen');
+      const h = await page.evaluate(() =>
+        document.querySelector('#tab-charts .chart-card[data-chart]').getBoundingClientRect().height);
+      assert(h > 200, `a card came back only ${Math.round(h)}px tall`);
+      // And it does not follow you onto another tab.
+      await enterReorder();
+      await page.click('#tabbtn-heatmap');
+      await page.waitForTimeout(300);
+      assert(await page.locator('#reorderBar').isHidden(), 'the bar survived a tab change');
+      await page.evaluate(() => window.setTab('charts'));
+      await page.waitForTimeout(300);
+    });
+
+    await check('reordering fits a phone without a sideways scroll', async () => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.waitForTimeout(300);
+      await enterReorder();
+      const r = await page.evaluate(() => {
+        const de = document.documentElement;
+        const bar = document.getElementById('reorderBar').getBoundingClientRect();
+        return {
+          over: de.scrollWidth - de.clientWidth,
+          cols: getComputedStyle(document.querySelector('#tab-charts .chart-zone'))
+            .gridTemplateColumns.split(' ').length,
+          barBottom: bar.bottom, h: window.innerHeight,
+        };
+      });
+      // One order, two layouts: the grid collapses to a column and the same list reads
+      // top to bottom. An icon font that has not arrived must not widen a card either.
+      assert(r.over <= 0, `the document is ${r.over}px wider than the phone`);
+      assert(r.cols === 1, `the grid is still ${r.cols} columns`);
+      assert(Math.abs(r.barBottom - r.h) < 2, 'the bar is not pinned to the bottom');
+      await page.click('.reorder-done');
+      await page.setViewportSize({ width: 1400, height: 900 });
+      await page.waitForTimeout(250);
+    });
+
     await ctx.close();
   }
 

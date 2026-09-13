@@ -364,6 +364,95 @@ a{color:inherit;text-decoration:none}
 .chart-sub{font-size:11px;color:var(--text-muted);margin-bottom:16px}
 .chart-wrap{position:relative;height:240px}.chart-wrap.tall{height:320px}
 @media(max-width:700px){.charts-grid{grid-template-columns:1fr}}
+/* A card's own width, declared on the card rather than imposed by the row it sits
+   in. Below 700px the grid is one column and both of these collapse to the same
+   thing, which is why reordering needs no separate mobile model: there is one
+   order, and the grid decides how to lay it out. */
+.chart-card.span-full{grid-column:1 / -1}
+/* What the current scope has nothing to say about — a whole card, or the half of a
+   card that swaps between a bar chart and a calendar. A class rather than an inline
+   style, because an inline `display` outranks the whole stylesheet: reorder mode
+   could then neither collapse a card nor bring a hidden one back. */
+.is-hidden{display:none}
+
+/* ── REORDERING THE CHARTS ──
+   In place, on the real grid, with the cards collapsed to a title row.
+   Dragging at full height was the obvious thing and it does not work: a chart card
+   is 300–400px tall, the tab is five screens long, and moving the last card to the
+   top is then a four-screen drag on a phone and a scroll-chase on a desktop.
+   Collapsed, the whole tab is one or two screens and every move is a short one —
+   while still being the actual cards in their actual positions, so what you see
+   while you drag is what you get when you finish. */
+#tab-charts.reordering .chart-card{display:flex;align-items:center;gap:12px;
+  padding:12px 14px;cursor:grab;touch-action:none;user-select:none;
+  border-color:var(--border-strong)}
+#tab-charts.reordering .chart-card>*{display:none}
+#tab-charts.reordering .chart-card>.chart-title{display:block;flex:1;min-width:0;
+  margin:0;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#tab-charts.reordering .chart-card>.reorder-grip,
+#tab-charts.reordering .chart-card>.reorder-ctl{display:flex}
+/* A chart hidden by the current scope is still yours to place. Shown greyed with a
+   reason, because a card you cannot see is one you cannot put anywhere. */
+#tab-charts.reordering .chart-card.is-hidden{display:flex;opacity:.55;
+  border-style:dashed}
+#tab-charts.reordering .chart-card.is-hidden>.chart-title::after{
+  content:' · hidden by this filter';color:var(--text-light);font-weight:500}
+#tab-charts.reordering .chart-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#tab-charts.reordering .chart-card.dragging{opacity:.3;cursor:grabbing}
+#tab-charts.reordering{padding-bottom:84px}
+/* Boxed and clipped, both of them. A Material Symbol is a ligature: until the font
+   arrives — or for good, if it never does — `drag_indicator` renders as those
+   fourteen literal characters, and an unclipped 110px-wide "icon" pushes the card
+   past the edge of a phone. Sized by the box, never by the glyph. */
+.reorder-grip{width:22px;height:22px;overflow:hidden;flex-shrink:0;
+  align-items:center;justify-content:center;color:var(--text-light)}
+.reorder-grip .ms{font-size:19px;vertical-align:0}
+.reorder-ctl{gap:2px;flex-shrink:0;margin-left:auto}
+.reorder-move{display:flex;align-items:center;justify-content:center;width:30px;height:30px;
+  overflow:hidden;background:transparent;border:1px solid var(--border);color:var(--text-muted);
+  font-family:inherit;cursor:pointer;padding:0}
+.reorder-move:hover:not(:disabled){background:var(--bg);color:var(--text)}
+.reorder-move:disabled{opacity:.3;cursor:not-allowed}
+.reorder-move .ms{font-size:17px;vertical-align:0}
+/* The tile that follows the pointer. The real card stays in the grid, faded, so the
+   gap it would leave moves live under your finger rather than appearing at the end. */
+.reorder-ghost{position:fixed;top:0;left:0;z-index:300;pointer-events:none;margin:0;
+  display:flex;align-items:center;gap:12px;padding:12px 14px;
+  background:var(--surface);border:1px solid var(--accent);
+  box-shadow:var(--shadow-callout);opacity:.96}
+.reorder-ghost .reorder-grip{color:var(--accent)}
+.reorder-ghost .chart-title{flex:1;min-width:0;margin:0;font-size:12.5px;font-weight:600;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Fixed to the bottom rather than sticky under the header: the header is two bands
+   whose height changes with the viewport, and the bottom is where a thumb is. */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
+.reorder-bar{position:fixed;left:0;right:0;bottom:0;z-index:202;
+  display:flex;align-items:center;gap:14px;
+  background:var(--surface);border-top:1px solid var(--border-strong);
+  box-shadow:0 -8px 24px rgba(15,23,42,.14);
+  padding:12px max(var(--page-pad),calc((100vw - var(--page-max))/2 + var(--page-pad)));
+  padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+.reorder-bar[hidden]{display:none}
+.reorder-bar-icon{display:flex;align-items:center;justify-content:center;
+  width:22px;height:22px;overflow:hidden;flex-shrink:0;color:var(--accent)}
+.reorder-bar-icon .ms{font-size:20px;vertical-align:0}
+.reorder-bar-text{min-width:0;flex:1}
+.reorder-bar-text strong{display:block;font-size:12.5px;font-weight:700}
+.reorder-bar-text span{font-size:11px;color:var(--text-muted);line-height:1.45}
+.reorder-bar button{font-family:inherit;font-size:12.5px;font-weight:700;padding:10px 16px;
+  border-radius:0;cursor:pointer;flex-shrink:0}
+.reorder-reset{background:transparent;border:1px solid var(--border-strong);color:var(--text-muted)}
+.reorder-reset:hover:not(:disabled){color:var(--text)}
+.reorder-reset:disabled{opacity:.4;cursor:not-allowed}
+.reorder-done{background:var(--text);border:none;color:var(--surface)}
+@media(max-width:700px){
+  /* The instruction line is the first thing to go: by the time you are on a phone
+     you are already holding a card. */
+  .reorder-bar-text span{display:none}
+  .reorder-bar{gap:10px}
+  .reorder-bar button{padding:10px 13px}
+}
 /* The pattern from the heart-rate zone card, generalised: a row of tinted figure
    chips under the plot, then one plain-English line saying what the shape means.
    A chart earns these only when there is something true and non-obvious to say —
@@ -1386,6 +1475,14 @@ body.is-loading .stats-grid *{visibility:hidden}
     </div>
   </div>
   <div class="settings-actions">
+    <!-- The order of the Charts tab is a preference like units and the theme, so it
+         is set from the same place they are. The button does not open another panel:
+         it takes you to the charts and turns editing on where the charts are. -->
+    <button class="settings-row" id="reorderChartsBtn" onclick="startChartReorder()">
+      <span class="ms">swap_vert</span>
+      <span>Reorder charts</span>
+      <span class="settings-row-note">Charts tab</span>
+    </button>
     <button class="settings-row" id="refreshBtn" onclick="refreshData()">
       <span class="refresh-icon">↻</span>
       <span>Refresh from Strava</span>
@@ -1413,6 +1510,22 @@ body.is-loading .stats-grid *{visibility:hidden}
   </div>
   <button class="sheet-done" onclick="closeScopeSheet()">Done</button>
 </div>
+
+<!-- The reorder mode's own controls. Outside .main so the bar can be fixed to the
+     bottom of the viewport without inheriting the page's padding, and hidden with
+     the `hidden` attribute so it is out of the accessibility tree when it is off. -->
+<div class="reorder-bar" id="reorderBar" role="toolbar" aria-label="Reorder charts" hidden>
+  <span class="reorder-bar-icon" aria-hidden="true"><span class="ms">drag_indicator</span></span>
+  <div class="reorder-bar-text">
+    <strong>Reordering charts</strong>
+    <span id="reorderHint">Drag a card, or focus one and use the arrow keys.</span>
+  </div>
+  <button class="reorder-reset" id="reorderResetBtn" onclick="resetChartOrder()">Reset</button>
+  <button class="reorder-done" onclick="endChartReorder()">Done</button>
+</div>
+<!-- Every move is announced here. A drag is self-evident on screen and silent to a
+     screen reader; the arrow keys and the move buttons are the other way round. -->
+<div id="reorderLive" class="sr-only" role="status" aria-live="polite"></div>
 <!-- Pure derivations and formatters, split out so they can be unit-tested. Classic
      script on purpose: its top-level declarations share the global lexical scope
      with the inline script below, so every existing call site works unchanged. -->
@@ -1536,53 +1649,54 @@ body.is-loading .stats-grid *{visibility:hidden}
 
 <!-- CHARTS -->
 <div id="tab-charts" class="tab-content" role="tabpanel" tabindex="0" aria-labelledby="tabbtn-charts" hidden>
+  <!-- One grid per section, not one grid per row.
+       The rows used to be fixed — "Rolling 12 Months and Activity Mix, in that
+       order, on a line of their own" — and a fixed row cannot be reordered without
+       first deciding what happens to the card that was sharing it. A section is a
+       single flow instead: each card declares whether it wants the full width or
+       half of it, and the order within a section is nothing more than DOM order.
+       That is the thing Settings → Reorder charts edits, and it is what gets saved.
+       The rendered result is the same layout as before; only who owns the rows
+       has changed. -->
   <div class="section-header"><h2>Volume</h2><span class="badge">How much — miles, feet, and whether you're ahead of yourself</span></div>
-  <div class="charts-grid wide">
-    <div class="chart-card">
+  <div class="charts-grid chart-zone" data-zone="volume" data-zone-label="Volume">
+    <div class="chart-card span-full" data-chart="load">
       <div class="chart-title">Training load</div>
       <div class="chart-sub" id="loadSub">Rolling 7-day and 28-day moving time</div>
       <div class="chart-wrap tall"><canvas id="chartLoad"></canvas></div>
       <div id="loadChips" class="chart-chips"></div>
       <div id="loadVerdict" class="chart-verdict"></div>
     </div>
-  </div>
-  <div class="charts-grid wide">
-    <div class="chart-card">
+    <div class="chart-card span-full" data-chart="cum">
       <div class="chart-title">Against the same point last year</div>
       <div class="chart-sub" id="cumSub">Cumulative distance by day of year</div>
       <div class="chart-wrap tall"><canvas id="chartCumulative"></canvas></div>
       <div id="cumChips" class="chart-chips"></div>
       <div id="cumVerdict" class="chart-verdict"></div>
     </div>
-  </div>
-  <div class="charts-grid wide">
-    <div class="chart-card">
+    <div class="chart-card span-full" data-chart="monthly">
       <div class="chart-title" id="firstChartTitle">Monthly Distance</div>
       <div class="chart-sub" id="firstChartSub">Distance per month by activity type</div>
       <div id="firstChartMonthly" class="chart-wrap tall"><canvas id="chartMonthly"></canvas></div>
-      <div id="firstChartCalendar" style="display:none"></div>
+      <div id="firstChartCalendar" class="is-hidden"></div>
       <div id="distChips" class="chart-chips"></div>
       <div id="distVerdict" class="chart-verdict"></div>
     </div>
-  </div>
-  <div class="charts-grid" id="yoyDonutGrid">
-    <div class="chart-card" id="yoyChartCard">
+    <div class="chart-card" id="yoyChartCard" data-chart="yoy">
       <div class="chart-title">Rolling 12 Months</div>
       <div class="chart-sub" id="yoyChartSub">Distance in the twelve months ending each month</div>
       <div class="chart-wrap"><canvas id="chartYoY"></canvas></div>
       <div id="rollChips" class="chart-chips"></div>
       <div id="rollVerdict" class="chart-verdict"></div>
     </div>
-    <div class="chart-card" id="donutChartCard">
+    <div class="chart-card" id="donutChartCard" data-chart="donut">
       <div class="chart-title">Activity Mix</div>
       <div class="chart-sub">Share of activities by type</div>
       <div class="chart-wrap"><canvas id="chartDonut"></canvas></div>
       <div id="mixChips" class="chart-chips"></div>
       <div id="mixVerdict" class="chart-verdict"></div>
     </div>
-  </div>
-  <div class="charts-grid wide">
-    <div class="chart-card">
+    <div class="chart-card span-full" data-chart="elev">
       <div class="chart-title">Monthly Elevation Gain</div>
       <div class="chart-sub" id="elevChartSub">Feet climbed per month</div>
       <div class="chart-wrap"><canvas id="chartElev"></canvas></div>
@@ -1591,47 +1705,43 @@ body.is-loading .stats-grid *{visibility:hidden}
     </div>
   </div>
   <div class="section-header"><h2>Intensity</h2><span class="badge">How hard — the half of training volume can't tell you</span></div>
-  <div class="charts-grid wide">
-    <div class="chart-card" id="zoneCard">
+  <div class="charts-grid chart-zone" data-zone="intensity" data-zone-label="Intensity">
+    <div class="chart-card span-full" id="zoneCard" data-chart="zones">
       <div class="chart-title">Where your heart rate actually sits</div>
       <div class="chart-sub" id="zoneSub">Time in each heart-rate zone, across every activity with HR data</div>
       <div class="chart-wrap"><canvas id="chartZones"></canvas></div>
       <div id="zoneChips" class="chart-chips"></div>
       <div id="zoneVerdict" class="chart-verdict"></div>
     </div>
-  </div>
-  <div class="charts-grid" id="paceChartRow">
-    <div class="chart-card" id="effortCard">
+    <div class="chart-card" id="effortCard" data-chart="effort">
       <div class="chart-title">Relative Effort</div>
       <div class="chart-sub" id="effortSub">Strava's suffer score, totalled per month</div>
       <div class="chart-wrap"><canvas id="chartEffort"></canvas></div>
       <div id="effortChips" class="chart-chips"></div>
       <div id="effortVerdict" class="chart-verdict"></div>
     </div>
-    <div class="chart-card" id="paceCard">
+    <div class="chart-card" id="paceCard" data-chart="pace">
       <div class="chart-title">Pace against distance</div>
       <div class="chart-sub" id="paceSub">One point per run</div>
       <div class="chart-wrap"><canvas id="chartPace"></canvas></div>
       <div id="paceChips" class="chart-chips"></div>
       <div id="paceVerdict" class="chart-verdict"></div>
     </div>
-  </div>
-  <div class="charts-grid" id="powerCadRow">
-    <div class="chart-card" id="powerCard">
+    <div class="chart-card" id="powerCard" data-chart="eff">
       <div class="chart-title">Speed per heartbeat</div>
       <div class="chart-sub" id="effSub">How fast you go at a given heart rate</div>
       <div class="chart-wrap"><canvas id="chartEff"></canvas></div>
       <div id="effChips" class="chart-chips"></div>
       <div id="effVerdict" class="chart-verdict"></div>
     </div>
-    <div class="chart-card">
+    <div class="chart-card" data-chart="power">
       <div class="chart-title">Power Trend</div>
       <div class="chart-sub" id="powerSub">Average and normalised watts per month</div>
       <div class="chart-wrap"><canvas id="chartPower"></canvas></div>
       <div id="powerChips" class="chart-chips"></div>
       <div id="powerVerdict" class="chart-verdict"></div>
     </div>
-    <div class="chart-card" id="cadCard">
+    <div class="chart-card" id="cadCard" data-chart="cad">
       <div class="chart-title">Cadence Trend</div>
       <div class="chart-sub" id="cadSub">Average cadence per month</div>
       <div class="chart-wrap"><canvas id="chartCad"></canvas></div>
@@ -1640,31 +1750,29 @@ body.is-loading .stats-grid *{visibility:hidden}
     </div>
   </div>
   <div class="section-header"><h2>Habits</h2><span class="badge">How you train — the patterns you don't choose</span></div>
-  <div class="charts-grid" id="effortTimeRow">
-    <div class="chart-card">
+  <div class="charts-grid chart-zone" data-zone="habits" data-zone-label="Habits">
+    <div class="chart-card" data-chart="tod">
       <div class="chart-title">When you train</div>
       <div class="chart-sub" id="todSub">Activities by hour of day</div>
       <div class="chart-wrap"><canvas id="chartTod"></canvas></div>
       <div id="todChips" class="chart-chips"></div>
       <div id="todVerdict" class="chart-verdict"></div>
     </div>
-    <div class="chart-card">
+    <div class="chart-card" data-chart="move">
       <div class="chart-title">Moving vs stopped</div>
       <div class="chart-sub" id="moveSub">Share of elapsed time actually spent moving, per month</div>
       <div class="chart-wrap"><canvas id="chartMove"></canvas></div>
       <div id="moveChips" class="chart-chips"></div>
       <div id="moveVerdict" class="chart-verdict"></div>
     </div>
-  </div>
-  <div class="charts-grid" id="raceTempRow">
-    <div class="chart-card" id="raceCard">
+    <div class="chart-card" id="raceCard" data-chart="race">
       <div class="chart-title">Race day vs everything else</div>
       <div class="chart-sub" id="raceSub">Races against your ordinary sessions in the same sport</div>
       <div class="chart-wrap"><canvas id="chartRace"></canvas></div>
       <div id="raceChips" class="chart-chips"></div>
       <div id="raceVerdict" class="chart-verdict"></div>
     </div>
-    <div class="chart-card" id="tempCard">
+    <div class="chart-card" id="tempCard" data-chart="temp">
       <div class="chart-title">The weather you actually train in</div>
       <div class="chart-sub" id="tempSub">Average speed by temperature band</div>
       <div class="chart-wrap"><canvas id="chartTemp"></canvas></div>
@@ -2428,6 +2536,367 @@ function toggleSettings(e){
 // who merely rotated their phone is its own small annoyance.
 window.addEventListener('resize',()=>{if(settingsIsOpen())positionSettingsMenu();});
 
+// ── CHART ORDER ──
+// The Charts tab is three sections of cards, and which card sits where is a
+// preference. It is stored as the id list of each section, not as a flat list of
+// every chart, so that a card can be moved between sections and still be found
+// again; and it is stored by a stable `data-chart` key rather than by index, so
+// that adding a chart later does not silently renumber somebody's saved order.
+//
+// There is only ever ONE order. The desktop grid is two columns and the phone grid
+// is one, but both read the same sequence — the grid decides the shape, the saved
+// list decides the sequence. That is the whole answer to "it may get complicated
+// with mobile and desktop": it is only complicated if you let the two views hold
+// different orders, and there is no reason to.
+const CHART_ORDER_KEY='fitness_chart_order_v1';
+let chartReorderOn=false;
+let DEFAULT_CHART_LAYOUT=null;
+
+function chartZones(){return[...document.querySelectorAll('#tab-charts .chart-zone')];}
+function chartCardsIn(zone){return[...zone.children].filter(el=>el.dataset&&el.dataset.chart);}
+// Every card on the tab, in the order it is read. Sections are part of that order,
+// so moving off the end of one lands at the start of the next.
+function allChartCards(){return chartZones().flatMap(chartCardsIn);}
+function chartCardLabel(card){
+  const t=card.querySelector('.chart-title');
+  return t?t.textContent.trim():(card.dataset.chart||'chart');
+}
+
+// Captured from the markup before any saved order is applied, and never again:
+// this is what Reset goes back to, and where a chart added in a later release gets
+// slotted in for someone who already has an order saved.
+function captureDefaultChartLayout(){
+  if(DEFAULT_CHART_LAYOUT)return;
+  DEFAULT_CHART_LAYOUT={};
+  chartZones().forEach(z=>{DEFAULT_CHART_LAYOUT[z.dataset.zone]=chartCardsIn(z).map(c=>c.dataset.chart);});
+}
+
+function readChartOrder(){
+  try{
+    const raw=JSON.parse(localStorage.getItem(CHART_ORDER_KEY)||'null');
+    return(raw&&typeof raw==='object'&&!Array.isArray(raw))?raw:null;
+  }catch(e){return null;}
+}
+
+function saveChartOrder(){
+  const out={};
+  chartZones().forEach(z=>{out[z.dataset.zone]=chartCardsIn(z).map(c=>c.dataset.chart);});
+  try{localStorage.setItem(CHART_ORDER_KEY,JSON.stringify(out));}catch(e){}
+}
+
+// Rebuild each section from `layout`, which need not be complete or correct: keys
+// for charts that no longer exist are dropped, and charts the layout never mentions
+// are put back at their default index rather than swept to the end, so a new chart
+// arrives where it was designed to sit.
+function applyChartLayout(layout){
+  captureDefaultChartLayout();
+  const byKey={};
+  document.querySelectorAll('#tab-charts .chart-card[data-chart]').forEach(c=>{byKey[c.dataset.chart]=c;});
+  const zones=chartZones();
+  const plan={};
+  zones.forEach(z=>{
+    const want=layout&&Array.isArray(layout[z.dataset.zone])?layout[z.dataset.zone]:[];
+    // De-duplicated as well as filtered: a hand-edited or half-written entry could
+    // name the same chart twice, and a card can only be in one place.
+    const seen=new Set();
+    plan[z.dataset.zone]=want.filter(k=>{
+      if(!byKey[k]||seen.has(k))return false;
+      seen.add(k);return true;
+    });
+  });
+  const placed=new Set(Object.values(plan).flat());
+  Object.entries(DEFAULT_CHART_LAYOUT).forEach(([zoneName,keys])=>{
+    if(!plan[zoneName])return;
+    keys.forEach((k,i)=>{
+      if(placed.has(k)||!byKey[k])return;
+      plan[zoneName].splice(Math.min(i,plan[zoneName].length),0,k);
+      placed.add(k);
+    });
+  });
+  zones.forEach(z=>plan[z.dataset.zone].forEach(k=>z.appendChild(byKey[k])));
+}
+
+function restoreChartOrder(){
+  captureDefaultChartLayout();
+  const saved=readChartOrder();
+  if(saved)applyChartLayout(saved);
+  syncReorderButtons();
+}
+
+function resetChartOrder(){
+  captureDefaultChartLayout();
+  try{localStorage.removeItem(CHART_ORDER_KEY);}catch(e){}
+  applyChartLayout(DEFAULT_CHART_LAYOUT);
+  syncReorderButtons();
+  announceReorder('Chart order reset to the default.');
+}
+
+// ── Reorder mode ──
+function buildReorderControls(){
+  allChartCards().forEach(card=>{
+    if(card.querySelector(':scope > .reorder-grip'))return;
+    const grip=document.createElement('div');
+    grip.className='reorder-grip';
+    grip.setAttribute('aria-hidden','true');
+    grip.innerHTML='<span class="ms">drag_indicator</span>';
+    card.insertBefore(grip,card.firstChild);
+    // Buttons as well as dragging, and not only as a fallback: they are the whole
+    // interaction from a keyboard, they are exact where a drag is approximate, and
+    // on a phone they are the difference between reordering and fighting the page.
+    const ctl=document.createElement('div');
+    ctl.className='reorder-ctl';
+    ctl.innerHTML='<button type="button" class="reorder-move" data-dir="-1"><span class="ms">arrow_upward</span></button>'+
+                  '<button type="button" class="reorder-move" data-dir="1"><span class="ms">arrow_downward</span></button>';
+    ctl.querySelectorAll('.reorder-move').forEach(b=>{
+      b.addEventListener('click',ev=>{
+        ev.stopPropagation();
+        moveChartCard(card,+b.dataset.dir,true);
+      });
+    });
+    card.appendChild(ctl);
+  });
+  syncReorderButtons();
+}
+
+// The ends of the list are the only place a move is impossible, and the buttons
+// say so rather than doing nothing when pressed.
+function syncReorderButtons(){
+  const cards=allChartCards();
+  cards.forEach((card,i)=>{
+    const label=chartCardLabel(card);
+    card.querySelectorAll(':scope > .reorder-ctl .reorder-move').forEach(b=>{
+      const back=+b.dataset.dir<0;
+      b.disabled=back?i===0:i===cards.length-1;
+      b.setAttribute('aria-label',`Move ${label} ${back?'earlier':'later'}`);
+    });
+  });
+  const reset=document.getElementById('reorderResetBtn');
+  if(reset)reset.disabled=!readChartOrder();
+}
+
+function announceReorder(msg){
+  const el=document.getElementById('reorderLive');
+  if(el)el.textContent=msg;
+}
+
+// One linear list across all three sections, so `insertBefore` into the target's
+// own parent is all it takes to cross a section boundary.
+function moveChartCard(card,dir,announce){
+  const cards=allChartCards();
+  const i=cards.indexOf(card);
+  const j=i+dir;
+  if(i<0||j<0||j>=cards.length)return false;
+  const target=cards[j];
+  target.parentNode.insertBefore(card,dir<0?target:target.nextSibling);
+  saveChartOrder();
+  syncReorderButtons();
+  if(announce){
+    const zone=card.closest('.chart-zone');
+    const within=chartCardsIn(zone);
+    announceReorder(`${chartCardLabel(card)} moved to position ${within.indexOf(card)+1} of ${within.length} in ${zone.dataset.zoneLabel}.`);
+  }
+  if(card.focus)card.focus();
+  return true;
+}
+
+function startChartReorder(){
+  closeSettings();
+  if(activeTab!=='charts')setTab('charts');
+  const tab=document.getElementById('tab-charts');
+  if(!tab)return;
+  chartReorderOn=true;
+  captureDefaultChartLayout();
+  buildReorderControls();
+  // Focusable as a unit as well as through its buttons: with a card focused the
+  // arrow keys move it, which is the keyboard equivalent of picking it up.
+  allChartCards().forEach(c=>{
+    c.tabIndex=0;
+    c.setAttribute('aria-roledescription','Reorderable chart');
+  });
+  tab.classList.add('reordering');
+  document.getElementById('reorderBar').hidden=false;
+  syncReorderButtons();
+  announceReorder('Reorder mode on. Use the arrow keys on a focused chart, or its move buttons.');
+}
+
+// `leaving` is set when the tab is changing underneath us: the charts are about to
+// be hidden and repainted by setTab anyway, and stealing focus back to the settings
+// button would take it off the tab the user just pressed.
+function endChartReorder(leaving){
+  const tab=document.getElementById('tab-charts');
+  if(!chartReorderOn)return;
+  chartReorderOn=false;
+  cancelChartDrag();
+  saveChartOrder();
+  if(tab)tab.classList.remove('reordering');
+  const bar=document.getElementById('reorderBar');
+  if(bar)bar.hidden=true;
+  allChartCards().forEach(c=>{c.removeAttribute('tabindex');c.removeAttribute('aria-roledescription');});
+  announceReorder('Reorder mode off.');
+  if(leaving)return;
+  // The canvases have been display:none the whole time and Chart.js has been sizing
+  // itself from a box that was 0×0. Re-render, then resize on the next frame, once
+  // the wrappers have a height again.
+  if(ALL_DATA&&ALL_DATA.length)renderCharts();
+  requestAnimationFrame(()=>{
+    Object.keys(charts).forEach(k=>{try{charts[k]&&charts[k].resize();}catch(e){}});
+  });
+  const btn=document.getElementById('settingsBtn');
+  if(btn&&btn.focus)btn.focus();
+}
+
+// ── Dragging ──
+// Pointer events rather than HTML5 drag-and-drop, which does not fire on touch at
+// all. One code path for the mouse, the finger and the stylus.
+let _dragCard=null,_dragGhost=null,_dragDX=0,_dragDY=0;
+let _dragX=0,_dragY=0,_dragStartX=0,_dragStartY=0,_dragLive=false,_dragRAF=0;
+const DRAG_SLOP=6;      // px before a press becomes a drag rather than a tap
+const DRAG_EDGE=90;     // px from the viewport edge where the page starts scrolling
+
+function cancelChartDrag(){
+  if(_dragGhost&&_dragGhost.parentNode)_dragGhost.parentNode.removeChild(_dragGhost);
+  if(_dragCard)_dragCard.classList.remove('dragging');
+  if(_dragRAF)cancelAnimationFrame(_dragRAF);
+  _dragGhost=null;_dragCard=null;_dragLive=false;_dragRAF=0;
+}
+
+document.addEventListener('pointerdown',e=>{
+  if(!chartReorderOn||_dragCard)return;
+  if(e.button!=null&&e.button!==0)return;
+  if(e.target.closest('button'))return;          // the move buttons are not handles
+  const card=e.target.closest('#tab-charts .chart-card[data-chart]');
+  if(!card)return;
+  _dragCard=card;
+  _dragStartX=_dragX=e.clientX;_dragStartY=_dragY=e.clientY;
+  const r=card.getBoundingClientRect();
+  _dragDX=e.clientX-r.left;_dragDY=e.clientY-r.top;
+  // Capture on the card, so a finger that outruns the element still sends us moves.
+  try{card.setPointerCapture(e.pointerId);}catch(_){}
+});
+
+document.addEventListener('pointermove',e=>{
+  if(!_dragCard)return;
+  _dragX=e.clientX;_dragY=e.clientY;
+  if(!_dragLive){
+    if(Math.abs(_dragX-_dragStartX)<DRAG_SLOP&&Math.abs(_dragY-_dragStartY)<DRAG_SLOP)return;
+    beginChartDrag();
+  }
+  e.preventDefault();
+  positionDragGhost();
+  reorderToPointer(_dragX,_dragY);
+});
+
+function beginChartDrag(){
+  _dragLive=true;
+  const r=_dragCard.getBoundingClientRect();
+  // Built rather than cloned. The ghost has to be a child of <body> to be positioned
+  // against the viewport, which puts it outside `#tab-charts.reordering` and so
+  // outside every rule that makes a card compact — a clone would spring back to full
+  // height, canvas and all, the moment it left the tab. Two elements and a title is
+  // the whole of what is being dragged anyway.
+  _dragGhost=document.createElement('div');
+  _dragGhost.className='reorder-ghost';
+  _dragGhost.setAttribute('aria-hidden','true');
+  _dragGhost.innerHTML='<div class="reorder-grip"><span class="ms">drag_indicator</span></div>'+
+                       '<div class="chart-title"></div>';
+  _dragGhost.querySelector('.chart-title').textContent=chartCardLabel(_dragCard);
+  _dragGhost.style.width=r.width+'px';
+  _dragGhost.style.height=r.height+'px';
+  document.body.appendChild(_dragGhost);
+  _dragCard.classList.add('dragging');
+  positionDragGhost();
+  // Held still against the top or bottom of the screen, a finger sends no further
+  // move events — so the scroll has to run on its own clock, not on theirs.
+  const tick=()=>{
+    if(!_dragLive)return;
+    const h=window.innerHeight;
+    let dy=0;
+    if(_dragY<DRAG_EDGE)dy=-Math.ceil((DRAG_EDGE-_dragY)/5);
+    else if(_dragY>h-DRAG_EDGE)dy=Math.ceil((_dragY-(h-DRAG_EDGE))/5);
+    if(dy){window.scrollBy(0,dy);reorderToPointer(_dragX,_dragY);}
+    _dragRAF=requestAnimationFrame(tick);
+  };
+  _dragRAF=requestAnimationFrame(tick);
+}
+
+function positionDragGhost(){
+  if(!_dragGhost)return;
+  _dragGhost.style.transform=`translate(${_dragX-_dragDX}px,${_dragY-_dragDY}px)`;
+}
+
+// Where the pointer is now, expressed as a place in the list.
+//
+// Nearest card rather than the card under the pointer. A hit test has three dead
+// zones — the gutter between cards, the section heading between two sections, and
+// the dragged card itself, which is still sitting in the grid under your finger —
+// and in all three nothing happens, so the card sticks and then jumps. Distance to
+// the nearest rectangle has none of them: there is always an answer, and the answer
+// changes exactly when you cross a card's midpoint.
+function reorderToPointer(x,y){
+  if(!_dragCard)return;
+  let target=null,best=Infinity;
+  for(const c of allChartCards()){
+    if(c===_dragCard||!c.offsetParent)continue;
+    const b=c.getBoundingClientRect();
+    const dx=Math.max(b.left-x,0,x-b.right),dy=Math.max(b.top-y,0,y-b.bottom);
+    const d=dx*dx+dy*dy;
+    if(d<best){best=d;target=c;}
+  }
+  if(!target)return;
+  const zone=target.closest('.chart-zone');
+  if(!zone)return;
+  // Which axis settles it is read off the grid itself, which is the whole of the
+  // mobile story: the media query drops the section to one column, `cols` becomes 1,
+  // and the test is purely vertical without a second code path to keep in step.
+  const cols=getComputedStyle(zone).gridTemplateColumns.split(' ').filter(Boolean).length;
+  const r=target.getBoundingClientRect();
+  // A half-width card sharing a line has a left half and a right half that mean
+  // different positions; a full-width one, or one you are above or below rather
+  // than beside, only has a top and a bottom.
+  const sideBySide=cols>1&&r.width<zone.getBoundingClientRect().width-4&&y>=r.top&&y<=r.bottom;
+  const after=sideBySide?(x>r.left+r.width/2):(y>r.top+r.height/2);
+  const parent=target.parentNode;
+  const ref=after?target.nextSibling:target;
+  if(ref===_dragCard)return;
+  if(_dragCard.parentNode===parent&&_dragCard.nextSibling===ref)return;
+  parent.insertBefore(_dragCard,ref);
+}
+
+function finishChartDrag(e){
+  if(!_dragCard)return;
+  const card=_dragCard,moved=_dragLive;
+  // One last placement from where the finger actually left the screen. A pointerup
+  // can land further on than the last pointermove reported, and the position you let
+  // go at is the one you meant.
+  if(moved&&e&&e.clientX!=null)reorderToPointer(e.clientX,e.clientY);
+  cancelChartDrag();
+  if(!moved)return;
+  saveChartOrder();
+  syncReorderButtons();
+  const zone=card.closest('.chart-zone');
+  if(zone){
+    const within=chartCardsIn(zone);
+    announceReorder(`${chartCardLabel(card)} moved to position ${within.indexOf(card)+1} of ${within.length} in ${zone.dataset.zoneLabel}.`);
+  }
+}
+document.addEventListener('pointerup',finishChartDrag);
+document.addEventListener('pointercancel',()=>{const c=_dragCard;cancelChartDrag();if(c)restoreChartOrder();});
+
+// Arrow keys on a focused card. Left/right as well as up/down because on a desktop
+// two cards on the same line read as side by side, and a user who thinks in columns
+// should not have to translate that into "one step back in the list".
+document.addEventListener('keydown',e=>{
+  if(!chartReorderOn)return;
+  const card=e.target&&e.target.closest&&e.target.closest('#tab-charts .chart-card[data-chart]');
+  if(!card||e.target.closest('button'))return;
+  let dir=0;
+  if(e.key==='ArrowUp'||e.key==='ArrowLeft')dir=-1;
+  else if(e.key==='ArrowDown'||e.key==='ArrowRight')dir=1;
+  else return;
+  e.preventDefault();
+  moveChartCard(card,dir,true);
+});
+
 function openScopeSheet(){
   document.getElementById('scopeBackdrop').classList.add('open');
   document.getElementById('scopeSheet').classList.add('open');
@@ -2446,6 +2915,9 @@ document.addEventListener('keydown',e=>{
 
 const TAB_ORDER=['summary','map','charts','heatmap','records','mex','social','gear','log','zwift'];
 function setTab(tab,dir,fromPop){
+  // Leaving the charts ends the edit: the bar is fixed to the viewport and would
+  // otherwise sit over the Heatmap offering to reorder something that isn't there.
+  if(chartReorderOn&&tab!=='charts')endChartReorder(true);
   if(tab==='mex'&&activeTab!=='mex')mexAnimate=true;
   // A replay left running on a tab you cannot see is a requestAnimationFrame loop
   // burning battery for nothing.
@@ -2539,7 +3011,9 @@ window.addEventListener('popstate',()=>{
   }
   let sx=0,sy=0,tracking=false;
   main.addEventListener('touchstart',e=>{
-    if(e.touches.length!==1||insideHorizontalScroller(e.target)){tracking=false;return;}
+    // Dragging a card sideways across the grid is a horizontal swipe by any other
+    // measure, and would otherwise throw you onto the Heatmap tab mid-reorder.
+    if(e.touches.length!==1||chartReorderOn||insideHorizontalScroller(e.target)){tracking=false;return;}
     sx=e.touches[0].clientX;sy=e.touches[0].clientY;tracking=true;
   },{passive:true});
   main.addEventListener('touchend',e=>{
@@ -2979,19 +3453,25 @@ function renderCharts(){
   const isSpecificYear=isYearScope(activeYear);
   const isSpecificType=activeType!=='All';
 
-  // Hide/show conditional charts
-  document.getElementById('donutChartCard').style.display=isSpecificType?'none':'block';
-  document.getElementById('yoyChartCard').style.gridColumn=isSpecificType?'1 / -1':'';
-  document.getElementById('yoyDonutGrid').style.gridTemplateColumns=isSpecificType?'1fr':'';
+  // Hide/show conditional charts. Classes rather than inline styles, because the
+  // cards can be anywhere in the section now and reorder mode needs to be able to
+  // put a hidden one back on screen without having to remember what it painted over.
+  // A card promoted to full width stays promoted wherever it has been moved to: the
+  // promotion is about its partner being gone, not about which row it started in.
+  document.getElementById('donutChartCard').classList.toggle('is-hidden',isSpecificType);
+  document.getElementById('yoyChartCard').classList.toggle('span-full',isSpecificType);
   // Run pace only means something for runs. When it goes, Relative Effort takes
   // the whole row rather than sitting half-width beside a hole.
   const showPace=(activeType==='All'||activeType==='Run');
-  document.getElementById('paceCard').style.display=showPace?'block':'none';
-  document.getElementById('effortCard').style.gridColumn=showPace?'':'1 / -1';
+  document.getElementById('paceCard').classList.toggle('is-hidden',!showPace);
+  document.getElementById('effortCard').classList.toggle('span-full',!showPace);
 
   // First chart: year calendar or monthly bar
-  document.getElementById('firstChartMonthly').style.display=isSpecificYear?'none':'block';
-  document.getElementById('firstChartCalendar').style.display=isSpecificYear?'block':'none';
+  // A class, not an inline style: an inline `display:block` outranks every rule in
+  // the stylesheet, and this card would then be the one that refused to collapse
+  // when the tab went into reorder mode.
+  document.getElementById('firstChartMonthly').classList.toggle('is-hidden',isSpecificYear);
+  document.getElementById('firstChartCalendar').classList.toggle('is-hidden',!isSpecificYear);
   if(isSpecificYear){
     document.getElementById('firstChartTitle').textContent=activeYear+' Activity Calendar';
     document.getElementById('firstChartSub').textContent='Each square = one day. Colour = dominant activity type. Click for details.';
@@ -3391,7 +3871,6 @@ function renderCadenceChart(data,monthKeys){
 // left in you when it counts.
 function renderRaceChart(data){
   const races=data.filter(isRace);
-  const row=document.getElementById('raceTempRow');
   if(races.length<2){
     setChartEmpty('chartRace','Fewer than two activities here are marked as a race in Strava. Setting an activity’s type to Race is what fills this in.');
     chartSummary('race',[],'');
@@ -5496,7 +5975,13 @@ document.getElementById('gearCards').addEventListener('click',e=>{
   const card=e.target.closest('.gear-card');
   if(card)openGearModal(card.dataset.gear);
 });
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSettings();closeGearModal();closeActivityModal();}});
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape')return;
+  // Reorder mode is the outermost thing Escape can close, so it goes last — a menu
+  // opened on top of it should close first and leave you still reordering.
+  if(!settingsIsOpen()&&chartReorderOn){endChartReorder();return;}
+  closeSettings();closeGearModal();closeActivityModal();
+});
 
 // One delegated handler covers the recent-activity rows on the Summary and the Log's
 // table rows, both now and after any re-render. Links and buttons inside a row keep
@@ -6664,6 +7149,10 @@ if ('serviceWorker' in navigator) {
 // Sets the toggle's icon and label; the palette itself was stamped on <html> in
 // the head, before first paint.
 applyTheme(readTheme());
+
+// Before the first render, so the charts are drawn into the cards where they belong
+// rather than being moved after they have already been painted somewhere else.
+restoreChartOrder();
 
 loadData();
   

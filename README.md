@@ -102,6 +102,43 @@ the tab row on a phone, and none of them is navigation — they are preferences 
 utilities, so they belong behind a single affordance. It opens as a popover anchored to the
 button on a desktop and as the same bottom sheet the scope control uses below 640px.
 
+### Reordering the charts
+
+**Settings → Reorder charts** takes you to the Charts tab and turns editing on there. It is
+not a separate list screen: you move the real cards, in the real grid, so the arrangement you
+are looking at while you drag is the one you get when you press Done. What changes is that
+every card collapses to a title row for the duration.
+
+That collapse is the whole feature. A chart card is 300–400px tall and the tab is five
+screens long, so dragging the last chart to the top at full height is a four-screen drag on a
+phone and a scroll-chase on a desktop. Collapsed, all sixteen charts fit in one or two
+screens and every move is a short one.
+
+Three ways to move a card, because a drag is the obvious one and the worst one to be stuck
+with: drag it, press the ▲/▼ buttons on it, or focus it and use the arrow keys. Each move is
+announced to a screen reader with its new position. The buttons at the ends of the list are
+disabled rather than silently inert.
+
+There is exactly **one order**, not one per breakpoint. The desktop grid is two columns and
+the phone grid is one, but both read the same sequence — the grid decides the shape, the
+saved list decides the sequence, and the hit test asks the grid how many columns it has
+rather than keeping a second code path in step. Sections (Volume, Intensity, Habits) stay
+put and keep their meaning; a card walked off the end of one lands at the start of the next,
+so cross-section moves work without the headings becoming lies.
+
+To make any of that possible the Charts tab is **one grid per section**, not one grid per
+row. Rows used to be fixed — "Rolling 12 Months and Activity Mix, in that order, on a line of
+their own" — and a fixed row cannot be reordered without first deciding what happens to the
+card sharing it. Now each card declares `span-full` or half and the section flows. The
+rendered layout is unchanged; only who owns the rows is.
+
+Order is saved to `localStorage` under `fitness_chart_order_v1` as the chart ids of each
+section — by id rather than index, so adding a chart in a later release does not renumber a
+saved order; a chart the saved order has never seen is slotted in at its default position.
+**Reset** clears it. A chart the current sport filter hides (Activity Mix on a single sport,
+Pace against distance on anything but runs) is shown greyed and dashed while reordering, so
+it can still be placed.
+
 ### Theme
 
 Three explicit choices rather than a button that cycles: a cycling control never tells you
