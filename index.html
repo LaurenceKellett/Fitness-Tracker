@@ -479,6 +479,17 @@ a{color:inherit;text-decoration:none}
    chips under the plot, then one plain-English line saying what the shape means.
    A chart earns these only when there is something true and non-obvious to say —
    chips that restate the axis, or a verdict that restates the chips, are noise. */
+/* A title on the left and the control that changes what the chart measures on the
+   right. Wraps rather than shrinks: below about 440px the three buttons drop to
+   their own line instead of squeezing the title into two words a line. */
+.chart-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.chart-head-text{min-width:min(220px,100%);flex:1}
+.chart-ctl{display:flex;flex-shrink:0;border:1px solid var(--border-strong);border-radius:0;overflow:hidden}
+.chart-ctl-btn{padding:5px 9px;font-size:11px;font-weight:600;color:var(--text-muted);
+  border:none;background:transparent;cursor:pointer;font-family:inherit;line-height:1.45;white-space:nowrap}
+.chart-ctl-btn+.chart-ctl-btn{border-left:1px solid var(--border)}
+.chart-ctl-btn:hover:not(.active){color:var(--text)}
+.chart-ctl-btn.active{background:var(--accent-soft);color:var(--accent)}
 .chart-chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
 .chart-chip{display:flex;align-items:baseline;gap:6px;padding:5px 11px;font-size:11px;font-weight:600}
 .chart-chip strong{font-size:13px;font-weight:700}
@@ -1741,8 +1752,17 @@ body.is-loading .stats-grid *{visibility:hidden}
       <div id="mixVerdict" class="chart-verdict"></div>
     </div>
     <div class="chart-card span-full" data-panel="mixyear">
-      <div class="chart-title">How the mix has shifted</div>
-      <div class="chart-sub" id="mixYearSub">Share of moving time by sport, per year</div>
+      <div class="chart-head">
+        <div class="chart-head-text">
+          <div class="chart-title">How the mix has shifted</div>
+          <div class="chart-sub" id="mixYearSub">Share of distance by sport, per year</div>
+        </div>
+        <div class="chart-ctl" id="mixMeasureCtl" role="group" aria-label="Measure the mix by">
+          <button type="button" class="chart-ctl-btn" data-measure="dist" onclick="setMixMeasure('dist')">Distance</button>
+          <button type="button" class="chart-ctl-btn" data-measure="time" onclick="setMixMeasure('time')">Time</button>
+          <button type="button" class="chart-ctl-btn" data-measure="count" onclick="setMixMeasure('count')">Sessions</button>
+        </div>
+      </div>
       <div class="chart-wrap"><canvas id="chartMixYear"></canvas></div>
       <div id="mixyearChips" class="chart-chips"></div>
       <div id="mixyearVerdict" class="chart-verdict"></div>
@@ -3941,25 +3961,63 @@ function renderCharts(){
 
 // ── HOW THE MIX HAS SHIFTED ──
 // The donut is a snapshot: it says what the split is now and nothing about how it
-// got there. Five years of 100% bars say whether you have quietly become a cyclist.
+// got there. Fourteen years of 100% bars say whether you have quietly stopped being
+// a cyclist.
 //
-// Moving time rather than the donut's activity count, because a count treats a
-// twenty-minute swim and a five-hour ride as one each. Time is where the training
-// actually went. The year filter is ignored on purpose — a chart of one year's
-// share against itself is a single bar — and the sport filter too, since filtering
-// to one sport would leave a chart that reads 100% every year.
+// Three measures, because they genuinely disagree and the disagreement is the
+// interesting part: a walk is a large share of your sessions, a middling share of
+// your hours and a small share of your distance, and which of those you call "the
+// mix" is a choice rather than a fact. Distance is the default because it is the
+// number the rest of the dashboard leads with.
+//
+// The year filter is ignored on purpose — a chart of one year's share against
+// itself is a single bar — and the sport filter too, since filtering to one sport
+// would leave a chart that reads 100% every year.
+const MIX_MEASURE_KEY='fitness_mix_measure_v1';
+const MIX_MEASURES={
+  // dist_mi rather than distIn(): this is a share, and a share of miles and a share
+  // of kilometres are the same number. Using the raw field keeps it that way instead
+  // of letting the mi/km toggle move a percentage by a rounding step.
+  dist :{pick:a=>a.dist_mi||0, noun:'distance',    sub:'Share of distance by sport'},
+  time :{pick:a=>a.mt||0,      noun:'moving time', sub:'Share of moving time by sport'},
+  count:{pick:()=>1,           noun:'sessions',    sub:'Share of sessions by sport'},
+};
+let mixMeasure='dist';
+try{const v=localStorage.getItem(MIX_MEASURE_KEY);if(MIX_MEASURES[v])mixMeasure=v;}catch(e){}
+
+function setMixMeasure(m){
+  if(!MIX_MEASURES[m]||m===mixMeasure)return;
+  mixMeasure=m;
+  try{localStorage.setItem(MIX_MEASURE_KEY,m);}catch(e){}
+  renderMixByYear();
+}
+
 function renderMixByYear(){
+  const measure=MIX_MEASURES[mixMeasure]||MIX_MEASURES.dist;
+  document.querySelectorAll('#mixMeasureCtl .chart-ctl-btn').forEach(b=>{
+    const on=b.dataset.measure===mixMeasure;
+    b.classList.toggle('active',on);
+    b.setAttribute('aria-pressed',on?'true':'false');
+  });
   const years=[...new Set(ALL_DATA.map(a=>a.date.slice(0,4)))].sort();
   const groups=['Ride','Virtual','Run','Walk','Swim','Other'];
   const byYear={};
+  // Counted while aggregating: measured by distance, a gym session contributes
+  // nothing, and a chart that silently dropped a fifth of the year would be lying
+  // by omission rather than by arithmetic.
+  let weightless=0;
   ALL_DATA.forEach(a=>{
     const y=a.date.slice(0,4);
-    (byYear[y]=byYear[y]||{})[typeGroup(a.type)]=((byYear[y]||{})[typeGroup(a.type)]||0)+(a.mt||0);
+    const v=measure.pick(a)||0;
+    if(v<=0)weightless++;
+    (byYear[y]=byYear[y]||{})[typeGroup(a.type)]=((byYear[y]||{})[typeGroup(a.type)]||0)+v;
   });
   const totals=years.map(y=>groups.reduce((s,g)=>s+((byYear[y]||{})[g]||0),0));
   const live=years.filter((y,i)=>totals[i]>0);
   if(live.length<2){
-    setChartEmpty('chartMixYear','Two years of activities are needed before a shift can be shown.');
+    setChartEmpty('chartMixYear',mixMeasure==='dist'
+      ? 'Two years with recorded distance are needed before a shift can be shown. Try Time or Sessions.'
+      : 'Two years of activities are needed before a shift can be shown.');
     chartSummary('mixyear',[],'');
     return;
   }
@@ -3978,7 +4036,7 @@ function renderMixByYear(){
       borderRadius:0,borderSkipped:false,
     }))},
     options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},
-      tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y}% of moving time`}}},
+      tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y}% of ${measure.noun}`}}},
       responsive:true,maintainAspectRatio:false,
       scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:11}}},
         y:{stacked:true,grid:{color:chartGrid()},max:100,
@@ -3993,10 +4051,10 @@ function renderMixByYear(){
     n:(m.d>=0?'+':'')+m.d.toFixed(0)+'pt',label:`${m.g.toLowerCase()} since ${first}`,
     col:m.d>=0?'#22c55e':'#ef4444'}));
   document.getElementById('mixYearSub').textContent=
-    `Share of moving time by sport, ${first} to ${last} — every bar is a whole year`;
+    `${measure.sub}, ${first} to ${last} — every bar is a whole year`;
   chartSummary('mixyear',chips,(()=>{
     const big=moved[0];
-    if(!big||Math.abs(big.d)<5)return`The balance has barely moved since ${first}. Whatever you are, you have been it for ${live.length} years.`;
+    if(!big||Math.abs(big.d)<5)return`The balance has barely moved since ${first}, measured by ${measure.noun}. Whatever you are, you have been it for ${live.length} years.`;
     const second=moved[1]&&Math.abs(moved[1].d)>=5?moved[1]:null;
     // Which way the second sport moved decides the phrase. "At its expense" is only
     // true when the two moved in opposite directions AND this one went up; a sport
@@ -4009,8 +4067,20 @@ function renderMixByYear(){
                   :`, with ${second.g.toLowerCase()} taking up the slack`)
         : `, and ${second.g.toLowerCase()} has moved the same way`;
     }
-    return`${big.g} has gone ${big.d>0?'up':'down'} ${Math.abs(big.d).toFixed(0)} points of your training time since ${first}${tail}. `+
-      `Shares are of time, so this is where the hours went rather than how many sessions you logged.`;
+    // The measure has to be named, not implied. "Ride is down 73 points" is three
+    // different claims depending on which button is pressed, and the one that is
+    // true by distance can be false by sessions.
+    const scale={dist:'your distance',time:'your training time',count:'your sessions'}[mixMeasure];
+    const why={
+      dist:'Shares are of distance, so a sport you spend hours on slowly counts for less here than the time view suggests.',
+      time:'Shares are of time, so this is where the hours went rather than how many sessions you logged.',
+      count:'Shares are of session count, so a twenty-minute walk weighs exactly as much as a five-hour ride.',
+    }[mixMeasure];
+    const omitted=(mixMeasure==='dist'&&weightless)
+      ? ` ${weightless.toLocaleString('en-GB')} activit${weightless===1?'y':'ies'} with no distance recorded — gym work and the like — sit outside this view; Time or Sessions counts them.`
+      : '';
+    return`${big.g} has gone ${big.d>0?'up':'down'} ${Math.abs(big.d).toFixed(0)} points of ${scale} since ${first}${tail}. `+
+      why+omitted;
   })());
 }
 

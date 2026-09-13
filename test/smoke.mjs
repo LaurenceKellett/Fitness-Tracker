@@ -407,6 +407,51 @@ async function main() {
         assert(r.verdict > 20, `${name} drew no verdict`);
       }
 
+    });
+
+    await check('the mix chart can be measured three ways and remembers which', async () => {
+      await page.evaluate(() => window.setTab('charts'));
+      await page.waitForTimeout(400);
+      const read = () => page.evaluate(() => {
+        const c = window.Chart.getChart(document.getElementById('chartMixYear'));
+        return {
+          active: [...document.querySelectorAll('#mixMeasureCtl .chart-ctl-btn')]
+            .filter((b) => b.classList.contains('active')).map((b) => b.dataset.measure),
+          sub: document.getElementById('mixYearSub').textContent,
+          last: (c ? c.data.datasets : []).map((d) => d.label + ':' + d.data[d.data.length - 1]).join(' '),
+        };
+      });
+
+      // Distance out of the box — the measure the rest of the dashboard leads with.
+      const dist = await read();
+      assert(dist.active.join() === 'dist', `active buttons: ${dist.active}`);
+      assert(/distance/i.test(dist.sub), `sub reads "${dist.sub}"`);
+
+      const seen = { dist: dist.last };
+      for (const m of ['time', 'count']) {
+        await page.evaluate((x) => window.setMixMeasure(x), m);
+        await page.waitForTimeout(300);
+        const r = await read();
+        assert(r.active.join() === m, `${m}: active buttons are ${r.active}`);
+        assert(r.sub !== dist.sub, `${m} did not change the subtitle`);
+        seen[m] = r.last;
+      }
+      // The three must actually disagree, or the toggle is decoration: a walk is a
+      // big share of sessions and a small share of distance, and that gap is the
+      // reason the control exists.
+      assert(new Set(Object.values(seen)).size === 3,
+        `the measures produced identical shares: ${JSON.stringify(seen)}`);
+
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => !document.body.classList.contains('is-loading'), { timeout: 15000 });
+      await page.evaluate(() => window.setTab('charts'));
+      await page.waitForTimeout(500);
+      assert((await read()).active.join() === 'count', 'the chosen measure did not survive a reload');
+      await page.evaluate(() => window.setMixMeasure('dist'));
+      await page.waitForTimeout(200);
+    });
+
+    await check('the year-end projection is drawn, not just chipped', async () => {
       // The projection is a dataset on an existing chart, so it is checked by name.
       await page.evaluate(() => window.setTab('charts'));
       await page.waitForTimeout(400);

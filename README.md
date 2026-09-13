@@ -880,10 +880,26 @@ accumulate. The band between peak and average is what the chart is about.
 The Activity Mix donut is a snapshot: it says what the split is now and nothing about how it
 got there. This is the same question asked of every year at once, as 100% stacked bars.
 
-It uses **moving time**, not the donut's activity count, because a count treats a
-twenty-minute swim and a five-hour ride as one each. Time is where the training actually
-went. It ignores both header filters on purpose — a chart of one year's share against itself
-is a single bar, and filtering to one sport would read 100% every year.
+**Three measures, switchable on the card: distance, moving time, or sessions.** They are not
+three views of the same answer — they genuinely disagree, and the disagreement is the
+interesting part. On a real history a walk can be 44% of sessions, 27% of hours and 7% of
+distance. Which of those you call "the mix" is a choice rather than a fact, so the chart
+makes you pick one and names it in the subtitle, the tooltip and the verdict. Distance is the
+default, because it is the number the rest of the dashboard leads with. The choice is
+remembered in `localStorage` under `fitness_mix_measure_v1`.
+
+Two details worth knowing:
+
+- **Distance uses `dist_mi` directly, not `distIn()`.** This is a share, and a share of miles
+  and a share of kilometres are the same number — reading the raw field keeps it that way
+  instead of letting the mi/km toggle move a percentage by a rounding step.
+- **Measured by distance, a gym session contributes nothing** and drops out of the chart
+  entirely. That is arithmetically correct and silently misleading, so the verdict counts
+  them and says so: *"129 activities with no distance recorded — gym work and the like — sit
+  outside this view; Time or Sessions counts them."*
+
+It ignores both header filters on purpose — a chart of one year's share against itself is a
+single bar, and filtering to one sport would read 100% every year.
 
 ---
 
