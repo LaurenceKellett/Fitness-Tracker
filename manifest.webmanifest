@@ -1,0 +1,23 @@
+{
+  "name": "Fitness Dashboard",
+  "short_name": "Fitness",
+  "description": "Personal training dashboard — load, records, routes and gear, from Strava.",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f7f7f7",
+  "theme_color": "#ff385c",
+  "categories": ["fitness", "health", "sports"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Map", "url": "/index.html?tab=map" },
+    { "name": "Records", "url": "/index.html?tab=records" },
+    { "name": "Activity Log", "url": "/index.html?tab=log" }
+  ]
+}

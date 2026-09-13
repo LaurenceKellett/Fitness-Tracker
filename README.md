@@ -30,10 +30,76 @@ The Worker holds all secrets and does all the heavy work. The Pages frontend is 
 | File | Purpose |
 |------|---------|
 | `worker.js` | Cloudflare Worker — OAuth, Strava fetch, GPS privacy trimming, KV caching, AI summary, Zwift Routes proxy, and the scheduled Strava → Notion Training Log sync |
-| `index.html` | Full dashboard frontend — all CSS, HTML, and JS in one file |
+| `index.html` | Dashboard frontend — all CSS, HTML, and the app's own JS |
+| `calc.js` | The pure derivations and formatters, split out of `index.html` so they can be unit-tested. Loaded as a classic script before the inline one, so its top-level declarations share the same global scope and every existing call site works unchanged |
+| `sw.js` | Service worker — caches the app shell and the two CDN libraries so the dashboard opens offline |
+| `manifest.webmanifest`, `icons/` | Web app manifest and icons, so it installs to a phone home screen |
+| `test/calc.test.js` | Vitest unit tests for `calc.js` |
+| `test/smoke.mjs` | Playwright smoke test — boots the real page against a stubbed Worker and drives every tab |
+| `.github/workflows/test.yml` | Runs both suites on every push |
 | `wrangler.toml` | Wrangler config for the Worker |
 | `.github/workflows/deploy-worker.yml` | Auto-deploys the Worker to Cloudflare on every push that touches `worker.js` or `wrangler.toml` |
 | `activities.csv` | **Not committed** (in `.gitignore`) — personal Strava export, never goes to GitHub |
+
+---
+
+## Running the tests
+
+```bash
+npm install
+npm test          # Vitest — the pure functions in calc.js
+npm run smoke     # Playwright — boots index.html in Chromium against a stubbed Worker
+```
+
+`npm test` is fast and needs nothing but Node. `npm run smoke` drives a real browser: it
+serves the repo over HTTP, stubs the Worker's `/activities` response, opens every tab, and
+fails on any script error. Chart.js and Leaflet are served as small stubs rather than
+fetched from their CDNs — what is under test is this repo's own lifecycle (that the
+libraries load on demand, that a filter change updates charts rather than rebuilding them,
+that the map mounts when its tab opens), not the libraries themselves. Set `CHROMIUM_PATH`
+to use a Chromium already on the machine instead of Playwright's own download.
+
+---
+
+## Scope controls
+
+The period control takes **All time**, a **calendar year**, or one of three **rolling
+windows** — last 30 days, last 90 days, last 12 months. They occupy the same slot and the
+same URL parameter (`?year=30d`), because only one of them can be true at a time. The
+calendar year is usually the wrong window for training — nothing about your form resets on
+January 1st — so the rolling windows are there for the question you actually have.
+
+Tabs that ignore the period (Records, Map) say so in the scope line beneath the header,
+exactly as before.
+
+---
+
+## Offline and installability
+
+Two independent layers:
+
+- **Activity data** is mirrored into `localStorage` on every successful load, so a failed
+  fetch still renders the last-known numbers with an inline "showing the last data saved on
+  this device" strip rather than an empty page.
+- **The app shell** (`index.html`, `calc.js`, icons, and the two CDN libraries) is cached by
+  `sw.js`, so the page itself opens without a network. The shell is network-first — a stale
+  copy never wins while the network is up — and the libraries are stale-while-revalidate.
+
+The Worker API is deliberately **not** cached by the service worker. Activity data already
+has its own cache with its own freshness rules, and a second invisible copy at the network
+layer would make "why am I seeing yesterday's numbers" unanswerable.
+
+A load failure is always visible: the dashboard reports the status it got back and offers a
+retry, rather than sitting on "Syncing…" forever.
+
+---
+
+## Theme
+
+Three states, cycled from the header: follow the system, force light, force dark. The choice
+is stamped on `<html>` by a tiny inline script in `<head>`, before any stylesheet resolves,
+so an explicit dark choice never flashes light first. Everything below that is token
+overrides — no rule in the sheet knows which theme it is in.
 
 ---
 

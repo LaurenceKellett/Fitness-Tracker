@@ -1,0 +1,15 @@
+{
+  "name": "fitness-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Personal fitness dashboard connected to Strava, on Cloudflare Workers + Pages",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "smoke": "node test/smoke.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0",
+    "vitest": "^2.1.8"
+  }
+}

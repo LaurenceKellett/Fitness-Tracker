@@ -1,0 +1,504 @@
+/* Browser smoke test.
+ *
+ * calc.test.js covers the arithmetic; nothing there can tell you the page boots.
+ * This does: it serves the repo over HTTP, stubs the Worker, drives a real
+ * Chromium, and fails on any console error or unhandled rejection.
+ *
+ * Run with `npm run smoke`. Chromium comes from Playwright.
+ */
+import { chromium } from 'playwright';
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const TYPES = {
+  '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
+  '.json': 'application/json', '.webmanifest': 'application/manifest+json',
+  '.svg': 'image/svg+xml', '.png': 'image/png',
+};
+
+// ── Fixture ───────────────────────────────────────────────────────────────────
+// Enough shape to exercise every tab: several years, every sport group, a route,
+// gear, a training partner, a race, and a near-home activity.
+function fixture() {
+  const out = [];
+  const today = new Date();
+  const sports = ['Ride', 'VirtualRide', 'Run', 'Walk', 'Swim', 'WeightTraining'];
+  for (let i = 0; i < 420; i++) {
+    const d = new Date(today.getTime() - i * 36e5 * 20);
+    const iso = d.toISOString().slice(0, 10);
+    const type = sports[i % sports.length];
+    out.push({
+      id: 1000 + i,
+      date: iso,
+      time: '07:30',
+      type,
+      sport: type,
+      name: i % 11 === 0 ? `Morning ${type} w/ Dave & Sarah` : `${type} session ${i}`,
+      dist_mi: +(2 + (i % 40) * 0.9).toFixed(2),
+      dist_km: +((2 + (i % 40) * 0.9) * 1.60934).toFixed(2),
+      mt: 1800 + (i % 20) * 600,
+      et: 1900 + (i % 20) * 600,
+      elv: (i % 30) * 40,
+      hr: 120 + (i % 40),
+      cad: 80 + (i % 15),
+      cal: 400 + i,
+      speed_mph: +(8 + (i % 12)).toFixed(1),
+      speed_kph: +((8 + (i % 12)) * 1.60934).toFixed(1),
+      gear: i % 2 ? 'Canyon Ultimate CF SL 8' : 'Nike Pegasus 40',
+      wtype: i % 37 === 0 ? 1 : 0,
+      commute: i % 13 === 0,
+      has_map: i % 3 !== 0,
+      near_home: i % 5 === 0,
+      lat: 53.8362 + (i % 9) * 0.01,
+      lng: -2.5964 + (i % 7) * 0.01,
+      polylines: i % 3 !== 0 ? ['_p~iF~ps|U_ulLnnqC_mqNvxq`@'] : [],
+      temp: 5 + (i % 20),
+    });
+  }
+  return out;
+}
+
+const ENVELOPE = {
+  data: fixture(),
+  updatedAt: new Date().toISOString(),
+  hrZones: { source: 'strava', zones: [110, 130, 150, 170] },
+  gearMeta: { 'Nike Pegasus 40': { retired: false, type: 'shoe' } },
+};
+
+// ── Library stubs ─────────────────────────────────────────────────────────────
+// Only the surface the dashboard actually touches. `update()` and `destroy()` are
+// counted so the test can tell an in-place update from a rebuild.
+const CHART_STUB = `
+window.__stubChartUpdates = 0;
+window.Chart = class {
+  constructor(ctx, config) {
+    this.canvas = ctx && ctx.canvas ? ctx.canvas : ctx;
+    this.ctx = ctx;
+    this.config = config || {};
+    this.data = (config && config.data) || { labels: [], datasets: [] };
+    this.options = (config && config.options) || {};
+    this._destroyed = false;
+  }
+  update() { window.__stubChartUpdates++; }
+  destroy() { this._destroyed = true; }
+  resize() {}
+};
+window.Chart.defaults = { color: '#000', borderColor: '#eee', font: { family: '' } };
+window.Chart.register = function () {};
+`;
+
+const LEAFLET_STUB = `
+(function () {
+  function chainable(extra) {
+    const o = Object.assign({
+      addTo() { return o; }, remove() { return o; }, setOpacity() { return o; },
+      on() { return o; }, setLatLngs() { return o; }, setStyle() { return o; },
+      bringToFront() { return o; }, getBounds() { return { isValid: () => true }; },
+    }, extra || {});
+    return o;
+  }
+  const map = () => chainable({
+    setView() { return map; }, flyTo() {}, flyToBounds() {}, fitBounds() {},
+    invalidateSize() {}, removeLayer() {}, addLayer() {}, getZoom: () => 13,
+    getCenter: () => ({ lat: 53.8, lng: -2.6 }), remove() {}, on() {}, off() {},
+  });
+  window.L = {
+    map: () => map(),
+    tileLayer: () => chainable(),
+    polyline: () => chainable(),
+    circleMarker: () => chainable(),
+    marker: () => chainable(),
+    canvas: () => ({}),
+    latLngBounds: (pts) => ({ isValid: () => !!(pts && pts.length), pad: () => ({}) }),
+    latLng: (a, b) => ({ lat: a, lng: b }),
+    control: { layers: () => chainable() },
+    DomUtil: { create: (t) => document.createElement(t) },
+  };
+})();
+`;
+
+// ── Static server ─────────────────────────────────────────────────────────────
+function serve() {
+  return new Promise((resolve) => {
+    const server = http.createServer((req, res) => {
+      const rel = decodeURIComponent(req.url.split('?')[0]);
+      const file = path.join(ROOT, rel === '/' ? 'index.html' : rel);
+      if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
+        res.writeHead(404).end('not found');
+        return;
+      }
+      res.writeHead(200, { 'content-type': TYPES[path.extname(file)] || 'application/octet-stream' });
+      fs.createReadStream(file).pipe(res);
+    });
+    server.listen(0, '127.0.0.1', () => resolve({ server, port: server.address().port }));
+  });
+}
+
+// ── Harness ───────────────────────────────────────────────────────────────────
+const results = [];
+let failed = 0;
+
+async function check(name, fn) {
+  try {
+    await fn();
+    results.push(`  ✓ ${name}`);
+  } catch (e) {
+    failed++;
+    results.push(`  ✗ ${name}\n      ${e.message.split('\n')[0]}`);
+  }
+}
+
+function assert(cond, msg) {
+  if (!cond) throw new Error(msg);
+}
+
+const TABS = ['summary', 'map', 'charts', 'heatmap', 'records', 'mex', 'social', 'gear', 'log', 'zwift'];
+
+async function main() {
+  const { server, port } = await serve();
+  const base = `http://127.0.0.1:${port}`;
+  // Prefer a Chromium already on the machine (CI images and this sandbox ship one)
+  // over whatever build this Playwright version would download.
+  const browser = await chromium.launch(
+    process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}
+  );
+
+  // One page per scenario, each with its own console-error collector.
+  async function open({ apiStatus = 200, apiBody = ENVELOPE, offline = false, skipLibs = false,
+                        serviceWorkers = 'block' } = {}) {
+    // Service workers are blocked by default here. Once one is active it serves the
+    // CDN requests itself, and a service worker's own fetches do not pass through
+    // page.route() — so the library stubs below would be bypassed and the test
+    // would be measuring the network, not this page. The worker gets its own
+    // scenario at the end, where it is the subject rather than an interference.
+    const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 }, serviceWorkers });
+    const page = await ctx.newPage();
+    const errors = [];
+    // Deliberately blocked third-party assets (fonts, tiles, geocoding) and missing
+    // gear photos — which the page already handles with a fallback tile — are the
+    // harness's noise, not the page's failures.
+    const IGNORE = /net::ERR_FAILED|Failed to load resource|gear-images|favicon/;
+    page.on('console', (m) => { if (m.type() === 'error' && !IGNORE.test(m.text())) errors.push(m.text()); });
+    page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
+
+    // Tiles and fonts are third-party and not what this is testing.
+    await page.route(/tile\.openstreetmap\.org/, (r) => r.abort());
+    await page.route(/fonts\.g(oogleapis|static)\.com/, (r) => r.abort());
+    await page.route(/nominatim\.openstreetmap\.org/, (r) => r.abort());
+
+    // Chart.js and Leaflet are served as stubs rather than fetched from their CDNs.
+    // What is under test here is the dashboard's own lifecycle — that the libraries
+    // are fetched on demand rather than up front, that a filter change updates the
+    // existing charts instead of rebuilding them, that the map mounts when its tab
+    // opens. None of that is a test of Chart.js or Leaflet, and pulling 350 KB over
+    // the network would only make the suite slower and able to fail for reasons
+    // that have nothing to do with this repo.
+    if (!skipLibs) {
+      await page.route(/chart\.umd\.min\.js/, (r) =>
+        r.fulfill({ status: 200, contentType: 'text/javascript', body: CHART_STUB }));
+      await page.route(/leaflet\.js(\?|$)/, (r) =>
+        r.fulfill({ status: 200, contentType: 'text/javascript', body: LEAFLET_STUB }));
+      await page.route(/leaflet\.css(\?|$)/, (r) =>
+        r.fulfill({ status: 200, contentType: 'text/css', body: '' }));
+    }
+
+    await page.route('**/activities**', (r) => {
+      if (offline) return r.abort('failed');
+      return r.fulfill({ status: apiStatus, contentType: 'application/json', body: JSON.stringify(apiBody) });
+    });
+    await page.route('**/zwift-routes**', (r) =>
+      r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], updatedAt: new Date().toISOString() }) })
+    );
+
+    await page.goto(base + '/index.html', { waitUntil: 'domcontentloaded' });
+    return { ctx, page, errors };
+  }
+
+  // ── 1. Happy path ───────────────────────────────────────────────────────────
+  {
+    const { ctx, page, errors } = await open();
+    await page.waitForFunction(() => !document.body.classList.contains('is-loading'), null, { timeout: 20000 });
+
+    await check('boots and clears the loading skeleton', async () => {
+      assert(!(await page.locator('body.is-loading').count()), 'skeleton still up');
+    });
+
+    await check('renders the hero figure from data, not a placeholder', async () => {
+      const t = (await page.locator('#sumWeekHours').innerText()).trim();
+      assert(t && t !== '—', `hero still reads "${t}"`);
+    });
+
+    await check('loads Chart.js on demand and draws the summary charts', async () => {
+      assert(await page.evaluate(() => !!window.Chart), 'Chart.js never loaded');
+      const drawn = await page.evaluate(() => Object.keys(typeof charts!=="undefined"?charts:{}).length);
+      assert(drawn > 0, 'no chart instances registered');
+    });
+
+    await check('does not load Leaflet until the map is asked for', async () => {
+      assert(!(await page.evaluate(() => !!window.L)), 'Leaflet loaded on the Summary tab');
+    });
+
+    await check('every tab renders without a console error', async () => {
+      for (const tab of TABS) {
+        errors.length = 0;
+        await page.evaluate((t) => window.setTab(t), tab);
+        await page.waitForTimeout(400);
+        assert(errors.length === 0, `${tab}: ${errors[0]}`);
+        const visible = await page.locator(`#tab-${tab}.active`).count();
+        assert(visible === 1, `${tab}: panel did not become active`);
+      }
+    });
+
+    await check('loads Leaflet once the Map tab is opened', async () => {
+      await page.evaluate(() => window.setTab('map'));
+      await page.waitForFunction(() => !!window.L, null, { timeout: 15000 });
+      await page.waitForFunction(() => typeof _map!=="undefined"&&!!_map, null, { timeout: 15000 });
+    });
+
+    await check('switching units re-renders without tearing every chart down', async () => {
+      await page.evaluate(() => window.setTab('charts'));
+      await page.waitForTimeout(500);
+      const before = await page.evaluate(() => typeof __chartStats!=="undefined"?{ ...__chartStats }:null);
+      await page.evaluate(() => window.setUnit('km'));
+      await page.waitForTimeout(600);
+      const after = await page.evaluate(() => typeof __chartStats!=="undefined"?{ ...__chartStats }:null);
+      assert(before && after, 'chart stats not instrumented');
+      assert(after.updated > before.updated, `no charts updated in place (updated ${before.updated} → ${after.updated})`);
+      const created = after.created - before.created;
+      assert(created === 0, `${created} charts were rebuilt from scratch on a unit toggle`);
+    });
+
+    await check('rolling date scopes filter the data', async () => {
+      const all = await page.evaluate(() => { window.setYear('All'); return window.getFiltered().length; });
+      const d30 = await page.evaluate(() => { window.setYear('30d'); return window.getFiltered().length; });
+      const d90 = await page.evaluate(() => { window.setYear('90d'); return window.getFiltered().length; });
+      const m12 = await page.evaluate(() => { window.setYear('12m'); return window.getFiltered().length; });
+      assert(d30 > 0, 'last 30 days is empty');
+      assert(d30 < d90 && d90 < m12 && m12 <= all, `scopes do not nest: ${d30} / ${d90} / ${m12} / ${all}`);
+      const label = await page.evaluate(() => { window.setYear('90d'); return document.getElementById('scopeChipText').textContent; });
+      assert(/90 days/i.test(label), `scope chip reads "${label}"`);
+      await page.evaluate(() => window.setYear('All'));
+    });
+
+    await check('a rolling scope survives a reload through the URL', async () => {
+      await page.evaluate(() => window.setYear('90d'));
+      await page.waitForTimeout(200);
+      const url = page.url();
+      assert(/year=90d/.test(url), `URL does not carry the scope: ${url}`);
+    });
+
+    await check('tabs are exposed as a tablist with a selected tab', async () => {
+      const info = await page.evaluate(() => {
+        const strip = document.getElementById('tabRow');
+        const btns = [...strip.querySelectorAll('.tab-btn')];
+        return {
+          role: strip.getAttribute('role'),
+          btnRoles: btns.map((b) => b.getAttribute('role')),
+          selected: btns.filter((b) => b.getAttribute('aria-selected') === 'true').length,
+          tabbable: btns.filter((b) => b.getAttribute('tabindex') !== '-1').length,
+          panels: [...document.querySelectorAll('.tab-content')].map((p) => p.getAttribute('role')),
+          controls: btns.every((b) => !!b.getAttribute('aria-controls')),
+        };
+      });
+      assert(info.role === 'tablist', `tab strip role is ${info.role}`);
+      assert(info.btnRoles.every((r) => r === 'tab'), 'a tab button is missing role=tab');
+      assert(info.selected === 1, `${info.selected} tabs marked selected`);
+      assert(info.tabbable === 1, `${info.tabbable} tabs in the tab order; should be 1 (roving tabindex)`);
+      assert(info.panels.every((r) => r === 'tabpanel'), 'a panel is missing role=tabpanel');
+      assert(info.controls, 'a tab is missing aria-controls');
+    });
+
+    await check('arrow keys move between tabs', async () => {
+      await page.evaluate(() => { window.setTab('summary'); document.querySelector('.tab-btn[aria-selected="true"]').focus(); });
+      await page.keyboard.press('ArrowRight');
+      await page.waitForTimeout(300);
+      const tab = await page.evaluate(() => activeTab);
+      assert(tab === 'map', `ArrowRight landed on ${tab}`);
+      await page.keyboard.press('End');
+      await page.waitForTimeout(300);
+      assert((await page.evaluate(() => activeTab)) === 'zwift', 'End did not reach the last tab');
+      await page.evaluate(() => window.setTab('summary'));
+    });
+
+    await check('a modal traps focus and gives it back on close', async () => {
+      await page.evaluate(() => window.setTab('log'));
+      await page.waitForTimeout(400);
+      const opened = await page.evaluate(() => {
+        // Scoped to the log table: the same class is on the Summary tab's recent
+        // list, whose rows are in the DOM but hidden, and a hidden element cannot
+        // take focus.
+        const row = document.querySelector('#logBody .act-row-click');
+        if (!row) return false;
+        row.focus();
+        if (document.activeElement !== row) return false;
+        window.openActivityModal(row.dataset.act);
+        return true;
+      });
+      assert(opened, 'could not focus a log row');
+      await page.waitForTimeout(500);
+      const inside = await page.evaluate(() => {
+        const modal = document.querySelector('.gear-modal-backdrop.open, #actModalBackdrop.open');
+        return !!(modal && modal.contains(document.activeElement));
+      });
+      assert(inside, 'focus did not move into the modal');
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(400);
+      const restored = await page.evaluate(() =>
+        document.activeElement && document.activeElement.closest('#logBody .act-row-click') !== null);
+      assert(restored, 'focus was not returned to the row that opened the modal');
+    });
+
+    await check('theme toggle cycles system → light → dark and paints dark', async () => {
+      const seen = [];
+      for (let i = 0; i < 3; i++) {
+        await page.click('#themeBtn');
+        await page.waitForTimeout(250);
+        seen.push(await page.evaluate(() => document.documentElement.getAttribute('data-theme')));
+      }
+      assert(seen.includes('light') && seen.includes('dark'), `cycle produced ${JSON.stringify(seen)}`);
+      await page.evaluate(() => window.applyTheme('dark'));
+      await page.waitForTimeout(300);
+      const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+      const [r, g, b] = bg.match(/\d+/g).map(Number);
+      assert((r + g + b) / 3 < 60, `dark body background is ${bg}`);
+      await page.evaluate(() => window.applyTheme('system'));
+    });
+
+    await ctx.close();
+  }
+
+  // ── 2. The Worker answers 500 ───────────────────────────────────────────────
+  {
+    const { ctx, page } = await open({ apiStatus: 500, apiBody: { error: 'kv unavailable' } });
+    await check('a 500 surfaces an error card instead of hanging on "Syncing…"', async () => {
+      await page.waitForSelector('#appError.show', { timeout: 15000 });
+      const msg = await page.locator('#appErrorMsg').innerText();
+      assert(/500/.test(msg), `error text does not name the status: "${msg}"`);
+      assert(!(await page.locator('body.is-loading').count()), 'skeleton left shimmering after a failure');
+      assert(await page.locator('#appErrorRetry').isVisible(), 'no retry button');
+    });
+    await ctx.close();
+  }
+
+  // ── 3. A 200 with a malformed envelope ──────────────────────────────────────
+  {
+    const { ctx, page } = await open({ apiBody: { aiSummary: 'oops', updatedAt: 'now' } });
+    await check('a 200 with no data array is reported, not thrown into the void', async () => {
+      await page.waitForSelector('#appError.show', { timeout: 15000 });
+      assert(!(await page.locator('body.is-loading').count()), 'skeleton left shimmering');
+    });
+    await ctx.close();
+  }
+
+  // ── 4. Network failure with nothing cached ──────────────────────────────────
+  {
+    const { ctx, page } = await open({ offline: true });
+    await check('a dead network with no cache shows an error rather than a blank page', async () => {
+      await page.waitForSelector('#appError.show', { timeout: 15000 });
+      assert(!(await page.locator('body.is-loading').count()), 'skeleton left shimmering');
+    });
+    await ctx.close();
+  }
+
+  // ── 5. Network failure with a warm cache ────────────────────────────────────
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+    const page = await ctx.newPage();
+    await page.route(/tile\.openstreetmap\.org/, (r) => r.abort());
+    await page.route(/fonts\.g(oogleapis|static)\.com/, (r) => r.abort());
+    await page.route(/nominatim\.openstreetmap\.org/, (r) => r.abort());
+
+    let fail = false;
+    await page.route('**/activities**', (r) =>
+      fail ? r.abort('failed')
+           : r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ENVELOPE) })
+    );
+    await page.route('**/zwift-routes**', (r) =>
+      r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) })
+    );
+
+    await page.goto(base + '/index.html', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => !document.body.classList.contains('is-loading'), null, { timeout: 20000 });
+
+    await check('a failed refresh keeps the cached page and says so inline', async () => {
+      fail = true;
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForSelector('#appError.show.inline', { timeout: 15000 });
+      const hero = (await page.locator('#sumWeekHours').innerText()).trim();
+      assert(hero && hero !== '—', 'cached data was not rendered');
+      const lu = await page.locator('#lastUpdated').innerText();
+      assert(/offline/i.test(lu), `last-updated does not mention offline: "${lu}"`);
+    });
+    await ctx.close();
+  }
+
+  // ── 6. Installability ───────────────────────────────────────────────────────
+  {
+    const { ctx, page } = await open({ skipLibs: true, serviceWorkers: 'allow' });
+    await check('ships a valid manifest', async () => {
+      const href = await page.evaluate(() => {
+        const l = document.querySelector('link[rel="manifest"]');
+        return l && l.href;
+      });
+      assert(href, 'no manifest link');
+      const res = await page.request.get(href);
+      assert(res.ok(), `manifest returned ${res.status()}`);
+      const m = await res.json();
+      assert(m.name && m.short_name, 'manifest has no name');
+      assert(m.start_url, 'manifest has no start_url');
+      assert(m.display === 'standalone', `manifest display is ${m.display}`);
+      const sizes = (m.icons || []).map((i) => i.sizes);
+      assert(sizes.includes('192x192') && sizes.includes('512x512'), `icons are ${JSON.stringify(sizes)}`);
+      assert((m.icons || []).some((i) => i.purpose === 'maskable'), 'no maskable icon');
+    });
+
+    await check('registers a service worker that caches the app shell', async () => {
+      const ready = await page.evaluate(() =>
+        navigator.serviceWorker
+          ? navigator.serviceWorker.ready.then(() => true).catch(() => false)
+          : false
+      );
+      assert(ready, 'service worker never reached ready');
+      // Give install() a moment to populate the caches it opened.
+      await page.waitForTimeout(1500);
+      const cached = await page.evaluate(async () => {
+        const names = await caches.keys();
+        const out = [];
+        for (const n of names) {
+          const keys = await (await caches.open(n)).keys();
+          out.push(...keys.map((k) => new URL(k.url).pathname));
+        }
+        return out;
+      });
+      assert(cached.includes('/index.html'), `index.html not cached (have ${JSON.stringify(cached)})`);
+      assert(cached.includes('/calc.js'), 'calc.js not cached');
+      assert(cached.some((p) => p.startsWith('/icons/')), 'no icons cached');
+    });
+
+    await check('serves the shell from cache when the network dies', async () => {
+      await ctx.setOffline(true);
+      const res = await page.goto(base + '/index.html', { waitUntil: 'domcontentloaded' });
+      assert(res, 'no response at all while offline');
+      const title = await page.title();
+      assert(/Fitness/.test(title), `offline page title is "${title}"`);
+      await ctx.setOffline(false);
+    });
+
+    await ctx.close();
+  }
+
+  await browser.close();
+  server.close();
+
+  console.log('\nBrowser smoke test\n' + results.join('\n'));
+  console.log(failed ? `\n${failed} check(s) failed\n` : `\nAll ${results.length} checks passed\n`);
+  process.exit(failed ? 1 : 0);
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
