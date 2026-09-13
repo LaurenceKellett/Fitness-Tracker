@@ -6,19 +6,53 @@
 <title>Fitness Dashboard</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='0' fill='%23ff385c'/><path fill='white' d='M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0 4 13.828h4.172'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20,400,0,0&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20,400,0,0&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root {
-  --bg:#f7f7f7;--surface:#fff;--border:#ebebeb;--border-strong:#dddddd;--text:#222222;--text-muted:#656565;--text-light:#9ca3af;
+  --bg:#fbfaf8;--surface:#ffffff;--border:#eae7e1;--border-strong:#dcd8d0;
+  --text:#1c1a17;--text-muted:#8a857c;--text-light:#a9a49a;
   --accent:#ff385c;--accent-dark:#d70466;--accent-soft:#ffeef1;
   --hm-cell:clamp(16px,3.5vw,44px);--hm-gap:clamp(2px,0.3vw,4px);
-  --ride:#1d4ed8;--ride-soft:#dbeafe;--virtual:#60a5fa;--virtual-soft:#dbeafe;
+  --ride:#1d4ed8;--ride-soft:#dbeafe;
+  /* Virtual was #60a5fa — a second blue sitting 5.3 ΔE from Swim in normal vision,
+     below the threshold where a full-colour reader can separate them at all, and 2.6
+     under protanopia. Violet takes the worst pair in the set to 15.9. This matters
+     more than it used to now that hue is the calendars' primary encoding. */
+  --virtual:#8b5cf6;--virtual-soft:#ede9fe;
   --run:#ef4444;--run-soft:#fee2e2;--walk:#eab308;--walk-soft:#fefce8;
   --swim:#0ea5e9;--swim-soft:#e0f2fe;--other:#94a3b8;--other-soft:#f8fafc;
   --radius:0;--radius-sm:0;
-  --shadow:0 1px 2px rgba(15,23,42,.04),0 4px 12px rgba(15,23,42,.06);
+
+  /* ── TYPE ──
+     The old page ran 11/12/13px almost throughout, with 24px stat values as the only
+     exception. Monotone type is the main reason it read as a default dashboard: with
+     no ramp, nothing can be more important than anything else. The scale below is
+     deliberately wide — a 132px hero against a 10px label — so hierarchy comes from
+     size and weight rather than from another border. */
+  --f-display:'Sora',-apple-system,BlinkMacSystemFont,sans-serif;
+  --f-ui:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif;
+  --t-hero:132px;  --t-xl:64px;   --t-lg:38px;   --t-ml:26px;
+  --t-md:17px;     --t-base:13px; --t-sm:12px;   --t-xs:11px;  --t-2xs:10px;
+  /* Callout figures carry weight rather than colour. Sora runs to 800; 200 was what
+     made the first pass of this look tentative. */
+  --w-callout:700;
+
+  /* ── SPACE ──
+     A scale, so rhythm is a decision rather than whatever number was typed. */
+  --s1:6px; --s2:10px; --s3:16px; --s4:24px; --s5:36px; --s6:56px; --s7:84px;
+
+  /* ── CHART INK ──
+     Rule 1: a chart with one series takes ink, not a hue. Grid lines and axes are
+     recessive. Both were hardcoded in twenty-odd places before. */
+  --chart-ink:#1c1a17; --chart-faint:#c9c4bb; --chart-grid:#eceae4;
+  --hm-empty:#eeece7;
+  /* Was a two-layer lift on every card. Each of those cards already has a 1px border,
+     so the shadow was a second separator doing the same job — and on forty cards a
+     page it is what made a deliberate layout read as a stock template. Kept as a token
+     rather than deleted from 21 rules so the decision is reversible in one line. */
+  --shadow:none;
   /* Reserved for call-out boxes only — the AI summary, sync warnings, the Mex ceiling. */
   --shadow-callout:0 2px 4px rgba(15,23,42,.06),0 10px 28px rgba(15,23,42,.13);
 }
@@ -99,23 +133,29 @@ a{color:inherit;text-decoration:none}
 .tab-content.enter-from-right{animation:enterFromRight .22s ease}
 .tab-content.enter-from-left{animation:enterFromLeft .22s ease}
 /* SUMMARY — the present-tense block that now leads the page */
-.sum-hero{border-top:3px solid var(--accent);padding:24px 26px;margin-bottom:14px}
-.sum-hero-row{display:flex;gap:34px;align-items:flex-start}
-.sum-hero-fig{width:250px;flex-shrink:0}
+/* No card. The hero is the page for the first screenful, so it needs no container to
+   say so — a 132px figure against 11px labels does that on its own. */
+.sum-hero{border:0;background:transparent;padding:var(--s6) 0 0;margin-bottom:var(--s6)}
+.sum-hero-row{display:flex;gap:var(--s6);align-items:flex-end}
+.sum-hero-fig{width:340px;flex-shrink:0}
 .sum-hero-chart{flex:1;min-width:0}
 .sum-hero-chart .chart-wrap{height:186px}
-.sum-big{font-size:52px;font-weight:800;letter-spacing:-2px;line-height:1;margin:10px 0 8px}
-.sum-big-unit{font-size:22px;font-weight:500;color:var(--text-muted);letter-spacing:0;margin-left:6px}
-.sum-ratio{display:inline-flex;align-items:baseline;gap:6px;padding:6px 11px;margin-top:14px;
-  font-size:11px;font-weight:600;border-radius:0}
+.sum-big{font-family:var(--f-display);font-size:var(--t-hero);font-weight:var(--w-callout);
+  letter-spacing:-.05em;line-height:.82;margin:var(--s3) 0 var(--s4)}
+.sum-big-unit{font-family:var(--f-ui);font-size:var(--t-md);font-weight:400;
+  color:var(--text-muted);letter-spacing:0;margin-left:var(--s2)}
+.sum-ratio{display:inline-flex;align-items:baseline;gap:7px;padding:0;margin-top:var(--s3);
+  font-size:var(--t-xs);font-weight:500;border-radius:0;background:none!important}
 .sum-ratio strong{font-size:14px;font-weight:700}
 /* Quiet by design: B earns its place by what it says, not by its size. */
-.sum-band{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);
-  padding:16px 22px;display:flex;align-items:flex-start;gap:14px;margin-bottom:22px}
+.sum-band{background:transparent;border:0;border-top:1px solid var(--text);
+  padding:var(--s3) 0 0;display:flex;align-items:flex-start;gap:var(--s3);margin-bottom:var(--s6)}
 .sum-band:empty{display:none}
 .sum-band .ms{font-size:17px;color:var(--text-muted);vertical-align:0;flex-shrink:0;margin-top:1px}
-.sum-band-text{font-size:16px;font-weight:600;line-height:1.5}
-.sum-two{display:grid;grid-template-columns:1.6fr 1fr;gap:18px;margin-bottom:26px}
+.sum-band-text{font-family:var(--f-display);font-size:var(--t-md);font-weight:300;line-height:1.55}
+.sum-band-text b{font-weight:600}
+.sum-band-sport{display:inline-flex;align-items:center;gap:6px;font-weight:600}
+.sum-two{display:grid;grid-template-columns:1.6fr 1fr;gap:var(--s5);margin-bottom:var(--s6)}
 .sum-two .chart-wrap{height:172px}
 .sum-consistency{display:flex;flex-direction:column}
 .sum-cal{display:grid;grid-template-columns:repeat(14,1fr);gap:3px;margin-top:16px}
@@ -123,24 +163,26 @@ a{color:inherit;text-decoration:none}
 .sum-cal-ends{display:flex;justify-content:space-between;margin-top:6px;font-size:9px;color:var(--text-light)}
 .sum-streaks{border-top:1px solid var(--border);margin-top:auto;padding-top:14px;
   display:flex;justify-content:space-between}
-.sum-sports{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:26px}
+.sum-sports{display:grid;grid-template-columns:repeat(5,1fr);gap:var(--s5);margin-bottom:var(--s6)}
 .sum-sport-note{margin-left:auto;margin-bottom:0;text-align:right;max-width:46%}
-.sum-sport-card{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);
-  padding:18px;border-top-width:3px;border-top-style:solid}
+.sum-sport-card{background:transparent;border:0;padding:0}
 .sum-sport-head{display:flex;align-items:center;gap:7px;margin-bottom:14px}
 .sum-sport-head .ms{font-size:17px;vertical-align:0}
 .sum-sport-name{font-size:13px;font-weight:700}
-.sum-sport-big{font-size:30px;font-weight:800;letter-spacing:-1.2px;line-height:1}
+.sum-sport-big{font-family:var(--f-display);font-size:var(--t-lg);font-weight:var(--w-callout);
+  letter-spacing:-.03em;line-height:1}
 .sum-sport-rows{border-top:1px solid var(--border);margin-top:14px;padding-top:12px;
   display:flex;flex-direction:column;gap:9px}
 .sum-sport-row{display:flex;justify-content:space-between;align-items:baseline}
 .sum-sport-row span:first-child{font-size:11px;color:var(--text-muted)}
 .sum-sport-row span:last-child{font-size:12px;font-weight:600}
 /* The trophies, demoted to one line. */
-.sum-career{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);
-  padding:14px 22px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:24px}
+.sum-career{background:transparent;border:0;border-top:1px solid var(--text);
+  padding:var(--s4) 0 0;display:flex;align-items:baseline;gap:var(--s5);flex-wrap:wrap;
+  margin-bottom:var(--s6)}
 .sum-career-fig{display:flex;align-items:baseline;gap:6px}
-.sum-career-fig b{font-size:13px;font-weight:700}
+.sum-career-fig b{font-family:var(--f-display);font-size:var(--t-md);font-weight:var(--w-callout);
+  letter-spacing:-.02em}
 .sum-career-fig span{font-size:11px;color:var(--text-muted)}
 .sum-career-sep{width:1px;height:14px;background:var(--border)}
 @media(max-width:1000px){
@@ -157,11 +199,12 @@ a{color:inherit;text-decoration:none}
 }
 /* STATS */
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:14px;margin-bottom:24px}
-.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:18px 20px;box-shadow:var(--shadow)}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:20px 22px}
 .stat-card-link{cursor:pointer;transition:box-shadow .1s}
-.stat-card-link:hover{box-shadow:0 2px 4px rgba(15,23,42,.06),0 8px 20px rgba(15,23,42,.09)}
-.stat-label{font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:6px}
-.stat-value{font-size:24px;font-weight:700;letter-spacing:-.5px;line-height:1}
+.stat-card-link:hover{border-color:var(--text-muted)}
+.stat-label{font-size:var(--t-xs);font-weight:500;color:var(--text-muted);margin-bottom:var(--s2)}
+.stat-value{font-family:var(--f-display);font-size:var(--t-ml);font-weight:var(--w-callout);
+  letter-spacing:-.03em;line-height:1}
 .stat-unit{font-size:13px;font-weight:400;color:var(--text-muted);margin-left:3px}
 .stat-sub{font-size:12px;color:var(--text-muted);margin-top:5px}
 .stat-delta{font-size:12px;font-weight:600;margin-top:4px}
@@ -169,18 +212,29 @@ a{color:inherit;text-decoration:none}
 /* CHARTS */
 .charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
 .charts-grid.wide{grid-template-columns:1fr}
-.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:20px 22px;box-shadow:var(--shadow)}
-.chart-title{font-size:13px;font-weight:600;margin-bottom:4px}
-.chart-sub{font-size:11px;color:var(--text-muted);margin-bottom:16px}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:0;
+  padding:var(--s4) 26px}
+.chart-title{font-family:var(--f-display);font-size:var(--t-base);font-weight:600;
+  letter-spacing:-.01em;margin-bottom:5px}
+.chart-sub{font-size:var(--t-xs);color:var(--text-muted);margin-bottom:var(--s3);line-height:1.6}
 .chart-wrap{position:relative;height:240px}.chart-wrap.tall{height:320px}
 @media(max-width:700px){.charts-grid{grid-template-columns:1fr}}
 /* The pattern from the heart-rate zone card, generalised: a row of tinted figure
    chips under the plot, then one plain-English line saying what the shape means.
    A chart earns these only when there is something true and non-obvious to say —
    chips that restate the axis, or a verdict that restates the chips, are noise. */
-.chart-chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
-.chart-chip{display:flex;align-items:baseline;gap:6px;padding:5px 11px;font-size:11px;font-weight:600}
-.chart-chip strong{font-size:13px;font-weight:700}
+.chart-chips{display:flex;flex-wrap:wrap;gap:0;margin-top:var(--s3);padding-top:var(--s3);
+  border-top:1px solid var(--border)}
+.chart-chip{display:flex;align-items:baseline;gap:7px;padding:5px 0;font-size:var(--t-xs);
+  font-weight:500;color:var(--text-muted)}
+.chart-chip strong{color:var(--text)}
+.chart-chip+.chart-chip{padding-left:var(--s4);border-left:1px solid var(--border);margin-left:var(--s2)}
+.chip-dot{width:8px;height:8px;display:inline-block;flex-shrink:0;align-self:center}
+@media(max-width:640px){
+  .chart-chips{gap:var(--s2) var(--s4)}
+  .chart-chip+.chart-chip{padding-left:0;border-left:0;margin-left:0}
+}
+.chart-chip strong{font-family:var(--f-display);font-size:var(--t-base);font-weight:var(--w-callout)}
 .chart-verdict{font-size:11px;color:var(--text-muted);line-height:1.55;margin-top:12px}
 .chart-verdict:empty,.chart-chips:empty{display:none}
 /* ── THE MAP AND ITS CONTROLS, AS ONE OBJECT ──
@@ -640,7 +694,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
 }
 /* LAYOUT */
 .section-header{display:flex;align-items:center;gap:12px;margin-bottom:16px;margin-top:4px}
-.section-header h2{font-size:15px;font-weight:700}
+.section-header h2{font-family:var(--f-display);font-size:var(--t-md);font-weight:600;
+  letter-spacing:-.02em}
 .section-header .badge{background:var(--bg);border:1px solid var(--border);padding:2px 8px;border-radius:0;font-size:11px;color:var(--text-muted)}
 .year-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:0;overflow:hidden;box-shadow:var(--shadow);margin-bottom:24px}
 .dow-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:18px 20px;box-shadow:var(--shadow)}
@@ -1020,7 +1075,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
   <!-- The page answers "where am I right now" before it answers "what have I ever
        done". The career totals are still here, on one line at the bottom, handed
        back to the tabs that own them. -->
-  <div class="sum-hero chart-card">
+  <div class="sum-hero">
     <div class="sum-hero-row">
       <div class="sum-hero-fig">
         <div class="stat-label">This week</div>
@@ -1484,6 +1539,14 @@ const ZWIFT_STATUS_ORDER=['Not started','Blocked','Planned','Complete'];
 let zwiftCalDate=new Date();zwiftCalDate.setDate(1);
 let zwiftCalSelected=null;
 
+// Chart.js takes literal colours, not CSS variables, so the tokens are resolved once
+// here and used everywhere below. Previously GRID appeared twenty-two times by
+// hand, which is why no theme change could ever reach the charts.
+const CSSVAR=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const GRID=CSSVAR('--chart-grid')||'#eceae4';
+const CHART_INK=CSSVAR('--chart-ink')||'#1c1a17';
+const CHART_FAINT=CSSVAR('--chart-faint')||'#c9c4bb';
+
 const ACCENT_COLORS={All:'#22c55e',Ride:'#1d4ed8',Virtual:'#60a5fa',Run:'#ef4444',Walk:'#eab308',Swim:'#0ea5e9',Other:'#94a3b8'};
 function getAccentColor(){return ACCENT_COLORS[activeType]||'#22c55e';}
 
@@ -1592,8 +1655,11 @@ function mapFilterMatches(a){
   if(activeType==='Ride')return g==='Ride'||g==='Virtual';
   return g===activeType;
 }
-function groupColor(g){return{Ride:'#1d4ed8',Virtual:'#60a5fa',Run:'#ef4444',Walk:'#eab308',Swim:'#0ea5e9',Other:'#94a3b8'}[g]||'#94a3b8';}
-function groupSoft(g){return{Ride:'#dbeafe',Virtual:'#dbeafe',Run:'#fee2e2',Walk:'#fefce8',Swim:'#e0f2fe',Other:'#f8fafc'}[g]||'#f8fafc';}
+// Kept in step with the --ride/--virtual/... tokens by hand: Chart.js needs literal
+// hex, not a CSS variable. Virtual is violet rather than a second blue — see the token
+// block for why.
+function groupColor(g){return{Ride:'#1d4ed8',Virtual:'#8b5cf6',Run:'#ef4444',Walk:'#eab308',Swim:'#0ea5e9',Other:'#94a3b8'}[g]||'#94a3b8';}
+function groupSoft(g){return{Ride:'#dbeafe',Virtual:'#ede9fe',Run:'#fee2e2',Walk:'#fefce8',Swim:'#e0f2fe',Other:'#f8fafc'}[g]||'#f8fafc';}
 // ── CALENDAR CELL COLOUR ──
 // Both calendars — the Heatmap tab and the per-year grid on Charts — used to
 // interpolate one accent by distance, so the only thing a cell could say was "how
@@ -1614,7 +1680,7 @@ function dayDominant(dd){
   return e?e[0]:null;
 }
 function dayCellBg(dd,maxDist){
-  if(!dd)return'var(--hm-empty,#f0f0f0)';
+  if(!dd)return'var(--hm-empty)';
   const g=dayDominant(dd);
   const col=g?groupColor(g):getAccentColor();
   // Square-rooted so the middle of the range is visible: raw distance ratios put
@@ -2133,7 +2199,7 @@ function renderSummaryNow(data){
       `<span class="stat-unit" style="font-size:15px">of 28 days</span></div>`+
     `<div class="chart-sub" style="margin:6px 0 0">You trained on ${Math.round(active/28*100)}% of them</div>`+
     `<div class="sum-cal">${cells.map(x=>
-      `<i style="background:${x?getAccentColor():'var(--border)'}"></i>`).join('')}</div>`+
+      `<i style="background:${x?CHART_INK:'var(--hm-empty)'}"></i>`).join('')}</div>`+
     `<div class="sum-cal-ends"><span>4 weeks ago</span><span>today</span></div>`+
     `<div class="sum-streaks">`+
       `<div><div style="font-size:16px;font-weight:700">${cur} day${cur===1?'':'s'}</div>`+
@@ -2197,16 +2263,17 @@ function renderSummaryNow(data){
     if(!c28){band.innerHTML='';}
     else{
       const state=ratio>1.3?'building':ratio<0.8?'backing off':'holding steady';
-      const stateCol=ratio>1.3?'#b45309':ratio<0.8?'#b45309':'#16a34a';
-      const yearBit=yd==null?'':
-        ` and <span style="color:${yd>=0?'#16a34a':'#dc2626'}">${Math.abs(yd)}% ${yd>=0?'ahead of':'behind'}</span> `+
-        `where you stood this time last year`;
+      const em=t=>`<b>${t}</b>`;
+      const yearBit=yd==null?''
+        :` and ${em(Math.abs(yd)+'% '+(yd>=0?'ahead of':'behind'))} where you stood this time last year`;
+      // The sport is the one thing here that may carry colour, and it carries it as a
+      // mark rather than as coloured type.
       const sportBit=(moved&&moved.wk<moved.base*0.7)
-        ? ` It is the <span style="color:${groupColor(moved.g)}">${SPORT_PLURAL[moved.g]||moved.g.toLowerCase()}</span> that are missing.`
+        ? ` It is the <span class="sum-band-sport"><span class="chip-dot" style="background:${groupColor(moved.g)}"></span>`+
+          `${SPORT_PLURAL[moved.g]||moved.g.toLowerCase()}</span> that are missing.`
         : '';
       band.innerHTML=`<span class="ms">insights</span><div class="sum-band-text">You are `+
-        `<span style="color:${stateCol}">${state}</span> — ${a7.toFixed(1)} hours this week against `+
-        `${artFor(c28.toFixed(1))} `+
+        `${em(state)} — ${a7.toFixed(1)} hours this week against ${artFor(c28.toFixed(1))} `+
         `${c28.toFixed(1)} hour base${yearBit}.${sportBit}</div>`;
     }
   }
@@ -2260,7 +2327,7 @@ function renderCharts(){
         return{label:t,data:monthKeys.map(m=>{const v=(monthDist[m]||{})[t]||0;return unit==='mi'?+v.toFixed(1):+(v*1.60934).toFixed(1);})
           ,backgroundColor:colorFull[i],borderRadius:0,borderSkipped:false,hidden:!visible};
       })},
-      options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}}},responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:true,grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v+' '+distUnit()}}},interaction:{mode:'index'}}
+      options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}}},responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:true,grid:{color:GRID},ticks:{font:{size:11},callback:v=>v+' '+distUnit()}}},interaction:{mode:'index'}}
     });
   }
 
@@ -2291,8 +2358,8 @@ function renderCharts(){
   const monthElv={};data.forEach(a=>{const m=a.date.slice(0,7);if(!monthElv[m])monthElv[m]=0;monthElv[m]+=(a.elv||0)*elevConv;});
   destroyChart('elev');
   charts.elev=new Chart(document.getElementById('chartElev').getContext('2d'),{
-    type:'bar',data:{labels:monthKeys.map(monthLabel),datasets:[{data:monthKeys.map(m=>Math.round(monthElv[m]||0)),backgroundColor:'#6366f1',borderRadius:0}]},
-    options:{plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'#f0f0f0'},ticks:{callback:v=>v.toLocaleString()+elevUnitStr,font:{size:11}}}}}
+    type:'bar',data:{labels:monthKeys.map(monthLabel),datasets:[{data:monthKeys.map(m=>Math.round(monthElv[m]||0)),backgroundColor:'#1c1a17',borderRadius:0}]},
+    options:{plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:GRID},ticks:{callback:v=>v.toLocaleString()+elevUnitStr,font:{size:11}}}}}
   });
 
   // Calories had its own monthly bar chart here. It was Monthly Distance with a
@@ -2350,7 +2417,7 @@ function renderRolling12(isSpecificType){
       fill:true,tension:.25,pointRadius:0,pointHitRadius:12,borderWidth:2.5}]},
     options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toLocaleString()+' '+distUnit()+' in the year to '+c.label}}},
       responsive:true,maintainAspectRatio:false,
-      scales:{x:{grid:{display:false},ticks:{font:{size:10},maxTicksLimit:10}},y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()}}}}
+      scales:{x:{grid:{display:false},ticks:{font:{size:10},maxTicksLimit:10}},y:{grid:{color:GRID},ticks:{font:{size:11},callback:v=>v.toLocaleString()}}}}
   });
   const last=pts[pts.length-1];
   const yearAgo=pts.length>12?pts[pts.length-13]:null;
@@ -2451,10 +2518,13 @@ function renderSummaryLines(data,monthKeys,typeKeys,colorFull){
         ? `${topByCount} leads on both counts — ${cShare}% of your sessions and ${dShare}% of your distance.`
         : `${topByCount} is your most frequent activity at ${cShare}% of sessions, but ${topByDist} carries ${dShare}% of the distance. The frequent ones are short.`;
     }
+    // These chips do name sports, so they keep a coloured mark — the one case rule 2
+    // allows. The figure and the label stay ink like every other chip.
     chartSummary('mix',present.map(t=>({
       n:Math.round(counts[t]/total*100)+'%',
       label:t.toLowerCase()+' · '+counts[t].toLocaleString('en-GB'),
       col:colorFull[typeKeys.indexOf(t)],
+      dot:true,
     })),verdict);
   }else chartSummary('mix',[],'');
 }
@@ -2491,7 +2561,7 @@ function renderMovingChart(data,monthKeys){
     options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y+'% of elapsed time moving'}}},
       responsive:true,maintainAspectRatio:false,
       scales:{x:{grid:{display:false},ticks:{font:{size:10},maxTicksLimit:10}},
-        y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v+'%'}}}}
+        y:{grid:{color:GRID},ticks:{font:{size:11},callback:v=>v+'%'}}}}
   });
   const mtAll=usable.reduce((s,a)=>s+a.mt,0),etAll=usable.reduce((s,a)=>s+a.et,0);
   const stopped=etAll-mtAll;
@@ -2550,10 +2620,10 @@ function renderPowerChart(data,monthKeys){
     chartSummary('power',[],'');return;
   }
   const sets=[{label:'Average',data:avg.months.map(m=>Math.round(avg.mean(m))),
-    borderColor:'#6d28d9',backgroundColor:'#6d28d914',fill:true,tension:.25,pointRadius:0,pointHitRadius:12,borderWidth:2.5}];
+    borderColor:'#1c1a17',backgroundColor:'#6d28d914',fill:true,tension:.25,pointRadius:0,pointHitRadius:12,borderWidth:2.5}];
   if(np.months.length>=avg.months.length*0.5)sets.push({label:'Normalised',
     data:avg.months.map(m=>np.months.includes(m)?Math.round(np.mean(m)):null),
-    borderColor:'#f59e0b',borderDash:[5,4],fill:false,tension:.25,pointRadius:0,pointHitRadius:12,borderWidth:2,spanGaps:true});
+    borderColor:'#1c1a17',borderDash:[5,4],fill:false,tension:.25,pointRadius:0,pointHitRadius:12,borderWidth:2,spanGaps:true});
   destroyChart('power');
   charts.power=new Chart(document.getElementById('chartPower').getContext('2d'),{
     type:'line',data:{labels:avg.months.map(monthLabel),datasets:sets},
@@ -2561,7 +2631,7 @@ function renderPowerChart(data,monthKeys){
       tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y+'w'}}},
       responsive:true,maintainAspectRatio:false,
       scales:{x:{grid:{display:false},ticks:{font:{size:10},maxTicksLimit:10}},
-        y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v+'w'}}}}
+        y:{grid:{color:GRID},ticks:{font:{size:11},callback:v=>v+'w'}}}}
   });
   const all=avg.months.map(m=>avg.mean(m));
   const overall=all.reduce((s,v)=>s+v,0)/all.length;
@@ -2614,7 +2684,7 @@ function renderCadenceChart(data,monthKeys){
     data:months.map(m=>spm.months.includes(m)?Math.round(spm.mean(m)):null),
     borderColor:'#ef4444',fill:false,tension:.25,pointRadius:0,pointHitRadius:12,borderWidth:2.5,spanGaps:true});
   const scales={x:{grid:{display:false},ticks:{font:{size:10},maxTicksLimit:10}},
-    y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v+(rpm.months.length?' rpm':' spm')}}};
+    y:{grid:{color:GRID},ticks:{font:{size:11},callback:v=>v+(rpm.months.length?' rpm':' spm')}}};
   if(rpm.months.length&&spm.months.length)scales.y2={position:'right',grid:{display:false},ticks:{font:{size:11},callback:v=>v+' spm'}};
   destroyChart('cad');
   charts.cad=new Chart(document.getElementById('chartCad').getContext('2d'),{
@@ -2683,7 +2753,7 @@ function renderRaceChart(data){
     options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},
       tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y+(unit==='mi'?' mph':' km/h')}}},
       responsive:true,maintainAspectRatio:false,
-      scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11}}}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{grid:{color:GRID},ticks:{font:{size:11}}}},
       interaction:{mode:'index'}}
   });
   const big=rows.reduce((b,r)=>r.n>b.n?r:b,rows[0]);
@@ -2745,7 +2815,7 @@ function renderTempChart(data){
       tooltip:{callbacks:{label:c=>c.parsed.y+(unit==='mi'?' mph':' km/h')+' · '+bands[c.dataIndex].n+' activities'}}},
       responsive:true,maintainAspectRatio:false,
       scales:{x:{grid:{display:false},ticks:{font:{size:11}}},
-        y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v+(unit==='mi'?' mph':' km/h')}}}}
+        y:{grid:{color:GRID},ticks:{font:{size:11},callback:v=>v+(unit==='mi'?' mph':' km/h')}}}}
   });
   const rated=bands.filter(b=>b.speed!=null);
   const fastest=rated.reduce((b,x)=>x.speed>b.speed?x:b,rated[0]);
@@ -2777,16 +2847,31 @@ function renderTempChart(data){
 // about not knowing yet rather than asserting a source.
 let HR_ZONE_META={athleteMaxHr:null,source:'derived'};
 
-const ZONE_COLORS=['#94a3b8','#0ea5e9','#22c55e','#f59e0b','#ef4444'];
+// Ordered bins, so a sequential ramp in one hue rather than five unrelated colours:
+// Z1 to Z5 is a scale, and a rainbow across it invents categories.
+const ZONE_COLORS=['#dbeafe','#93c5fd','#3b82f6','#1d4ed8','#1e3a8a'];
 const ZONE_NAMES=['Z1 Recovery','Z2 Endurance','Z3 Tempo','Z4 Threshold','Z5 VO2 max'];
 
 // Render the figure chips and the verdict line under a chart. Passing nothing for
 // either clears it, and the empty container collapses, so a filter that leaves a
 // chart with nothing to say leaves no gap behind.
+// Chips are figures, and figures wear text tokens.
+//
+// Every chip used to take its own hue and a 10% tint of it, so a single row could run
+// blue, pink, cyan, amber — four colours carrying no meaning between them, forty-odd
+// times across the app. That is the whole of the "colour is decorative" problem in one
+// component. Colour here now means one thing only: a sport. Where a chip names a sport
+// it gets a coloured mark beside the label; the text itself stays ink either way.
+//
+// `col` is kept in the signature because forty call sites pass it and most of them will
+// want it the day a chip genuinely does name a sport — it just no longer reaches the
+// text. Pass `dot:true` alongside it to show the mark.
 function chartSummary(id,chips,verdict){
   const c=document.getElementById(id+'Chips'),v=document.getElementById(id+'Verdict');
   if(c)c.innerHTML=(chips||[]).map(x=>
-    `<div class="chart-chip" style="color:${x.col};background:${x.col}1a"><strong>${escapeHtml(x.n)}</strong> ${escapeHtml(x.label)}</div>`
+    `<div class="chart-chip">${x.dot&&x.col
+      ?`<span class="chip-dot" style="background:${x.col}"></span>`:''
+    }<strong>${escapeHtml(x.n)}</strong> ${escapeHtml(x.label)}</div>`
   ).join('');
   if(v)v.textContent=verdict||'';
 }
@@ -2837,7 +2922,7 @@ function renderExtraCharts(data,monthKeys){
       data:{labels:ZONE_NAMES,datasets:[{data:tot.map(s=>+(s/3600).toFixed(1)),backgroundColor:ZONE_COLORS,borderRadius:0}]},
       options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y}h · ${Math.round(tot[c.dataIndex]/totalSec*100)}% of HR time`}}},
         responsive:true,maintainAspectRatio:false,
-        scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v+'h'}}}}
+        scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{grid:{color:GRID},ticks:{font:{size:11},callback:v=>v+'h'}}}}
     });
     // This card invented the chips-and-verdict treatment, then kept its own copy
     // of the markup while every other card moved to the shared helper. Same
@@ -2897,7 +2982,7 @@ function renderExtraCharts(data,monthKeys){
       type:'bar',
       data:{labels:monthKeys.map(monthLabel),datasets:[{data:monthKeys.map(m=>Math.round(monthEff[m]||0)),backgroundColor:'#ff385c',borderRadius:0}]},
       options:{plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,
-        scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()}}}}
+        scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:GRID},ticks:{font:{size:11},callback:v=>v.toLocaleString()}}}}
     });
   }
 
@@ -2923,7 +3008,7 @@ function renderExtraCharts(data,monthKeys){
       data:{labels:hours.map((_,h)=>pad(h)),datasets:[{data:hours,backgroundColor:hours.map((_,h)=>h===peak?'#ff385c':'#cbd5e1'),borderRadius:0}]},
       options:{plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>`${pad(c[0].dataIndex)}:00–${pad((c[0].dataIndex+1)%24)}:00`,label:c=>`${c.parsed.y} activit${c.parsed.y===1?'y':'ies'}`}}},
         responsive:true,maintainAspectRatio:false,
-        scales:{x:{grid:{display:false},ticks:{font:{size:9},autoSkip:false,maxRotation:0,callback:(v,i)=>i%3===0?pad(i):''}},y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},precision:0}}}}
+        scales:{x:{grid:{display:false},ticks:{font:{size:9},autoSkip:false,maxRotation:0,callback:(v,i)=>i%3===0?pad(i):''}},y:{grid:{color:GRID},ticks:{font:{size:11},precision:0}}}}
     });
 
     // Before 12, 12 to 17, 17 onwards. Crude, but it is the split people actually
@@ -2972,7 +3057,7 @@ function renderYearCalendarChart(year,data){
       const dd=inY?byDay[ds]:null;
       let bg;
       if(!inY)bg='transparent';
-      else if(!dd)bg='#f0f0f0';
+      else if(!dd)bg=GRID;
       else bg=dayCellBg(dd,maxDist);
       const cursor=dd?'cursor:pointer;':'';
       weekCells.push(dd?
@@ -3023,7 +3108,7 @@ function distIn(a){return unit==='mi'?(a.dist_mi||0):(a.dist_mi||0)*1.60934;}
 // hue for "the year you are asking about" and lightness alone for "how far back"
 // means the comparison you came for is the only coloured line on the chart.
 function yearRamp(n,i){
-  if(i===0)return getAccentColor();
+  if(i===0)return CHART_INK;
   if(n<=2)return'#64748b';
   const t=(i-1)/(n-2);              // 0 for last year, 1 for the oldest shown
   const v=Math.round(100+t*105);    // #646464 → #cdcdcd
@@ -3083,8 +3168,8 @@ function renderLoad(data,t=LOAD_TARGET){
   charts[t.key]=new Chart(document.getElementById(t.canvas).getContext('2d'),{
     type:'line',
     data:{labels:label,datasets:[
-      {label:'28-day average',data:chronic,borderColor:'#94a3b8',backgroundColor:'rgba(148,163,184,.14)',fill:true,tension:.25,pointRadius:0,borderWidth:2,order:1},
-      {label:'7-day total',data:acute,borderColor:getAccentColor(),backgroundColor:'transparent',fill:false,tension:.2,pointRadius:0,borderWidth:2,order:0},
+      {label:'28-day average',data:chronic,borderColor:CHART_FAINT,backgroundColor:'transparent',fill:false,tension:.25,pointRadius:0,borderWidth:2,order:1},
+      {label:'7-day total',data:acute,borderColor:CHART_INK,backgroundColor:'transparent',fill:false,tension:.2,pointRadius:0,borderWidth:2,order:0},
     ]},
     options:{
       plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},
@@ -3096,7 +3181,7 @@ function renderLoad(data,t=LOAD_TARGET){
       scales:{
         x:{grid:{display:false},ticks:{font:{size:9},maxRotation:0,autoSkip:true,maxTicksLimit:12,
           callback:function(v){const d=this.getLabelForValue(v);return d?monthLabel(d.slice(0,7)):'';}}},
-        y:{grid:{color:'#f0f0f0'},beginAtZero:true,ticks:{font:{size:11},callback:v=>v+'h'}}}}
+        y:{grid:{color:GRID},beginAtZero:true,ticks:{font:{size:11},callback:v=>v+'h'}}}}
   });
 
   const last=acute.length-1;
@@ -3104,8 +3189,8 @@ function renderLoad(data,t=LOAD_TARGET){
   const ratio=c28>0?a7/c28:0;
   const peak=Math.max(...acute);
   chartSummary(t.chips,[
-    {n:chipNum(a7,1)+'h',label:'last 7 days',col:getAccentColor()},
-    {n:chipNum(c28,1)+'h',label:'28-day average',col:'#94a3b8'},
+    {n:chipNum(a7,1)+'h',label:'last 7 days',col:CHART_INK},
+    {n:chipNum(c28,1)+'h',label:'28-day average',col:CHART_FAINT},
     {n:c28>0?ratio.toFixed(2)+'×':'—',label:'acute vs chronic',col:ratio>1.5?'#ef4444':ratio<0.8?'#f59e0b':'#22c55e'},
     {n:chipNum(peak,1)+'h',label:'biggest week in view',col:'#8b5cf6'},
   ],
@@ -3181,7 +3266,7 @@ function renderCumulative(data,t=CUM_TARGET){
       scales:{
         x:{grid:{display:false},ticks:{font:{size:10},maxRotation:0,autoSkip:false,
           callback:v=>{const i=MONTH_DOY.indexOf(v+1);return i>=0?MONTH_ABBR[i]:'';}}},
-        y:{grid:{color:'#f0f0f0'},beginAtZero:true,
+        y:{grid:{color:GRID},beginAtZero:true,
           ticks:{font:{size:11},callback:v=>v.toLocaleString()+' '+distUnit()}}}}
   });
 
@@ -3266,11 +3351,11 @@ function renderPaceScatter(data){
           label:c=>{const a=c.raw._a;return`${fmtDate(a.date)} · ${fmtDist(a.dist_mi)} ${distUnit()} · ${fmtPace(a.pace_mi)}`;}}}},
       responsive:true,maintainAspectRatio:false,
       scales:{
-        x:{grid:{color:'#f0f0f0'},title:{display:true,text:'Distance ('+distUnit()+')',font:{size:10},color:'#6b7280'},
+        x:{grid:{color:GRID},title:{display:true,text:'Distance ('+distUnit()+')',font:{size:10},color:'#6b7280'},
           ticks:{font:{size:10}}},
         // Reversed: further down the chart is slower, which is the direction a
         // pace figure already reads in.
-        y:{reverse:true,grid:{color:'#f0f0f0'},
+        y:{reverse:true,grid:{color:GRID},
           ticks:{font:{size:10},callback:v=>{const m=Math.floor(v),s=Math.round((v-m)*60);return m+':'+String(s).padStart(2,'0');}}}}}
   });
 
@@ -3358,7 +3443,7 @@ function renderEfficiency(data){
       responsive:true,maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
       scales:{x:{grid:{display:false},ticks:{font:{size:10},maxTicksLimit:14,maxRotation:0}},
-        y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toFixed(1)}}}}
+        y:{grid:{color:GRID},ticks:{font:{size:11},callback:v=>v.toFixed(1)}}}}
   });
 
   const half=Math.floor(months.length/2);
@@ -3543,7 +3628,7 @@ function renderHeatmap(){
   // Legend
   const steps=[0,.2,.4,.6,.8,1];
   document.getElementById('heatmapLegend').innerHTML=steps.map(i=>{
-    if(i===0)return`<div class="heatmap-legend-cell" style="background:#f0f0f0"></div>`;
+    if(i===0)return`<div class="heatmap-legend-cell" style="background:var(--hm-empty)"></div>`;
     const r2l=parseInt(accent.slice(1,3),16),g2l=parseInt(accent.slice(3,5),16),b2l=parseInt(accent.slice(5,7),16);
     const bg=`rgb(${Math.round(240+(r2l-240)*i)},${Math.round(240+(g2l-240)*i)},${Math.round(240+(b2l-240)*i)})`;
     return`<div class="heatmap-legend-cell" style="background:${bg}"></div>`;
@@ -3872,7 +3957,7 @@ function renderPrProgression(){
       scales:{
         x:{type:'linear',grid:{display:false},
           ticks:{font:{size:10},maxTicksLimit:8,callback:v=>new Date(v).getFullYear()}},
-        y:{reverse:true,grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>fmtPRTime(Math.round(v))}}}}
+        y:{reverse:true,grid:{color:GRID},ticks:{font:{size:11},callback:v=>fmtPRTime(Math.round(v))}}}}
   });
   // The headline distance is the one you have the most efforts at.
   const head=series.reduce((b,d)=>d.n>b.n?d:b,series[0]);
@@ -4164,7 +4249,7 @@ function renderDistHistogram(data,ceiling){
       scales:{
         x:{stacked:true,grid:{display:false},
           ticks:{font:{size:9},autoSkip:true,maxTicksLimit:26,maxRotation:0}},
-        y:{stacked:true,grid:{color:'#f0f0f0'},beginAtZero:true,
+        y:{stacked:true,grid:{color:GRID},beginAtZero:true,
           ticks:{font:{size:11},precision:0}}}}
   });
 
@@ -4414,7 +4499,7 @@ function renderSocial(){
       {label:'With others',data:mk.map(m=>sbm[m]||0),backgroundColor:'#1d4ed8',borderRadius:0,borderSkipped:false},
       {label:'Alone',data:mk.map(m=>slm[m]||0),backgroundColor:'#e2e8f0',borderRadius:0,borderSkipped:false}]},
     options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}}},responsive:true,maintainAspectRatio:false,
-      scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:true,grid:{color:'#f0f0f0'},ticks:{font:{size:11},precision:0}}},interaction:{mode:'index'}}
+      scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:true,grid:{color:GRID},ticks:{font:{size:11},precision:0}}},interaction:{mode:'index'}}
   });
 
   // Chips and a verdict, the treatment from the heart-rate card.
@@ -4589,7 +4674,7 @@ function renderGear(){
   const top10d=sorted.slice(0,10);
   document.getElementById('gearDistSub').textContent=(unit==='mi'?'Miles':'Kilometres')+' logged per item';
   destroyChart('gearDist');
-  charts.gearDist=new Chart(document.getElementById('chartGearDist').getContext('2d'),{type:'bar',data:{labels:top10d.map(([n])=>n.length>22?n.slice(0,22)+'…':n),datasets:[{data:top10d.map(([,s])=>+(unit==='mi'?s.dist:s.dist*1.60934).toFixed(0)),backgroundColor:GEAR_COLORS,borderRadius:0}]},options:{indexAxis:'y',plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()+' '+distUnit()}},y:{grid:{display:false},ticks:{font:{size:11}}}}}});
+  charts.gearDist=new Chart(document.getElementById('chartGearDist').getContext('2d'),{type:'bar',data:{labels:top10d.map(([n])=>n.length>22?n.slice(0,22)+'…':n),datasets:[{data:top10d.map(([,s])=>+(unit==='mi'?s.dist:s.dist*1.60934).toFixed(0)),backgroundColor:GEAR_COLORS,borderRadius:0}]},options:{indexAxis:'y',plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{x:{grid:{color:GRID},ticks:{font:{size:11},callback:v=>v.toLocaleString()+' '+distUnit()}},y:{grid:{display:false},ticks:{font:{size:11}}}}}});
   // This used to be "Top Gear by Activities" — the same items in the same order
   // as the chart above it, because with a handful of items each in a different
   // sport, any ranking is just a ranking of your sports. A small collection
@@ -4632,7 +4717,7 @@ function renderGearTimeline(gm,COLORS){
       tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toLocaleString()+' '+distUnit()}}},
       responsive:true,maintainAspectRatio:false,
       scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:9},maxTicksLimit:14,autoSkip:true}},
-        y:{stacked:true,grid:{color:'#f0f0f0'},ticks:{font:{size:11},callback:v=>v.toLocaleString()}}},
+        y:{stacked:true,grid:{color:GRID},ticks:{font:{size:11},callback:v=>v.toLocaleString()}}},
       interaction:{mode:'index'}}
   });
 }
