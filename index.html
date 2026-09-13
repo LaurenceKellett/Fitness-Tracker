@@ -3479,6 +3479,119 @@ function upsertChart(key,ctx,config){
   __chartStats.created++;
   return c;
 }
+
+// ── CLOSING A READOUT ON A TOUCHSCREEN ──
+// Chart.js shows its tooltip on hover and takes it away on mouseout; the calendar
+// cells do the same with mouseenter/mouseleave. A touchscreen has no mouseout.
+// Tapping a chart pins that dark box over the plot and nothing short of tapping a
+// different chart clears it, so the detail you asked for ends up sitting on top of
+// the data you wanted to read it against, permanently.
+//
+// A second tap in the same place closes it now, and a tap anywhere off the plot
+// closes whatever is open. Tapping a DIFFERENT point still moves the readout there
+// rather than closing it — "tap again to dismiss" should not turn into "one point
+// per visit".
+//
+// Mouse pointers are deliberately left alone: there the tooltip follows the cursor,
+// so closing it while the cursor is still over the plot would last exactly until
+// the next pixel of movement.
+let _touchPointer=false;       // the gesture in progress came from a finger or a pen
+let _tapOpenIndex=null;        // which point was showing before this tap landed
+let _tapOpenDate=null;         // and which calendar day, for the other tooltip
+let _dashSuppress=null;        // a day this gesture has just closed, not to be reopened
+let _muffledChart=null;        // a chart whose readout this tap closed
+let _muffledUntil=0;           // …and how long the emulated mouse burst gets ignored
+
+function chartTooltipIndex(chart){
+  const items=chart&&chart.tooltip&&chart.tooltip.getActiveElements
+    ?chart.tooltip.getActiveElements():[];
+  return items.length?items[0].index:null;
+}
+
+function hideChartTooltip(chart){
+  if(!chart||!chart.tooltip)return;
+  try{
+    chart.setActiveElements([]);
+    chart.tooltip.setActiveElements([],{x:0,y:0});
+    // 'none': closing a readout should not replay every bar underneath it.
+    chart.update('none');
+  }catch(e){/* a chart torn down mid-gesture has nothing left to clear */}
+}
+
+function liveCharts(){return Object.keys(charts).map(k=>charts[k]).filter(Boolean);}
+function hideAllChartTooltips(except){
+  liveCharts().forEach(c=>{if(c!==except&&chartTooltipIndex(c)!=null)hideChartTooltip(c);});
+}
+
+function chartAtEvent(e){
+  if(!window.Chart||!Chart.getChart)return null;
+  const canvas=e.target&&e.target.closest?e.target.closest('canvas'):null;
+  return canvas?(Chart.getChart(canvas)||null):null;
+}
+
+// Capture on the document, which runs before the canvas's own listener — so this
+// reads what was on screen BEFORE Chart.js handles the touch that is about to
+// change it. Without that, "was it already open?" is unanswerable by the time the
+// gesture ends.
+document.addEventListener('pointerdown',e=>{
+  _touchPointer=!!(e.pointerType&&e.pointerType!=='mouse');
+  // A real new gesture ends any muffling left over from the last one, so a quick
+  // second tap opens the readout again rather than landing in a dead window.
+  _dashSuppress=null;_muffledChart=null;_muffledUntil=0;
+  if(!_touchPointer)return;
+  const chart=chartAtEvent(e);
+  _tapOpenIndex=chart?chartTooltipIndex(chart):null;
+  const dash=document.getElementById('dashTooltip');
+  _tapOpenDate=(dash&&dash.style.display==='block')?dash.dataset.date||null:null;
+},true);
+
+document.addEventListener('pointerup',e=>{
+  if(!_touchPointer)return;
+  const chart=chartAtEvent(e);
+  if(!chart){
+    hideAllChartTooltips();
+    // Calendar days are decided here, both ways, rather than left to the emulated
+    // mouseenter that follows: that event does not fire again when the tap lands on
+    // the cell the emulated pointer never left, so a repeat tap would neither close
+    // the day nor reopen it. Touch gets its own deterministic path; the mouse keeps
+    // hovering as it always did.
+    const cell=e.target&&e.target.closest?e.target.closest('[data-day-tip]'):null;
+    if(!cell){hideDashTooltip();return;}
+    const day=cell.dataset.dayTip;
+    if(_tapOpenDate===day){
+      hideDashTooltip();
+      _dashSuppress=day;   // …and the mouseenter, if it does arrive, must not undo it
+    }else{
+      showDashTooltip(e,day);
+    }
+    return;
+  }
+  hideAllChartTooltips(chart);
+  hideDashTooltip();
+  const now=chartTooltipIndex(chart);
+  if(_tapOpenIndex!=null&&now===_tapOpenIndex){
+    hideChartTooltip(chart);
+    // A lifted finger is followed by a burst of emulated mouse events — mouseover,
+    // mousemove, mousedown, mouseup, click — and Chart.js listens for mousemove and
+    // click. Left alone they arrive a few milliseconds later at the point that was
+    // just closed and open it straight back up, which is why stopping the click on
+    // its own was not enough. The burst gets muffled for this one chart instead.
+    _muffledChart=chart;
+    _muffledUntil=Date.now()+500;
+  }
+});
+
+// Capture on the document, so a muffled event is stopped on its way down and never
+// reaches the canvas that would act on it. mouseout is deliberately not in the list:
+// that one CLOSES the tooltip, and blocking it would be working against the point.
+['mouseover','mousemove','mousedown','mouseup','click'].forEach(type=>{
+  document.addEventListener(type,e=>{
+    if(!_muffledChart||Date.now()>_muffledUntil)return;
+    if(chartAtEvent(e)!==_muffledChart)return;
+    e.stopPropagation();
+    if(type==='click')e.preventDefault();
+  },true);
+});
 function getMonthKeys(){
   if(isYearScope(activeYear))return Array.from({length:12},(_,i)=>activeYear+'-'+String(i+1).padStart(2,'0'));
   // A rolling window spans whichever months it touches, which is usually a partial
@@ -4248,7 +4361,7 @@ function renderYearCalendarChart(year,data){
       else bg=dayCellBg(dd,maxDist);
       const cursor=dd?'cursor:pointer;':'';
       weekCells.push(dd?
-        `<div class="year-cal-cell" style="${cursor}background:${bg}" onmouseenter="showDashTooltip(event,'${ds}')" onmouseleave="hideDashTooltip()" onclick="showYearCalDay('${ds}')"></div>`:
+        `<div class="year-cal-cell" data-day-tip="${ds}" style="${cursor}background:${bg}" onmouseenter="showDashTooltip(event,'${ds}')" onmouseleave="hideDashTooltip()" onclick="showYearCalDay('${ds}')"></div>`:
         `<div class="year-cal-cell" style="background:${bg}"></div>`);
       cur.setDate(cur.getDate()+1);
     }
@@ -4832,7 +4945,7 @@ function renderHeatmap(){
       if(!day.inY)return`<div style="width:${sz}px;height:${sz}px;border-radius:0;"></div>`;
       const bg=cellBg(day.dd);
       const cls=day.dd?'hm-cell active':'hm-cell';
-      const ev=day.dd?`onmouseenter="showDashTooltip(event,'${day.ds}')" onmouseleave="hideDashTooltip()" onclick="showDayDetail('${day.ds}')"`:''
+      const ev=day.dd?`data-day-tip="${day.ds}" onmouseenter="showDashTooltip(event,'${day.ds}')" onmouseleave="hideDashTooltip()" onclick="showDayDetail('${day.ds}')"`:''
       return`<div class="${cls}" style="width:${sz}px;height:${sz}px;border-radius:0;background:${bg}" ${ev}></div>`;
     }
 
@@ -6823,9 +6936,14 @@ async function saveZwiftEdit(id){
 }
 
 function showDashTooltip(event,date){
+  const el=document.getElementById('dashTooltip');
+  // The tap that just closed this day also emits an emulated mouseenter, which
+  // lands here and would open it straight back up. The pointerup handler leaves the
+  // day's key behind to say "not this one, not this gesture".
+  if(_touchPointer&&_dashSuppress===date)return;
   const acts=getFiltered().filter(a=>a.date===date);
   if(!acts.length)return;
-  const el=document.getElementById('dashTooltip');
+  el.dataset.date=date;
   el.innerHTML=`<div style="font-weight:700;margin-bottom:4px;font-size:11px;opacity:.7">${fmtDate(date)}</div>`+
     acts.map(a=>`<div style="margin-top:3px">${typeEmoji(typeGroup(a.type))} <strong>${a.name||a.type}</strong><br><span style="opacity:.75">${a.dist_mi?fmtDist(a.dist_mi)+' '+distUnit():'—'}${a.hr?' · <span class="ms ms-fill" style="font-size:12px;color:#ef4444">favorite</span> '+Math.round(a.hr)+'bpm':''}</span></div>`).join('');
   el.style.display='block';
@@ -6833,7 +6951,14 @@ function showDashTooltip(event,date){
   const y=Math.max(event.clientY-10,10);
   el.style.left=x+'px';el.style.top=y+'px';
 }
-function hideDashTooltip(){document.getElementById('dashTooltip').style.display='none';}
+function hideDashTooltip(){
+  const el=document.getElementById('dashTooltip');
+  if(!el)return;
+  el.style.display='none';
+  // Cleared too, so a day that has just been closed is not mistaken for the one
+  // still on screen the next time a tap lands on it.
+  el.dataset.date='';
+}
 
 // What each tab is really showing, given the header controls. The year and sport
 // filters read as global because they sit in the header on every tab, but several

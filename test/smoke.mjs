@@ -92,13 +92,41 @@ window.Chart = class {
     this.data = (config && config.data) || { labels: [], datasets: [] };
     this.options = (config && config.options) || {};
     this._destroyed = false;
+    // Just enough tooltip to exercise the page's own open/close handling. The real
+    // library opens on touchstart and again on the mousemove and click a browser
+    // synthesises after a tap — which is the whole reason that handling is subtle —
+    // and the point it lands on follows the x coordinate.
+    this._active = [];
+    const self = this;
+    this.tooltip = {
+      getActiveElements: () => self._active,
+      setActiveElements: (a) => { self._active = a || []; },
+      get opacity() { return self._active.length ? 1 : 0; },
+    };
+    const cv = this.canvas;
+    if (cv && cv.addEventListener) {
+      const openAt = (clientX) => {
+        const r = cv.getBoundingClientRect();
+        self._active = [{ index: Math.max(0, Math.round((clientX - r.left) / 10)), datasetIndex: 0 }];
+      };
+      cv.addEventListener('touchstart', (e) => {
+        const t = e.touches && e.touches[0]; if (t) openAt(t.clientX);
+      });
+      cv.addEventListener('mousemove', (e) => openAt(e.clientX));
+      cv.addEventListener('click', (e) => openAt(e.clientX));
+      cv.addEventListener('mouseout', () => { self._active = []; });
+      (window.Chart._reg || (window.Chart._reg = new Map())).set(cv, this);
+    }
   }
+  setActiveElements(a) { this._active = a || []; }
   update() { window.__stubChartUpdates++; }
   destroy() { this._destroyed = true; }
   resize() {}
 };
 window.Chart.defaults = { color: '#000', borderColor: '#eee', font: { family: '' } };
 window.Chart.register = function () {};
+window.Chart._reg = new Map();
+window.Chart.getChart = (c) => window.Chart._reg.get(c) || null;
 `;
 
 const LEAFLET_STUB = `
@@ -179,13 +207,14 @@ async function main() {
 
   // One page per scenario, each with its own console-error collector.
   async function open({ apiStatus = 200, apiBody = ENVELOPE, offline = false, skipLibs = false,
-                        serviceWorkers = 'block' } = {}) {
+                        serviceWorkers = 'block', viewport = { width: 1400, height: 900 },
+                        hasTouch = false } = {}) {
     // Service workers are blocked by default here. Once one is active it serves the
     // CDN requests itself, and a service worker's own fetches do not pass through
     // page.route() — so the library stubs below would be bypassed and the test
     // would be measuring the network, not this page. The worker gets its own
     // scenario at the end, where it is the subject rather than an interference.
-    const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 }, serviceWorkers });
+    const ctx = await browser.newContext({ viewport, serviceWorkers, hasTouch, isMobile: hasTouch });
     const page = await ctx.newPage();
     const errors = [];
     // Deliberately blocked third-party assets (fonts, tiles, geocoding) and missing
@@ -1115,6 +1144,109 @@ async function main() {
       assert(hero && hero !== '—', 'cached data was not rendered');
       const lu = await page.locator('#lastUpdated').innerText();
       assert(/offline/i.test(lu), `last-updated does not mention offline: "${lu}"`);
+    });
+    await ctx.close();
+  }
+
+  // ── 5b. Closing a readout on a touchscreen ──────────────────────────────────
+  // A touchscreen has no mouseout, so a tapped tooltip used to stay on top of the
+  // plot for good. The subtlety is what a browser does AFTER a tap: it synthesises
+  // mouseover, mousemove, mousedown, mouseup and click, and a chart library that
+  // listens for mousemove and click will reopen a tooltip a few milliseconds after
+  // it was closed. Stopping the click alone is not enough — this is the check that
+  // says so.
+  {
+    const { ctx, page, errors } = await open({ viewport: { width: 390, height: 800 }, hasTouch: true });
+    const cdp = await ctx.newCDPSession(page);
+    const tap = async (x, y) => {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await page.waitForTimeout(220);
+    };
+
+    await check('tapping a chart twice in the same place closes its readout', async () => {
+      await page.evaluate(() => window.setTab('charts'));
+      await page.waitForTimeout(600);
+      const open_ = () => page.evaluate(() => {
+        const c = window.Chart.getChart(document.getElementById('chartLoad'));
+        return !!(c && c.tooltip.opacity > 0);
+      });
+      const at = async (frac) => {
+        await page.evaluate(() => document.getElementById('chartLoad')
+          .scrollIntoView({ block: 'center' }));
+        await page.waitForTimeout(200);
+        return page.evaluate((f) => {
+          const r = document.getElementById('chartLoad').getBoundingClientRect();
+          return { x: r.x + r.width * f, y: r.y + r.height / 2 };
+        }, frac);
+      };
+
+      assert(!(await open_()), 'a readout was open before anything was tapped');
+      const a = await at(0.35);
+      await tap(a.x, a.y);
+      assert(await open_(), 'tapping the chart did not open a readout');
+      await tap(a.x, a.y);
+      assert(!(await open_()), 'tapping the same point again did not close it');
+      await tap(a.x, a.y);
+      assert(await open_(), 'a third tap did not open it again');
+
+      // A different point moves the readout rather than closing it — "tap again to
+      // dismiss" must not degrade into "one point per visit".
+      const b = await at(0.75);
+      await tap(b.x, b.y);
+      assert(await open_(), 'tapping a different point closed the readout instead of moving it');
+      await tap(b.x, b.y);
+      assert(!(await open_()), 'the new point would not close on a repeat tap');
+
+      // And a tap anywhere off the plot clears whatever is open.
+      await tap(a.x, a.y);
+      assert(await open_(), 'could not reopen for the tap-away case');
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.waitForTimeout(200);
+      await tap(12, 300);
+      assert(!(await open_()), 'tapping away from the chart left the readout on screen');
+    });
+
+    await check('tapping a calendar day twice closes its readout too', async () => {
+      await page.evaluate(() => window.setTab('heatmap'));
+      await page.waitForTimeout(700);
+      const dash = () => page.evaluate(() => {
+        const el = document.getElementById('dashTooltip');
+        return { shown: el.style.display === 'block', date: el.dataset.date || null };
+      });
+      // Only days the readout will actually fill: it bails on a day with nothing in
+      // the current scope, which would read as a broken toggle rather than an empty one.
+      const days = await page.evaluate(() => {
+        const cs = [...document.querySelectorAll('[data-day-tip]')].filter((c) => {
+          const r = c.getBoundingClientRect();
+          return r.width > 0 && window.getFiltered().some((a) => a.date === c.dataset.dayTip);
+        });
+        const pick = (c) => {
+          const r = c.getBoundingClientRect();
+          return { x: r.x + r.width / 2, y: r.y + r.height / 2, d: c.dataset.dayTip };
+        };
+        return cs.length > 60 ? [pick(cs[10]), pick(cs[60])] : null;
+      });
+      assert(days, 'no calendar days with activities to tap');
+      const [d1, d2] = days;
+
+      await tap(d1.x, d1.y);
+      assert((await dash()).shown, 'tapping a day showed nothing');
+      await tap(d1.x, d1.y);
+      assert(!(await dash()).shown, 'tapping the same day again did not close it');
+      await tap(d1.x, d1.y);
+      // The emulated mouseenter does not fire again on a day the pointer never left,
+      // so reopening has to come from the tap itself.
+      assert((await dash()).shown, 'a third tap on the same day did not reopen it');
+      await tap(d2.x, d2.y);
+      const moved = await dash();
+      assert(moved.shown && moved.date === d2.d, `tapping another day gave ${JSON.stringify(moved)}`);
+      await tap(6, 320);
+      assert(!(await dash()).shown, 'tapping off the calendar left the readout up');
+    });
+
+    await check('none of that logged an error', async () => {
+      assert(errors.length === 0, errors.join(' | '));
     });
     await ctx.close();
   }

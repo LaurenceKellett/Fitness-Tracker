@@ -802,6 +802,40 @@ monthly distance chart drops series with no data in the period rather than listi
 the legend at zero height, and the year-by-year table drops a sport's column rather than
 ruling a line of em dashes down the page.
 
+### Closing a readout on a touchscreen
+
+Chart.js shows its tooltip on hover and takes it away on mouseout; the calendar cells do
+the same with `mouseenter`/`mouseleave`. A touchscreen has no mouseout. Tapping a chart
+pinned that dark box over the plot and nothing short of tapping a different chart cleared
+it, so the detail you asked for sat permanently on top of the data you wanted to read it
+against.
+
+A second tap in the same place closes it now, and a tap anywhere off the plot closes
+whatever is open. Tapping a **different** point still moves the readout there rather than
+closing it — "tap again to dismiss" must not turn into "one point per visit". Mouse
+pointers are deliberately untouched: there the tooltip follows the cursor, so closing it
+while the cursor is still over the plot would last exactly until the next pixel of
+movement.
+
+Two things make this less trivial than it sounds, and both are covered by smoke checks:
+
+- **The emulated mouse burst.** A lifted finger is followed by synthesised `mouseover`,
+  `mousemove`, `mousedown`, `mouseup` and `click`. Chart.js listens for `mousemove` and
+  `click`, so a tooltip closed on `pointerup` reopens milliseconds later at the same
+  point. Stopping the click on its own is not enough — the first attempt at this did
+  exactly that and failed. The burst is muffled for that one chart for 500ms instead, via
+  capture-phase listeners on the document so the events never reach the canvas.
+  `mouseout` is deliberately *not* muffled: that one closes the tooltip.
+- **`mouseenter` does not always fire twice.** Tap the same calendar day again and the
+  emulated pointer never left the cell, so no `mouseenter` arrives and nothing would
+  reopen it. Touch therefore drives the calendar readout from `pointerup` in both
+  directions, and leaves the day's key in `_dashSuppress` so a late `mouseenter` cannot
+  undo a close.
+
+"Was it already open?" is read in a capture-phase `pointerdown` on the document, which
+runs before the canvas's own listener — by the time the gesture ends the library has
+already changed the answer.
+
 ### Which activities count as which sport
 
 `typeGroup()` is the single answer, and `Swim` means swimming. Kayaking used to be folded
