@@ -9,7 +9,7 @@ const {
   extractPartners, formatUpdatedAt, recLongestStreak, recCurrentStreak, mexBuckets, mexOf,
   actDistIn, distIn, ROLLING_ORDER, todayISO, isYearScope, isRollingScope, periodStart,
   scopeIncludes, periodLabel, periodPhrase, isValidScope, rollingWeekly, ratioBand,
-  calendarWeek, weekStartISO,
+  calendarWeek, weekStartISO, weeklyTotals,
   CHRONIC_DAYS, CHRONIC_WEIGHTS, weeklyLoadStats, MONOTONY_CAP,
   setScope,
 } = calc;
@@ -778,6 +778,34 @@ describe('calendarWeek', () => {
     expect(cw.total).toBe(0);
     expect(cw.pace).toBe(0);
     expect(cw.days).toHaveLength(7);
+  });
+});
+
+describe('weeklyTotals', () => {
+  const hours = (a) => (a.mt || 0) / 3600;
+  const on = (date, h) => ({ date, mt: h * 3600 });
+
+  it('puts this week last and the oldest week first', () => {
+    // Wednesday 16 September 2026; the week began on Monday the 14th.
+    const acts = [on('2026-09-14', 1), on('2026-09-16', 2), on('2026-09-13', 4), on('2026-09-07', 3)];
+    const t = weeklyTotals(acts, hours, { today: '2026-09-16', weeks: 3 });
+    expect(t).toEqual([0, 7, 3]);   // 31 Aug–6 Sep, 7–13 Sep (4 + 3), 14 Sep onwards (1 + 2)
+  });
+
+  it('treats Sunday as the end of the week it belongs to, not the start of the next', () => {
+    const t = weeklyTotals([on('2026-09-13', 5)], hours, { today: '2026-09-14', weeks: 2 });
+    expect(t).toEqual([5, 0]);
+  });
+
+  it('drops anything older than the window and anything after this week', () => {
+    const acts = [on('2026-06-01', 9), on('2026-09-25', 9), on('2026-09-15', 1)];
+    const t = weeklyTotals(acts, hours, { today: '2026-09-16', weeks: 12 });
+    expect(t.reduce((a, b) => a + b, 0)).toBe(1);
+    expect(t).toHaveLength(12);
+  });
+
+  it('returns zeros, not NaNs, for an empty history', () => {
+    expect(weeklyTotals([], hours, { today: '2026-09-16', weeks: 4 })).toEqual([0, 0, 0, 0]);
   });
 });
 

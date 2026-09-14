@@ -343,19 +343,20 @@ a{color:inherit;text-decoration:none}
 .sum-cal-ends{display:flex;justify-content:space-between;margin-top:6px;font-size:9px;color:var(--text-light)}
 .sum-streaks{border-top:1px solid var(--border);margin-top:auto;padding-top:14px;
   display:flex;justify-content:space-between}
-.sum-sports{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:26px}
+/* One row per sport rather than five cards: the eye reads down a column to compare,
+   and each sport gets a shape (twelve weeks of hours) as well as its numbers. */
+.sum-sports{border-top:1px solid var(--border);padding-top:14px;margin-bottom:26px}
 .sum-sport-note{flex:0 0 100%;margin-bottom:0;max-width:64ch}
-.sum-sport-card{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);
-  padding:18px;border-top-width:3px;border-top-style:solid}
-.sum-sport-head{display:flex;align-items:center;gap:7px;margin-bottom:14px}
-.sum-sport-head .ms{font-size:17px;vertical-align:0}
-.sum-sport-name{font-size:13px;font-weight:700}
-.sum-sport-big{font-family:var(--f-fig);font-size:30px;font-weight:var(--w-fig);letter-spacing:-1.1px;line-height:1}
-.sum-sport-rows{border-top:1px solid var(--border);margin-top:14px;padding-top:12px;
-  display:flex;flex-direction:column;gap:9px}
-.sum-sport-row{display:flex;justify-content:space-between;align-items:baseline}
-.sum-sport-row span:first-child{font-size:11px;color:var(--text-muted)}
-.sum-sport-row span:last-child{font-size:12px;font-weight:600}
+.sum-sport-cols,.sum-sport-tr{display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr 1fr 1fr 110px;gap:12px;align-items:center}
+.sum-sport-cols{padding-bottom:8px;font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-light)}
+.sum-sport-tr{padding:13px 0;border-top:1px solid var(--border);font-size:12.5px}
+.sum-sport-name{display:inline-flex;align-items:center;gap:8px;font-weight:600}
+.sum-sport-name i{display:inline-block;width:8px;height:8px;flex-shrink:0}
+.sum-sport-big{font-family:var(--f-fig);font-size:24px;font-weight:var(--w-fig);letter-spacing:-.6px;line-height:1}
+.sum-sport-muted{color:var(--text-muted)}
+.sum-sport-muted small{font-size:10px}
+.sum-sport-yoy{font-weight:600}
+.sum-sport-spark svg{display:block}
 /* The trophies, demoted to one line. */
 .sum-career{background:transparent;border:0;border-top:1px solid var(--border);box-shadow:none;
   padding:16px 0 0;display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:24px}
@@ -367,12 +368,14 @@ a{color:inherit;text-decoration:none}
   .sum-hero-row{flex-direction:column;gap:18px}
   .sum-hero-fig{width:auto}
   .sum-two{grid-template-columns:1fr}
-  .sum-sports{grid-template-columns:repeat(2,1fr)}
+  .sum-sport-cols,.sum-sport-tr{grid-template-columns:1.2fr 1fr 1fr 1fr 1fr}
+  .sum-sport-dist,.sum-sport-spark{display:none}
   .sum-sport-note{display:none}
 }
 @media(max-width:640px){
   .sum-big{font-size:44px}
-  .sum-sports{grid-template-columns:1fr}
+  .sum-sport-cols,.sum-sport-tr{grid-template-columns:1.2fr 1fr 1fr}
+  .sum-sport-base,.sum-sport-ytd{display:none}
   .sum-hero{padding:18px}
 }
 /* STATS */
@@ -3659,6 +3662,16 @@ function toggleEarlyYears(){
 // the call site for why it is not thirteen.
 const CONSISTENCY_DAYS=84;
 
+// A twelve-week shape in the sport's colour: a two-pixel line and nothing else. It
+// is there to show whether a sport is rising or fading, which the numbers beside it
+// cannot say; the numbers carry the values.
+function sparkSvg(vals,w,h,color){
+  const max=Math.max.apply(null,vals.concat([0.1]));
+  const n=vals.length;
+  const d=vals.map((v,i)=>`${i?'L':'M'}${(1+i/(n-1)*(w-2)).toFixed(1)} ${(h-2-(v/max)*(h-4)).toFixed(1)}`).join('');
+  return `<svg width="${w}" height="${h}" aria-hidden="true"><path d="${d}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path></svg>`;
+}
+
 // "an 11.2 hour base", not "a". Eight, eleven and eighteen are the figures that read
 // with a vowel sound however they are spelled.
 // The group names are labels, not nouns you can drop into a sentence.
@@ -3740,29 +3753,29 @@ function renderSummaryNow(data){
     const prev=all.filter(a=>a.date.slice(0,4)===String(+thisYear-1)&&dayOfYear(a.date)<=doyNow)
       .reduce((s,a)=>s+(a.dist_mi||0),0);
     const d=prev>0?Math.round((ytd-prev)/prev*100):null;
-    cards.push({g,wk,base,wkDist,ytd,d,n:all.length});
+    cards.push({g,wk,base,wkDist,ytd,d,n:all.length,
+      spark:weeklyTotals(all,a=>(a.mt||0)/3600,{today,weeks:12})});
   });
   cards.sort((x,y)=>y.n-x.n);
   const badge=document.getElementById('sumSportBadge');
   if(badge)badge.textContent='Week of '+fmtDate(cw.weekStart);
   const wrap=document.getElementById('sumSportCards');
-  if(wrap)wrap.innerHTML=cards.slice(0,5).map(c=>{
-    const col=groupColor(c.g);
-    return`<div class="sum-sport-card" style="border-top-color:${col}">
-      <div class="sum-sport-head">
-        <span class="ms" style="color:${col}">${gearIconName(c.g)}</span>
-        <span class="sum-sport-name" style="color:${col}">${c.g}</span>
-      </div>
-      <div class="sum-sport-big">${c.wk.toFixed(1)}h</div>
-      <div class="chart-sub" style="margin:4px 0 0">this week${c.wkDist>0?' · '+fmtDist(c.wkDist)+' '+distUnit():''}</div>
-      <div class="sum-sport-rows">
-        <div class="sum-sport-row"><span>by now, 4-wk avg</span><span>${c.base.toFixed(1)}h</span></div>
-        <div class="sum-sport-row"><span>${thisYear} so far</span><span>${fmtDist(c.ytd)} ${distUnit()}</span></div>
-        <div class="sum-sport-row"><span>on last year</span><span style="color:${
-          c.d==null?'var(--text-muted)':c.d>=0?'#16a34a':'#dc2626'}">${
-          c.d==null?'—':(c.d>=0?'+':'')+c.d+'%'}</span></div>
-      </div>
-    </div>`;}).join('');
+  if(wrap)wrap.innerHTML=
+    `<div class="sum-sport-cols"><span>Sport</span><span>This week</span><span class="sum-sport-dist">Distance</span>`+
+    `<span class="sum-sport-base">By now, 4-week average</span><span class="sum-sport-ytd">${thisYear} so far</span>`+
+    `<span>On last year</span><span class="sum-sport-spark">Twelve weeks</span></div>`+
+    cards.map(c=>{
+      const col=groupColor(c.g);
+      return`<div class="sum-sport-tr">
+        <span class="sum-sport-name"><i style="background:${col}"></i>${c.g}</span>
+        <span class="sum-sport-big">${c.wk.toFixed(1)}h</span>
+        <span class="sum-sport-muted sum-sport-dist">${c.wkDist>0?fmtDist(c.wkDist)+' '+distUnit():'—'}</span>
+        <span class="sum-sport-muted sum-sport-base">${c.base.toFixed(1)}h <small>by now</small></span>
+        <span class="sum-sport-ytd">${fmtDist(c.ytd)} ${distUnit()}</span>
+        <span class="sum-sport-yoy" style="color:${c.d==null?'var(--text-muted)':c.d>=0?'var(--success-fg)':'var(--warn-icon)'}">${
+          c.d==null?'—':(c.d>=0?'+':'')+c.d+'%'}</span>
+        <span class="sum-sport-spark">${sparkSvg(c.spark,110,26,col)}</span>
+      </div>`;}).join('');
 
   // ── The band. One line across all three signals, which is the only thing it says
   //    that the hero's own verdict does not. ──
@@ -3778,9 +3791,9 @@ function renderSummaryNow(data){
     else{
       const state=!(cw.total>0)?'yet to start'
         :ratio>1.3?'building':ratio<0.8?'backing off':'holding steady';
-      const stateCol=ratio>1.3?'#b45309':ratio<0.8?'#b45309':'#16a34a';
+      const stateCol=ratio>1.3||ratio<0.8?cssVar('--warn-icon','#b45309'):cssVar('--success-fg','#16a34a');
       const yearBit=yd==null?'':
-        ` and <span style="color:${yd>=0?'#16a34a':'#dc2626'}">${Math.abs(yd)}% ${yd>=0?'ahead of':'behind'}</span> `+
+        ` and <span style="color:${yd>=0?cssVar('--success-fg','#16a34a'):cssVar('--warn-icon','#b45309')}">${Math.abs(yd)}% ${yd>=0?'ahead of':'behind'}</span> `+
         `where you stood this time last year`;
       const sportBit=(cw.total>0&&moved&&moved.wk<moved.base*0.7)
         ? ` It is the <span style="color:${groupColor(moved.g)}">${SPORT_PLURAL[moved.g]||moved.g.toLowerCase()}</span> that are missing.`

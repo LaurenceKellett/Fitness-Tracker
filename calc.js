@@ -524,6 +524,29 @@ function calendarWeek(acts,pick,opts){
   };
 }
 
+/* ── WEEKLY TOTALS ──
+ * The last N calendar weeks, Monday to Sunday, oldest first, the current week as far
+ * as it has got. What the sparklines under the sport rows are drawn from: weekly,
+ * not daily, because a day-by-day series for anything but the main sport is mostly
+ * zeros and reads as noise rather than a shape.
+ */
+function weeklyTotals(acts,pick,opts){
+  const o=opts||{};
+  const today=o.today||todayISO();
+  const weeks=o.weeks||12;
+  const start=new Date(weekStartISO(today)+'T12:00:00').getTime();
+  const out=new Array(weeks).fill(0);
+  (acts||[]).forEach(a=>{
+    // Whole days between this week's Monday and the activity, DST-proof at noon.
+    const days=Math.round((new Date(a.date+'T12:00:00').getTime()-start)/86400000);
+    if(days>6)return;                                   // after this week: not possible, but not counted
+    const back=days>=0?0:Math.ceil(-days/7);            // 0 = this week, 1 = last week, …
+    if(back>=weeks)return;
+    out[weeks-1-back]+=pick(a)||0;
+  });
+  return out;
+}
+
 /* ── TRAINING MONOTONY AND STRAIN ──
  * Foster's pair. Monotony is a week's mean daily load divided by the standard
  * deviation of those same seven days; strain is the week's total load multiplied
@@ -621,7 +644,7 @@ if (typeof module !== 'undefined' && module.exports) {
     recLongestStreak,recCurrentStreak,mexBuckets,mexOf,actDistIn,distIn,
     ROLLING_PERIODS,ROLLING_ORDER,todayISO,isYearScope,isRollingScope,periodStart,
     scopeIncludes,periodLabel,periodPhrase,isValidScope,rollingWeekly,ratioBand,RATIO_BANDS,
-    calendarWeek,weekStartISO,isoOf,WEEK_BASE_WEEKS,
+    calendarWeek,weekStartISO,isoOf,WEEK_BASE_WEEKS,weeklyTotals,
     CHRONIC_DAYS,CHRONIC_WEIGHTS,weeklyLoadStats,MONOTONY_CAUTION,MONOTONY_CAP,
     setScope(s){
       if(s.unit!==undefined)unit=s.unit;
