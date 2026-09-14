@@ -213,7 +213,7 @@ is the one the theme swaps; the cache is dropped whenever the theme changes.
 
 | Tab | What it shows |
 |-----|---------------|
-| Summary | Leads with the present tense — this calendar week's hours (Monday to today) against the same point in your last four weeks, with the rolling 7-day/28-day load chart beside it; then the same week in distance with its own rolling chart and a per-sport split of the week so far; a one-line read across load/year/sport; cumulative distance against the same day last year; consistency over the last 12 weeks; and a per-sport row. Career totals sit on one line at the bottom. Then activity breakdown, year-by-year table, location pills, top gear and recent activities (see below) |
+| Summary | Leads with the present tense — this calendar week's hours (Monday to today) against the same point in your last four weeks, with the rolling 7-day/28-day load chart beside it; then the same week in distance with its own rolling chart and a per-sport split of the week so far; a one-line read across load/year/sport; cumulative distance — or time, or activity count, switchable on the card — against the same day last year; consistency over the last 12 weeks; and a per-sport row. Career totals sit on one line at the bottom. Then activity breakdown, year-by-year table, location pills, top gear and recent activities (see below) |
 | Map | Route heatmap — all GPS routes rendered as semi-transparent polylines on a dark basemap, coloured by sport type — plus **route replay** and **Ground covered** (see below) |
 | Charts | Three sections. **Volume** — training load, cumulative against last year, monthly distance, rolling twelve months, activity mix, elevation. **Intensity** — heart-rate zones, Relative Effort, pace against distance, speed per heartbeat, power, cadence. **Habits** — time of day, moving vs stopped, race day, temperature |
 | Heatmap | GitHub-style activity calendar, coloured by the sport you spent most time on each day, with every prior year listed beneath |
@@ -221,7 +221,7 @@ is the one the theme swaps; the cache is dropped whenever the theme changes.
 | Mex | Mex Score — the ladder of whole-unit distance buckets, the first gap, which gaps are worth most, and the distance distribution the ladder reduces to a yes/no (see below) |
 | Social | One count of who you train with, the named partners as a table, and the solo-vs-company chart (see below). Anyone you have not been out with in the last six weeks — Occasional and Lapsed alike — is folded into one collapsed group at the foot of the table, so the people you actually train with are not pushed off the screen by a long tail. The group opens by itself when nobody is current, and remembers its state across re-renders |
 | Gear | Bike and shoe mileage, with a wear bar on running shoes |
-| Activity Log | Searchable, sortable full activity table |
+| Activity Log | Searchable, sortable full activity table — including max heart rate, sortable, with readings above 200 bpm flagged so a bad strap reading can be found |
 | Zwift Routes | Live two-way view of the "Zwift Routes" Notion database, grouped by map. Route catalog (name, map, distance, elevation, links) is read-only, managed in Notion; Status/Date completed/Time can be edited from the app and are written straight back to Notion |
 
 ---

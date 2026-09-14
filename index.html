@@ -1362,15 +1362,18 @@ tbody td{padding:10px 14px;vertical-align:middle}
   .cell-sub,.row-mark,.gear-forecast-head,.gear-forecast-sub,.zwift-ridden{font-size:11px}
   .row-mark .ms,.zwift-ridden .ms{font-size:13px}
 
-  /* The log is 11 columns wide on a 390px screen, so the only things visible
+  /* The log is 12 columns wide on a 390px screen, so the only things visible
      without scrolling sideways were date, type and name — every actual metric
-     was off-screen with nothing to say so. Drop the five least-used columns
-     and distance, time and the Strava link come into view. */
+     was off-screen with nothing to say so. Drop the six least-used columns
+     (speed, elevation, both heart rates, gear, calories) and distance, time and
+     the Strava link come into view. Positions, so keep them in step with the
+     header row in the Activity Log markup. */
   .log-table-wrap th:nth-child(5),.log-table-wrap td:nth-child(5),
   .log-table-wrap th:nth-child(7),.log-table-wrap td:nth-child(7),
   .log-table-wrap th:nth-child(8),.log-table-wrap td:nth-child(8),
   .log-table-wrap th:nth-child(9),.log-table-wrap td:nth-child(9),
-  .log-table-wrap th:nth-child(10),.log-table-wrap td:nth-child(10){display:none}
+  .log-table-wrap th:nth-child(10),.log-table-wrap td:nth-child(10),
+  .log-table-wrap th:nth-child(11),.log-table-wrap td:nth-child(11){display:none}
   .log-table-wrap td,.log-table-wrap th{padding-left:10px;padding-right:10px}
 }
 /* ── LOADING SKELETON ──
@@ -1646,8 +1649,17 @@ body.is-loading .stats-grid *{visibility:hidden}
   <div class="span-full" data-panel="sum-two" data-panel-label="Against last year, and consistency">
   <div class="sum-two">
     <div class="chart-card">
-      <div class="chart-title">Against the same point last year</div>
-      <div class="chart-sub" id="sumCumSub">Cumulative distance by day of year</div>
+      <div class="chart-head">
+        <div class="chart-head-text">
+          <div class="chart-title">Against the same point last year</div>
+          <div class="chart-sub" id="sumCumSub">Cumulative distance by day of year</div>
+        </div>
+        <div class="chart-ctl cum-measure-ctl" role="group" aria-label="Measure the year by">
+          <button type="button" class="chart-ctl-btn" data-measure="dist" onclick="setCumMeasure('dist')">Distance</button>
+          <button type="button" class="chart-ctl-btn" data-measure="time" onclick="setCumMeasure('time')">Time</button>
+          <button type="button" class="chart-ctl-btn" data-measure="count" onclick="setCumMeasure('count')">Activities</button>
+        </div>
+      </div>
       <div class="chart-wrap"><canvas id="chartSumCum"></canvas></div>
       <div id="sumCumChips" class="chart-chips"></div>
       <div id="sumCumVerdict" class="chart-verdict"></div>
@@ -1734,8 +1746,17 @@ body.is-loading .stats-grid *{visibility:hidden}
       <div id="loadVerdict" class="chart-verdict"></div>
     </div>
     <div class="chart-card span-full" data-panel="cum">
-      <div class="chart-title">Against the same point last year</div>
-      <div class="chart-sub" id="cumSub">Cumulative distance by day of year</div>
+      <div class="chart-head">
+        <div class="chart-head-text">
+          <div class="chart-title">Against the same point last year</div>
+          <div class="chart-sub" id="cumSub">Cumulative distance by day of year</div>
+        </div>
+        <div class="chart-ctl cum-measure-ctl" role="group" aria-label="Measure the year by">
+          <button type="button" class="chart-ctl-btn" data-measure="dist" onclick="setCumMeasure('dist')">Distance</button>
+          <button type="button" class="chart-ctl-btn" data-measure="time" onclick="setCumMeasure('time')">Time</button>
+          <button type="button" class="chart-ctl-btn" data-measure="count" onclick="setCumMeasure('count')">Activities</button>
+        </div>
+      </div>
       <div class="chart-wrap tall"><canvas id="chartCumulative"></canvas></div>
       <div id="cumChips" class="chart-chips"></div>
       <div id="cumVerdict" class="chart-verdict"></div>
@@ -2014,6 +2035,7 @@ body.is-loading .stats-grid *{visibility:hidden}
           <th onclick="sortLog('time')" id="th-time">Time<span class="sort-icon">↕</span></th>
           <th onclick="sortLog('elv')" id="th-elv">Elev<span class="sort-icon">↕</span></th>
           <th onclick="sortLog('hr')" id="th-hr">HR<span class="sort-icon">↕</span></th>
+          <th onclick="sortLog('maxhr')" id="th-maxhr" title="Highest heart rate recorded in the activity">Max HR<span class="sort-icon">↕</span></th>
           <th>Gear</th>
           <th onclick="sortLog('cal')" id="th-cal">Cal<span class="sort-icon">↕</span></th>
           <th>Strava</th>
@@ -5254,7 +5276,37 @@ function renderWeekSplit(split,total){
   </div>`;
 }
 
+// ── WHAT THE YEAR IS MEASURED IN ──
+// Distance is the default, because it is the question the chart was built to answer.
+// But a year of swimming measured in miles is a different year from one measured in
+// hours, and a year of walking is different again in sessions — so the same run-up
+// can be asked in time or in activities, the way the mix chart already can. The
+// choice is remembered across visits, like the mix measure, and both cumulative
+// cards (Summary and Charts) read the same one.
+const CUM_MEASURE_KEY='fitness_cum_measure_v1';
+const CUM_MEASURES={
+  dist :{pick:a=>distIn(a),      runUp:'Distance run up',   unit:()=>distUnit(),   fmt:v=>fmtDist(unit==='mi'?v:v/1.60934),                   tick:v=>v.toLocaleString()+' '+distUnit()},
+  time :{pick:a=>(a.mt||0)/3600, runUp:'Hours logged',      unit:()=>'h',          fmt:v=>(v<100?(+v).toFixed(1):Math.round(v).toLocaleString('en-GB')), tick:v=>v.toLocaleString()+' h'},
+  count:{pick:()=>1,             runUp:'Activities logged', unit:()=>'activities', fmt:v=>Math.round(v).toLocaleString('en-GB'),                 tick:v=>v.toLocaleString()},
+};
+let cumMeasure='dist';
+try{const v=localStorage.getItem(CUM_MEASURE_KEY);if(CUM_MEASURES[v])cumMeasure=v;}catch(e){}
+
+function setCumMeasure(m){
+  if(!CUM_MEASURES[m]||m===cumMeasure)return;
+  cumMeasure=m;
+  try{localStorage.setItem(CUM_MEASURE_KEY,m);}catch(e){}
+  // Both cards, wherever they are drawn. The renderer gathers its own data.
+  [CUM_TARGET,SUM_CUM_TARGET].forEach(t=>{if(document.getElementById(t.canvas))renderCumulative(null,t);});
+}
+
 function renderCumulative(data,t=CUM_TARGET){
+  const measure=CUM_MEASURES[cumMeasure]||CUM_MEASURES.dist;
+  document.querySelectorAll('.cum-measure-ctl .chart-ctl-btn').forEach(b=>{
+    const on=b.dataset.measure===cumMeasure;
+    b.classList.toggle('active',on);
+    b.setAttribute('aria-pressed',on?'true':'false');
+  });
   const years=[...new Set(ALL_DATA.map(a=>a.date.slice(0,4)))].sort().reverse();
   if(!years.length){setChartEmpty(t.canvas,'No activities.');chartSummary(t.chips,[],'');return;}
 
@@ -5269,7 +5321,7 @@ function renderCumulative(data,t=CUM_TARGET){
     const y=a.date.slice(0,4);
     if(!show.includes(y))return;
     const d=dayOfYear(a.date);
-    (byYear[y]=byYear[y]||new Array(367).fill(0))[d]+=distIn(a);
+    (byYear[y]=byYear[y]||new Array(367).fill(0))[d]+=measure.pick(a);
   });
   if(!Object.keys(byYear).length){
     setChartEmpty(t.canvas,'No activities of this type in the years shown.');
@@ -5334,14 +5386,14 @@ function renderCumulative(data,t=CUM_TARGET){
         tooltip:{mode:'index',intersect:false,callbacks:{
           title:c=>{const d=+c[0].label;const mi=MONTH_DOY.filter(m=>m<=d).length-1;
             return`${MONTH_ABBR[mi]} ${d-MONTH_DOY[mi]+1} · day ${d}`;},
-          label:c=>c.parsed.y==null?null:`${c.dataset.label}: ${fmtDist(unit==='mi'?c.parsed.y:c.parsed.y/1.60934)} ${distUnit()}`}}},
+          label:c=>c.parsed.y==null?null:`${c.dataset.label}: ${measure.fmt(c.parsed.y)} ${measure.unit()}`}}},
       responsive:true,maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
       scales:{
         x:{grid:{display:false},ticks:{font:{size:10},maxRotation:0,autoSkip:false,
           callback:v=>{const i=MONTH_DOY.indexOf(v+1);return i>=0?MONTH_ABBR[i]:'';}}},
         y:{grid:{color:chartGrid()},beginAtZero:true,
-          ticks:{font:{size:11},callback:v=>v.toLocaleString()+' '+distUnit()}}}}
+          ticks:{font:{size:11},callback:v=>measure.tick(v)}}}}
   });
 
   // The like-for-like figures. `at` reads a year's cumulative total on the day of
@@ -5349,19 +5401,19 @@ function renderCumulative(data,t=CUM_TARGET){
   const at=(y,d)=>cum[y]?(cum[y][Math.min(d,366)-1]??cum[y].filter(v=>v!=null).slice(-1)[0]??0):null;
   const prev=show[1];
   const hereNow=at(focus,cutoff),thenPrev=prev!=null?at(prev,cutoff):null;
-  const fmtD=v=>fmtDist(unit==='mi'?v:v/1.60934);
+  const fmtD=measure.fmt;
 
   document.getElementById(t.sub).textContent=isCurrent
-    ? `Distance run up from 1 January, ${focus} against the ${show.length-1} years before it. The comparison is made on day ${cutoff}, the point ${focus} has actually reached.`
-    : `Distance run up from 1 January, ${focus} against the years around it.`;
+    ? `${measure.runUp} from 1 January, ${focus} against the ${show.length-1} years before it. The comparison is made on day ${cutoff}, the point ${focus} has actually reached.`
+    : `${measure.runUp} from 1 January, ${focus} against the years around it.`;
 
-  const chips=[{n:fmtD(hereNow)+' '+distUnit(),label:isCurrent?`${focus} so far`:`${focus} total`,col:getAccentColor()}];
-  if(thenPrev!=null)chips.push({n:fmtD(thenPrev)+' '+distUnit(),label:`${prev} at the same point`,col:'#94a3b8'});
+  const chips=[{n:fmtD(hereNow)+' '+measure.unit(),label:isCurrent?`${focus} so far`:`${focus} total`,col:getAccentColor()}];
+  if(thenPrev!=null)chips.push({n:fmtD(thenPrev)+' '+measure.unit(),label:`${prev} at the same point`,col:'#94a3b8'});
   if(thenPrev>0){
     const d=Math.round((hereNow-thenPrev)/thenPrev*100);
     chips.push({n:(d>=0?'+':'')+d+'%',label:'on the year before',col:d>=0?'#22c55e':'#ef4444'});
   }
-  if(isCurrent&&projEnd)chips.push({n:fmtD(projEnd)+' '+distUnit(),label:'on pace for',col:'#8b5cf6'});
+  if(isCurrent&&projEnd)chips.push({n:fmtD(projEnd)+' '+measure.unit(),label:'on pace for',col:'#8b5cf6'});
   // The same question asked of the last 28 days rather than the whole year. One
   // number would be false precision: a year-to-date rate cannot see that you have
   // stopped, and a 28-day rate cannot see that you always stop in November. Both
@@ -5371,15 +5423,15 @@ function renderCumulative(data,t=CUM_TARGET){
     from.setDate(from.getDate()-27);
     const since=`${from.getFullYear()}-${String(from.getMonth()+1).padStart(2,'0')}-${String(from.getDate()).padStart(2,'0')}`;
     const recent=ALL_DATA.filter(a=>typeMatches(a)&&a.date>=since&&a.date<=t28)
-      .reduce((s,a)=>s+distIn(a),0)/28;
+      .reduce((s,a)=>s+measure.pick(a),0)/28;
     const projRecent=hereNow+(yearLen-cutoff)*recent;
-    chips.push({n:fmtD(projRecent)+' '+distUnit(),label:'at the last 28 days’ rate',col:'#0ea5e9'});
+    chips.push({n:fmtD(projRecent)+' '+measure.unit(),label:'at the last 28 days’ rate',col:'#0ea5e9'});
   }
 
   chartSummary(t.chips,chips,(()=>{
     if(thenPrev==null||!thenPrev)return `No comparable year before ${focus} in this filter.`;
     const d=Math.round((hereNow-thenPrev)/thenPrev*100);
-    const gap=fmtD(Math.abs(hereNow-thenPrev))+' '+distUnit();
+    const gap=fmtD(Math.abs(hereNow-thenPrev))+' '+measure.unit();
     if(!isCurrent)return `${focus} finished ${d>=0?d+'% up on':Math.abs(d)+'% down on'} ${prev} — a difference of ${gap} over the year.`;
     if(Math.abs(d)<3)return `Within ${Math.abs(d)}% of where you were on this date in ${prev}. Effectively the same year so far.`;
     if(d>0)return `${d}% up on this date in ${prev} — ${gap} further. Held to December that is a personal best year, which is a reason to keep the easy weeks easy.`;
@@ -7156,12 +7208,16 @@ function closeActivityModal(){
 }
 
 // ── LOG ──
+// Max HR is in the table to find bad readings — a strap that spiked to 230 on a cold
+// start, a wrist sensor that read cadence as pulse. Sorting the column puts them at
+// the top; the mark flags any reading above a ceiling almost nobody's heart reaches.
+const MAX_HR_SUSPECT=200;
 function getLogData(){
   let data=getFiltered().slice().reverse();
   if(logSearch){const q=logSearch.toLowerCase();data=data.filter(a=>(a.name||'').toLowerCase().includes(q)||(a.type||'').toLowerCase().includes(q)||(a.sport||'').toLowerCase().includes(q)||(a.gear||'').toLowerCase().includes(q)||a.date.includes(q));}
   data.sort((a,b)=>{
     if(logSort.col==='date')return logSort.dir*(a.date<b.date?-1:a.date>b.date?1:0);
-    const fmap={dist:'dist_mi',time:'mt',elv:'elv',hr:'hr',cal:'cal',speed:'speed_mph'};
+    const fmap={dist:'dist_mi',time:'mt',elv:'elv',hr:'hr',maxhr:'max_hr',cal:'cal',speed:'speed_mph'};
     const f=fmap[logSort.col];return f?logSort.dir*((a[f]||0)-(b[f]||0)):0;
   });
   return data;
@@ -7251,7 +7307,7 @@ function renderLog(){
     const displayType=(g==='Other'&&activeType==='Other')?(a.sport||a.type):g;
     const gearShort=a.gear?gearLabel(a.gear).split(' ').slice(0,2).join(' '):'—';
     // Two new fields go inside cells that already exist rather than into columns of
-    // their own — the table is eleven wide already and the phone hides five of them.
+    // their own — the table is twelve wide already and the phone hides six of them.
     const stopped=(a.et&&a.mt&&a.et-a.mt>=60)?a.et-a.mt:0;
     const marks=[
       isRace(a)?'<span class="row-mark race" title="Race">RACE</span>':'',
@@ -7266,6 +7322,7 @@ function renderLog(){
       <td>${fmtTime(a.mt)}${stopped?`<div class="cell-sub" title="Elapsed time minus moving time">+${fmtTime(stopped)} stopped</div>`:''}</td>
       <td>${a.elv?fmtElv(a.elv):'—'}</td>
       <td>${a.hr?Math.round(a.hr)+'bpm':'—'}${a.cad?`<div class="cell-sub">${cadenceLabel(a.cad,g)}</div>`:''}</td>
+      <td style="white-space:nowrap">${a.max_hr?Math.round(a.max_hr)+'bpm'+(a.max_hr>MAX_HR_SUSPECT?` <span title="Above ${MAX_HR_SUSPECT} bpm — worth checking the strap reading" style="color:var(--warn-icon);font-weight:700">!</span>`:''):'—'}</td>
       <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--text-muted)" title="${escapeAttr(a.gear||'')}">${gearShort}</td>
       <td>${a.cal?a.cal.toLocaleString('en-GB'):'—'}</td>
       <td>${a.id&&a.has_map?`<a href="https://www.strava.com/activities/${a.id}" target="_blank" rel="noopener noreferrer" class="strava-link">↗</a>`:''}</td>
