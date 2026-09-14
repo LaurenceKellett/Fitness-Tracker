@@ -1187,6 +1187,32 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .partner-type{font-size:10px;color:var(--text-muted)}
 /* GEAR */
 .gear-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:24px}
+/* ── GROUPED BY WHAT A THING IS ──
+   Bikes, shoes, everything else — Strava's own id says which — each shelf ordered by
+   what you used last, so the kit in rotation leads and the retired pairs sit at the
+   end of their own group rather than scattered through one long grid. */
+.gear-group{margin-bottom:22px}
+.gear-group:last-child{margin-bottom:0}
+.gear-group .gear-grid{margin-bottom:0}
+.gear-group-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--border)}
+.gear-group-head h3{font-size:12px;font-weight:700;margin:0}
+.gear-group-head span{font-size:11px;color:var(--text-muted)}
+/* ── THE COLOUR WASH ──
+   Product shots are all white backgrounds and three-quarter views, which makes a
+   shelf of them hard to scan. A wash of the sport's own colour, multiplied into the
+   photo, gives each card the identity its top rule already carries — blue for the
+   bikes, red for the running shoes — and lifts on hover, so the real photo is one
+   pointer away. */
+.gear-shot{position:relative;display:block;isolation:isolate;overflow:hidden;background:var(--bg);
+  width:calc(100% + var(--gear-pad-x,0px) * 2);
+  margin:calc(-1 * var(--gear-pad-y,0px)) calc(-1 * var(--gear-pad-x,0px)) 12px}
+/* Inside the wrapper the bleed is the wrapper's job, so the photo just fills it —
+   including the fallback tile that replaces a photo which will not load. */
+.gear-shot .gear-photo,.gear-shot .gear-icon-tile{width:100%;margin:0}
+.gear-wash{position:absolute;inset:0;pointer-events:none;mix-blend-mode:multiply;transition:opacity .15s}
+.gear-card:hover .gear-wash{opacity:.3}
+@media(prefers-reduced-motion:reduce){.gear-wash{transition:none}}
 /* The photo bleeds out to the card's edges, so the padding is a variable rather
    than a literal — the two have to be the same number and they are set in
    different rules. */
@@ -2177,7 +2203,7 @@ body.is-loading .stats-grid *{visibility:hidden}
   <div class="charts-grid" data-zone="gear">
     <div class="span-full" data-panel="gear-summary" data-panel-label="Gear Summary">
       <div class="section-header"><h2>Gear summary</h2><span class="badge" id="gearBadge"></span></div>
-      <div class="gear-grid" id="gearCards"></div>
+      <div id="gearCards"></div>
     </div>
     <div class="chart-card" data-panel="gear-dist">
       <div class="chart-title">Top gear by distance</div>
@@ -2730,6 +2756,10 @@ function gearPhotoFailed(img){
   s.textContent=img.dataset.icon||'bolt';
   d.appendChild(s);
   const modal=img.closest('#gearModal');
+  // The wash belongs to the photograph; over the icon tile's own soft fill it would
+  // only muddy it.
+  const shot=img.closest('.gear-shot');
+  if(shot){const wash=shot.querySelector('.gear-wash');if(wash)wash.remove();}
   img.replaceWith(d);
   // Only now do we know there is no picture for this item — the guessed filename
   // was the last thing to try. Reveal how to supply one.
@@ -4030,6 +4060,14 @@ function setFieldMeasure(m){
   fieldMeasure=m;
   try{localStorage.setItem(FIELD_MEASURE_KEY,m);}catch(e){}
   renderColourField(getFiltered());
+}
+
+// The same colour at an opacity, for a wash over a photograph. Anything that is not
+// a plain hex is handed back untouched, so a token or an rgb() string still works.
+function hexA(hex,a){
+  const m=/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex).trim());
+  if(!m)return hex;
+  return `rgba(${parseInt(m[1],16)},${parseInt(m[2],16)},${parseInt(m[3],16)},${a})`;
 }
 
 // Ink or white on a fill, by the fill's luminance. Text inside a coloured tile is
@@ -7431,18 +7469,35 @@ function openPartnerModal(name){
 
 // ── GEAR ──
 
-// Running shoes are the one piece of kit with a service life people actually agree
-// on — 300 to 500 miles is the usual guidance. Everything else gets a usage rate
-// instead of an invented wear figure, because a made-up chain interval dressed up
-// as a forecast is worse than no forecast.
-const SHOE_LIFE_MI=500;
+// Shoes are the one piece of kit with a service life people actually agree on. The
+// usual guidance is 300 to 500 miles; this tracks to 750, which is nearer what these
+// pairs actually do, and the bar says which number it is holding them to. Bikes and
+// everything else get a usage rate instead of an invented wear figure, because a
+// made-up chain interval dressed up as a forecast is worse than no forecast.
+const SHOE_LIFE_MI=750;
 
-function gearForecast(topType,s,col,name){
+// Which shelf a thing belongs on. Strava's id is the authority — b… is a bike, g… a
+// pair of shoes — and what you actually did in them is the fallback, for gear
+// resolved before the Worker started passing the kind through. The order of these
+// keys is the order the shelves appear in.
+const GEAR_KIND_LABEL={bike:'Bikes',shoe:'Shoes',other:'Other kit'};
+function gearKind(name,topType){
+  const m=GEAR_META[name];
+  if(m&&m.kind&&GEAR_KIND_LABEL[m.kind])return m.kind;
+  if(topType==='Ride'||topType==='Virtual')return 'bike';
+  if(topType==='Run'||topType==='Walk')return 'shoe';
+  return 'other';
+}
+
+function gearForecast(topType,s,col,name,kind){
+  // Walking miles wear a midsole too, so the bar follows the shoe rather than the
+  // sport: a pair mostly walked in is still a pair of shoes with a life.
+  const isShoe=(kind||gearKind(name,topType))==='shoe';
   // A retired shoe does not need telling it is past its life. Report what it did
   // and stop nagging — the wear bar is advice, and the decision is already made.
   if(name&&isRetiredGear(name)){
     const pctR=Math.round(s.dist/SHOE_LIFE_MI*100);
-    return`<div class="gear-forecast"><div class="gear-forecast-sub">Retired${topType==='Run'?` at ${pctR}% of the ${fmtDist(SHOE_LIFE_MI)} ${distUnit()} guideline`:''}, after ${fmtDist(s.dist)} ${distUnit()} and ${s.count.toLocaleString('en-GB')} outing${s.count===1?'':'s'}.</div></div>`;
+    return`<div class="gear-forecast"><div class="gear-forecast-sub">Retired${isShoe?` at ${pctR}% of the ${fmtDist(SHOE_LIFE_MI)} ${distUnit()} guideline`:''}, after ${fmtDist(s.dist)} ${distUnit()} and ${s.count.toLocaleString('en-GB')} outing${s.count===1?'':'s'}.</div></div>`;
   }
   const now=new Date(),cutoff=new Date(now.getFullYear(),now.getMonth(),now.getDate()-90).toISOString().slice(0,10);
   const recent=s.acts.filter(a=>a.date>=cutoff).reduce((t,a)=>t+(a.dist_mi||0),0);
@@ -7451,7 +7506,7 @@ function gearForecast(topType,s,col,name){
     ? `${fmtDist(perWeek)} ${distUnit()}/week over the last 90 days`
     : `Not used in the last 90 days`;
 
-  if(topType!=='Run'){
+  if(!isShoe){
     return`<div class="gear-forecast"><div class="gear-forecast-sub">${rate}</div></div>`;
   }
   const pct=Math.min(100,Math.round(s.dist/SHOE_LIFE_MI*100));
@@ -7460,7 +7515,7 @@ function gearForecast(topType,s,col,name){
   // brand-new pair came out the same red as a worn-out one. Green, amber, red.
   const barCol=pct>=100?'#ef4444':pct>=80?'#f59e0b':'#22c55e';
   let when;
-  if(pct>=100)when='Past the usual 500-mile guideline.';
+  if(pct>=100)when=`Past the ${fmtDist(SHOE_LIFE_MI)} ${distUnit()} mark.`;
   else if(perWeek>0.05){
     const weeks=Math.ceil(left/perWeek);
     // A date three years out is not a forecast, it is arithmetic with a date on
@@ -7474,8 +7529,34 @@ function gearForecast(topType,s,col,name){
   return`<div class="gear-forecast">
     <div class="gear-forecast-head"><span>Wear</span><span>${pct}% of ${fmtDist(SHOE_LIFE_MI)} ${distUnit()}</span></div>
     <div class="gear-forecast-bar"><span style="width:${pct}%;background:${barCol}"></span></div>
-    <div class="gear-forecast-sub">${when} ${rate}. The 300–500 mile life is a rule of thumb, not a measurement.</div>
+    <div class="gear-forecast-sub">${when} ${rate}. A shoe's life is a rule of thumb rather than a measurement; this bar holds them to ${fmtDist(SHOE_LIFE_MI)} ${distUnit()}.</div>
   </div>`;
+}
+
+// One gear card. Lifted out of renderGear so the shelves can lay them out; the
+// card itself is unchanged apart from the wash over its photograph.
+function gearCardHtml([name,s]){
+    const topType=dominantType(s.types);
+    const kind=gearKind(name,topType);
+    const col=groupColor(topType);
+    const img=gearPhoto(name);
+    return`<div class="gear-card${isRetiredGear(name)?' is-retired':''}" style="border-top:3px solid ${col}" data-gear="${escapeAttr(name)}" tabindex="0" role="button" aria-label="${escapeAttr(gearLabel(name)+', '+fmtDist(s.dist)+' '+distUnit())}">
+      ${img?`<span class="gear-shot"><img class="gear-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" loading="lazy" data-tile="gear-icon-tile" data-soft="${groupSoft(topType)}" data-colour="${col}" data-icon="${gearIconName(topType)}" data-fallback="${escapeAttr(gearPhotoFallback(name))}" onerror="gearPhotoFailed(this)"><i class="gear-wash" style="background:linear-gradient(180deg,${hexA(col,.12)},${hexA(col,.4)})"></i></span>`:gearIconTile(topType,'gear-icon-tile')}
+      <div class="gear-name" title="${escapeAttr(gearLabel(name))}">${escapeHtml(gearLabel(name))}</div>
+      ${isUnresolvedGear(name)?`<div class="gear-unresolved">${escapeHtml(name)}</div>`:''}
+      <div class="gear-type" style="color:${col}">${typeEmoji(topType)} ${topType}${gearMetaLine(name)}${gearRetiredTag(name)}</div>
+      <div class="gear-hero">
+        <div class="gear-hero-label">Distance</div>
+        <div class="gear-hero-value">${fmtDist(s.dist)} <em>${distUnit()}</em></div>
+      </div>
+      <div class="gear-trio">
+        <div><div class="gear-trio-label">${topType==='Run'?'Runs':topType==='Walk'?'Walks':topType==='Swim'?'Swims':'Uses'}</div><div class="gear-trio-value">${s.count.toLocaleString('en-GB')}</div></div>
+        <div><div class="gear-trio-label">Moving</div><div class="gear-trio-value" title="${escapeAttr(fmtTime(s.time))}">${Math.round(s.time/3600).toLocaleString('en-GB')}h</div></div>
+        <div><div class="gear-trio-label">Climbed</div><div class="gear-trio-value">${fmtElv(s.elv)}</div></div>
+      </div>
+      ${gearForecast(topType,s,col,name,kind)}
+      <div class="gear-span"><span>${fmtDate(s.first)}</span><span>${fmtDate(s.last)}</span></div>
+    </div>`;
 }
 
 function renderGear(){
@@ -7503,28 +7584,22 @@ function renderGear(){
     (isRetiredGear(a[0])?1:0)-(isRetiredGear(b[0])?1:0)||b[1].dist-a[1].dist);
   document.getElementById('gearBadge').textContent=sorted.length+' items';
   const GEAR_COLORS=['#1d4ed8','#ef4444','#eab308','#0ea5e9','#8b5cf6','#22c55e','#f97316','#14b8a6','#84cc16','#a855f7'];
-  // Gear cards (top 8)
-  document.getElementById('gearCards').innerHTML=sorted.map(([name,s],i)=>{
-    const topType=dominantType(s.types);
-    const col=groupColor(topType);
-    const img=gearPhoto(name);
-    return`<div class="gear-card${isRetiredGear(name)?' is-retired':''}" style="border-top:3px solid ${col}" data-gear="${escapeAttr(name)}" tabindex="0" role="button" aria-label="${escapeAttr(gearLabel(name)+', '+fmtDist(s.dist)+' '+distUnit())}">
-      ${img?`<img class="gear-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" loading="lazy" data-tile="gear-icon-tile" data-soft="${groupSoft(topType)}" data-colour="${col}" data-icon="${gearIconName(topType)}" data-fallback="${escapeAttr(gearPhotoFallback(name))}" onerror="gearPhotoFailed(this)">`:gearIconTile(topType,'gear-icon-tile')}
-      <div class="gear-name" title="${escapeAttr(gearLabel(name))}">${escapeHtml(gearLabel(name))}</div>
-      ${isUnresolvedGear(name)?`<div class="gear-unresolved">${escapeHtml(name)}</div>`:''}
-      <div class="gear-type" style="color:${col}">${typeEmoji(topType)} ${topType}${gearMetaLine(name)}${gearRetiredTag(name)}</div>
-      <div class="gear-hero">
-        <div class="gear-hero-label">Distance</div>
-        <div class="gear-hero-value">${fmtDist(s.dist)} <em>${distUnit()}</em></div>
-      </div>
-      <div class="gear-trio">
-        <div><div class="gear-trio-label">${topType==='Run'?'Runs':topType==='Walk'?'Walks':topType==='Swim'?'Swims':'Uses'}</div><div class="gear-trio-value">${s.count.toLocaleString('en-GB')}</div></div>
-        <div><div class="gear-trio-label">Moving</div><div class="gear-trio-value" title="${escapeAttr(fmtTime(s.time))}">${Math.round(s.time/3600).toLocaleString('en-GB')}h</div></div>
-        <div><div class="gear-trio-label">Climbed</div><div class="gear-trio-value">${fmtElv(s.elv)}</div></div>
-      </div>
-      ${gearForecast(topType,s,col,name)}
-      <div class="gear-span"><span>${fmtDate(s.first)}</span><span>${fmtDate(s.last)}</span></div>
-    </div>`;
+  // ── The shelves ──
+  // Bikes, shoes, everything else. Within a shelf the order is what you used
+  // last, so the pair in rotation leads; retired gear is held below anything
+  // current even if it was worn last week, because that decision is made.
+  const shelves={bike:[],shoe:[],other:[]};
+  Object.entries(gm).forEach(e=>{shelves[gearKind(e[0],dominantType(e[1].types))].push(e);});
+  Object.values(shelves).forEach(items=>items.sort((a,b)=>
+    (isRetiredGear(a[0])?1:0)-(isRetiredGear(b[0])?1:0)||b[1].last.localeCompare(a[1].last)));
+  document.getElementById('gearCards').innerHTML=Object.keys(GEAR_KIND_LABEL).map(k=>{
+    const items=shelves[k];
+    if(!items.length)return '';
+    const dist=items.reduce((t,[,st])=>t+st.dist,0);
+    return `<div class="gear-group" data-kind="${k}">`+
+      `<div class="gear-group-head"><h3>${GEAR_KIND_LABEL[k]}</h3>`+
+      `<span>${items.length} item${items.length===1?'':'s'} · ${fmtDist(dist)} ${distUnit()}</span></div>`+
+      `<div class="gear-grid">${items.map(gearCardHtml).join('')}</div></div>`;
   }).join('');
   // Chart: by distance
   const top10d=sorted.slice(0,10);

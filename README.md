@@ -235,7 +235,7 @@ is the one the theme swaps; the cache is dropped whenever the theme changes.
 | Records | A hero row of records that stand clear, then per-sport tables with a Standing column, then all-time totals (see below) |
 | Mex | Mex score — the ladder of whole-unit distance buckets, the first gap, which gaps are worth most, and the distance distribution the ladder reduces to a yes/no (see below) |
 | Social | One count of who you train with, the named partners as a table, and the solo-vs-company chart (see below). Anyone you have not been out with in the last six weeks — Occasional and Lapsed alike — is folded into one collapsed group at the foot of the table, so the people you actually train with are not pushed off the screen by a long tail. The group opens by itself when nobody is current, and remembers its state across re-renders |
-| Gear | Bike and shoe mileage, with a wear bar on running shoes |
+| Gear | Bike and shoe mileage, shelved by kind, with a wear bar on shoes (see below) |
 | Activity Log | Searchable, sortable full activity table — including max heart rate, sortable, with readings above 200 bpm flagged so a bad strap reading can be found |
 | Zwift Routes | Live two-way view of the "Zwift Routes" Notion database, grouped by map. Route catalog (name, map, distance, elevation, links) is read-only, managed in Notion; Status/Date completed/Time can be edited from the app and are written straight back to Notion |
 
@@ -467,6 +467,36 @@ sports onto an existing option in `buildTrainingLogProperties` if you'd rather
 it didn't.
 
 ---
+
+## Gear
+
+Cards are shelved by **what a thing is** — Bikes, Shoes, Other kit — rather than run
+together in one grid sorted by distance. Strava's own gear id is the authority: `b1234567`
+is a bike and `g1234567` a pair of shoes, so the Worker reads the kind off the id and sends
+it with the rest of the gear metadata. Anything resolved before that (an old cache entry)
+falls back to what you actually did in it: Ride or Virtual is a bike, Run or Walk a shoe,
+everything else other kit.
+
+Within a shelf the order is **what you used last**, so whatever is in rotation leads. Retired
+gear is held below everything current in its own shelf, even if it was worn last week — that
+decision is already made — and it stays dimmed.
+
+**The wear bar** tracks shoes against **750 miles**. The usual guidance is 300–500; 750 is
+nearer what these pairs actually do, and the bar names the number it is holding them to
+rather than implying a measurement. It follows the *shoe*, not the sport: walking miles wear
+a midsole too, so a pair mostly walked in still gets a bar. Bikes and everything else get a
+usage rate instead — a made-up chain interval dressed up as a forecast is worse than no
+forecast. The bar is green, amber then red by how far through the life it is, deliberately
+*not* the sport colour: `groupColor('Run')` is red, so a brand-new pair would have come out
+the same red as a worn-out one.
+
+**The colour wash.** Product shots are all white backgrounds and three-quarter views, which
+makes a shelf of them hard to scan. Each photo carries a gradient of its sport's own colour,
+multiplied into the image — blue for the bikes, red for the running shoes, the same colour
+the card's top rule and type line already use — and it lifts to 30% on hover, so the real
+photograph is one pointer away. A photo that fails to load falls back to the icon tile as
+before and drops the wash with it: the tile already has a soft fill of that colour, and two
+would only muddy it.
 
 ## Gear photos
 

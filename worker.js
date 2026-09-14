@@ -1198,6 +1198,9 @@ async function fetchAllActivities(accessToken, env, progress) {
         brand:   rec.brand   || null,
         model:   rec.model   || null,
         retired: !!rec.retired,
+        // Derived here as well as read back, so gear resolved before the kind was
+        // recorded still answers for it.
+        kind:    rec.kind || (id[0] === 'b' ? 'bike' : id[0] === 'g' ? 'shoe' : null),
       };
     }
   }
@@ -1448,6 +1451,9 @@ async function fetchGearName(id, accessToken, gearMap, known) {
           name: data.name,
           brand: data.brand_name || null,
           model: data.model_name || null,
+          // Strava's id carries the kind: b1234567 is a bike, g1234567 a pair of
+          // shoes. Nothing else on the response says so as plainly.
+          kind: id[0] === 'b' ? 'bike' : id[0] === 'g' ? 'shoe' : null,
           retired: !!data.retired,
         };
       }

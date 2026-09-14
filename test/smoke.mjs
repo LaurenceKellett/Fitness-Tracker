@@ -80,7 +80,12 @@ const ENVELOPE = {
   data: fixture(),
   updatedAt: new Date().toISOString(),
   hrZones: { source: 'strava', zones: [110, 130, 150, 170] },
-  gearMeta: { 'Nike Pegasus 40': { retired: false, type: 'shoe' } },
+  // `kind` is what the Worker reads off Strava's gear id — b… a bike, g… a shoe — and
+  // what the Gear tab shelves by. One of each, so the shelving can be tested at all.
+  gearMeta: {
+    'Nike Pegasus 40': { retired: false, kind: 'shoe' },
+    'Canyon Ultimate CF SL 8': { retired: false, kind: 'bike' },
+  },
 };
 
 // ── Library stubs ─────────────────────────────────────────────────────────────
@@ -944,6 +949,60 @@ async function main() {
       assert(Math.abs(p.chips.width - p.chart.width) < 2, 'on a phone the chips do not run the card’s width');
       await page.setViewportSize({ width: 1400, height: 900 });
       await page.waitForTimeout(300);
+    });
+
+    await check('gear is shelved by what it is, newest use first', async () => {
+      await page.evaluate(() => window.setTab('gear'));
+      await page.waitForTimeout(800);
+      const r = await page.evaluate(() => ({
+        kinds: [...document.querySelectorAll('.gear-group')].map((g) => g.dataset.kind),
+        heads: [...document.querySelectorAll('.gear-group-head h3')].map((e) => e.textContent),
+        counts: [...document.querySelectorAll('.gear-group')].map((g) => g.querySelectorAll('.gear-card').length),
+        // Every card sits inside a shelf, and each shelf has its own grid.
+        loose: document.querySelectorAll('#gearCards > .gear-card').length,
+        grids: document.querySelectorAll('.gear-group > .gear-grid').length,
+        order: [...document.querySelectorAll('.gear-group[data-kind="shoe"] .gear-card .gear-span span:last-child')].map((e) => e.textContent),
+        wear: (document.querySelector('.gear-group[data-kind="shoe"] .gear-forecast-head') || {}).innerText || '',
+        bikeWear: (document.querySelector('.gear-group[data-kind="bike"] .gear-forecast-head') || {}).innerText || '',
+      }));
+      assert(r.kinds.includes('bike') && r.kinds.includes('shoe'), `shelves are ${r.kinds}`);
+      assert(r.kinds.indexOf('bike') < r.kinds.indexOf('shoe'), 'bikes should come before shoes');
+      assert(r.heads.join() === 'Bikes,Shoes', `shelf headings read ${r.heads}`);
+      assert(r.loose === 0, `${r.loose} cards are outside a shelf`);
+      assert(r.grids === r.kinds.length, 'a shelf is missing its grid');
+      assert(r.counts.every((c) => c > 0), 'an empty shelf was rendered');
+      // Most recently used first, so the kit in rotation leads its shelf.
+      const sortable = (d) => d.split('/').reverse().join('');
+      for (let i = 1; i < r.order.length; i++) {
+        assert(sortable(r.order[i - 1]) >= sortable(r.order[i]), `shoes are not newest-first: ${r.order}`);
+      }
+      // A shoe wears out against 750; a bike gets a usage rate and no wear bar.
+      assert(/750/.test(r.wear), `the wear bar reads "${r.wear}"`);
+      assert(!r.bikeWear, `a bike was given a wear bar: "${r.bikeWear}"`);
+    });
+
+    await check('a gear photo carries a wash in its sport colour', async () => {
+      const r = await page.evaluate(() => {
+        // Only a photo that loaded keeps its wash; the icon tile it falls back to has
+        // a soft fill of its own. Either way the slot is the same block.
+        const shot = document.querySelector('.gear-shot');
+        const wash = document.querySelector('.gear-wash');
+        return {
+          shots: document.querySelectorAll('.gear-shot').length,
+          hasImg: !!(shot && shot.querySelector('.gear-photo, .gear-icon-tile')),
+          blend: wash ? getComputedStyle(wash).mixBlendMode : null,
+          bg: wash ? wash.getAttribute('style') : null,
+          washesWithoutPhoto: [...document.querySelectorAll('.gear-shot')]
+            .filter((s) => !s.querySelector('.gear-photo') && s.querySelector('.gear-wash')).length,
+        };
+      });
+      assert(r.shots > 0, 'no photo wrappers on the gear cards');
+      assert(r.hasImg, 'the wrapper holds neither a photo nor a tile');
+      assert(r.washesWithoutPhoto === 0, 'a wash outlived the photo it belonged to');
+      if (r.blend) {
+        assert(r.blend === 'multiply', `the wash blends as ${r.blend}`);
+        assert(/rgba\(/.test(r.bg), `the wash is not a colour gradient: ${r.bg}`);
+      }
     });
 
     await check('the gear photo runs to the top and both sides of its card', async () => {
