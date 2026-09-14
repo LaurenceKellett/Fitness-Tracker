@@ -1843,6 +1843,36 @@ async function main() {
   // ── 6. Installability ───────────────────────────────────────────────────────
   {
     const { ctx, page } = await open({ skipLibs: true, serviceWorkers: 'allow' });
+    await check('the tab wears the same mark as the top left', async () => {
+      const r = await page.evaluate(async () => {
+        const link = document.querySelector('link[rel="icon"]');
+        const href = link ? link.getAttribute('href') : '';
+        const headerPath = document.querySelector('.logo-icon svg path');
+        // Decoding the URI is one thing; a browser actually rasterising it is another.
+        const drew = await new Promise((res) => {
+          const img = new Image();
+          img.onload = () => res(img.naturalWidth > 0 && img.naturalHeight > 0);
+          img.onerror = () => res(false);
+          img.src = href;
+        });
+        return {
+          href,
+          svg: decodeURIComponent(href.replace(/^data:image\/svg\+xml,/, '')),
+          drew,
+          tile: getComputedStyle(document.querySelector('.logo-icon')).backgroundColor,
+          headerPath: headerPath ? headerPath.getAttribute('d') : '',
+        };
+      });
+      assert(/^data:image\/svg\+xml,/.test(r.href), `the icon link is "${r.href.slice(0, 40)}"`);
+      assert(r.drew, 'the favicon data URI does not decode to an image');
+      assert(r.headerPath, 'the header has no mark to compare against');
+      // The whole point of the swap: one mark, two places. A hand-edited data URI is
+      // exactly the kind of thing that drifts from the markup it was copied from.
+      assert(r.svg.includes(r.headerPath), 'the favicon and the header mark have drifted apart');
+      assert(/#fc4c02/i.test(r.svg), `the favicon tile is not Strava orange: ${r.svg}`);
+      assert(r.tile === 'rgb(252, 76, 2)', `the header tile is ${r.tile}`);
+    });
+
     await check('ships a valid manifest', async () => {
       const href = await page.evaluate(() => {
         const l = document.querySelector('link[rel="manifest"]');
