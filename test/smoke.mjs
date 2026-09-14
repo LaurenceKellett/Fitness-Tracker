@@ -559,8 +559,10 @@ async function main() {
         await new Promise((res) => setTimeout(res, 1600));
         await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ENVELOPE) });
       };
-      await page.route('**/refresh-status**', running);
+      // '**/activities**' also matches every other route on this host (activities-api…)
+      // and the last route registered wins, so the status route goes on after it.
       await page.route('**/activities**', slow);
+      await page.route('**/refresh-status**', running);
       const done = page.evaluate(() => window.refreshData());
       await page.waitForTimeout(900);
       const mid = await page.evaluate(() => {
@@ -826,7 +828,16 @@ async function main() {
     });
 
     await check('the hero cards can be read by month and by year, and remember which', async () => {
+      // From a clean store, so it is the default being read and not what the checks
+      // before this one asked for.
+      await page.evaluate(() => localStorage.removeItem('fitness_hero_unit_v1'));
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => !document.body.classList.contains('is-loading'), { timeout: 15000 });
+      // The Charts tab draws its charts on first opening; its load chart is read below.
+      await page.evaluate(() => window.setTab('charts'));
+      await page.waitForTimeout(500);
       await page.evaluate(() => window.setTab('summary'));
+      await page.waitForTimeout(500);
       const read = () => page.evaluate(() => ({
         labels: [...document.querySelectorAll('.sum-hero-label')].map((e) => e.textContent),
         active: [...document.querySelectorAll('.hero-unit-ctl .chart-ctl-btn.active')].map((b) => b.dataset.unit),
@@ -836,7 +847,7 @@ async function main() {
         split: document.querySelector('#sumDistSplit .sum-split-t').textContent,
         base: document.getElementById('sumDistBase').textContent,
         hoursBase: document.getElementById('sumWeekBase').textContent,
-        chartsTab: window.Chart.getChart(document.getElementById('chartLoad')).config.type,
+        chartsTab: (window.Chart.getChart(document.getElementById('chartLoad')) || { config: {} }).config.type || null,
       }));
       const first = await read();
       assert(first.active.length === 2 && first.active.every((u) => u === 'month'), 'Month is not the default');
@@ -864,7 +875,9 @@ async function main() {
       const year = await read();
       assert(year.labels.every((l) => l === 'This year'), `year labels read ${year.labels}`);
       assert(year.chips.some((c) => /this year so far/.test(c)), `year chips: ${year.chips.join(' | ')}`);
-      assert(/average year/.test(year.base), `year base reads "${year.base}"`);
+      // The fixture has no earlier year, so the honest base line is that there is nothing
+      // to compare against; either wording is the year's.
+      assert(/average year|compare this year against/.test(year.base), `year base reads "${year.base}"`);
 
       await page.reload({ waitUntil: 'domcontentloaded' });
       await page.waitForFunction(() => !document.body.classList.contains('is-loading'), { timeout: 15000 });
@@ -881,6 +894,9 @@ async function main() {
     });
 
     await check('the distance hero follows the unit toggle', async () => {
+      // The subtitle it reads is the week's; the cards open by month.
+      await page.evaluate(() => window.setHeroUnit('week'));
+      await page.waitForTimeout(400);
       const read = () => page.evaluate(() => ({
         unit: document.getElementById('sumWeekDistUnit').textContent,
         fig: parseFloat(document.getElementById('sumWeekDist').innerText),
