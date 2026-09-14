@@ -339,6 +339,8 @@ a{color:inherit;text-decoration:none}
 .sum-hero>.chart-chips .chart-chip{margin-right:0}
 .sum-hero>#sumDistSplit{grid-area:split}
 .sum-hero>.chart-verdict{grid-area:verdict}
+.sum-hero-head{margin-bottom:0}
+.sum-hero-head .chart-sub{flex:1;min-width:min(220px,100%)}
 .sum-big{font-family:var(--f-fig);font-size:52px;font-weight:var(--w-fig-xl);letter-spacing:-2.6px;line-height:1;margin:10px 0 8px}
 .sum-big-unit{font-size:22px;font-weight:500;color:var(--text-muted);letter-spacing:0;margin-left:11px}
 .sum-ratio{display:inline-flex;align-items:center;gap:8px;padding:0;margin-top:14px;
@@ -1702,7 +1704,7 @@ body.is-loading .stats-grid *{visibility:hidden}
 <!-- calc.js carries a stamp of its own content (npm run stamp; the unit tests check it
      is current), so a freshly deployed page can never be paired with a cached older copy
      of the script — which is exactly how one deploy died on "daysInYear is not defined". -->
-<script src="calc.js?v=6621aa2c"></script>
+<script src="calc.js?v=cc5ba70b"></script>
 <div id="dashTooltip" class="dash-tooltip"></div>
 <div class="main">
 
@@ -1725,13 +1727,20 @@ body.is-loading .stats-grid *{visibility:hidden}
   <div class="sum-hero chart-card span-full" data-panel="sum-load" data-panel-label="This week — hours">
     <div class="sum-hero-row">
       <div class="sum-hero-fig">
-        <div class="stat-label">This week</div>
+        <div class="stat-label sum-hero-label">This week</div>
         <div class="sum-big" id="sumWeekHours">—<span class="sum-big-unit">hours</span></div>
         <div class="chart-sub" id="sumWeekBase" style="margin-bottom:0"></div>
         <div id="sumWeekRatio"></div>
       </div>
       <div class="sum-hero-chart">
-        <div class="chart-sub" id="sumLoadSub">Rolling 7-day and 28-day moving time</div>
+        <div class="chart-head sum-hero-head">
+          <div class="chart-sub" id="sumLoadSub">Rolling 7-day and 28-day moving time</div>
+          <div class="chart-ctl hero-unit-ctl" role="group" aria-label="Read this card by">
+            <button type="button" class="chart-ctl-btn" data-unit="week" onclick="setHeroUnit('week')">Week</button>
+            <button type="button" class="chart-ctl-btn" data-unit="month" onclick="setHeroUnit('month')">Month</button>
+            <button type="button" class="chart-ctl-btn" data-unit="year" onclick="setHeroUnit('year')">Year</button>
+          </div>
+        </div>
         <div class="chart-wrap"><canvas id="chartSumLoad"></canvas></div>
       </div>
     </div>
@@ -1747,13 +1756,20 @@ body.is-loading .stats-grid *{visibility:hidden}
   <div class="sum-hero chart-card span-full" data-panel="sum-dist" data-panel-label="This week — distance">
     <div class="sum-hero-row">
       <div class="sum-hero-fig">
-        <div class="stat-label">This week</div>
+        <div class="stat-label sum-hero-label">This week</div>
         <div class="sum-big" id="sumWeekDist">—<span class="sum-big-unit" id="sumWeekDistUnit">miles</span></div>
         <div class="chart-sub" id="sumDistBase" style="margin-bottom:0"></div>
         <div id="sumDistRatio"></div>
       </div>
       <div class="sum-hero-chart">
-        <div class="chart-sub" id="sumDistSub">Rolling 7-day and 28-day distance</div>
+        <div class="chart-head sum-hero-head">
+          <div class="chart-sub" id="sumDistSub">Rolling 7-day and 28-day distance</div>
+          <div class="chart-ctl hero-unit-ctl" role="group" aria-label="Read this card by">
+            <button type="button" class="chart-ctl-btn" data-unit="week" onclick="setHeroUnit('week')">Week</button>
+            <button type="button" class="chart-ctl-btn" data-unit="month" onclick="setHeroUnit('month')">Month</button>
+            <button type="button" class="chart-ctl-btn" data-unit="year" onclick="setHeroUnit('year')">Year</button>
+          </div>
+        </div>
         <div class="chart-wrap"><canvas id="chartSumDist"></canvas></div>
       </div>
     </div>
@@ -3818,6 +3834,39 @@ function sparkSvg(vals,w,h,color){
 const SPORT_PLURAL={Ride:'rides',Run:'runs',Virtual:'virtual rides',Walk:'walks',
   Swim:'swims',Other:'other sessions'};
 
+// ── WEEK, MONTH OR YEAR ──
+// The two hero cards can be read by week (the figure this week so far, the chart the
+// rolling 7- and 28-day lines), by month (the last 24 as bars, this one as far as it
+// has got, the average of the twelve before each bar behind them) or by year (every
+// year on record). They open by month, the unit Laurence plans in. The figure, its base,
+// the split, the chart and the chips all follow, so "this month" is one idea across the
+// card rather than a chart with a week's figure beside it. Remembered across visits and
+// shared by both cards; the Charts tab's copy of the load chart stays weekly.
+const HERO_UNIT_KEY='fitness_hero_unit_v1';
+const HERO_UNITS={
+  week: {label:'This week', noun:'week', adverb:'this week'},
+  month:{label:'This month',noun:'month',adverb:'this month'},
+  year: {label:'This year', noun:'year', adverb:'this year'},
+};
+let heroUnit='month';
+try{const v=localStorage.getItem(HERO_UNIT_KEY);if(HERO_UNITS[v])heroUnit=v;}catch(e){}
+function setHeroUnit(u){
+  if(!HERO_UNITS[u]||u===heroUnit)return;
+  heroUnit=u;
+  try{localStorage.setItem(HERO_UNIT_KEY,u);}catch(e){}
+  renderSummary();
+}
+function paintHeroUnitCtl(){
+  document.querySelectorAll('.hero-unit-ctl .chart-ctl-btn').forEach(b=>{
+    const on=b.dataset.unit===heroUnit;
+    b.classList.toggle('active',on);
+    b.setAttribute('aria-pressed',on?'true':'false');
+  });
+  document.querySelectorAll('.sum-hero-label').forEach(el=>{el.textContent=HERO_UNITS[heroUnit].label;});
+}
+// Hours as a hero figure: one decimal until they need none.
+function heroHours(v){return v<100?v.toFixed(1):Math.round(v).toLocaleString('en-GB');}
+
 function renderSummaryNow(data){
   const today=new Date().toISOString().slice(0,10);
   const endMs=new Date(today+'T12:00:00').getTime();
@@ -3825,14 +3874,15 @@ function renderSummaryNow(data){
   // rolling seven days. The chart below stays rolling and stays labelled that way;
   // this figure is the one that ought to read zero on a Monday morning, because it
   // does. See calendarWeek in calc.js for why the base is a part-week too.
-  const cw=calendarWeek(data,a=>(a.mt||0)/3600,{today});
+  const cw=calendarPeriod(data,a=>(a.mt||0)/3600,{today,unit:heroUnit});
   const ratio=cw.ratio;
+  paintHeroUnitCtl();
 
   // ── Hero figure ──
   const bigEl=document.getElementById('sumWeekHours');
-  if(bigEl)bigEl.innerHTML=`${cw.total.toFixed(1)}<span class="sum-big-unit">hours</span>`;
+  if(bigEl)bigEl.innerHTML=`${heroHours(cw.total)}<span class="sum-big-unit">hours</span>`;
   const baseEl=document.getElementById('sumWeekBase');
-  if(baseEl)baseEl.textContent=weekBaseText(cw,'h');
+  if(baseEl)baseEl.textContent=periodBaseText(cw,'h');
   const ratioEl=document.getElementById('sumWeekRatio');
   if(ratioEl){
     if(!(cw.pace>0)||!(cw.total>0)){ratioEl.innerHTML='';}
@@ -5454,9 +5504,9 @@ function renderYearCalendarChart(year,data){
 // implementations that can drift apart.
 const LOAD_TARGET={canvas:'chartLoad',key:'load',sub:'loadSub',chips:'load'};
 const CUM_TARGET ={canvas:'chartCumulative',key:'cumulative',sub:'cumSub',chips:'cum',mixer:'cumMixer',mix:'cumMix',says:'cumMixSays'};
-const SUM_LOAD_TARGET={canvas:'chartSumLoad',key:'sumload',sub:'sumLoadSub',chips:'sumLoad'};
+const SUM_LOAD_TARGET={canvas:'chartSumLoad',key:'sumload',sub:'sumLoadSub',chips:'sumLoad',hero:true};
 const SUM_CUM_TARGET ={canvas:'chartSumCum',key:'sumcum',sub:'sumCumSub',chips:'sumCum',mixer:'sumCumMixer',mix:'sumCumMix',says:'sumCumMixSays'};
-const SUM_DIST_TARGET={canvas:'chartSumDist',key:'sumdist',sub:'sumDistSub',chips:'sumDist'};
+const SUM_DIST_TARGET={canvas:'chartSumDist',key:'sumdist',sub:'sumDistSub',chips:'sumDist',hero:true};
 
 function todayDoy(){return dayOfYear(new Date().toISOString().slice(0,10));}
 // Day-of-year of the first of each month, for axis ticks. Uses a non-leap year:
@@ -5494,6 +5544,8 @@ function renderLoad(data,t=LOAD_TARGET){
     chartSummary(t.chips,[],'');
     return;
   }
+  // The Summary card can be read by month or by year; the Charts tab's copy stays weekly.
+  if(t.hero&&heroUnit!=='week'){renderHeroPeriod(data,t,HERO_MEASURE_HOURS);return;}
   // The windowing is shared with the distance hero below it, and lives in calc.js
   // where it can be tested. pick() returns hours, so the series comes back in them.
   const w=rollingWeekly(data,a=>(a.mt||0)/3600,{today:_today()});
@@ -5558,12 +5610,96 @@ function renderLoad(data,t=LOAD_TARGET){
 // SAME SLICE of the preceding four weeks, so the wording has to say so: "by this
 // point" is the whole difference between a fair comparison and a part-week held
 // against a whole one. Serves hours and distance, hence the unit being passed in.
-function weekBaseText(cw,unitWord){
-  if(!(cw.pace>0))return 'nothing in the last four weeks to compare this week against';
-  const n=cw.pace<100?cw.pace.toFixed(1):Math.round(cw.pace);
-  return cw.complete
-    ? `against ${n} ${unitWord} in an average week over the last four`
-    : `against ${n} ${unitWord} by this point in an average week`;
+function periodBaseText(cp,unitWord){
+  const noun=HERO_UNITS[cp.unit||'week'].noun;
+  const back=cp.prior?cp.prior.length:PERIOD_BASE[noun];
+  const backWord=['','one','two','three','four','five','six'][back]||String(back);
+  if(!(cp.pace>0))return `nothing in the last ${backWord} ${noun}s to compare this ${noun} against`;
+  const n=cp.pace<100?cp.pace.toFixed(1):Math.round(cp.pace).toLocaleString('en-GB');
+  return cp.complete
+    ? `against ${n} ${unitWord} in an average ${noun} over the last ${backWord}`
+    : `against ${n} ${unitWord} by this point in an average ${noun}`;
+}
+function weekBaseText(cw,unitWord){return periodBaseText(Object.assign({unit:'week'},cw),unitWord);}
+
+// ── THE HERO, BY MONTH OR BY YEAR ──
+// Bars: calendar months (the last 24) or calendar years (all of them), the current one
+// drawn hollow because it has not finished. The month view carries the average of the
+// twelve months before each bar — the "what you have been holding" line the weekly view
+// has in its 28-day average. Chips and verdict use the figure's own arithmetic
+// (calendarPeriod), so the card says one thing.
+const HERO_MEASURE_HOURS={pick:a=>(a.mt||0)/3600,fmt:v=>chipNum(v,1)+'h',word:'Hours',tick:v=>v+'h'};
+const HERO_MEASURE_DIST=u=>({pick:a=>actDistIn(a),fmt:v=>chipNum(v,v<100?1:0)+' '+u,word:u==='mi'?'Miles':'Kilometres',tick:v=>chipNum(v,0)});
+function renderHeroPeriod(data,t,m,cp){
+  const unit=heroUnit,noun=HERO_UNITS[unit].noun,adverb=HERO_UNITS[unit].adverb;
+  const today=_today();
+  cp=cp||calendarPeriod(data,m.pick,{today,unit});
+  const tot=periodTotals(data,m.pick,{today,unit,count:unit==='month'?24:undefined});
+  if(!tot.some(p=>p.value>0)){
+    setChartEmpty(t.canvas,unit==='month'?'No activities in the last 24 months of this filter.':'No activities in this filter.');
+    chartSummary(t.chips,[],'');
+    return;
+  }
+  setChartEmpty(t.canvas);
+  const accent=getAccentColor(),grey=cssVar('--other','#94a3b8');
+  const labels=tot.map(p=>unit==='month'?monthLabel(p.key):p.key);
+  const datasets=[{label:unit==='month'?'Per month':'Per year',data:tot.map(p=>+p.value.toFixed(1)),
+    backgroundColor:tot.map(p=>p.partial?'transparent':accent),borderColor:accent,borderWidth:tot.map(p=>p.partial?1.5:0),order:0}];
+  let avg=null;
+  if(unit==='month'){
+    // Twelve finished months behind each bar; the unfinished one reads the twelve before it.
+    avg=tot.map((p,i)=>{
+      const from=p.partial?i-12:i-11,to=p.partial?i-1:i;
+      if(from<0)return null;
+      let s=0;for(let k=from;k<=to;k++)s+=tot[k].value;
+      return +(s/12).toFixed(1);
+    });
+    datasets.push({type:'line',label:'12-month average',data:avg,borderColor:grey,backgroundColor:'transparent',borderWidth:2,pointRadius:0,tension:.25,order:1,spanGaps:false});
+  }
+  document.getElementById(t.sub).textContent=unit==='month'
+    ? `${m.word} per month — the last 24 months, this one as far as it has got. The grey line is the average of the twelve months before each.`
+    : `${m.word} per year — every year on record, ${today.slice(0,4)} as far as it has got.`;
+
+  destroyChart(t.key);
+  charts[t.key]=upsertChart(t.key,document.getElementById(t.canvas).getContext('2d'),{
+    type:'bar',
+    data:{labels,datasets},
+    options:{
+      plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},
+        tooltip:{mode:'index',intersect:false,callbacks:{
+          title:c=>c[0].label+(tot[c[0].dataIndex]&&tot[c[0].dataIndex].partial?' · so far':''),
+          label:c=>c.parsed.y==null?null:`${c.dataset.label}: ${m.fmt(c.parsed.y)}`}}},
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      scales:{
+        x:{grid:{display:false},ticks:{font:{size:9},maxRotation:0,autoSkip:true,maxTicksLimit:unit==='month'?12:20}},
+        y:{grid:{color:chartGrid()},beginAtZero:true,ticks:{font:{size:11},callback:v=>m.tick(v)}}}}
+  });
+
+  const finished=tot.filter(p=>!p.partial);
+  const best=finished.length?finished.reduce((a,p)=>p.value>a.value?p:a):null;
+  const chips=[{n:m.fmt(cp.total),label:`${adverb} so far`,col:accent}];
+  if(cp.pace>0)chips.push({n:m.fmt(cp.pace),label:`by this point in an average ${noun}`,col:grey});
+  if(unit==='month'){
+    const lastYear=tot[tot.length-13];
+    if(lastYear&&lastYear.value>0)chips.push({n:m.fmt(lastYear.value),label:`${monthLabel(lastYear.key)}, the same month last year`,col:grey});
+    const a=avg&&avg[avg.length-1];
+    if(a!=null)chips.push({n:m.fmt(a),label:'average month, last twelve',col:grey});
+  }else{
+    const prev=cp.prior&&cp.prior[0];
+    if(prev&&prev.toDate>0)chips.push({n:m.fmt(prev.toDate),label:`${prev.start.slice(0,4)} at the same point`,col:grey});
+    const lastYear=tot[tot.length-2];
+    if(lastYear&&lastYear.value>0)chips.push({n:m.fmt(lastYear.value),label:`${lastYear.key} in full`,col:grey});
+  }
+  if(best&&best.value>0)chips.push({n:m.fmt(best.value),label:`best ${noun} in view (${unit==='month'?monthLabel(best.key):best.key})`,col:grey});
+  chartSummary(t.chips,chips,(()=>{
+    const back=cp.prior?cp.prior.length:3;
+    if(!(cp.pace>0))return `Nothing in the last ${back} ${noun}s to hold this ${noun} against yet.`;
+    if(!(cp.total>0))return `Nothing logged yet ${adverb}, against ${m.fmt(cp.pace)} by this point in an average ${noun}.`;
+    const[,word]=ratioTone(cp.ratio);
+    const d=Math.round((cp.ratio-1)*100);
+    return `${m.fmt(cp.total)} so far ${adverb}, ${d>=0?d+'% above':Math.abs(d)+'% below'} the ${m.fmt(cp.pace)} you would usually have by this point — ${word}.`;
+  })());
 }
 
 // Distance by sport group across one date range, biggest first. Two windows need
@@ -5619,16 +5755,24 @@ function renderWeekDistance(data,t=SUM_DIST_TARGET){
   const ratio=c28>0?a7/c28:0;
   // The figure is the calendar week, matching the hours card above it. The chart
   // and the chips under it stay rolling, and stay labelled "last 7 days".
-  const cw=calendarWeek(data,a=>actDistIn(a),{today:_today()});
+  const cw=calendarPeriod(data,a=>actDistIn(a),{today:_today(),unit:heroUnit});
 
   setFig(
     chipNum(cw.total,cw.total<100?1:0),
-    weekBaseText(cw,u),
+    periodBaseText(cw,u),
     cw.pace>0&&cw.total>0?(()=>{
       const[col,word]=ratioTone(cw.ratio);
       return `<div class="sum-ratio"><span class="chip-sw" style="background:${col}"></span><strong>${cw.ratio.toFixed(2)}×</strong> ${word}</div>`;
     })():''
   );
+
+  // Read by month or by year, the chart and chips are the period's; the split follows
+  // the figure, as it always did.
+  if(heroUnit!=='week'){
+    renderHeroPeriod(data,t,HERO_MEASURE_DIST(u),cw);
+    renderWeekSplit(sportSplit(data,cw.start,_today()),cw.total);
+    return;
+  }
 
   if(!w.hasData){
     setChartEmpty(t.canvas,'No activities in the last year of this filter.');
@@ -5663,7 +5807,7 @@ function renderWeekDistance(data,t=SUM_DIST_TARGET){
 
   // ── This week, by sport ──
   // The calendar week, so it adds up to the figure above rather than to the chart.
-  const split=sportSplit(data,cw.weekStart,_today());
+  const split=sportSplit(data,cw.start,_today());
   renderWeekSplit(split,cw.total);
   // The verdict belongs to the chips beneath it, which are the rolling seven days,
   // so it gets its own split over that window. Sharing one would have the verdict
@@ -5699,14 +5843,14 @@ function renderWeekSplit(split,total){
   if(!el)return;
   const u=distUnit();
   if(!split.length||!(total>0)){
-    el.innerHTML=`<div class="sum-split"><div class="sum-split-head"><span class="sum-split-t">This week by sport</span></div>`+
-      `<div class="sum-split-empty">Nothing logged yet this week.</div></div>`;
+    el.innerHTML=`<div class="sum-split"><div class="sum-split-head"><span class="sum-split-t">${HERO_UNITS[heroUnit].label} by sport</span></div>`+
+      `<div class="sum-split-empty">Nothing logged yet ${HERO_UNITS[heroUnit].adverb}.</div></div>`;
     return;
   }
   const pct=d=>d/total*100;
   el.innerHTML=`<div class="sum-split">
     <div class="sum-split-head">
-      <span class="sum-split-t">This week by sport</span>
+      <span class="sum-split-t">${HERO_UNITS[heroUnit].label} by sport</span>
       <span class="sum-split-n">${escapeHtml(chipNum(total,1))} ${escapeHtml(u)} across ${split.length} ${split.length===1?'sport':'sports'}</span>
     </div>
     <div class="split-bar">${split.map(([g,d])=>

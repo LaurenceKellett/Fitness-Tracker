@@ -547,6 +547,111 @@ function weeklyTotals(acts,pick,opts){
   return out;
 }
 
+/* ── THE CALENDAR MONTH AND YEAR ──
+ * The hero cards can be read by month or by year as well as by week, and the
+ * arithmetic is the calendar week's, one size up: the period you are standing in, from
+ * its first day to today, held against the SAME SLICE of the periods before it — the
+ * first fourteen days of each of the last three months, or the first 257 days of each
+ * of the last three years — averaged. The reasoning holds at every size: a part-month
+ * against whole months would call the 3rd of every month a collapse.
+ */
+const PERIOD_BASE={week:WEEK_BASE_WEEKS,month:3,year:3};
+
+function periodStartISO(iso,unit){
+  if(unit==='week')return weekStartISO(iso);
+  if(unit==='year')return iso.slice(0,4)+'-01-01';
+  return iso.slice(0,7)+'-01';
+}
+// The first day of the period `n` before the one containing `iso`.
+function periodBackISO(iso,unit,n){
+  if(unit==='week')return isoOf(new Date(weekStartISO(iso)+'T12:00:00').getTime()-n*7*86400000);
+  const d=new Date(iso+'T12:00:00');
+  if(unit==='year')return String(d.getFullYear()-n)+'-01-01';
+  const m=new Date(d.getFullYear(),d.getMonth()-n,1,12);
+  return `${m.getFullYear()}-${String(m.getMonth()+1).padStart(2,'0')}-01`;
+}
+function periodLength(startISO,unit){
+  if(unit==='week')return 7;
+  const d=new Date(startISO+'T12:00:00');
+  if(unit==='year')return daysInYear(d.getFullYear());
+  return new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+}
+
+// The same shape whatever the unit: start, elapsed, length, total, pace (the base's
+// same-slice average), fullPeriod (the base's whole-period average), prior, complete,
+// ratio. The week is calendarWeek's answer under these names.
+function calendarPeriod(acts,pick,opts){
+  const o=opts||{};
+  const unit=o.unit||'week';
+  if(unit==='week'){
+    const cw=calendarWeek(acts,pick,o);
+    return Object.assign({},cw,{unit:'week',start:cw.weekStart,length:7,fullPeriod:cw.fullWeek});
+  }
+  const today=o.today||todayISO();
+  const back=o.back===undefined?PERIOD_BASE[unit]:o.back;
+
+  const byDay={};
+  (acts||[]).forEach(a=>{byDay[a.date]=(byDay[a.date]||0)+(pick(a)||0);});
+
+  const start=periodStartISO(today,unit);
+  const startMs=new Date(start+'T12:00:00').getTime();
+  const elapsed=Math.round((new Date(today+'T12:00:00').getTime()-startMs)/86400000)+1;
+  const length=periodLength(start,unit);
+  const sliceFrom=(ms,n)=>{let s=0;for(let k=0;k<n;k++)s+=byDay[isoOf(ms+k*86400000)]||0;return s;};
+
+  const total=sliceFrom(startMs,elapsed);
+  const prior=[];
+  for(let p=1;p<=back;p++){
+    const ps=periodBackISO(today,unit,p);
+    const ms=new Date(ps+'T12:00:00').getTime();
+    const len=periodLength(ps,unit);
+    // A 31-day slice of a 30-day month is the whole of it, never its neighbour's first day.
+    prior.push({start:ps,toDate:sliceFrom(ms,Math.min(elapsed,len)),full:sliceFrom(ms,len)});
+  }
+  const mean=xs=>xs.length?xs.reduce((s,v)=>s+v,0)/xs.length:0;
+  const pace=mean(prior.map(p=>p.toDate));
+  const fullPeriod=mean(prior.map(p=>p.full));
+  return{unit,start,elapsed,length,total,pace,fullPeriod,prior,complete:elapsed>=length,ratio:pace>0?total/pace:0};
+}
+
+/* ── PERIOD TOTALS ──
+ * The last N calendar months, or every calendar year since the first activity, oldest
+ * first, the current one as far as it has got — what the hero chart draws when it is
+ * read by month or by year. Anything dated after today is not counted.
+ */
+function periodTotals(acts,pick,opts){
+  const o=opts||{};
+  const unit=o.unit||'month';
+  const today=o.today||todayISO();
+  const byKey={};
+  let earliest=null;
+  (acts||[]).forEach(a=>{
+    if(!a.date||a.date>today)return;
+    const k=unit==='year'?a.date.slice(0,4):a.date.slice(0,7);
+    byKey[k]=(byKey[k]||0)+(pick(a)||0);
+    if(!earliest||a.date<earliest)earliest=a.date;
+  });
+  const out=[];
+  if(unit==='year'){
+    const thisYear=+today.slice(0,4);
+    const first=earliest?+earliest.slice(0,4):thisYear;
+    const count=o.count||(thisYear-first+1);
+    for(let y=thisYear-count+1;y<=thisYear;y++){
+      const k=String(y);
+      out.push({key:k,start:k+'-01-01',value:byKey[k]||0,partial:y===thisYear});
+    }
+  }else{
+    const count=o.count||24;
+    const d=new Date(today.slice(0,7)+'-01T12:00:00');
+    for(let i=count-1;i>=0;i--){
+      const m=new Date(d.getFullYear(),d.getMonth()-i,1,12);
+      const k=`${m.getFullYear()}-${String(m.getMonth()+1).padStart(2,'0')}`;
+      out.push({key:k,start:k+'-01',value:byKey[k]||0,partial:k===today.slice(0,7)});
+    }
+  }
+  return out;
+}
+
 /* ── TRAINING MONOTONY AND STRAIN ──
  * Foster's pair. Monotony is a week's mean daily load divided by the standard
  * deviation of those same seven days; strain is the week's total load multiplied
@@ -776,6 +881,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ROLLING_PERIODS,ROLLING_ORDER,todayISO,isYearScope,isRollingScope,periodStart,
     scopeIncludes,periodLabel,periodPhrase,isValidScope,rollingWeekly,ratioBand,RATIO_BANDS,
     calendarWeek,weekStartISO,isoOf,WEEK_BASE_WEEKS,weeklyTotals,
+    calendarPeriod,periodTotals,periodStartISO,periodBackISO,periodLength,PERIOD_BASE,
     CHRONIC_DAYS,CHRONIC_WEIGHTS,weeklyLoadStats,MONOTONY_CAUTION,MONOTONY_CAP,
     yearEndProjection,projectionWindow,daysInYear,PROJ_WINDOW_MIN,PROJ_WINDOW_MAX,
     setScope(s){

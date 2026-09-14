@@ -812,6 +812,17 @@ the column the big number leaves empty, and the chart to the right, stretched to
 of that column; the sport split and the verdict run the full width beneath. A phone stacks
 figure, chart, split, chips, verdict, as before.
 
+Both heroes can be read **by week, month or year** — a Week / Month / Year control beside
+the chart, remembered across visits and shared by the two cards; they open by month. The figure, its base, the
+sport split, the chart and the chips all follow the unit, so "this month" is one idea across
+the card rather than a chart with a week's figure beside it. By month the chart is the last
+24 calendar months as bars, the current one drawn hollow because it has not finished, with
+the average of the twelve months before each bar as the grey line; by year, every year on
+record. The base is the calendar week's arithmetic one size up — this month from the 1st to
+today against the same slice of the three months before it, this year from 1 January against
+the same day-count of the three years before (`calendarPeriod()` and `periodTotals()` in
+`calc.js`, both tested). The Charts tab's copy of the load chart stays weekly.
+
 ### Why the figure is a calendar week
 
 "This week" means the week you are standing in — Monday to today — and not the last seven

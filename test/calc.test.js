@@ -10,6 +10,7 @@ const {
   actDistIn, distIn, ROLLING_ORDER, todayISO, isYearScope, isRollingScope, periodStart,
   scopeIncludes, periodLabel, periodPhrase, isValidScope, rollingWeekly, ratioBand,
   calendarWeek, weekStartISO, weeklyTotals,
+  calendarPeriod, periodTotals, periodStartISO, periodLength, PERIOD_BASE,
   CHRONIC_DAYS, CHRONIC_WEIGHTS, weeklyLoadStats, MONOTONY_CAP,
   yearEndProjection, projectionWindow, daysInYear, PROJ_WINDOW_MIN, PROJ_WINDOW_MAX,
   setScope,
@@ -1182,5 +1183,126 @@ describe('yearEndProjection', () => {
     expect(daysInYear('2026')).toBe(365);
     expect(daysInYear('2000')).toBe(366);
     expect(daysInYear('1900')).toBe(365);
+  });
+});
+
+// ── THE CALENDAR MONTH AND YEAR ──────────────────────────────────────────────
+// The week's arithmetic one size up. The tests mirror calendarWeek's: the slice stops
+// at today, the base is the same slice of earlier periods, and a slice never runs past
+// the end of a shorter month into the next one.
+
+describe('calendarPeriod', () => {
+  const hours = (a) => (a.mt || 0) / 3600;
+  const on = (date, h) => ({ date, mt: h * 3600 });
+
+  it('hands the week to calendarWeek, under the shared names', () => {
+    const acts = [on('2026-09-14', 1), on('2026-09-15', 2)];
+    const cp = calendarPeriod(acts, hours, { today: '2026-09-15', unit: 'week' });
+    const cw = calendarWeek(acts, hours, { today: '2026-09-15' });
+    expect(cp.total).toBe(cw.total);
+    expect(cp.start).toBe(cw.weekStart);
+    expect(cp.length).toBe(7);
+    expect(cp.unit).toBe('week');
+    expect(cp.fullPeriod).toBe(cw.fullWeek);
+  });
+
+  it('totals the month from the 1st to today and stops there', () => {
+    const acts = [on('2026-09-01', 1), on('2026-09-10', 2), on('2026-09-14', 3), on('2026-09-20', 9)];
+    const cp = calendarPeriod(acts, hours, { today: '2026-09-14', unit: 'month' });
+    expect(cp.total).toBe(6);
+    expect(cp.elapsed).toBe(14);
+    expect(cp.start).toBe('2026-09-01');
+    expect(cp.length).toBe(30);
+    expect(cp.complete).toBe(false);
+  });
+
+  it('measures a month against the same slice of the three before it', () => {
+    // Two hours on the 3rd and ten on the 25th of each of the last three months. By
+    // the 14th an average month has done two hours, not twelve.
+    const acts = [];
+    ['2026-06', '2026-07', '2026-08'].forEach((m) => { acts.push(on(m + '-03', 2), on(m + '-25', 10)); });
+    acts.push(on('2026-09-03', 4));
+    const cp = calendarPeriod(acts, hours, { today: '2026-09-14', unit: 'month' });
+    expect(cp.total).toBe(4);
+    expect(cp.pace).toBe(2);
+    expect(cp.fullPeriod).toBe(12);
+    expect(cp.ratio).toBe(2);
+    expect(cp.prior).toHaveLength(3);
+    expect(cp.prior[0].start).toBe('2026-08-01');
+    expect(cp.prior[2].start).toBe('2026-06-01');
+  });
+
+  it('never lets a 31-day slice reach past a shorter month', () => {
+    // 31 March against February: the slice is the whole of February, and 1 March's
+    // seven hours belong to March, not to a 31-day February.
+    const acts = [on('2026-02-28', 5), on('2026-03-01', 7)];
+    const cp = calendarPeriod(acts, hours, { today: '2026-03-31', unit: 'month' });
+    expect(cp.elapsed).toBe(31);
+    expect(cp.total).toBe(7);
+    expect(cp.prior[0].start).toBe('2026-02-01');
+    expect(cp.prior[0].toDate).toBe(5);
+    expect(cp.prior[0].full).toBe(5);
+  });
+
+  it('reads the year from 1 January against the same day-count of earlier years', () => {
+    const acts = [on('2025-01-10', 3), on('2025-12-25', 9), on('2024-01-05', 1), on('2024-11-01', 4), on('2026-01-02', 2)];
+    const cp = calendarPeriod(acts, hours, { today: '2026-03-01', unit: 'year' });   // day 60
+    expect(cp.total).toBe(2);
+    expect(cp.elapsed).toBe(60);
+    expect(cp.length).toBe(365);
+    // 2025 and 2024 to day 60 are 3 and 1; 2023 is empty and counts, as an empty week does.
+    expect(cp.pace).toBeCloseTo((3 + 1 + 0) / 3, 6);
+    expect(cp.fullPeriod).toBeCloseTo((12 + 5 + 0) / 3, 6);
+  });
+
+  it('is complete on the last day of the period', () => {
+    expect(calendarPeriod([], hours, { today: '2026-09-30', unit: 'month' }).complete).toBe(true);
+    expect(calendarPeriod([], hours, { today: '2026-09-29', unit: 'month' }).complete).toBe(false);
+    expect(calendarPeriod([], hours, { today: '2026-12-31', unit: 'year' }).complete).toBe(true);
+    expect(calendarPeriod([], hours, { today: '2026-12-30', unit: 'year' }).complete).toBe(false);
+  });
+
+  it('knows where periods start and how long they are', () => {
+    expect(periodStartISO('2026-09-14', 'month')).toBe('2026-09-01');
+    expect(periodStartISO('2026-09-14', 'year')).toBe('2026-01-01');
+    expect(periodStartISO('2026-09-16', 'week')).toBe('2026-09-14');
+    expect(periodLength('2026-02-01', 'month')).toBe(28);
+    expect(periodLength('2024-02-01', 'month')).toBe(29);
+    expect(periodLength('2024-01-01', 'year')).toBe(366);
+    expect(PERIOD_BASE.month).toBe(3);
+    expect(PERIOD_BASE.year).toBe(3);
+  });
+});
+
+describe('periodTotals', () => {
+  const miles = (a) => a.dist_mi || 0;
+
+  it('gives the last 24 months oldest first, the current one marked unfinished', () => {
+    const acts = [{ date: '2026-09-03', dist_mi: 10 }, { date: '2026-08-20', dist_mi: 5 },
+                  { date: '2024-10-01', dist_mi: 99 }, { date: '2024-09-15', dist_mi: 1 }];
+    const t = periodTotals(acts, miles, { today: '2026-09-14', unit: 'month' });
+    expect(t).toHaveLength(24);
+    expect(t[0].key).toBe('2024-10');
+    expect(t[0].value).toBe(99);
+    expect(t[23].key).toBe('2026-09');
+    expect(t[23].value).toBe(10);
+    expect(t[23].partial).toBe(true);
+    expect(t[22].value).toBe(5);
+    expect(t[22].partial).toBe(false);
+    expect(t.find((p) => p.key === '2024-09')).toBeUndefined();   // outside the window
+  });
+
+  it('gives every year from the first activity, the current one unfinished', () => {
+    const acts = [{ date: '2023-06-01', dist_mi: 1 }, { date: '2026-01-01', dist_mi: 2 }];
+    const t = periodTotals(acts, miles, { today: '2026-09-14', unit: 'year' });
+    expect(t.map((p) => p.key)).toEqual(['2023', '2024', '2025', '2026']);
+    expect(t[1].value).toBe(0);
+    expect(t[0].partial).toBe(false);
+    expect(t[3].partial).toBe(true);
+  });
+
+  it('ignores anything dated after today', () => {
+    const t = periodTotals([{ date: '2026-09-20', dist_mi: 7 }], miles, { today: '2026-09-14', unit: 'month' });
+    expect(t[23].value).toBe(0);
   });
 });

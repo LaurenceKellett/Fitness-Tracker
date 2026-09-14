@@ -733,7 +733,7 @@ async function main() {
     });
 
     await check('the distance-per-week hero sits under the hours one and adds up', async () => {
-      await page.evaluate(() => { window.setYear('All'); window.setType('All'); window.setUnit('mi'); window.setTab('summary'); });
+      await page.evaluate(() => { window.setYear('All'); window.setType('All'); window.setUnit('mi'); window.setHeroUnit('week'); window.setTab('summary'); });
       await page.waitForTimeout(800);
 
       const r = await page.evaluate(() => {
@@ -796,7 +796,7 @@ async function main() {
     });
 
     await check('"this week" is the calendar week, not the last seven days', async () => {
-      await page.evaluate(() => { window.setYear('All'); window.setType('All'); window.setUnit('mi'); window.setTab('summary'); });
+      await page.evaluate(() => { window.setYear('All'); window.setType('All'); window.setUnit('mi'); window.setHeroUnit('week'); window.setTab('summary'); });
       await page.waitForTimeout(800);
 
       const r = await page.evaluate(() => {
@@ -823,6 +823,61 @@ async function main() {
       // means zero, however full the seven days behind it were.
       assert(Math.abs(r.shown - r.week) < 0.05,
         `hero reads ${r.shown}h, calendar week is ${r.week.toFixed(2)}h (last seven days: ${r.seven.toFixed(2)}h)`);
+    });
+
+    await check('the hero cards can be read by month and by year, and remember which', async () => {
+      await page.evaluate(() => window.setTab('summary'));
+      const read = () => page.evaluate(() => ({
+        labels: [...document.querySelectorAll('.sum-hero-label')].map((e) => e.textContent),
+        active: [...document.querySelectorAll('.hero-unit-ctl .chart-ctl-btn.active')].map((b) => b.dataset.unit),
+        type: window.Chart.getChart(document.getElementById('chartSumDist')).config.type,
+        hoursType: window.Chart.getChart(document.getElementById('chartSumLoad')).config.type,
+        chips: [...document.querySelectorAll('#sumDistChips .chart-chip')].map((e) => e.innerText.replace(/\s+/g, ' ')),
+        split: document.querySelector('#sumDistSplit .sum-split-t').textContent,
+        base: document.getElementById('sumDistBase').textContent,
+        hoursBase: document.getElementById('sumWeekBase').textContent,
+        chartsTab: window.Chart.getChart(document.getElementById('chartLoad')).config.type,
+      }));
+      const first = await read();
+      assert(first.active.length === 2 && first.active.every((u) => u === 'month'), 'Month is not the default');
+      assert(first.labels.every((l) => l === 'This month'), `default labels read ${first.labels}`);
+      await page.evaluate(() => window.setHeroUnit('week'));
+      await page.waitForTimeout(500);
+      const week = await read();
+      assert(week.labels.length === 2 && week.labels.every((l) => l === 'This week'), `labels read ${week.labels}`);
+      assert(week.type === 'line', 'the weekly chart is not the rolling line');
+
+      await page.evaluate(() => window.setHeroUnit('month'));
+      await page.waitForTimeout(500);
+      const month = await read();
+      assert(month.labels.every((l) => l === 'This month'), `month labels read ${month.labels}`);
+      assert(month.active.every((u) => u === 'month'), 'both controls should show Month');
+      assert(month.type === 'bar' && month.hoursType === 'bar', `month view drew ${month.type} / ${month.hoursType}`);
+      assert(month.chips.some((c) => /this month so far/.test(c)), `month chips: ${month.chips.join(' | ')}`);
+      assert(/This month by sport/.test(month.split), `split reads "${month.split}"`);
+      assert(/average month/.test(month.base) && /average month/.test(month.hoursBase), `bases read "${month.base}" / "${month.hoursBase}"`);
+      // The Charts tab's copy of the load chart is not a hero and stays weekly.
+      assert(month.chartsTab === 'line', 'the Charts tab load chart followed the hero unit');
+
+      await page.evaluate(() => window.setHeroUnit('year'));
+      await page.waitForTimeout(500);
+      const year = await read();
+      assert(year.labels.every((l) => l === 'This year'), `year labels read ${year.labels}`);
+      assert(year.chips.some((c) => /this year so far/.test(c)), `year chips: ${year.chips.join(' | ')}`);
+      assert(/average year/.test(year.base), `year base reads "${year.base}"`);
+
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => !document.body.classList.contains('is-loading'), { timeout: 15000 });
+      await page.waitForTimeout(500);
+      const kept = await read();
+      assert(kept.active.every((u) => u === 'year') && kept.labels.every((l) => l === 'This year'), 'the unit did not survive a reload');
+
+      await page.evaluate(() => window.setHeroUnit('week'));
+      await page.waitForTimeout(500);
+      const back = await read();
+      assert(back.type === 'line' && back.labels.every((l) => l === 'This week'), 'Week did not come back');
+      await page.evaluate(() => window.setHeroUnit('month'));
+      await page.waitForTimeout(400);
     });
 
     await check('the distance hero follows the unit toggle', async () => {
