@@ -1244,6 +1244,18 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .gear-retired-tag{display:inline-block;font-size:9px;font-weight:700;background:var(--tag-soft);color:var(--tag-fg);padding:1px 5px;margin-left:4px;vertical-align:1px}
 .gear-card.is-retired{opacity:.72}
 .gear-card.is-retired:hover{opacity:1}
+/* ── RETIRED KIT IS OFF THE SHELF ──
+   A retired pair is a fact about your history, not a thing you own, so the shelves
+   start with what is in rotation and the retired items sit behind one button. The
+   control lives on the section header's own row rather than in a card, because it
+   governs every shelf at once. */
+/* `.chart-ctl` is display:flex, which outranks the `hidden` attribute's own
+   display:none — without this the control would still show when nothing is
+   retired and there is nothing for it to do. */
+.gear-retired-ctl{margin-top:2px}
+.gear-retired-ctl[hidden]{display:none}
+.gear-empty{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);
+  padding:18px 20px;font-size:12px;color:var(--text-light);line-height:1.55;margin-bottom:24px}
 .gear-photo-hint code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;background:var(--bg);border:1px solid var(--border);padding:0 4px}
 .top-gear-photo{width:28px;height:28px;object-fit:cover;border-radius:0;flex:none}
 .gear-name{font-size:13px;font-weight:700;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -2205,7 +2217,11 @@ body.is-loading .stats-grid *{visibility:hidden}
        stacked these the first time round. -->
   <div class="charts-grid" data-zone="gear">
     <div class="span-full" data-panel="gear-summary" data-panel-label="Gear Summary">
-      <div class="section-header"><h2>Gear summary</h2><span class="badge" id="gearBadge"></span></div>
+      <div class="section-header"><h2>Gear summary</h2><span class="badge" id="gearBadge"></span>
+        <div class="chart-ctl gear-retired-ctl" id="gearRetiredCtl" role="group" aria-label="Retired gear" hidden>
+          <button type="button" class="chart-ctl-btn" id="gearRetiredBtn" aria-pressed="false" onclick="toggleRetiredGear()">Show retired</button>
+        </div>
+      </div>
       <div id="gearCards"></div>
     </div>
     <div class="chart-card" data-panel="gear-dist">
@@ -7504,6 +7520,35 @@ const SHOE_LIFE_MI=750;
 // resolved before the Worker started passing the kind through. The order of these
 // keys is the order the shelves appear in.
 const GEAR_KIND_LABEL={bike:'Bikes',shoe:'Shoes',other:'Other kit'};
+
+// ── WHAT YOU OWN, NOT WHAT YOU OWNED ──
+// Dimming a retired pair and sinking it to the end of its shelf still leaves it on
+// the shelf, and a collection accumulates: eventually the kit you actually reach for
+// is outnumbered by the kit you have finished with. So the shelves default to what
+// is in rotation, and the retired items come back with one button. The choice is
+// remembered, like every other view preference here. The two charts below the
+// shelves are deliberately NOT filtered — "Top gear by distance" would be lying if
+// it dropped the pair with the most miles on it, and "Gear over time" exists
+// precisely to show things arriving and going quiet.
+const GEAR_RETIRED_KEY='fitness_gear_retired_v1';
+let showRetiredGear=false;
+try{showRetiredGear=localStorage.getItem(GEAR_RETIRED_KEY)==='1';}catch(e){}
+function toggleRetiredGear(){
+  showRetiredGear=!showRetiredGear;
+  try{localStorage.setItem(GEAR_RETIRED_KEY,showRetiredGear?'1':'0');}catch(e){}
+  renderGear();
+}
+// The button only exists when there is something behind it — with nothing retired
+// it would be a control that does nothing, which is worse than no control.
+function syncRetiredCtl(retiredCount){
+  const ctl=document.getElementById('gearRetiredCtl'),btn=document.getElementById('gearRetiredBtn');
+  if(!ctl||!btn)return;
+  ctl.hidden=!retiredCount;
+  if(!retiredCount)return;
+  btn.textContent=(showRetiredGear?'Hide ':'Show ')+retiredCount+' retired';
+  btn.classList.toggle('active',showRetiredGear);
+  btn.setAttribute('aria-pressed',showRetiredGear?'true':'false');
+}
 // What a thing is FOR, which is not always what it was used for. A pair of Pegasus
 // is a running shoe through a winter of dog walks, and the card should say so — the
 // alternative is a running shoe filed under walking because that is where the miles
@@ -7625,14 +7670,22 @@ function renderGear(){
   // with current gear for the top of the page.
   const sorted=Object.entries(gm).sort((a,b)=>
     (isRetiredGear(a[0])?1:0)-(isRetiredGear(b[0])?1:0)||b[1].dist-a[1].dist);
-  document.getElementById('gearBadge').textContent=sorted.length+' items';
+  // The badge counts what is on the shelves and then says what is not, so a number
+  // that dropped since last visit explains itself.
+  const retiredCount=sorted.filter(([n])=>isRetiredGear(n)).length;
+  const shelved=showRetiredGear?sorted:sorted.filter(([n])=>!isRetiredGear(n));
+  syncRetiredCtl(retiredCount);
+  const plural=n=>n+' item'+(n===1?'':'s');
+  document.getElementById('gearBadge').textContent=!retiredCount?plural(sorted.length)
+    :showRetiredGear?`${plural(sorted.length)} · ${retiredCount} retired`
+    :`${plural(shelved.length)} in rotation · ${retiredCount} retired hidden`;
   const GEAR_COLORS=['#1d4ed8','#ef4444','#eab308','#0ea5e9','#8b5cf6','#22c55e','#f97316','#14b8a6','#84cc16','#a855f7'];
   // ── The shelves ──
   // Bikes, shoes, everything else. Within a shelf the order is what you used
   // last, so the pair in rotation leads; retired gear is held below anything
   // current even if it was worn last week, because that decision is made.
   const shelves={bike:[],shoe:[],other:[]};
-  Object.entries(gm).forEach(e=>{shelves[gearKind(e[0],dominantType(e[1].types))].push(e);});
+  shelved.forEach(e=>{shelves[gearKind(e[0],dominantType(e[1].types))].push(e);});
   Object.values(shelves).forEach(items=>items.sort((a,b)=>
     (isRetiredGear(a[0])?1:0)-(isRetiredGear(b[0])?1:0)||b[1].last.localeCompare(a[1].last)));
   document.getElementById('gearCards').innerHTML=Object.keys(GEAR_KIND_LABEL).map(k=>{
@@ -7643,7 +7696,7 @@ function renderGear(){
       `<div class="gear-group-head"><h3>${GEAR_KIND_LABEL[k]}</h3>`+
       `<span>${items.length} item${items.length===1?'':'s'} · ${fmtDist(dist)} ${distUnit()}</span></div>`+
       `<div class="gear-grid">${items.map(gearCardHtml).join('')}</div></div>`;
-  }).join('');
+  }).join('')||(retiredCount?`<div class="gear-empty">Every item in this filter is retired. Use <strong>Show ${retiredCount} retired</strong> above to see ${retiredCount===1?'it':'them'}.</div>`:'');
   // Chart: by distance
   const top10d=sorted.slice(0,10);
   document.getElementById('gearDistSub').textContent=(unit==='mi'?'Miles':'Kilometres')+' logged per item';

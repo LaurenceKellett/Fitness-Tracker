@@ -62,7 +62,10 @@ function fixture() {
       cal: 400 + i,
       speed_mph: +(8 + (i % 12)).toFixed(1),
       speed_kph: +((8 + (i % 12)) * 1.60934).toFixed(1),
-      gear: i % 2 ? 'Canyon Ultimate CF SL 8' : 'Nike Pegasus 40',
+      // The Brooks only ever appear in the oldest third, so the retired pair is also
+      // the pair used least recently — the Gear tab has to hide it for being retired,
+      // not for being old.
+      gear: i % 2 ? 'Canyon Ultimate CF SL 8' : (i > 300 ? 'Brooks Ghost 14' : 'Nike Pegasus 40'),
       wtype: i % 37 === 0 ? 1 : 0,
       commute: i % 13 === 0,
       has_map: i % 3 !== 0,
@@ -82,9 +85,12 @@ const ENVELOPE = {
   hrZones: { source: 'strava', zones: [110, 130, 150, 170] },
   // `kind` is what the Worker reads off Strava's gear id — b… a bike, g… a shoe — and
   // what the Gear tab shelves by. One of each, so the shelving can be tested at all.
+  // One retired pair, so the shelves have something to hide and the toggle has
+  // something to bring back.
   gearMeta: {
     'Nike Pegasus 40': { retired: false, kind: 'shoe' },
     'Canyon Ultimate CF SL 8': { retired: false, kind: 'bike' },
+    'Brooks Ghost 14': { retired: true, kind: 'shoe' },
   },
 };
 
@@ -987,6 +993,61 @@ async function main() {
       // A shoe wears out against 750; a bike gets a usage rate and no wear bar.
       assert(/750/.test(r.wear), `the wear bar reads "${r.wear}"`);
       assert(!r.bikeWear, `a bike was given a wear bar: "${r.bikeWear}"`);
+    });
+
+    await check('retired gear is off the shelf until you ask for it', async () => {
+      await page.evaluate(() => window.setTab('gear'));
+      await page.waitForTimeout(400);
+      const read = () => page.evaluate(() => {
+        const btn = document.getElementById('gearRetiredBtn');
+        const shoeHead = document.querySelector('.gear-group[data-kind="shoe"] .gear-group-head span');
+        return {
+          ctlHidden: document.getElementById('gearRetiredCtl').hidden,
+          label: btn.textContent.trim(),
+          pressed: btn.getAttribute('aria-pressed'),
+          names: [...document.querySelectorAll('.gear-card .gear-name')].map((e) => e.textContent),
+          retiredCards: document.querySelectorAll('.gear-card.is-retired').length,
+          badge: document.getElementById('gearBadge').textContent,
+          shoeHead: shoeHead ? shoeHead.textContent : '',
+          // The charts below the shelves rank your whole history and are not filtered.
+          chartLabels: (() => {
+            const c = window.Chart.getChart(document.getElementById('chartGearDist'));
+            return c ? (c.data.labels || []).join('|') : '';
+          })(),
+        };
+      });
+
+      const before = await read();
+      assert(!before.ctlHidden, 'the control is hidden even though something is retired');
+      assert(before.label === 'Show 1 retired', `the button reads "${before.label}"`);
+      assert(before.pressed === 'false', `the button reports pressed=${before.pressed}`);
+      assert(before.retiredCards === 0, `${before.retiredCards} retired cards are on the shelf by default`);
+      assert(!before.names.some((n) => /Ghost/.test(n)), `the retired pair is listed: ${before.names}`);
+      assert(/^2 items in rotation · 1 retired hidden$/.test(before.badge), `the badge reads "${before.badge}" with the retired pair away`);
+      assert(/^1 item ·/.test(before.shoeHead), `the shoe shelf still counts the retired pair: "${before.shoeHead}"`);
+      assert(/Ghost/.test(before.chartLabels), 'hiding a retired pair dropped it from the distance chart');
+
+      await page.click('#gearRetiredBtn');
+      await page.waitForTimeout(300);
+      const after = await read();
+      assert(after.label === 'Hide 1 retired', `the button reads "${after.label}"`);
+      assert(after.pressed === 'true', `the button reports pressed=${after.pressed}`);
+      assert(after.retiredCards === 1, `${after.retiredCards} cards came back marked retired`);
+      assert(after.names.some((n) => /Ghost/.test(n)), `the retired pair did not come back: ${after.names}`);
+      assert(/^3 items · 1 retired$/.test(after.badge), `the badge reads "${after.badge}" with the retired pair shown`);
+
+      // The choice is a preference, so a re-render must not quietly undo it.
+      const kept = await page.evaluate(() => {
+        window.renderGear();
+        return document.querySelectorAll('.gear-card.is-retired').length;
+      });
+      assert(kept === 1, 're-rendering the tab forgot that retired gear was showing');
+
+      await page.click('#gearRetiredBtn');
+      await page.waitForTimeout(300);
+      const back = await read();
+      assert(back.retiredCards === 0, 'the button does not put the retired kit away again');
+      await page.evaluate(() => { try { localStorage.removeItem('fitness_gear_retired_v1'); } catch (e) {} });
     });
 
     await check('a gear photo carries a wash in its sport colour', async () => {

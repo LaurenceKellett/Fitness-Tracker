@@ -477,9 +477,18 @@ it with the rest of the gear metadata. Anything resolved before that (an old cac
 falls back to what you actually did in it: Ride or Virtual is a bike, Run or Walk a shoe,
 everything else other kit.
 
-Within a shelf the order is **what you used last**, so whatever is in rotation leads. Retired
-gear is held below everything current in its own shelf, even if it was worn last week — that
-decision is already made — and it stays dimmed.
+Within a shelf the order is **what you used last**, so whatever is in rotation leads.
+
+**Retired gear is off the shelves by default.** Dimming a retired pair and sinking it to the
+end of its shelf still leaves it on the shelf, and a collection only accumulates: eventually
+the kit you actually reach for is outnumbered by the kit you have finished with. So the
+shelves show what is in rotation, the badge says how many items are held back, and one button
+on the section header — *Show 3 retired* — brings them back, dimmed and below everything
+current in their own shelf. The choice is remembered on the device.
+
+The two charts underneath are deliberately **not** filtered by that button. "Top gear by
+distance" would be lying if it dropped the pair with the most miles on it, and "Gear over
+time" exists precisely to show things arriving and going quiet.
 
 Each card is coloured and labelled by **what the thing is for**, not by what it was used for:
 a pair of Pegasus is a running shoe through a winter of dog walks, so it reads as Run and
