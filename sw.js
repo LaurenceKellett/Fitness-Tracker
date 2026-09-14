@@ -112,7 +112,7 @@ self.addEventListener('fetch', (event) => {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
   // Activity and Zwift data belong to localStorage, not to this layer.
-  if (/\/(activities|zwift-routes|sync-training-log|backfill-prs)\b/.test(url.pathname)) return;
+  if (/\/(activities|zwift-routes|sync-training-log|backfill-prs|prefs)\b/.test(url.pathname)) return;
   // Map tiles are numerous, large and change rarely — but caching them silently
   // would grow without bound, so they are left to the browser's own HTTP cache.
   if (/tile\.openstreetmap\.org$/.test(url.hostname)) return;

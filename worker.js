@@ -68,7 +68,7 @@ const ZWIFT_CACHE_TTL      = 120; // 2 minutes — writes invalidate this immedi
 // Allow-Origin half is decided per request and stamped on the way out — see
 // withCors below — because it depends on who is asking.
 const CORS = {
-  'Access-Control-Allow-Methods': 'GET, PATCH, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, PUT, PATCH, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, X-API-Key',
   'Vary': 'Origin',
 };
@@ -127,7 +127,7 @@ function withCors(res, request, env) {
  * behind something — Cloudflare Access, a VPN — and the Worker needs to stop being
  * the open back door to it. Unset, everything behaves exactly as before.
  */
-const KEYED_ROUTES = ['/activities', '/zwift-routes', '/backfill-prs', '/sync-training-log', '/debug'];
+const KEYED_ROUTES = ['/activities', '/zwift-routes', '/backfill-prs', '/sync-training-log', '/debug', '/prefs'];
 
 function keyIsMissing(request, env, pathname) {
   if (!env || !env.API_KEY) return false;
@@ -188,6 +188,7 @@ async function route(request, env) {
     case '/callback':           return handleCallback(request, env);
     case '/activities':         return handleActivities(request, env);
     case '/debug':              return handleDebug(env);
+    case '/prefs':              return handlePrefs(request, env);
     case '/zwift-routes':       return handleZwiftRoutes(request, env);
     case '/sync-training-log':  return handleSyncTrainingLog(env);
     case '/backfill-prs':       return handleBackfillPrs(env);
@@ -466,6 +467,94 @@ async function handleDebug(env) {
 // =============================================================================
 
 const ZWIFT_STATUS_VALUES = ['Not started', 'Blocked', 'Planned', 'Complete'];
+
+// =============================================================================
+// PREFERENCES
+// =============================================================================
+/*
+ * The dashboard's own settings — at present the panel order per zone, set by
+ * "Rearrange this tab". The browser keeps its own copy in localStorage and that is
+ * what actually draws the page; this one exists so an arrangement made on the
+ * laptop is there on the phone.
+ *
+ * One record for one person, no merging. What is being synced is a single
+ * ordering, and two devices disagreeing about it means the most recent arrangement
+ * is the one that was meant — so the stamp decides, not arrival order.
+ *
+ * Auth is whatever the Worker has: /prefs sits behind the optional API_KEY gate
+ * like every other route. With the gate off, anyone who finds the URL can read or
+ * shuffle the order — which is the whole of the damage, and Reset undoes it.
+ * Nothing belongs in here that would matter if it were read or written by someone
+ * else.
+ *
+ * No expirationTtl: a preference that quietly expired after a day would be worse
+ * than not syncing at all.
+ */
+const PREFS_KEY = 'prefs_v1';
+const PREFS_MAX = 64 * 1024;
+
+async function handlePrefs(request, env) {
+  const headers = { ...CORS, 'Content-Type': 'application/json' };
+
+  if (!env.CACHE) {
+    return new Response(JSON.stringify({ error: true, message: 'KV namespace not bound' }), {
+      status: 500, headers,
+    });
+  }
+
+  if (request.method === 'GET') {
+    const raw = await env.CACHE.get(PREFS_KEY);
+    // updatedAt 0 for "never set", so a browser that has an order of its own always
+    // wins the first comparison and pushes it up.
+    return new Response(raw || JSON.stringify({ prefs: {}, updatedAt: 0 }), { headers });
+  }
+
+  if (request.method === 'PUT') {
+    let body;
+    try {
+      body = await request.json();
+    } catch (err) {
+      return new Response(JSON.stringify({ error: true, message: 'Body must be JSON' }), {
+        status: 400, headers,
+      });
+    }
+
+    const prefs = body && typeof body.prefs === 'object' && body.prefs !== null && !Array.isArray(body.prefs)
+      ? body.prefs : null;
+    if (!prefs) {
+      return new Response(JSON.stringify({ error: true, message: 'Expected { prefs, updatedAt }' }), {
+        status: 400, headers,
+      });
+    }
+
+    const updatedAt = Number(body.updatedAt) || 0;
+
+    // A device that has been asleep since Tuesday must not undo Wednesday's
+    // arrangement just because it woke up and pushed second.
+    const existing = await env.CACHE.get(PREFS_KEY);
+    if (existing) {
+      try {
+        if ((Number(JSON.parse(existing).updatedAt) || 0) > updatedAt) {
+          return new Response(existing, { headers: { ...headers, 'X-Prefs': 'stale' } });
+        }
+      } catch (err) {
+        // An unparseable record is worse than no record: let this write replace it.
+      }
+    }
+
+    const record = JSON.stringify({ prefs, updatedAt });
+    if (record.length > PREFS_MAX) {
+      return new Response(JSON.stringify({ error: true, message: 'Preferences too large' }), {
+        status: 413, headers,
+      });
+    }
+
+    await env.CACHE.put(PREFS_KEY, record);
+    return new Response(record, { headers });
+  }
+
+  return new Response('Method not allowed', { status: 405, headers: CORS });
+}
 
 async function handleZwiftRoutes(request, env) {
   if (!env.NOTION_API_KEY) {

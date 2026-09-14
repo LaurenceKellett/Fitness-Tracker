@@ -208,22 +208,33 @@ a{color:inherit;text-decoration:none}
 .tab-btn.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
 .tab-btn:hover:not(.active){color:var(--text)}
 .year-bar{display:flex;align-items:center;gap:5px;flex-shrink:0}
-.year-all{padding:5px 10px;font-size:11px;font-weight:600;color:var(--text-muted);border:1px solid var(--border-strong);border-radius:0;background:transparent;cursor:pointer;transition:all .15s;font-family:inherit}
+/* Every control on this row is one height: var(--ctl-h), which the logo and the
+   settings button were already using. These were sized by padding against four
+   different font sizes instead, which put three different heights — 23, 25 and
+   27px — in a single bar. The vertical padding is gone from all of them, so the
+   box sets the height and the text centres inside it; a later font-size change
+   cannot knock one control out of line again. */
+.year-all{height:var(--ctl-h);display:inline-flex;align-items:center;padding:0 10px;font-size:11px;font-weight:600;color:var(--text-muted);border:1px solid var(--border-strong);border-radius:0;background:transparent;cursor:pointer;transition:all .15s;font-family:inherit}
 .year-all.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent-soft)}
-.year-ctl{display:flex;align-items:center;border:1px solid var(--border-strong);border-radius:0;overflow:hidden}
-.year-arrow{padding:5px 8px;font-size:14px;font-weight:500;color:var(--text-muted);border:none;background:transparent;cursor:pointer;line-height:1;transition:color .15s;font-family:inherit}
+/* stretch rather than center, so the dividers between the arrows and the year run
+   the full height of the box and not just the height of their own text. */
+.year-ctl{display:flex;align-items:stretch;height:var(--ctl-h);border:1px solid var(--border-strong);border-radius:0;overflow:hidden}
+.year-arrow{display:flex;align-items:center;padding:0 8px;font-size:14px;font-weight:500;color:var(--text-muted);border:none;background:transparent;cursor:pointer;line-height:1;transition:color .15s;font-family:inherit}
 .year-arrow:hover:not(:disabled){color:var(--text)}
 .year-arrow:disabled{opacity:.35;cursor:default}
 .year-arrow:first-child{border-right:1px solid var(--border)}
 .year-arrow:last-child{border-left:1px solid var(--border)}
-.year-label{padding:5px 12px;font-size:12px;font-weight:700;color:var(--text)}
-.year-roll{padding:5px 8px;font-size:11px;font-weight:600;color:var(--text-muted);border:none;
+.year-label{display:flex;align-items:center;padding:0 12px;font-size:12px;font-weight:700;color:var(--text)}
+.year-roll{display:flex;align-items:center;padding:0 8px;font-size:11px;font-weight:600;color:var(--text-muted);border:none;
   background:transparent;cursor:pointer;line-height:1;font-family:inherit;transition:all .15s}
 .year-roll+.year-roll{border-left:1px solid var(--border)}
 .year-roll:hover:not(.active){color:var(--text)}
 .year-roll.active{background:var(--accent-soft);color:var(--accent)}
 .type-bar{display:flex;gap:2px;flex-wrap:wrap}
 .type-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;font-size:12px;font-weight:500;color:var(--text-muted);border:none;background:transparent;border-radius:0;cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit}
+/* Scoped to .type-bar so the Zwift toolbar, which uses the same button class at
+   its own size, is left alone. */
+.type-bar .type-btn{height:var(--ctl-h);padding:0 9px}
 .type-btn:hover:not(.active){color:var(--text)}
 .type-btn.active{font-weight:600}
 .type-btn[data-type="All"].active{background:var(--accent-soft);color:var(--accent)}
@@ -316,7 +327,7 @@ a{color:inherit;text-decoration:none}
   .sum-hero{padding:18px}
 }
 /* STATS */
-.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:14px;margin-bottom:24px}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:14px;margin-bottom:24px}
 .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:18px 20px;box-shadow:var(--shadow)}
 .stat-card-link{cursor:pointer;transition:box-shadow .1s}
 .stat-card-link:hover{box-shadow:0 2px 4px rgba(15,23,42,.06),0 8px 20px rgba(15,23,42,.09)}

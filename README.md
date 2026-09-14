@@ -262,6 +262,15 @@ their own" — and a fixed row cannot be reordered without first deciding what h
 card sharing it. Now each card declares `span-full` or half and the section flows. The
 rendered layout is unchanged; only who owns the rows is.
 
+The order **follows you between devices.** Every save is stamped and pushed to the Worker
+(`PUT /prefs`, one KV record — see *Worker API routes*); at boot the page pulls it and the
+newer stamp wins outright. There is nothing to merge: what is synced is a single ordering per
+zone, so two devices disagreeing means the more recent arrangement is the one that was meant.
+`localStorage` is still what renders — the page never waits on the network to draw itself in
+order, and a dead Worker leaves you with your local order rather than an error. A layout saved
+before syncing existed seeds an empty server on its first load, so nothing has to be moved
+again just to get it onto the phone.
+
 Order is saved to `localStorage` under `fitness_layout_v1` as the panel keys of each zone —
 by key rather than index, so adding a panel in a later release does not renumber a saved
 order; a panel the saved order has never seen is slotted in at its default position. Saving
@@ -291,7 +300,7 @@ is the one the theme swaps; the cache is dropped whenever the theme changes.
 
 | Tab | What it shows |
 |-----|---------------|
-| Summary | Leads with the present tense — this week's hours against your 28-day base, then the same week in distance with its own rolling chart and a per-sport split of the last seven days, a one-line read across load/year/sport, cumulative distance against the same day last year, consistency over 28 days, and a per-sport row. Career totals sit on one line at the bottom. Then activity breakdown, year-by-year table, location pills, top gear and recent activities (see below) |
+| Summary | Leads with the present tense — this calendar week's hours (Monday to today) against the same point in your last four weeks, with the rolling 7-day/28-day load chart beside it; then the same week in distance with its own rolling chart and a per-sport split of the week so far; a one-line read across load/year/sport; cumulative distance against the same day last year; consistency over the last 12 weeks; and a per-sport row. Career totals sit on one line at the bottom. Then activity breakdown, year-by-year table, location pills, top gear and recent activities (see below) |
 | Map | Route heatmap — all GPS routes rendered as semi-transparent polylines on a dark basemap, coloured by sport type — plus **route replay** and **Ground covered** (see below) |
 | Charts | Three sections. **Volume** — training load, cumulative against last year, monthly distance, rolling twelve months, activity mix, elevation. **Intensity** — heart-rate zones, Relative Effort, pace against distance, speed per heartbeat, power, cadence. **Habits** — time of day, moving vs stopped, race day, temperature |
 | Heatmap | GitHub-style activity calendar, coloured by the sport you spent most time on each day, with every prior year listed beneath |
@@ -365,6 +374,8 @@ completed a single refresh can now fail the request.
 
 Zwift route data is cached under `zwift_routes_v1` with a short 2-minute TTL (Notion is the source of truth, so this cache only absorbs repeated tab opens — it's deleted immediately on every successful edit).
 
+Dashboard settings — the panel order set by **Rearrange this tab** — live under `prefs_v1` with **no TTL**. They are not a cache of anything, and a preference that quietly expired would be worse than one that never synced.
+
 ---
 
 ## Worker API routes
@@ -381,6 +392,8 @@ Zwift route data is cached under `zwift_routes_v1` with a short 2-minute TTL (No
 | `GET /zwift-routes` | Returns the cached Zwift routes envelope `{ data, updatedAt }`, proxied live from Notion |
 | `GET /zwift-routes?refresh=true` | Bypasses cache, re-fetches all routes from Notion |
 | `PATCH /zwift-routes/{pageId}` | Updates `status`/`date_completed`/`time` on one route, writes straight to Notion |
+| `GET /prefs` | The dashboard's own settings — today the panel order per zone — as `{ prefs, updatedAt }`. `updatedAt` is 0 when nothing has ever been saved |
+| `PUT /prefs` | Stores `{ prefs, updatedAt }`. The newer stamp wins: a record older than the one held is not written, and the held one comes back with `X-Prefs: stale`. Sits behind the optional `API_KEY` gate like every other route; with the gate off it holds nothing that would matter if a stranger read or shuffled it, and Reset undoes a shuffle |
 
 ---
 
@@ -812,17 +825,41 @@ visual weight, so nothing was read.
 
 What leads now is the week:
 
-- **This week's hours against the 28-day base you built them on**, one figure at 52px,
-  with the rolling load chart beside it and an acute-to-chronic chip.
+- **This week's hours — the calendar week, Monday to today — against the same point in
+  your last four weeks**, one figure at 52px, with the rolling load chart beside it and an
+  acute-to-chronic chip. The figure and the chart measure different windows on purpose:
+  see *Why the figure is a calendar week* below.
 - **One quiet line under it**, reading across all three signals at once: how the week
   sits against the base, how the year sits against the same date last year, and which
   sport has fallen furthest below *its own* base. It is deliberately small. Speaking to
   load, year and sport together is the only thing it says that nothing else on the page
   does — without that it would just be the load chart's own verdict reprinted smaller.
 - **Cumulative distance against the same day last year**, beside a **consistency** card:
-  days trained out of the last 28, the current streak and the longest.
-- **A row of five sport cards** — this week, the 28-day base, the year so far, and the
-  year-on-year figure, each computed within its own sport.
+  days trained out of the last 84 — twelve weeks, so the 14-wide grid stays six clean rows
+  and, 14 being two weeks, every column stays one weekday — plus the current streak and
+  the longest.
+- **A row of five sport cards** — this week so far, what that sport usually amounts to by
+  this point in a week, the year so far, and the year-on-year figure, each computed within
+  its own sport.
+
+### Why the figure is a calendar week
+
+"This week" means the week you are standing in — Monday to today — and not the last seven
+days. The two only agree on a Sunday night, and the difference is most of the point: a
+Monday morning with nothing logged reads **0.0**, because that is what has happened this
+week. A rolling window answers a different question — "what have I just done" — which is
+what the hero *chart* is for, so its 7-day and 28-day lines stay rolling and its chips stay
+labelled "last 7 days".
+
+A part-week cannot be held against a whole-week average: on a Tuesday you would be "80%
+below your base" every week of the year, which is noise dressed as a warning. So the base is
+the **same slice of the preceding four weeks** — Monday-to-Tuesday of each, averaged. That is
+like for like and needs no pro-rating; pro-rating a weekly average by days elapsed would
+assume training is spread evenly across the week, and almost nobody's is. Empty weeks count
+towards that average, because they are real weeks and dropping them would compare you
+against your good weeks only. While the week is still empty no ratio is shown at all —
+"0.00× backing off" is arithmetically true and says nothing the big zero has not already
+said. The per-sport cards use the same window and the same kind of base.
 
 ### Nothing here averages across sports
 
