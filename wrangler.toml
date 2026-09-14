@@ -8,17 +8,16 @@ account_id      = "ff7d99e86c89fefa648b7c06f5447f81"
 binding = "CACHE"
 id      = "1d4eb3dfbeeb4e7a90468052225dcfec"
 
-# Add this line to unlock out-of-the-box AI
-[ai]
-binding = "AI"
-
-# Runs the Strava → Notion Training Log sync AND warms the activities cache
-# 3x/day at 10am, 4pm, 11pm UK time. The cache TTL is 24h and the gap between
-# fires is at most 9h, so in normal running the cache never actually expires —
-# the TTL is the safety net, not the refresh mechanism.
-# Cloudflare cron is UTC-only and doesn't shift for daylight saving, so the
-# hours below (9,15,22) are for BST (UTC+1, roughly late Mar–late Oct).
-# Switch to "0 10,16,23 * * *" once the clocks go back to GMT, and back again
-# in spring — or just accept the feed landing an hour off for a few weeks.
+# Fires every hour; the Worker decides which firings do the work.
+#
+# This used to be three hard-coded UTC hours chosen to look like 10am, 4pm and 11pm
+# in British Summer Time — and Cloudflare cron is UTC-only and does not shift for
+# daylight saving, so from late October to late March the feed landed an hour early
+# and the file said so: "or just accept the feed landing an hour off for a few
+# weeks." A schedule that is wrong for five months of the year is not a schedule.
+#
+# Hourly costs nothing (the Worker returns immediately on the other 21 firings) and
+# a Worker CAN read the UK local hour, which a cron expression cannot. See
+# shouldRunScheduledWork() in worker.js.
 [triggers]
-crons = ["0 9,15,22 * * *"]
+crons = ["0 * * * *"]

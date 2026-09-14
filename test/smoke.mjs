@@ -376,6 +376,44 @@ async function main() {
       assert(misfiled === 0, `${misfiled} non-swims are grouped as swimming`);
     });
 
+    await check('one broken chart does not take the rest of the tab with it', async () => {
+      // The failure mode this guards: renderCharts used to be a straight run of
+      // calls, so the first exception unwound the lot. Charts ABOVE the bad one kept
+      // whatever they had drawn and looked current; everything below never updated.
+      // A filter change then left half the tab describing the previous filter, with
+      // nothing on screen admitting it.
+      await page.evaluate(() => window.setTab('charts'));
+      await page.waitForTimeout(500);
+      const monoData = () => page.evaluate(() => {
+        const c = window.Chart.getChart(document.getElementById('chartMono'));
+        return c ? JSON.stringify(c.data.datasets[0].data.slice(0, 5)) : null;
+      });
+
+      // Break a chart EARLY in the sequence; chartMono renders after it.
+      await page.evaluate(() => {
+        window.__realMix = window.renderMixByYear;
+        window.renderMixByYear = () => { throw new Error('synthetic failure'); };
+      });
+      const before = await monoData();
+      let threw = null;
+      try { await page.evaluate(() => window.setType('Ride')); }
+      catch (e) { threw = e.message.split('\n')[0]; }
+      await page.waitForTimeout(500);
+
+      assert(!threw, `a filter change threw all the way out: ${threw}`);
+      assert((await monoData()) !== before, 'a later chart never updated — the render still aborts');
+      const note = await page.evaluate(() => {
+        const cv = document.getElementById('chartMixYear');
+        const n = cv && cv.parentElement.querySelector('.chart-empty');
+        return n ? n.textContent : null;
+      });
+      assert(note && /could not be drawn/i.test(note),
+        `the broken card shows "${note}" instead of saying it failed`);
+
+      await page.evaluate(() => { window.renderMixByYear = window.__realMix; window.setType('All'); });
+      await page.waitForTimeout(500);
+    });
+
     await check('the five newest charts draw rather than sitting empty', async () => {
       // "Every tab renders without a console error" catches a throw. It does not
       // catch a chart that quietly decided it had no data and put a sentence in

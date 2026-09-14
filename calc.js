@@ -586,8 +586,7 @@ function yearTeachesSeason(daily,isEarliest){
 /* daily: { '2025': Array(367) of per-day values, ... } — index 1 is 1 January.
  * Returns the projection, both of its ingredients, and the path to draw.
  */
-function yearEndProjection(daily,focus,doy,mix,opts){
-  const o=opts||{};
+function yearEndProjection(daily,focus,doy,mix){
   const len=daysInYear(focus);
   const day=Math.max(1,Math.min(doy|0,len));
   const cur=daily[focus]||[];

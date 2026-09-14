@@ -1,11 +1,11 @@
 // =============================================================================
-// FITNESS TRACKER — CLOUDFLARE WORKER (WITH SMART LFETIME AI SUMMARY)
+// FITNESS TRACKER — CLOUDFLARE WORKER
 // =============================================================================
 // Routes:
 //   GET /auth        → redirects to Strava OAuth (run once to get refresh token)
 //   GET /callback    → exchanges code, shows you your refresh token to copy
-//   GET /activities  → returns data & AI summary in cached envelope
-//   GET /activities?refresh=true → forces a fresh pull & completely regenerates AI
+//   GET /activities  → returns the cached activity envelope
+//   GET /activities?refresh=true → forces a fresh pull from Strava
 //   GET /zwift-routes → returns all Zwift routes from Notion in a cached envelope
 //   GET /zwift-routes?refresh=true → forces a fresh pull from Notion
 //   PATCH /zwift-routes/{pageId} → updates Status/Date completed/Time on one route
@@ -64,11 +64,77 @@ const ZWIFT_DATA_SOURCE_ID = '13b81faa-c3d2-4f94-83ca-bc782626f1e3';
 const ZWIFT_CACHE_KEY      = 'zwift_routes_v1';
 const ZWIFT_CACHE_TTL      = 120; // 2 minutes — writes invalidate this immediately anyway
 
+// The method/header half of CORS, which is the same for everyone. The
+// Allow-Origin half is decided per request and stamped on the way out — see
+// withCors below — because it depends on who is asking.
 const CORS = {
-  'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Methods': 'GET, PATCH, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, X-API-Key',
+  'Vary': 'Origin',
 };
+
+/* Who may read this data from a browser.
+ *
+ * It was 'Access-Control-Allow-Origin: *', which meant any page on the internet
+ * could fetch a full activity history — coordinates and route polylines included —
+ * straight out of a visitor's browser and render it as their own. The dashboard is
+ * public by design, so this is not about hiding the numbers; it is about them being
+ * served from one place that says where they came from.
+ *
+ * Requests with NO Origin header — curl, the cron, anything server-side — are not
+ * affected by any of this. CORS is a browser rule and only a browser enforces it.
+ * Genuinely private data needs API_KEY below, and a private page to put it on.
+ */
+const ALLOWED_ORIGINS = [
+  'https://activities.laurencekellett.co.uk',
+  'https://activities-5z4.pages.dev',
+];
+
+function isAllowedOrigin(origin, env) {
+  if (!origin) return false;
+  const extra = (env && env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS : '')
+    .split(',').map((s) => s.trim()).filter(Boolean);
+  if (ALLOWED_ORIGINS.includes(origin) || extra.includes(origin)) return true;
+  let u;
+  try { u = new URL(origin); } catch { return false; }
+  // Cloudflare Pages preview deploys land on a per-branch subdomain of the project,
+  // and a dashboard you cannot test before shipping is its own kind of problem.
+  if (u.protocol === 'https:' && u.hostname.endsWith('.activities-5z4.pages.dev')) return true;
+  // Local development, where the page is served off a random port.
+  if ((u.hostname === 'localhost' || u.hostname === '127.0.0.1')) return true;
+  return false;
+}
+
+/* Stamped on every response in one place rather than threaded through twenty
+ * handlers. An origin that is not on the list simply gets no Allow-Origin header,
+ * which is what makes the browser refuse the read — a 403 would be louder and no
+ * more effective, and would break the no-Origin callers that are fine.
+ */
+function withCors(res, request, env) {
+  const origin = request.headers.get('Origin');
+  const headers = new Headers(res.headers);
+  for (const [k, v] of Object.entries(CORS)) headers.set(k, v);
+  if (isAllowedOrigin(origin, env)) headers.set('Access-Control-Allow-Origin', origin);
+  else headers.delete('Access-Control-Allow-Origin');
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+}
+
+/* An optional shared secret, off unless API_KEY is set on the Worker.
+ *
+ * Worth being straight about what this can and cannot do: while the dashboard is a
+ * public page, the key would have to ship inside that page to work, and a secret in
+ * a public page is not a secret. It earns its place only when the page itself is
+ * behind something — Cloudflare Access, a VPN — and the Worker needs to stop being
+ * the open back door to it. Unset, everything behaves exactly as before.
+ */
+const KEYED_ROUTES = ['/activities', '/zwift-routes', '/backfill-prs', '/sync-training-log', '/debug'];
+
+function keyIsMissing(request, env, pathname) {
+  if (!env || !env.API_KEY) return false;
+  if (!KEYED_ROUTES.some((r) => pathname === r || pathname.startsWith(r + '/'))) return false;
+  const given = request.headers.get('X-API-Key') || new URL(request.url).searchParams.get('key');
+  return given !== env.API_KEY;
+}
 
 // =============================================================================
 // MAIN HANDLER
@@ -76,31 +142,13 @@ const CORS = {
 
 export default {
   async fetch(request, env) {
-    const url = new URL(request.url);
-
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: CORS });
-    }
-
-    switch (url.pathname) {
-      case '/auth':               return handleAuth(env);
-      case '/callback':           return handleCallback(request, env);
-      case '/activities':         return handleActivities(request, env);
-      case '/debug':              return handleDebug(env);
-      case '/zwift-routes':       return handleZwiftRoutes(request, env);
-      case '/sync-training-log':  return handleSyncTrainingLog(env);
-      case '/backfill-prs':       return handleBackfillPrs(env);
-      default:
-        if (url.pathname.startsWith('/zwift-routes/') && request.method === 'PATCH') {
-          const pageId = url.pathname.slice('/zwift-routes/'.length);
-          return handleZwiftRouteUpdate(request, env, pageId);
-        }
-        return new Response('Not found', { status: 404 });
-    }
+    return withCors(await route(request, env), request, env);
   },
 
-  // Fires on the schedule configured in wrangler.toml's `[triggers] crons`.
+  // Fires hourly; this decides which firings do the work. See
+  // shouldRunScheduledWork below for why the hour is picked here and not in cron.
   async scheduled(event, env, ctx) {
+    if (!shouldRunScheduledWork(new Date(event?.scheduledTime ?? Date.now()))) return;
     ctx.waitUntil((async () => {
       // Sequential, not parallel. Both of these talk to Strava, and its rate
       // limit is per-15-minutes, so firing them together is the one reliable
@@ -114,7 +162,7 @@ export default {
       try {
         // backfillPrs: the cron is the only place that spends Strava requests on
         // segment PBs, a slice at a time, so it never delays a page load.
-        await refreshActivitiesCache(env, { regenerateAi: false, backfillPrs: true });
+        await refreshActivitiesCache(env, { backfillPrs: true });
       } catch (err) {
         // The previous cache entry stays put, so a failed refresh serves stale
         // data rather than none.
@@ -123,6 +171,66 @@ export default {
     })());
   },
 };
+
+async function route(request, env) {
+  const url = new URL(request.url);
+
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204 });
+
+  if (keyIsMissing(request, env, url.pathname)) {
+    return new Response(JSON.stringify({ error: 'Missing or invalid API key.' }), {
+      status: 401, headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  switch (url.pathname) {
+    case '/auth':               return handleAuth(env);
+    case '/callback':           return handleCallback(request, env);
+    case '/activities':         return handleActivities(request, env);
+    case '/debug':              return handleDebug(env);
+    case '/zwift-routes':       return handleZwiftRoutes(request, env);
+    case '/sync-training-log':  return handleSyncTrainingLog(env);
+    case '/backfill-prs':       return handleBackfillPrs(env);
+    default:
+      if (url.pathname.startsWith('/zwift-routes/') && request.method === 'PATCH') {
+        const pageId = url.pathname.slice('/zwift-routes/'.length);
+        return handleZwiftRouteUpdate(request, env, pageId);
+      }
+      return new Response('Not found', { status: 404 });
+  }
+}
+
+// =============================================================================
+// SCHEDULE
+// =============================================================================
+
+// The hours the work should land on, in UK LOCAL time — mid-morning, late
+// afternoon, and last thing.
+const RUN_AT_LOCAL_HOURS = [10, 16, 23];
+
+/* Cloudflare cron is UTC-only and does not shift for daylight saving. Three
+ * hard-coded UTC hours can be right in summer or right in winter, never both, and
+ * this one was tuned for BST — so for the five months from late October the whole
+ * feed arrived an hour early.
+ *
+ * The fix is to stop asking cron to know about time zones, because it cannot. The
+ * Worker fires every hour and answers the one question cron could not: what hour is
+ * it in London right now? Intl knows about the clock change; a cron expression
+ * never will.
+ */
+function shouldRunScheduledWork(now) {
+  let hour;
+  try {
+    hour = +new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/London', hour: 'numeric', hour12: false,
+    }).format(now);
+  } catch {
+    // No ICU on this runtime, somehow. Falling back to UTC keeps the feed running
+    // an hour off in summer rather than stopping it altogether.
+    hour = now.getUTCHours();
+  }
+  return RUN_AT_LOCAL_HOURS.includes(hour);
+}
 
 // =============================================================================
 // AUTH — step 1 of one-time OAuth setup
@@ -266,12 +374,7 @@ async function handleActivities(request, env) {
 // Shared by the request path and the cron, so a visitor and a scheduled warm-up
 // produce exactly the same cache entry.
 //
-// `regenerateAi` is false on the cron. The dashboard no longer renders the AI
-// summary, so regenerating it three times a day would be paying Workers AI for
-// output nobody reads — but a scheduled refresh should not be the thing that
-// destroys the last good summary either, so it carries the existing one
-// forward rather than writing the placeholder over it.
-async function refreshActivitiesCache(env, { regenerateAi = true, backfillPrs = false } = {}) {
+async function refreshActivitiesCache(env, { backfillPrs = false } = {}) {
   const accessToken = await getAccessToken(env);
   const activities  = await fetchAllActivities(accessToken, env);
 
@@ -290,21 +393,8 @@ async function refreshActivitiesCache(env, { regenerateAi = true, backfillPrs = 
     applyBestEfforts(activities, await loadBestEfforts(env));
   }
 
-  let aiSummary = 'No AI summary generated.';
-  if (regenerateAi && env.AI) {
-    aiSummary = await generateAiSummary(activities, env);
-  } else if (env.CACHE) {
-    try {
-      const previous = await env.CACHE.get(CACHE_KEY);
-      if (previous) aiSummary = JSON.parse(previous).aiSummary ?? aiSummary;
-    } catch {
-      // A corrupt or half-written cache entry is not worth failing a refresh for.
-    }
-  }
-
   const envelope = JSON.stringify({
     data: activities,
-    aiSummary: aiSummary,
     updatedAt: new Date().toISOString(),
     // How the zone boundaries were arrived at, so the chart can say so rather than
     // asserting "your Strava zones" whether or not they loaded.
@@ -323,59 +413,6 @@ async function refreshActivitiesCache(env, { regenerateAi = true, backfillPrs = 
   }
 
   return envelope;
-}
-
-// =============================================================================
-// PRE-AGGREGATION AI SUMMARY GENERATOR
-// =============================================================================
-
-async function generateAiSummary(activities, env) {
-  try {
-    if (!activities || activities.length === 0) return "No data found.";
-
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const recent = activities.filter(a => new Date(a.date) >= thirtyDaysAgo);
-
-    // Calculate details for the prompt
-    const totalDist = recent.reduce((sum, a) => sum + (a.dist_mi || 0), 0);
-    const walkCount = recent.filter(a => a.type === 'Walk').length;
-    const totalCount = recent.length;
-    const walkPct = Math.round((walkCount / totalCount) * 100);
-
-    const recentDataStr = recent.map(a => 
-      `- ${a.date}: ${a.type} (${a.dist_mi} mi)`
-    ).join('\n');
-
-    const systemPrompt = `You are a realistic, data-driven fitness analyst. 
-    Write a 5-6 sentence summary for Laurence, a hobbyist athlete. 
-    CRITICAL RULES:
-    1. Use "you" instead of "the athlete". 
-    2. Be explicit: distinguish between activity 'count' (frequency) and 'distance' (miles). 
-    3. Be factual, grounded, and supportive. No flowery language or hyperbole. 
-    4. Do not use bolding or markdown.`;
-
-    const userPrompt = `Data for the last 30 days:
-    - Total Workouts: ${totalCount}
-    - Total Distance: ${Math.round(totalDist)} miles
-    - Walk frequency: ${walkCount} out of ${totalCount} workouts (${walkPct}% of workouts by count).
-
-    Activity Log:
-    ${recentDataStr}
-
-    Task: Write a 5-6 sentence summary for Laurence. Describe the activity mix, highlighting that walking is the most frequent activity by count while acknowledging the distance covered.`;
-
-    const aiResponse = await env.AI.run('@cf/meta/llama-3.2-3b-instruct', {
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ]
-    });
-
-    return aiResponse.response;
-  } catch (err) {
-    return `Coach breakdown temporarily unavailable: ${err.message}`;
-  }
 }
 
 // =============================================================================
@@ -748,20 +785,12 @@ async function handleBackfillPrs(env) {
     const summary     = await backfillBestEfforts(env, accessToken, activities);
 
     if (env.CACHE) {
-      let aiSummary = 'No AI summary generated.';
-      try {
-        const previous = await env.CACHE.get(CACHE_KEY);
-        if (previous) aiSummary = JSON.parse(previous).aiSummary ?? aiSummary;
-      } catch {
-        // Keep the default rather than fail a successful backfill.
-      }
       // The envelope has to carry `hrZones` the way the scheduled refresh does.
       // Writing it without meant a manual backfill republished the cache with the
       // zone chart's provenance stripped out, so the chart silently fell back to
       // claiming a derived max whether or not Strava's real zones had loaded.
       await env.CACHE.put(CACHE_KEY, JSON.stringify({
         data: activities,
-        aiSummary,
         updatedAt: new Date().toISOString(),
         hrZones: _hrZoneMeta,
       }), { expirationTtl: CACHE_TTL });

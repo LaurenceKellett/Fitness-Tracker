@@ -3991,16 +3991,47 @@ function renderCharts(){
   // so the two silhouettes were the same. The total survives as a chip on the
   // distance card, which is the only part of it that was telling you anything.
 
-  renderSummaryLines(data,monthKeys,typeKeys,colorFull);
-  renderExtraCharts(data,monthKeys);
-  renderLoad(data);
-  renderCumulative(data);
-  renderPaceScatter(data);
-  renderEfficiency(data);
-  renderMixByYear();
-  renderMaxHr(data,monthKeys);
-  renderMonotony(data);
-  renderProjection();
+  // Each one separately, so one that throws takes only its own card with it.
+  // Before this, a single bad renderer aborted renderCharts partway down the list:
+  // the charts above it kept whatever they had drawn last and looked perfectly
+  // current, while everything below simply never updated. A filter change then left
+  // half the tab quietly describing the previous filter, which is worse than a
+  // visible error because nothing on screen admits it.
+  safely('summary lines',()=>renderSummaryLines(data,monthKeys,typeKeys,colorFull));
+  safely('extra charts',()=>renderExtraCharts(data,monthKeys));
+  safely('training load',()=>renderLoad(data),'chartLoad');
+  safely('cumulative',()=>renderCumulative(data),'chartCumulative');
+  safely('pace scatter',()=>renderPaceScatter(data),'chartPace');
+  safely('efficiency',()=>renderEfficiency(data),'chartEff');
+  safely('sport mix by year',()=>renderMixByYear(),'chartMixYear');
+  safely('max heart rate',()=>renderMaxHr(data,monthKeys),'chartMaxHr');
+  safely('monotony',()=>renderMonotony(data),'chartMono');
+  safely('projection',()=>renderProjection(),'chartProject');
+}
+
+/* Run one renderer with its failure contained.
+ *
+ * A chart that cannot draw itself should say so in its own card and let the rest of
+ * the page get on with it. The alternative — which is what this replaced — is that
+ * the first exception unwinds the whole render and every chart after it silently
+ * keeps stale data on screen.
+ *
+ * `canvasId` is optional: where it is given the card shows the failure in place of
+ * its plot, so there is something on screen rather than a chart that just stopped
+ * changing. Where it is not, the console is the only trace, which is still better
+ * than taking the tab down.
+ */
+function safely(what,fn,canvasId){
+  try{
+    fn();
+    return true;
+  }catch(e){
+    console.error(`Chart "${what}" failed to render:`,e);
+    if(canvasId){
+      try{setChartEmpty(canvasId,`This chart could not be drawn. The rest of the page is unaffected — ${e&&e.message?e.message:'unknown error'}`);}catch(_){}
+    }
+    return false;
+  }
 }
 
 // ── WHERE THE YEAR ENDS ──
@@ -7791,17 +7822,17 @@ function renderAll(){
   // through a render and leaving the tab half-painted. If it is never coming,
   // CHARTS_OK is false and we render everything else regardless.
   if(!window.Chart&&CHARTS_OK!==false){ensureCharts().then(renderAll);return;}
-  renderScope();
-  if(activeTab==='summary')renderSummary();
-  else if(activeTab==='charts')renderCharts();
-  else if(activeTab==='heatmap')renderHeatmap();
-  else if(activeTab==='records')renderRecords();
-  else if(activeTab==='mex')renderMex();
-  else if(activeTab==='social')renderSocial();
-  else if(activeTab==='gear')renderGear();
-  else if(activeTab==='log')renderLog();
-  else if(activeTab==='map')renderMap(activeType==='All'?ALL_DATA:ALL_DATA.filter(a=>mapFilterMatches(a)));
-  else if(activeTab==='zwift')renderZwiftTable();
+  safely('scope line',renderScope);
+  // The tab renderers are wrapped too. A throw in one of them used to skip the
+  // layout restore below it, which is what turns a broken chart into a tab whose
+  // panels have also jumped back to their default order.
+  const tabs={
+    summary:renderSummary,charts:renderCharts,heatmap:renderHeatmap,records:renderRecords,
+    mex:renderMex,social:renderSocial,gear:renderGear,log:renderLog,
+    map:()=>renderMap(activeType==='All'?ALL_DATA:ALL_DATA.filter(a=>mapFilterMatches(a))),
+    zwift:renderZwiftTable,
+  };
+  if(tabs[activeTab])safely(activeTab+' tab',tabs[activeTab]);
   // After the render, not before. Mex rebuilds its whole tab and several others
   // rebuild panels inside theirs, so an order applied once at boot would survive
   // until the first filter change and no longer.

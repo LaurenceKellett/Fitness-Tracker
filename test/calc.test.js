@@ -7,7 +7,7 @@ const {
   mapTypeGroup, typeMatches, isFootSport, isRace, dayOfYear, daysBetween, monthsBetween,
   monthLabel, haversineMi, decodePolylinePts, gearKey, gearSlug, socCanon, socInitials,
   extractPartners, formatUpdatedAt, recLongestStreak, recCurrentStreak, mexBuckets, mexOf,
-  actDistIn, distIn, ROLLING_ORDER, todayISO, isYearScope, isRollingScope, periodStart,
+  actDistIn, distIn, todayISO, isYearScope, isRollingScope, periodStart,
   scopeIncludes, periodLabel, periodPhrase, isValidScope, rollingWeekly, ratioBand,
   CHRONIC_DAYS, CHRONIC_WEIGHTS, weeklyLoadStats, MONOTONY_CAP,
   yearEndProjection, projectionWindow, daysInYear, PROJ_WINDOW_MIN, PROJ_WINDOW_MAX,
