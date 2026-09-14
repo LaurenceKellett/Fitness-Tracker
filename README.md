@@ -999,19 +999,61 @@ once they share a group. Strava has one `Swim` type covering pool, indoor and op
 the craft you sit on rather than swim in — Kayaking, Canoeing, Rowing, StandUpPaddling,
 Surfing, Kitesurf, Windsurf, Sail — go to `Other` with everything else.
 
-### Where the year lands if nothing changes
+### Where the year ends
 
-The chart made you ask the question and then left you to do the arithmetic: "on pace for" was
-a chip with no line under it, so there was nothing to hold it against. Drawn, the projection
-runs out to 31 December alongside the years that actually finished — which is the only way to
-see whether being ahead in September means finishing ahead.
+A panel of its own, because a projection deserves more than a chip. The solid line is
+this year so far, three finished years sit behind it in grey, and a **dotted** line runs
+from today to 31 December — dotted because it is the only series on the chart that has not
+happened.
 
-It uses the same year-to-date rate the chip does, so the line and the number cannot
-contradict each other, and it is dashed because it is the one series on the chart that has
-not happened. A second chip gives the same projection at the **last 28 days' rate**. One
-number would be false precision: a year-to-date rate cannot see that you have stopped, and a
-28-day rate cannot see that you always stop in November. Both together are a range, which is
-the honest answer.
+**The slider is the feature, not a setting.** It mixes two projections that fail in
+opposite directions:
+
+- **Recent trend** — what you have done lately, times the days left. Responsive, and
+  completely blind to the fact that you always stop in November. Ask it in August and it
+  promises you a summer's worth of December.
+- **Seasonal shape** — how far through a typical year of yours this date usually is. If day
+  257 has historically been 77% of your year, then this year's total so far is 77% of the
+  answer. It knows about winter; it knows nothing about your being injured since July.
+
+Sliding right both leans harder on the recent window **and shortens it**, from 30 days down
+to 7, because both mean the same thing — let the recent past speak louder — and two controls
+for one intention is one too many. The default sits in the middle at 50/50 with a 30-day
+window. A chip reports the gap between the two methods, because **that gap is the
+uncertainty** and it belongs on screen rather than buried in a caveat.
+
+The idea is [VeloViewer's](https://blog.veloviewer.com/projected-year-end-distance-elevation-etc/) —
+its Summary chart blends previous years' trends against your last 30 days on a slider, with
+a dotted line showing the path to the target. The arithmetic here is our own.
+
+Four measures: distance, moving time, activities and climbing.
+
+**The dotted path bends.** It follows the average shape of your finished years rather than
+running straight, so a projection made in spring flattens through the autumn the way your
+years actually do. A straight line to a seasonal total would draw a December you have never
+had.
+
+Two guards worth knowing:
+
+- **Which years can teach a season.** The obvious test — "must span at least eight
+  months" — is wrong, and a unit test caught it: it throws out exactly the people
+  seasonality is for. Somebody who rides April to September has a real repeating shape and
+  six months of data. The year to exclude is the one you *joined* Strava, which starts in
+  June because that is when you signed up. So the test is for a partial year rather than a
+  short one, and only the earliest year in the data can be partial in that sense — a late
+  start every year is a season, a late start once at the beginning is a sign-up date.
+- **With no finished year at all**, there is no seasonal half to blend. The weight is forced
+  to the recent trend and the label says so, rather than quietly serving one number under
+  the other's name.
+
+The straight dashed projection that briefly lived on *Against the same point last year* has
+been removed. Two dotted lines on one tab reaching different answers by different arithmetic
+is worse than one that explains itself; that chart is back to being a comparison, with the
+plain "on pace for" chip it always had.
+
+---
+
+## Against the same point last year, continued
 
 `dayOfYear()` is what makes the cumulative chart possible, and `typeMatches()` — one
 predicate for the header's sport filter, which had been written out by hand in three

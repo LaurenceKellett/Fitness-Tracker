@@ -27,7 +27,11 @@ function fixture() {
   const today = new Date();
   const sports = ['Ride', 'VirtualRide', 'Run', 'Walk', 'Swim', 'WeightTraining'];
   const thisYear = String(today.getFullYear());
-  for (let i = 0; i < 420; i++) {
+  // Two full years of history, not one. A single year cannot exercise anything that
+  // learns from a FINISHED year — the seasonal half of the projection mixer has
+  // nothing to read and silently falls back to the recent trend.
+  const N = 900;
+  for (let i = 0; i < N; i++) {
     const d = new Date(today.getTime() - i * 36e5 * 20);
     const iso = d.toISOString().slice(0, 10);
     // Swimming stopped at the end of last year. It is the case the sport filter has
@@ -46,7 +50,7 @@ function fixture() {
       // appears in the oldest third, which is what puts him in the dormant group —
       // without someone on each side of the line the grouping cannot be tested.
       name: i % 11 === 0 ? `Morning ${type} w/ Dave & Sarah`
-          : (i > 300 && i % 7 === 0) ? `Evening ${type} w/ Nige`
+          : (i > N * 0.7 && i % 7 === 0) ? `Evening ${type} w/ Nige`
           : `${type} session ${i}`,
       dist_mi: +(2 + (i % 40) * 0.9).toFixed(2),
       dist_km: +((2 + (i % 40) * 0.9) * 1.60934).toFixed(2),
@@ -451,22 +455,54 @@ async function main() {
       await page.waitForTimeout(200);
     });
 
-    await check('the year-end projection is drawn, not just chipped', async () => {
-      // The projection is a dataset on an existing chart, so it is checked by name.
+    await check('the year-end projection is dotted, and the mixer moves it', async () => {
       await page.evaluate(() => window.setTab('charts'));
-      await page.waitForTimeout(400);
-      const proj = await page.evaluate(() => {
-        const c = window.Chart.getChart(document.getElementById('chartCumulative'));
-        const ds = c && c.data && c.data.datasets ? c.data.datasets : [];
-        const p = ds.find((d) => /at this rate/.test(d.label || ''));
+      await page.waitForTimeout(500);
+      const read = () => page.evaluate(() => {
+        const c = window.Chart.getChart(document.getElementById('chartProject'));
+        const ds = c && c.data ? c.data.datasets : [];
+        const p = ds.find((d) => d.label === 'Projected');
         if (!p) return { found: false, labels: ds.map((d) => d.label) };
         const pts = p.data.filter((v) => v != null);
-        return { found: true, n: pts.length, rising: pts[pts.length - 1] > pts[0], dashed: !!p.borderDash };
+        return {
+          found: true, n: pts.length, end: pts[pts.length - 1], start: pts[0],
+          dotted: !!(p.borderDash && p.borderDash.length),
+          says: document.getElementById('projMixSays').textContent,
+        };
       });
-      assert(proj.found, `no projection dataset: ${JSON.stringify(proj.labels)}`);
-      assert(proj.n > 1, 'the projection has nothing to draw');
-      assert(proj.rising, 'the projection does not run forwards');
-      assert(proj.dashed, 'the projection is not dashed, so it reads as something that happened');
+
+      const mid = await read();
+      assert(mid.found, `no projection dataset: ${JSON.stringify(mid.labels)}`);
+      assert(mid.dotted, 'the projection is not dotted, so it reads as something that happened');
+      assert(mid.n > 1, 'the projection has nothing to draw');
+      assert(mid.end >= mid.start, 'a cumulative projection cannot go backwards');
+
+      // The dial has to actually change the answer, and its two ends have to be
+      // different methods rather than the same one relabelled.
+      await page.evaluate(() => window.setProjMix(0));
+      await page.waitForTimeout(300);
+      const seasonal = await read();
+      await page.evaluate(() => window.setProjMix(100));
+      await page.waitForTimeout(300);
+      const recent = await read();
+      assert(seasonal.end !== recent.end,
+        `both ends of the mixer project ${seasonal.end} — the dial is doing nothing`);
+      assert(/usually|previous year/i.test(seasonal.says), `left end says "${seasonal.says}"`);
+      assert(/last \d+ days/i.test(recent.says), `right end says "${recent.says}"`);
+
+      // Every measure projects something, in its own unit.
+      for (const m of ['time', 'count', 'elev', 'dist']) {
+        await page.evaluate((x) => window.setProjMeasure(x), m);
+        await page.waitForTimeout(300);
+        const r = await read();
+        assert(r.found && r.n > 1, `${m} drew no projection`);
+      }
+      const chip = await page.evaluate(() =>
+        (document.querySelector('#projectChips .chart-chip') || {}).textContent || '');
+      assert(/projected year end/i.test(chip), `first chip reads "${chip}"`);
+
+      await page.evaluate(() => window.setProjMix(50));
+      await page.waitForTimeout(200);
     });
 
     await check('rolling date scopes filter the data', async () => {

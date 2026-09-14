@@ -490,6 +490,23 @@ a{color:inherit;text-decoration:none}
 .chart-ctl-btn+.chart-ctl-btn{border-left:1px solid var(--border)}
 .chart-ctl-btn:hover:not(.active){color:var(--text)}
 .chart-ctl-btn.active{background:var(--accent-soft);color:var(--accent)}
+.proj-mixer{margin:2px 0 16px}
+.proj-mix-label{display:block;font-size:10.5px;font-weight:700;letter-spacing:.5px;
+  text-transform:uppercase;color:var(--text-light);margin-bottom:6px}
+.proj-slider{width:100%;margin:0;height:22px;background:transparent;
+  -webkit-appearance:none;appearance:none;cursor:pointer}
+.proj-slider:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.proj-slider::-webkit-slider-runnable-track{height:4px;background:var(--border-strong);border-radius:0}
+.proj-slider::-moz-range-track{height:4px;background:var(--border-strong);border-radius:0}
+.proj-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+  width:18px;height:18px;margin-top:-7px;border-radius:0;background:var(--accent);
+  border:2px solid var(--surface);box-shadow:var(--shadow);cursor:grab}
+.proj-slider::-moz-range-thumb{width:18px;height:18px;border-radius:0;background:var(--accent);
+  border:2px solid var(--surface);box-shadow:var(--shadow);cursor:grab}
+.proj-mix-ends{display:flex;justify-content:space-between;gap:12px;
+  font-size:10px;color:var(--text-light);margin-top:-2px}
+.proj-mix-ends span:last-child{text-align:right}
+.proj-mix-says{font-size:11px;color:var(--text-muted);margin-top:7px;line-height:1.5}
 .chart-chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
 .chart-chip{display:flex;align-items:baseline;gap:6px;padding:5px 11px;font-size:11px;font-weight:600}
 .chart-chip strong{font-size:13px;font-weight:700}
@@ -1728,6 +1745,32 @@ body.is-loading .stats-grid *{visibility:hidden}
       <div class="chart-wrap tall"><canvas id="chartCumulative"></canvas></div>
       <div id="cumChips" class="chart-chips"></div>
       <div id="cumVerdict" class="chart-verdict"></div>
+    </div>
+    <div class="chart-card span-full" data-panel="project">
+      <div class="chart-head">
+        <div class="chart-head-text">
+          <div class="chart-title">Where the year ends</div>
+          <div class="chart-sub" id="projSub">Projected to 31 December</div>
+        </div>
+        <div class="chart-ctl" id="projMeasureCtl" role="group" aria-label="Project which measure">
+          <button type="button" class="chart-ctl-btn" data-measure="dist" onclick="setProjMeasure('dist')">Distance</button>
+          <button type="button" class="chart-ctl-btn" data-measure="time" onclick="setProjMeasure('time')">Time</button>
+          <button type="button" class="chart-ctl-btn" data-measure="count" onclick="setProjMeasure('count')">Activities</button>
+          <button type="button" class="chart-ctl-btn" data-measure="elev" onclick="setProjMeasure('elev')">Climbing</button>
+        </div>
+      </div>
+      <div class="proj-mixer">
+        <label class="proj-mix-label" for="projMix" id="projMixLabel">Based on</label>
+        <input type="range" id="projMix" class="proj-slider" min="0" max="100" step="1" value="50"
+               aria-describedby="projMixSays" oninput="setProjMix(this.value)">
+        <div class="proj-mix-ends" aria-hidden="true">
+          <span>How your years usually go</span><span>Just the last week</span>
+        </div>
+        <div class="proj-mix-says" id="projMixSays" role="status"></div>
+      </div>
+      <div class="chart-wrap tall"><canvas id="chartProject"></canvas></div>
+      <div id="projectChips" class="chart-chips"></div>
+      <div id="projectVerdict" class="chart-verdict"></div>
     </div>
     <div class="chart-card span-full" data-panel="monthly">
       <div class="chart-title" id="firstChartTitle">Monthly Distance</div>
@@ -3957,6 +4000,161 @@ function renderCharts(){
   renderMixByYear();
   renderMaxHr(data,monthKeys);
   renderMonotony(data);
+  renderProjection();
+}
+
+// ── WHERE THE YEAR ENDS ──
+// Two honest projections and a dial between them. The arithmetic is in calc.js
+// (yearEndProjection); this is the part that draws it.
+//
+// The dial is the feature, not a setting. Ask the recent trend in August and it
+// promises a summer's worth of December; ask the seasonal shape while you are
+// injured and it has no idea you have stopped. Sliding between them is how you see
+// how much of the answer is assumption — and a projection that cannot show you that
+// is a number pretending to be a fact.
+const PROJ_MEASURE_KEY='fitness_proj_measure_v1';
+const PROJ_MIX_KEY='fitness_proj_mix_v1';
+const PROJ_MEASURES={
+  // distIn returns the active unit, so the series is already in miles or kilometres;
+  // fmtDist wants miles, hence the conversion back on the way out. Same shape the
+  // cumulative chart next door uses.
+  dist :{noun:'distance', pick:a=>distIn(a),
+         fmt:v=>fmtDist(unit==='mi'?v:v/1.60934)+' '+distUnit(),
+         tick:v=>v.toLocaleString('en-GB')+' '+distUnit()},
+  time :{noun:'moving time', pick:a=>(a.mt||0)/3600,
+         fmt:v=>chipNum(v,0)+'h',        tick:v=>v.toLocaleString('en-GB')+'h'},
+  count:{noun:'activities', pick:()=>1,
+         fmt:v=>chipNum(v,0),            tick:v=>v.toLocaleString('en-GB')},
+  elev :{noun:'climbing', pick:a=>fmtElevVal(a.elv||0),
+         fmt:v=>chipNum(v,0)+fmtElevUnit(), tick:v=>Math.round(v).toLocaleString('en-GB')+fmtElevUnit()},
+};
+let projMeasure='dist',projMix=0.5;
+try{
+  const m=localStorage.getItem(PROJ_MEASURE_KEY);if(PROJ_MEASURES[m])projMeasure=m;
+  const x=parseFloat(localStorage.getItem(PROJ_MIX_KEY));if(isFinite(x)&&x>=0&&x<=1)projMix=x;
+}catch(e){}
+
+function setProjMeasure(m){
+  if(!PROJ_MEASURES[m]||m===projMeasure)return;
+  projMeasure=m;
+  try{localStorage.setItem(PROJ_MEASURE_KEY,m);}catch(e){}
+  renderProjection();
+}
+function setProjMix(v){
+  const x=Math.max(0,Math.min(1,(+v||0)/100));
+  if(x===projMix)return;
+  projMix=x;
+  try{localStorage.setItem(PROJ_MIX_KEY,String(x));}catch(e){}
+  renderProjection();
+}
+
+function renderProjection(){
+  const measure=PROJ_MEASURES[projMeasure]||PROJ_MEASURES.dist;
+  document.querySelectorAll('#projMeasureCtl .chart-ctl-btn').forEach(b=>{
+    const on=b.dataset.measure===projMeasure;
+    b.classList.toggle('active',on);
+    b.setAttribute('aria-pressed',on?'true':'false');
+  });
+  const slider=document.getElementById('projMix');
+  if(slider&&Math.round(+slider.value)!==Math.round(projMix*100))slider.value=Math.round(projMix*100);
+
+  const today=_today();
+  const focus=String(new Date(today+'T12:00:00').getFullYear());
+  // Daily series per year, sport filter applied, period filter deliberately not:
+  // this chart is about a whole year and the header's year control would leave it
+  // with one point.
+  const daily={};
+  ALL_DATA.forEach(a=>{
+    if(!typeMatches(a))return;
+    const y=a.date.slice(0,4);
+    (daily[y]=daily[y]||new Array(daysInYear(y)+1).fill(0))[dayOfYear(a.date)]+=measure.pick(a)||0;
+  });
+  const doy=dayOfYear(today);
+  if(!daily[focus]){
+    setChartEmpty('chartProject',`Nothing logged in ${focus} for this sport yet, so there is nothing to project.`);
+    chartSummary('project',[],'');
+    const says=document.getElementById('projMixSays');if(says)says.textContent='';
+    return;
+  }
+  setChartEmpty('chartProject');
+  const p=yearEndProjection(daily,focus,doy,projMix);
+
+  // Up to three finished years behind it, for the projection to be read against.
+  const past=Object.keys(daily).filter(y=>y<focus).sort().reverse().slice(0,3);
+  const len=daysInYear(focus);
+  const cumOf=(y,stop)=>{
+    const src=daily[y]||[],out=[];let run=0;
+    for(let d=1;d<=len;d++){run+=src[Math.min(d,src.length-1)]||0;out.push(d<=stop?+run.toFixed(2):null);}
+    return out;
+  };
+
+  destroyChart('project');
+  charts.project=upsertChart('project',document.getElementById('chartProject').getContext('2d'),{
+    type:'line',
+    data:{labels:Array.from({length:len},(_,i)=>i+1),datasets:[
+      ...past.map((y,i)=>({label:y,data:cumOf(y,len),borderColor:yearRamp(past.length+1,i+1),
+        backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,tension:.1,fill:false,spanGaps:false})),
+      {label:focus,data:cumOf(focus,doy),borderColor:getAccentColor(),
+       backgroundColor:'transparent',borderWidth:2.5,pointRadius:0,tension:.1,fill:false,spanGaps:false},
+      // Dotted, not dashed, and the only series on the chart that has not happened.
+      {label:'Projected',data:p.path.slice(1),borderColor:getAccentColor(),
+       borderDash:[2,4],borderCapStyle:'round',backgroundColor:'transparent',
+       borderWidth:2,pointRadius:0,tension:.1,fill:false,spanGaps:false},
+    ]},
+    options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},
+      tooltip:{mode:'index',intersect:false,callbacks:{
+        title:c=>{const d=+c[0].label;const mi=MONTH_DOY.filter(m=>m<=d).length-1;
+          return`${MONTH_ABBR[mi]} ${d-MONTH_DOY[mi]+1}`;},
+        label:c=>c.parsed.y==null?null:`${c.dataset.label}: ${measure.fmt(c.parsed.y)}`}}},
+      responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      scales:{
+        x:{grid:{display:false},ticks:{font:{size:10},maxRotation:0,autoSkip:false,
+          callback:v=>{const i=MONTH_DOY.indexOf(v+1);return i>=0?MONTH_ABBR[i]:'';}}},
+        y:{grid:{color:chartGrid()},beginAtZero:true,ticks:{font:{size:11},callback:measure.tick}}}}
+  });
+
+  // What the dial is currently set to, in words. A number between 0 and 100 tells
+  // you nothing about what it is mixing.
+  const pctRecent=Math.round(p.weight*100);
+  const says=document.getElementById('projMixSays');
+  if(says)says.textContent=p.seasonal==null
+    ? `Your last ${p.window} days, carried to 31 December. No finished year to compare against yet, so the seasonal half of this dial has nothing to work with.`
+    : pctRecent>=99?`Entirely your last ${p.window} days, carried to 31 December.`
+    : pctRecent<=1?`Entirely the shape of your ${p.teachers} previous year${p.teachers===1?'':'s'} — by this date you are usually ${Math.round(p.fractionDone*100)}% done.`
+    : `${100-pctRecent}% the shape of your ${p.teachers} previous year${p.teachers===1?'':'s'}, ${pctRecent}% your last ${p.window} days.`;
+
+  document.getElementById('projSub').textContent=
+    `${focus} ${measure.noun} so far, and where it lands with ${p.daysLeft} day${p.daysLeft===1?'':'s'} to go`;
+
+  const lastYear=past[0];
+  const lastTotal=lastYear?cumOf(lastYear,len).filter(v=>v!=null).slice(-1)[0]:null;
+  const chips=[
+    {n:measure.fmt(p.projected),label:'projected year end',col:getAccentColor()},
+    {n:measure.fmt(p.ytd),label:`${focus} so far`,col:'#94a3b8'},
+  ];
+  if(lastTotal){
+    const d=Math.round((p.projected-lastTotal)/lastTotal*100);
+    chips.push({n:(d>=0?'+':'')+d+'%',label:`on ${lastYear}'s finished year`,col:d>=0?'#22c55e':'#ef4444'});
+  }
+  // The spread between the two methods IS the uncertainty, so it is a figure rather
+  // than a caveat buried in prose.
+  if(p.seasonal!=null){
+    const lo=Math.min(p.seasonal,p.recent),hi=Math.max(p.seasonal,p.recent);
+    chips.push({n:`${measure.fmt(lo)} – ${measure.fmt(hi)}`,label:'the two methods disagree by this much',col:'#8b5cf6'});
+  }
+  chartSummary('project',chips,(()=>{
+    const head=`Two ways of guessing, and the slider is how much you trust each. `;
+    if(p.seasonal==null)
+      return head+`Only the recent one is available: nothing before ${focus} covers a full year, so there is no seasonal shape to learn from. It is a straight line from here, which will be wrong in whichever direction your winter goes.`;
+    const gap=Math.abs(p.seasonal-p.recent)/Math.max(p.recent,1);
+    const which=p.recent>p.seasonal
+      ? `Your recent form projects higher than your usual shape does, which is what a good patch looks like — or what August looks like if your years tail off.`
+      : `Your recent form projects lower than your usual shape does, so either you are in a quiet spell or this year genuinely is one.`;
+    const agree=gap<0.05
+      ? ` The two agree closely, which is the most confidence this chart is ever able to offer.`
+      : ` They are ${Math.round(gap*100)}% apart, so treat the headline as the middle of a range rather than a figure.`;
+    return head+which+agree;
+  })());
 }
 
 // ── HOW THE MIX HAS SHIFTED ──
@@ -5162,29 +5360,10 @@ function renderCumulative(data,t=CUM_TARGET){
     cum[y]=out;
   });
 
-  // ── Where the year lands if nothing changes ──
-  // The chart already made you ask the question and then left you to do the
-  // arithmetic: the "on pace for" figure was a chip with no line under it, so there
-  // was nothing to hold it against. Drawn, it runs out to 31 December alongside the
-  // years that actually finished, which is the only way to see whether being ahead
-  // in September means finishing ahead.
-  //
-  // Same rate as the chip — the year-to-date average — so the line and the number
-  // cannot contradict each other. Dashed, because it is the one series on this chart
-  // that has not happened.
-  const yearLen=(+focus%4===0&&(+focus%100!==0||+focus%400===0))?366:365;
-  const hereNowForProj=(cum[focus]||[])[cutoff-1]||0;
-  let projection=null,projEnd=null;
-  if(isCurrent&&hereNowForProj>0&&cutoff<yearLen){
-    const rate=hereNowForProj/cutoff;
-    projEnd=hereNowForProj+(yearLen-cutoff)*rate;
-    projection=Array.from({length:366},(_,i)=>{
-      const d=i+1;
-      if(d<cutoff||d>yearLen)return null;
-      return +(hereNowForProj+(d-cutoff)*rate).toFixed(1);
-    });
-  }
-
+  // The projection that used to be drawn here has moved to its own panel, "Where
+  // the year ends", which can mix a seasonal shape into it and show the spread
+  // between the two methods. Two dotted lines on one tab reaching different answers
+  // by different arithmetic is worse than one that explains itself.
   destroyChart(t.key);
   charts[t.key]=upsertChart(t.key,document.getElementById(t.canvas).getContext('2d'),{
     type:'line',
@@ -5195,12 +5374,7 @@ function renderCumulative(data,t=CUM_TARGET){
         backgroundColor:'transparent',
         borderWidth:i===0?2.5:1.5,
         pointRadius:0,tension:.1,fill:false,spanGaps:false,
-      })).concat(projection?[{
-        label:`${focus} at this rate`,data:projection,
-        borderColor:yearRamp(show.length,0),borderDash:[6,5],
-        backgroundColor:'transparent',borderWidth:1.5,
-        pointRadius:0,tension:0,fill:false,spanGaps:false,
-      }]:[])},
+      }))},
     options:{
       plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},
         tooltip:{mode:'index',intersect:false,callbacks:{
@@ -5233,20 +5407,7 @@ function renderCumulative(data,t=CUM_TARGET){
     const d=Math.round((hereNow-thenPrev)/thenPrev*100);
     chips.push({n:(d>=0?'+':'')+d+'%',label:'on the year before',col:d>=0?'#22c55e':'#ef4444'});
   }
-  if(isCurrent&&projEnd)chips.push({n:fmtD(projEnd)+' '+distUnit(),label:'on pace for',col:'#8b5cf6'});
-  // The same question asked of the last 28 days rather than the whole year. One
-  // number would be false precision: a year-to-date rate cannot see that you have
-  // stopped, and a 28-day rate cannot see that you always stop in November. Both
-  // together are a range, which is the honest answer.
-  if(isCurrent&&projEnd){
-    const t28=_today(),from=new Date(t28+'T12:00:00');
-    from.setDate(from.getDate()-27);
-    const since=`${from.getFullYear()}-${String(from.getMonth()+1).padStart(2,'0')}-${String(from.getDate()).padStart(2,'0')}`;
-    const recent=ALL_DATA.filter(a=>typeMatches(a)&&a.date>=since&&a.date<=t28)
-      .reduce((s,a)=>s+distIn(a),0)/28;
-    const projRecent=hereNow+(yearLen-cutoff)*recent;
-    chips.push({n:fmtD(projRecent)+' '+distUnit(),label:'at the last 28 days’ rate',col:'#0ea5e9'});
-  }
+  if(isCurrent&&hereNow>0)chips.push({n:fmtD(hereNow/cutoff*365)+' '+distUnit(),label:'on pace for',col:'#8b5cf6'});
 
   chartSummary(t.chips,chips,(()=>{
     if(thenPrev==null||!thenPrev)return `No comparable year before ${focus} in this filter.`;
