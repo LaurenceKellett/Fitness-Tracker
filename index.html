@@ -248,7 +248,10 @@ a{color:inherit;text-decoration:none}
 .icon-btn:disabled{opacity:.5;cursor:not-allowed}
 .tab-btn{padding:6px 10px;font-size:12px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text-muted);border-radius:0;white-space:nowrap;transition:all .15s;font-family:inherit;display:inline-flex;align-items:center;gap:4px}
 .tab-btn .ms{font-size:14px;vertical-align:0}
-.tab-btn.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.tab-btn.active{background:transparent;color:var(--text);font-weight:600;box-shadow:inset 0 -2px 0 var(--text)}
+/* Icons carry the tabs where the labels have to go (phones, and the 641–1100px
+   band below); on a wide screen the words are enough, and the row reads as text. */
+@media(min-width:1101px){.tab-strip .tab-btn .ms{display:none}}
 .tab-btn:hover:not(.active){color:var(--text)}
 .year-bar{display:flex;align-items:center;gap:5px;flex-shrink:0}
 /* Every control on this row is one height: var(--ctl-h), which the logo and the
@@ -258,7 +261,7 @@ a{color:inherit;text-decoration:none}
    box sets the height and the text centres inside it; a later font-size change
    cannot knock one control out of line again. */
 .year-all{height:var(--ctl-h);display:inline-flex;align-items:center;padding:0 10px;font-size:11px;font-weight:600;color:var(--text-muted);border:1px solid var(--border-strong);border-radius:0;background:transparent;cursor:pointer;transition:all .15s;font-family:inherit}
-.year-all.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent-soft)}
+.year-all.active{color:var(--text);border-color:var(--text)}
 /* stretch rather than center, so the dividers between the arrows and the year run
    the full height of the box and not just the height of their own text. */
 .year-ctl{display:flex;align-items:stretch;height:var(--ctl-h);border:1px solid var(--border-strong);border-radius:0;overflow:hidden}
@@ -272,7 +275,7 @@ a{color:inherit;text-decoration:none}
   background:transparent;cursor:pointer;line-height:1;font-family:inherit;transition:all .15s}
 .year-roll+.year-roll{border-left:1px solid var(--border)}
 .year-roll:hover:not(.active){color:var(--text)}
-.year-roll.active{background:var(--accent-soft);color:var(--accent)}
+.year-roll.active{color:var(--text);box-shadow:inset 0 -2px 0 var(--text)}
 .type-bar{display:flex;gap:2px;flex-wrap:wrap}
 .type-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;font-size:12px;font-weight:500;color:var(--text-muted);border:none;background:transparent;border-radius:0;cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit}
 /* Scoped to .type-bar so the Zwift toolbar, which uses the same button class at
@@ -280,13 +283,16 @@ a{color:inherit;text-decoration:none}
 .type-bar .type-btn{height:var(--ctl-h);padding:0 9px}
 .type-btn:hover:not(.active){color:var(--text)}
 .type-btn.active{font-weight:600}
-.type-btn[data-type="All"].active{background:var(--accent-soft);color:var(--accent)}
-.type-btn[data-type="Ride"].active{background:var(--ride-soft);color:var(--ride)}
-.type-btn[data-type="Virtual"].active{background:var(--virtual-soft);color:var(--virtual-fg)}
-.type-btn[data-type="Run"].active{background:var(--run-soft);color:var(--run-fg)}
-.type-btn[data-type="Walk"].active{background:var(--walk-soft);color:var(--walk-fg)}
-.type-btn[data-type="Swim"].active{background:var(--swim-soft);color:var(--swim-fg)}
-.type-btn[data-type="Other"].active{background:var(--other-soft);color:var(--other-fg)}
+/* The active sport is underlined in its own colour — identity, which is what the
+   sport hues are for — and the word itself stays in ink. */
+.type-btn.active{color:var(--text)}
+.type-btn[data-type="All"].active{box-shadow:inset 0 -2px 0 var(--text)}
+.type-btn[data-type="Ride"].active{box-shadow:inset 0 -2px 0 var(--ride)}
+.type-btn[data-type="Virtual"].active{box-shadow:inset 0 -2px 0 var(--virtual)}
+.type-btn[data-type="Run"].active{box-shadow:inset 0 -2px 0 var(--run)}
+.type-btn[data-type="Walk"].active{box-shadow:inset 0 -2px 0 var(--walk)}
+.type-btn[data-type="Swim"].active{box-shadow:inset 0 -2px 0 var(--swim)}
+.type-btn[data-type="Other"].active{box-shadow:inset 0 -2px 0 var(--other)}
 /* Only ever the selected sport, kept on the row after the period stopped containing
    any of it. Dimmed, so an empty page below reads as "you have filtered it away"
    rather than as "the dashboard broke". */
@@ -304,19 +310,19 @@ a{color:inherit;text-decoration:none}
 .tab-content.enter-from-right{animation:enterFromRight .22s ease}
 .tab-content.enter-from-left{animation:enterFromLeft .22s ease}
 /* SUMMARY — the present-tense block that now leads the page */
-.sum-hero{border-top:3px solid var(--accent);padding:24px 26px;margin-bottom:14px}
+.sum-hero{border-top:1px solid var(--border);padding:22px 0 0;margin-bottom:22px}
 .sum-hero-row{display:flex;gap:34px;align-items:flex-start}
 .sum-hero-fig{width:250px;flex-shrink:0}
 .sum-hero-chart{flex:1;min-width:0}
 .sum-hero-chart .chart-wrap{height:186px}
 .sum-big{font-family:var(--f-fig);font-size:52px;font-weight:var(--w-fig-xl);letter-spacing:-2.6px;line-height:1;margin:10px 0 8px}
 .sum-big-unit{font-size:22px;font-weight:500;color:var(--text-muted);letter-spacing:0;margin-left:11px}
-.sum-ratio{display:inline-flex;align-items:baseline;gap:6px;padding:6px 11px;margin-top:14px;
-  font-size:11px;font-weight:600;border-radius:0}
-.sum-ratio strong{font-size:14px;font-weight:700}
+.sum-ratio{display:inline-flex;align-items:center;gap:8px;padding:0;margin-top:14px;
+  font-size:12px;font-weight:500;color:var(--text-muted);border-radius:0}
+.sum-ratio strong{font-size:14px;font-weight:700;color:var(--text)}
 /* Quiet by design: B earns its place by what it says, not by its size. */
-.sum-band{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);
-  padding:16px 22px;display:flex;align-items:flex-start;gap:14px;margin-bottom:22px}
+.sum-band{background:transparent;border:0;border-top:1px solid var(--border);box-shadow:none;
+  padding:18px 0 4px;display:flex;align-items:flex-start;gap:14px;margin-bottom:22px}
 .sum-band:empty{display:none}
 .sum-band .ms{font-size:17px;color:var(--text-muted);vertical-align:0;flex-shrink:0;margin-top:1px}
 .sum-band-text{font-size:16px;font-weight:600;line-height:1.5}
@@ -351,8 +357,8 @@ a{color:inherit;text-decoration:none}
 .sum-sport-row span:first-child{font-size:11px;color:var(--text-muted)}
 .sum-sport-row span:last-child{font-size:12px;font-weight:600}
 /* The trophies, demoted to one line. */
-.sum-career{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);
-  padding:14px 22px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:24px}
+.sum-career{background:transparent;border:0;border-top:1px solid var(--border);box-shadow:none;
+  padding:16px 0 0;display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:24px}
 .sum-career-fig{display:flex;align-items:baseline;gap:6px}
 .sum-career-fig b{font-size:13px;font-weight:700}
 .sum-career-fig span{font-size:11px;color:var(--text-muted)}
@@ -371,7 +377,7 @@ a{color:inherit;text-decoration:none}
 }
 /* STATS */
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:14px;margin-bottom:24px}
-.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:18px 20px;box-shadow:var(--shadow)}
+.stat-card{background:transparent;border:0;border-top:1px solid var(--border);border-radius:0;padding:16px 0 0;box-shadow:none}
 .stat-card-link{cursor:pointer;transition:box-shadow .1s}
 .stat-card-link:hover{box-shadow:0 2px 4px rgba(15,23,42,.06),0 8px 20px rgba(15,23,42,.09)}
 .stat-label{font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:6px}
@@ -385,7 +391,14 @@ a{color:inherit;text-decoration:none}
 /* CHARTS */
 .charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
 .charts-grid.wide{grid-template-columns:1fr}
-.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:20px 22px;box-shadow:var(--shadow)}
+/* ── INK & SIGNAL ──
+   Cards are no longer boxes. A panel is a hairline rule and the air beneath it, sitting
+   on the page's one tone; colour belongs to the data — chart lines, sport squares,
+   calendar cells — and to nothing else. Hierarchy comes from type and spacing, which
+   is why the section headings and the big figures carry more of the weight than they
+   used to. Where a fill still separates things (the modal, the settings sheet, the
+   map's legend) it stays, because those float over the page rather than sit in it. */
+.chart-card{background:transparent;border:0;border-top:1px solid var(--border);border-radius:0;padding:20px 0 0;box-shadow:none}
 .chart-title{font-size:13px;font-weight:600;margin-bottom:4px}
 .chart-sub{font-size:11px;color:var(--text-muted);margin-bottom:16px}
 .chart-wrap{position:relative;height:240px}.chart-wrap.tall{height:320px}
@@ -509,10 +522,13 @@ a{color:inherit;text-decoration:none}
   border:none;background:transparent;cursor:pointer;font-family:inherit;line-height:1.45;white-space:nowrap}
 .chart-ctl-btn+.chart-ctl-btn{border-left:1px solid var(--border)}
 .chart-ctl-btn:hover:not(.active){color:var(--text)}
-.chart-ctl-btn.active{background:var(--accent-soft);color:var(--accent)}
+.chart-ctl-btn.active{color:var(--text);box-shadow:inset 0 -2px 0 var(--text)}
 .chart-chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
-.chart-chip{display:flex;align-items:baseline;gap:6px;padding:5px 11px;font-size:11px;font-weight:600}
-.chart-chip strong{font-size:13px;font-weight:700}
+/* Text wears the text colours; the chip's colour is the square beside it. A tinted
+   pill made every figure a coloured word, and a light hue is unreadable as text. */
+.chart-chip{display:flex;align-items:baseline;gap:7px;padding:0;margin-right:6px;font-size:11px;font-weight:500;color:var(--text-muted)}
+.chart-chip strong{font-size:13px;font-weight:700;color:var(--text)}
+.chip-sw{display:inline-block;width:7px;height:7px;flex-shrink:0;align-self:center}
 .chart-verdict{font-size:11px;color:var(--text-muted);line-height:1.55;margin-top:12px}
 .chart-verdict:empty,.chart-chips:empty{display:none}
 /* ── THE MAP AND ITS CONTROLS, AS ONE OBJECT ──
@@ -616,7 +632,7 @@ a{color:inherit;text-decoration:none}
 .year-cal-dow-lbl{height:14px;font-size:9px;color:var(--text-light);line-height:14px}
 .year-cal-wrap{display:flex;margin-top:8px}
 /* HEATMAP */
-.heatmap-wrap{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:24px;box-shadow:var(--shadow)}
+.heatmap-wrap{background:transparent;border:0;border-top:1px solid var(--border);border-radius:0;padding:20px 0 0;box-shadow:none}
 .heatmap-title{font-size:14px;font-weight:600;margin-bottom:4px}
 .heatmap-sub{font-size:12px;color:var(--text-muted);margin-bottom:16px}
 .heatmap-year-nav{display:flex;align-items:center;gap:12px;margin-bottom:16px}
@@ -852,16 +868,17 @@ tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
 tbody tr:last-child{border-bottom:none}
 tbody tr:hover{background:var(--bg)}
 tbody td{padding:10px 14px;vertical-align:middle}
-.type-badge{display:inline-block;padding:2px 8px;border-radius:0;font-size:11px;font-weight:600}
+.type-badge{display:inline-flex;align-items:center;gap:6px;padding:0;border-radius:0;font-size:11px;font-weight:600;color:var(--text)}
+.type-badge::before{content:"";width:7px;height:7px;background:var(--sw,var(--other));flex-shrink:0}
 /* Second line inside a table cell: the supporting number, never the headline one. */
 .cell-sub{font-size:10px;color:var(--text-light);margin-top:1px;font-weight:500;white-space:nowrap}
 .row-mark{display:inline-flex;align-items:center;vertical-align:middle;margin-right:6px;font-size:9px;font-weight:800;letter-spacing:.04em;padding:1px 4px}
 .row-mark.race{background:var(--accent-soft);color:var(--accent)}
 .row-mark.commute{background:var(--neutral-soft);color:var(--neutral-fg);padding:1px 3px}
 .row-mark.commute .ms{font-size:12px}
-.badge-ride{background:var(--ride-soft);color:var(--ride)}.badge-virtual{background:var(--virtual-soft);color:var(--virtual)}
-.badge-run{background:var(--run-soft);color:var(--run)}.badge-walk{background:var(--walk-soft);color:var(--walk)}
-.badge-swim{background:var(--swim-soft);color:var(--swim)}.badge-other{background:var(--other-soft);color:var(--other)}
+.badge-ride{--sw:var(--ride)}.badge-virtual{--sw:var(--virtual)}
+.badge-run{--sw:var(--run)}.badge-walk{--sw:var(--walk)}
+.badge-swim{--sw:var(--swim)}.badge-other{--sw:var(--other)}
 .strava-link{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:#fc4c02;color:white;border-radius:0;font-size:10px;font-weight:700;transition:opacity .15s}
 .strava-link:hover{opacity:.85}
 .log-pagination{display:flex;align-items:center;gap:8px;padding:14px 16px;border-top:1px solid var(--border);font-size:13px;color:var(--text-muted)}
@@ -1283,7 +1300,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
      row — it reads as a button rather than as "you are here". The icon fills in
      instead, which is what the Material Symbols FILL axis is for, and the label
      takes the accent from .tab-btn.active as it already did. */
-  .tab-strip .tab-btn.active{background:transparent}
+  .tab-strip .tab-btn.active{background:transparent;box-shadow:none}
   .tab-strip .tab-btn.active .ms{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 20}
 }
 /* PARTNER LOG BTN */
@@ -3668,7 +3685,7 @@ function renderSummaryNow(data){
     if(!(cw.pace>0)||!(cw.total>0)){ratioEl.innerHTML='';}
     else{
       const [col,word]=ratioTone(ratio);
-      ratioEl.innerHTML=`<div class="sum-ratio" style="color:${col};background:${col}1a">`+
+      ratioEl.innerHTML=`<div class="sum-ratio"><span class="chip-sw" style="background:${col}"></span>`+
         `<strong>${ratio.toFixed(2)}×</strong> ${word}</div>`;
     }
   }
@@ -4827,7 +4844,7 @@ const ZONE_NAMES=['Z1 Recovery','Z2 Endurance','Z3 Tempo','Z4 Threshold','Z5 VO2
 function chartSummary(id,chips,verdict){
   const c=document.getElementById(id+'Chips'),v=document.getElementById(id+'Verdict');
   if(c)c.innerHTML=(chips||[]).map(x=>
-    `<div class="chart-chip" style="color:${x.col};background:${x.col}1a"><strong>${escapeHtml(x.n)}</strong> ${escapeHtml(x.label)}</div>`
+    `<div class="chart-chip"><span class="chip-sw" style="background:${x.col}"></span><strong>${escapeHtml(x.n)}</strong> ${escapeHtml(x.label)}</div>`
   ).join('');
   if(v)v.textContent=verdict||'';
 }
@@ -5107,7 +5124,7 @@ function renderLoad(data,t=LOAD_TARGET){
     {n:chipNum(a7,1)+'h',label:'last 7 days',col:getAccentColor()},
     {n:chipNum(c28,1)+'h',label:'28-day average',col:'#94a3b8'},
     {n:c28>0?ratio.toFixed(2)+'×':'—',label:'acute vs chronic',col:ratio>1.5?'#ef4444':ratio<0.8?'#f59e0b':'#22c55e'},
-    {n:chipNum(peak,1)+'h',label:'biggest week in view',col:'#8b5cf6'},
+    {n:chipNum(peak,1)+'h',label:'biggest week in view',col:cssVar('--other','#94a3b8')},
   ],
   (()=>{
     if(!c28)return 'Not enough recent training to have a baseline to compare against.';
@@ -5198,7 +5215,7 @@ function renderWeekDistance(data,t=SUM_DIST_TARGET){
     weekBaseText(cw,u),
     cw.pace>0&&cw.total>0?(()=>{
       const[col,word]=ratioTone(cw.ratio);
-      return `<div class="sum-ratio" style="color:${col};background:${col}1a"><strong>${cw.ratio.toFixed(2)}×</strong> ${word}</div>`;
+      return `<div class="sum-ratio"><span class="chip-sw" style="background:${col}"></span><strong>${cw.ratio.toFixed(2)}×</strong> ${word}</div>`;
     })():''
   );
 
@@ -5246,7 +5263,7 @@ function renderWeekDistance(data,t=SUM_DIST_TARGET){
     {n:chipNum(a7,1)+' '+u,label:'last 7 days',col:getAccentColor()},
     {n:chipNum(c28,1)+' '+u,label:'28-day average',col:cssVar('--other','#94a3b8')},
     {n:c28>0?ratio.toFixed(2)+'×':'—',label:'acute vs chronic',col:ratioTone(ratio)[0]},
-    {n:chipNum(w.peak,1)+' '+u,label:'biggest week in view',col:cssVar('--virtual','#8b5cf6')},
+    {n:chipNum(w.peak,1)+' '+u,label:'biggest week in view',col:cssVar('--other','#94a3b8')},
   ],
   (()=>{
     if(!c28)return 'Not enough recent training to have a baseline to compare against.';
@@ -5423,9 +5440,9 @@ function renderCumulative(data,t=CUM_TARGET){
   if(thenPrev!=null)chips.push({n:fmtD(thenPrev)+' '+measure.unit(),label:`${prev} at the same point`,col:'#94a3b8'});
   if(thenPrev>0){
     const d=Math.round((hereNow-thenPrev)/thenPrev*100);
-    chips.push({n:(d>=0?'+':'')+d+'%',label:'on the year before',col:d>=0?'#22c55e':'#ef4444'});
+    chips.push({n:(d>=0?'+':'')+d+'%',label:'on the year before',col:d>=0?cssVar('--success-fg','#16a34a'):cssVar('--danger','#dc2626')});
   }
-  if(isCurrent&&projEnd)chips.push({n:fmtD(projEnd)+' '+measure.unit(),label:'on pace for',col:'#8b5cf6'});
+  if(isCurrent&&projEnd)chips.push({n:fmtD(projEnd)+' '+measure.unit(),label:'on pace for',col:cssVar('--other','#94a3b8')});
   // The same question asked of the last 28 days rather than the whole year. One
   // number would be false precision: a year-to-date rate cannot see that you have
   // stopped, and a 28-day rate cannot see that you always stop in November. Both
@@ -5437,7 +5454,7 @@ function renderCumulative(data,t=CUM_TARGET){
     const recent=ALL_DATA.filter(a=>typeMatches(a)&&a.date>=since&&a.date<=t28)
       .reduce((s,a)=>s+measure.pick(a),0)/28;
     const projRecent=hereNow+(yearLen-cutoff)*recent;
-    chips.push({n:fmtD(projRecent)+' '+measure.unit(),label:'at the last 28 days’ rate',col:'#0ea5e9'});
+    chips.push({n:fmtD(projRecent)+' '+measure.unit(),label:'at the last 28 days’ rate',col:cssVar('--other','#94a3b8')});
   }
 
   chartSummary(t.chips,chips,(()=>{
