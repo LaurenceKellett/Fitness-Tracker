@@ -598,6 +598,7 @@ The Worker aggregates the last 30 days of activity data and sends it to `@cf/met
 - **Accent colour:** `#ff385c`
 - **Sport colours (light):** Ride `#0a46b9` · Virtual `#b180fc` · Run `#d33a3c` · Walk `#d7a10c` · Swim `#1790a3` · Other `#94a3b8`
 - **Sport colours (dark):** Ride `#2e62c9` · Virtual `#a47de3` · Run `#cf4040` · Walk `#bd8c00` · Swim `#1790a3` · Other `#94a3b8`. Dark is its own set of steps, not the light one lifted — the lifted set put Ride and Virtual at ΔE 0.3 for deutan readers. Both sets pass the chart-colour checks all-pairs (light: colour-blind ΔE 13.3, normal 21.8; dark: 9.5 and 15.4); the reasoning is in the tokens' comment in `index.html`
+- **Favicon and app icon:** "Signal" — an ink tile with one square of accent, the dashboard's own mark rather than Strava's chevron. The SVG follows the system theme (paper with a hairline in light, ink in dark); `icons/icon.svg` is the source and `node icons/render.mjs` cuts the PNGs from the same geometry, the maskable one with the square pulled in to survive a circular mask.
 - **Corners:** square everywhere. `--radius` and `--radius-sm` are both `0`; nothing in the app rounds, including pills, dots and the favicon. Keep new work sharp.
 - **Shadows:** `--shadow` is the standard card lift. `--shadow-callout` is heavier and reserved for call-out boxes — the AI summary and the sync warning — so they lift off the page without needing a colour fill.
 - **Labels:** sentence case. No `text-transform: uppercase` and no letter-spacing on labels, per the house rule across the tools.

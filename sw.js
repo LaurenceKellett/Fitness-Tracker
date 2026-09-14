@@ -23,7 +23,8 @@
  *
  * Bump CACHE_VERSION when the shell list changes; activate() drops every older cache.
  */
-const CACHE_VERSION = 'v1';
+// v2: the app icons changed (the Signal mark), and they are cached cache-first.
+const CACHE_VERSION = 'v2';
 const SHELL_CACHE = `fitness-shell-${CACHE_VERSION}`;
 const ASSET_CACHE = `fitness-assets-${CACHE_VERSION}`;
 const LIB_CACHE = `fitness-libs-${CACHE_VERSION}`;
