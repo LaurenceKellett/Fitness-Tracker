@@ -1428,6 +1428,44 @@ read-only: it never writes a status back.
 
 ---
 
+## Ideas not built
+
+Nothing in this section exists. It is a place to leave a design worked out far enough
+that picking it up later does not mean starting again — everything above documents what
+the app actually does, and mixing the two is how a README starts lying.
+
+### Cost per use
+
+**The figure.** What each thing has cost you per outing, and per mile — a bike at £2,000
+over 210 rides is £9.52 a ride and £0.49 a mile. It pairs well with retirement: for kit in
+rotation the number keeps falling every time you use it, and for a retired pair it is final,
+which is the closest this dashboard could get to saying whether something was worth buying.
+
+**Rough guides, not real prices.** £2,000 for a bike and £120 for a pair of shoes, unless a
+specific item says otherwise. These are class defaults chosen to make the arithmetic
+demonstrable; they are not what any particular item cost. Real per-item prices should not be
+committed to this repo — the natural home is the gear record in KV alongside `brand`, `model`
+and `retired`, which the Worker already keeps and which never appears in version control.
+
+**A default must not be able to pass itself off as a fact.** A card reading "£9.52 / ride"
+computed from a guessed £2,000 is asserting something untrue with the same confidence as the
+distance above it, and the reader cannot tell which is which. Anything derived from a class
+default has to be visibly approximate — a `≈`, a lighter weight, an "est." — and an item with
+a real price entered should read differently from one without. This is the same rule the rest
+of the card already follows: where two figures disagree the count is labelled "Uses" rather
+than "Runs", so neither has to lie.
+
+**Which denominator.** Per use is the more visceral figure; per mile is the fairer one across
+items, because it does not punish a bike for being ridden in long sessions rather than short
+ones. Probably both, the way the hero cards already switch measure — and probably not on the
+two charts, which rank your whole history and have no business carrying an estimate.
+
+**Where it goes.** The trio (Uses / Moving / Climbed) is full. The wear row and the service
+row are both label-left, value-right one-liners, and a third of those fits underneath without
+touching the card's hierarchy.
+
+---
+
 ## Troubleshooting
 
 | Symptom | Fix |
