@@ -263,6 +263,11 @@ async function main() {
       r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ prefs: {}, updatedAt: 0 }) })
     );
 
+    // The refresh's own account of itself. Idle unless a check says otherwise.
+    await page.route('**/refresh-status**', (r) =>
+      r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ state: 'idle' }) })
+    );
+
     await page.goto(base + '/index.html', { waitUntil: 'domcontentloaded' });
     return { ctx, page, errors };
   }
@@ -539,6 +544,49 @@ async function main() {
       assert(r.withRoutes > 0, 'no tile carries its routes');
       assert(r.paths > 0, 'the route layer is empty');
       assert(r.z === '-1', `the routes are not behind the figures (z-index ${r.z})`);
+    });
+
+    await check('a refresh says what the Worker is doing and how long is left', async () => {
+      // The harness's defaults for these two routes are cleared and put back afterwards:
+      // a slow answer from /activities, and a status that says page 3 of about 10 with
+      // the last pull having taken forty seconds.
+      await page.unroute('**/refresh-status**');
+      await page.unroute('**/activities**');
+      const running = (r) => r.fulfill({ status: 200, contentType: 'application/json',
+        body: JSON.stringify({ state: 'running', source: 'request', startedAt: new Date().toISOString(),
+          stage: 'activities', page: 3, fetched: 600, expectedPages: 10, expectedTotal: 2000, lastDurationMs: 40000 }) });
+      const slow = async (r) => {
+        await new Promise((res) => setTimeout(res, 1600));
+        await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ENVELOPE) });
+      };
+      await page.route('**/refresh-status**', running);
+      await page.route('**/activities**', slow);
+      const done = page.evaluate(() => window.refreshData());
+      await page.waitForTimeout(900);
+      const mid = await page.evaluate(() => {
+        const bar = document.getElementById('syncBar');
+        return { shown: bar.classList.contains('show'), width: parseFloat(bar.style.width), now: bar.getAttribute('aria-valuenow'),
+          text: document.getElementById('lastUpdated').textContent, menu: document.getElementById('settingsUpdated').textContent };
+      });
+      assert(mid.shown && mid.width > 0, 'no progress line while the refresh runs');
+      assert(mid.now && +mid.now > 0 && +mid.now < 100, `the line does not report its value (${mid.now})`);
+      assert(/page 3 of about 10/.test(mid.text), `the header does not say where the pull has got to: "${mid.text}"`);
+      assert(/left|nearly there/.test(mid.text), `no estimate of the time left: "${mid.text}"`);
+      assert(/page 3/.test(mid.menu) && /600 so far/.test(mid.menu), `the settings sheet does not carry the fuller status: "${mid.menu}"`);
+      await done;
+      await page.waitForTimeout(700);
+      const after = await page.evaluate(() => ({
+        shown: document.getElementById('syncBar').classList.contains('show'),
+        text: document.getElementById('lastUpdated').textContent,
+      }));
+      assert(!after.shown, 'the progress line stayed after the refresh finished');
+      assert(/^Updated/.test(after.text), `the header did not go back to the updated time: "${after.text}"`);
+      await page.unroute('**/refresh-status**', running);
+      await page.unroute('**/activities**', slow);
+      await page.route('**/activities**', (r) =>
+        r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ENVELOPE) }));
+      await page.route('**/refresh-status**', (r) =>
+        r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ state: 'idle' }) }));
     });
 
     await check('rolling date scopes filter the data', async () => {

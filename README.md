@@ -123,6 +123,21 @@ the tab row on a phone, and none of them is navigation — they are preferences 
 utilities, so they belong behind a single affordance. It opens as a popover anchored to the
 button on a desktop and as the same bottom sheet the scope control uses below 640px.
 
+### Refreshing from Strava
+
+A full pull is a couple of dozen requests and can take a minute, and a minute of
+"Refreshing…" with nothing moving reads as hung. The Worker now narrates the pull: as it
+works it writes its stage to KV — signing in, fetching activities (page *n* of about *m*,
+so many so far), looking up gear, reading heart-rate zones, saving — and how long the last
+pull took, which is the only honest basis for an estimate. While a load is in flight the
+page asks `GET /refresh-status` every second and a half, grows a two-pixel ink line along
+the top of the window (fetching takes the bulk of the time, so it takes the bulk of the
+line, paced by page), and says in words where the pull has got to and roughly how long is
+left, in the header and beside the Refresh row in the menu. The same applies to the first
+load of a session when the Worker's cache has expired and it has to pull before it can
+answer. If the status cannot be fetched the load carries on exactly as before, with a plain
+"Syncing…"; a record left by a run that died more than ten minutes ago is ignored.
+
 ### Rearranging a tab
 
 **Settings → Rearrange this tab** turns editing on for the tab you are already looking at.
@@ -311,6 +326,7 @@ Dashboard settings — the panel order set by **Rearrange this tab** — live un
 | `GET /zwift-routes` | Returns the cached Zwift routes envelope `{ data, updatedAt }`, proxied live from Notion |
 | `GET /zwift-routes?refresh=true` | Bypasses cache, re-fetches all routes from Notion |
 | `PATCH /zwift-routes/{pageId}` | Updates `status`/`date_completed`/`time` on one route, writes straight to Notion |
+| `GET /refresh-status` | What the current or last pull from Strava is doing: `{ state, stage, page, fetched, expectedPages, expectedTotal, lastDurationMs, startedAt, updatedAt }`, `state` one of `idle`, `running`, `done`, `failed`. Written by the refresh as it goes, one KV write every 1.2 s at most; `Cache-Control: no-store` |
 | `GET /prefs` | The dashboard's own settings — today the panel order per zone — as `{ prefs, updatedAt }`. `updatedAt` is 0 when nothing has ever been saved |
 | `PUT /prefs` | Stores `{ prefs, updatedAt }`. The newer stamp wins: a record older than the one held is not written, and the held one comes back with `X-Prefs: stale`. No auth, like the rest of the Worker — it holds nothing that would matter if a stranger read or shuffled it, and Reset undoes a shuffle |
 

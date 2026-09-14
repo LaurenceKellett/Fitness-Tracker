@@ -88,6 +88,7 @@ export default {
       case '/activities':         return handleActivities(request, env);
       case '/debug':              return handleDebug(env);
       case '/prefs':              return handlePrefs(request, env);
+      case '/refresh-status':     return handleRefreshStatus(env);
       case '/zwift-routes':       return handleZwiftRoutes(request, env);
       case '/sync-training-log':  return handleSyncTrainingLog(env);
       case '/backfill-prs':       return handleBackfillPrs(env);
@@ -115,7 +116,7 @@ export default {
       try {
         // backfillPrs: the cron is the only place that spends Strava requests on
         // segment PBs, a slice at a time, so it never delays a page load.
-        await refreshActivitiesCache(env, { regenerateAi: false, backfillPrs: true });
+        await refreshActivitiesCache(env, { regenerateAi: false, backfillPrs: true, source: 'cron' });
       } catch (err) {
         // The previous cache entry stays put, so a failed refresh serves stale
         // data rather than none.
@@ -272,14 +273,30 @@ async function handleActivities(request, env) {
 // output nobody reads — but a scheduled refresh should not be the thing that
 // destroys the last good summary either, so it carries the existing one
 // forward rather than writing the placeholder over it.
-async function refreshActivitiesCache(env, { regenerateAi = true, backfillPrs = false } = {}) {
+async function refreshActivitiesCache(env, opts = {}) {
+  // Every pull narrates itself (see REFRESH PROGRESS below): what stage it is at is
+  // written to KV as it goes, and the dashboard polls for it while it waits.
+  const progress = await makeProgress(env, opts.source || 'request');
+  try {
+    const envelope = await pullActivities(env, opts, progress);
+    await progress.done();
+    return envelope;
+  } catch (err) {
+    await progress.failed(err);
+    throw err;
+  }
+}
+
+async function pullActivities(env, { regenerateAi = true, backfillPrs = false } = {}, progress) {
+  await progress.stage('token');
   const accessToken = await getAccessToken(env);
-  const activities  = await fetchAllActivities(accessToken, env);
+  const activities  = await fetchAllActivities(accessToken, env, progress);
 
   // Segment PBs collected on previous runs are written on unconditionally — that
   // costs one KV read. Collecting NEW ones costs a Strava request per activity,
   // so only the cron does that; a user waiting on /activities never pays for it.
   if (backfillPrs) {
+    await progress.stage('prs');
     try {
       const res = await backfillBestEfforts(env, accessToken, activities);
       console.log(`Best-effort backfill: checked ${res.checked}, found ${res.found}, ${res.remaining} runs still to do`);
@@ -293,6 +310,7 @@ async function refreshActivitiesCache(env, { regenerateAi = true, backfillPrs = 
 
   let aiSummary = 'No AI summary generated.';
   if (regenerateAi && env.AI) {
+    await progress.stage('ai');
     aiSummary = await generateAiSummary(activities, env);
   } else if (env.CACHE) {
     try {
@@ -314,6 +332,7 @@ async function refreshActivitiesCache(env, { regenerateAi = true, backfillPrs = 
     gearMeta: _gearMeta,
   });
 
+  await progress.stage('save');
   if (env.CACHE) {
     // Both copies, every time, so the fallback is never older than the last
     // successful pull. The serving copy expires; the fallback never does.
@@ -324,6 +343,83 @@ async function refreshActivitiesCache(env, { regenerateAi = true, backfillPrs = 
   }
 
   return envelope;
+}
+
+// =============================================================================
+// REFRESH PROGRESS — what a pull from Strava is doing, for the dashboard to show
+// =============================================================================
+// A full pull is a couple of dozen requests to Strava and can take a minute. The
+// dashboard used to show "Refreshing…" for the whole of it, which reads as hung. Now
+// the refresh writes where it has got to under one small KV key as it works — the
+// stage, the page it is on, how many activities so far, and how long the last pull
+// took, which is the only honest basis for "about 40 seconds left" — and
+// GET /refresh-status hands that back for the page to poll.
+//
+// KV allows one write a second to a key, so writes are throttled to one every 1.2 s
+// except the last, and a write that fails is logged and ignored: the status is a
+// courtesy, and the pull itself must never fail because of it.
+const REFRESH_STATUS_KEY = 'refresh_status_v1';
+const REFRESH_LAST_KEY   = 'refresh_last_v1';   // { durationMs, total, finishedAt } of the last success
+const REFRESH_WRITE_GAP  = 1200;
+
+async function makeProgress(env, source) {
+  let last = null;
+  if (env.CACHE) {
+    try { last = JSON.parse((await env.CACHE.get(REFRESH_LAST_KEY)) || 'null'); } catch { last = null; }
+  }
+  const startedAt = Date.now();
+  const rec = {
+    state: 'running', source,
+    startedAt: new Date(startedAt).toISOString(), updatedAt: null,
+    stage: 'token', page: 0, fetched: 0,
+    // Strava pages are 200 long; the last pull's total says how many to expect.
+    expectedPages: last && last.total ? Math.ceil(last.total / 200) : null,
+    expectedTotal: last ? last.total : null,
+    lastDurationMs: last ? last.durationMs : null,
+  };
+  let lastWrite = 0;
+  const write = async (force) => {
+    if (!env.CACHE) return;
+    const now = Date.now();
+    if (!force && now - lastWrite < REFRESH_WRITE_GAP) return;
+    lastWrite = now;
+    rec.updatedAt = new Date(now).toISOString();
+    try {
+      await env.CACHE.put(REFRESH_STATUS_KEY, JSON.stringify(rec), { expirationTtl: 60 * 60 });
+    } catch (err) {
+      console.error('Refresh status write failed:', err.message);
+    }
+  };
+  return {
+    stage: (stage, extra) => { rec.stage = stage; Object.assign(rec, extra || {}); return write(false); },
+    done: async () => {
+      const durationMs = Date.now() - startedAt;
+      Object.assign(rec, { state: 'done', stage: 'done', durationMs, total: rec.fetched });
+      await write(true);
+      if (env.CACHE) {
+        try {
+          await env.CACHE.put(REFRESH_LAST_KEY, JSON.stringify({ durationMs, total: rec.fetched, finishedAt: new Date().toISOString() }));
+        } catch (err) {
+          console.error('Refresh record write failed:', err.message);
+        }
+      }
+    },
+    failed: async (err) => {
+      Object.assign(rec, { state: 'failed', error: String((err && err.message) || err) });
+      await write(true);
+    },
+  };
+}
+
+async function handleRefreshStatus(env) {
+  let body = '{"state":"idle"}';
+  if (env.CACHE) {
+    const raw = await env.CACHE.get(REFRESH_STATUS_KEY);
+    if (raw) body = raw;
+  }
+  return new Response(body, {
+    headers: { ...CORS, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+  });
 }
 
 // =============================================================================
@@ -1065,7 +1161,7 @@ async function getAccessToken(env) {
 // PAGINATION
 // =============================================================================
 
-async function fetchAllActivities(accessToken, env) {
+async function fetchAllActivities(accessToken, env, progress) {
   const all  = [];
   let   page = 1;
   const zones = homeZones(env);
@@ -1082,11 +1178,13 @@ async function fetchAllActivities(accessToken, env) {
     for (const activity of batch) {
       all.push(transformActivity(activity, zones));
     }
+    if (progress) await progress.stage('activities', { page, fetched: all.length });
 
     if (batch.length < 200) break; 
     page++;
   }
 
+  if (progress) await progress.stage('gear', { page: 0 });
   const gearIds = [...new Set(all.map(a => a._gear_id).filter(Boolean))];
   const gearMap  = {};
   const knownGear = await loadGearNames(env);
@@ -1109,6 +1207,7 @@ async function fetchAllActivities(accessToken, env) {
     delete a._gear_id;
   }
 
+  if (progress) await progress.stage('zones');
   const hrZones = await fetchAthleteZones(accessToken);
   // Derived once from the whole history, not per activity — that was the bug.
   const athleteMaxHr = deriveAthleteMaxHr(all);

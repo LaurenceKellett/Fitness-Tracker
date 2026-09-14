@@ -244,6 +244,12 @@ a{color:inherit;text-decoration:none}
 .logo-icon svg{width:calc(var(--ctl-h) * .5);height:calc(var(--ctl-h) * .5)}
 .logo-name{font-size:15px;font-weight:700;letter-spacing:-.3px;color:var(--text)}
 .last-updated{font-size:10px;color:var(--text-light);white-space:nowrap}
+/* ── WHAT THE REFRESH IS DOING ──
+   A two-pixel ink line along the top of the page while a pull from Strava is in
+   flight, growing with the Worker's own account of where it has got to. */
+.sync-bar{position:fixed;left:0;top:0;height:2px;width:0;background:var(--text);z-index:1000;opacity:0;
+  transition:width .5s ease,opacity .3s;pointer-events:none}
+.sync-bar.show{opacity:1}
 .header-toolbar{display:flex;align-items:stretch;border:1px solid var(--border-strong);border-radius:0;overflow:hidden;flex-shrink:0;height:30px}
 .unit-opt{padding:0 9px;font-size:11px;font-weight:600;color:var(--text-muted);border:none;background:transparent;cursor:pointer;line-height:1;font-family:inherit;display:flex;align-items:center}
 .unit-opt.active{background:var(--text);color:var(--surface)}
@@ -1551,6 +1557,7 @@ body.is-loading .stats-grid *{visibility:hidden}
 </style>
 </head>
 <body class="is-loading">
+<div class="sync-bar" id="syncBar" role="progressbar" aria-label="Refreshing from Strava" aria-valuemin="0" aria-valuemax="100" aria-hidden="true"></div>
 <div class="header">
   <div class="header-inner">
     <!-- Band 1 — PLACE: brand, destinations, utilities -->
@@ -8316,8 +8323,10 @@ function renderAll(){
 }
 
 
+let _updatedText = '';
 function setUpdatedAt(isoString) {
   const text = formatUpdatedAt(isoString);
+  _updatedText = text;
   const el = document.getElementById('lastUpdated');
   if (el) el.textContent = text;
   // Repeated beside the Refresh row, where it is the reason you would press it.
@@ -8594,8 +8603,7 @@ async function loadData(forceRefresh = false) {
           clearLoadingState();
           renderedFromCache = true;
           // Show that a background refresh is in progress
-          const lu = document.getElementById('lastUpdated');
-          if (lu) lu.textContent += ' · Syncing…';
+          syncStart();
         }
       }
     } catch(e) { /* bad cache, ignore */ }
@@ -8605,6 +8613,7 @@ async function loadData(forceRefresh = false) {
 
   let updatedAt;
   try {
+    syncStart(forceRefresh ? 'Refreshing from Strava…' : null);
     const res = await fetch(url);
     if (!res.ok) throw new Error(`The activities service answered ${res.status} ${res.statusText||''}`.trim() + '.');
 
@@ -8620,14 +8629,14 @@ async function loadData(forceRefresh = false) {
     if (envelope.hrZones) HR_ZONE_META = envelope.hrZones;
     if (envelope.gearMeta) GEAR_META = envelope.gearMeta;
     setUpdatedAt(updatedAt);
+    syncStop();
   } catch (e) {
     console.error('Could not load activities from Strava Worker:', e);
     const detail = e && e.message ? e.message : 'The request failed.';
+    syncStop({ offline: ALL_DATA.length > 0 });
     if (ALL_DATA.length) {
       // Cached data is on screen and still worth reading — say the refresh failed
       // and leave it be, rather than replacing a working page with an error.
-      const lu = document.getElementById('lastUpdated');
-      if (lu) lu.textContent = lu.textContent.replace(' · Syncing…', ' · (offline)');
       showLoadError(detail + ' Showing the last data saved on this device'
         + (cacheNote ? ` (${cacheNote}).` : '.'), {inline:true});
     } else {
@@ -8659,17 +8668,118 @@ async function loadData(forceRefresh = false) {
 async function refreshData() {
   const btn  = document.getElementById('refreshBtn');
   const retry = document.getElementById('appErrorRetry');
-  const label = document.getElementById('lastUpdated');
   if (btn) { btn.disabled = true; btn.classList.add('spinning'); }
   if (retry) retry.disabled = true;
-  if (label) label.textContent = 'Refreshing…';
-  const menuNote = document.getElementById('settingsUpdated');
-  if (menuNote) menuNote.textContent = 'refreshing…';
+  syncStart('Refreshing from Strava…');
 
   await loadData(true);
 
   if (btn) { btn.disabled = false; btn.classList.remove('spinning'); }
   if (retry) retry.disabled = false;
+}
+
+// ── WHAT THE REFRESH IS DOING ──
+// A pull from Strava is a couple of dozen requests and can take a minute, and a
+// minute of "Refreshing…" with nothing moving reads as hung. The Worker writes what
+// it is doing to KV as it goes (the stage, the page, how many so far, how long the
+// last pull took), and while a load is in flight this asks every second and a half,
+// draws the line along the top of the page and says, in words, where the pull has
+// got to and roughly how long is left. The status is a courtesy: if it cannot be
+// fetched the load carries on exactly as before, with a plain "Syncing…".
+const SYNC_STAGES={
+  token:     [0.03,'signing in to Strava'],
+  activities:[0.85,'fetching activities'],
+  gear:      [0.90,'looking up gear'],
+  zones:     [0.93,'reading heart-rate zones'],
+  prs:       [0.95,'collecting segment PBs'],
+  ai:        [0.97,'writing the summary'],
+  save:      [0.99,'saving'],
+};
+let _syncPoll=null,_syncStartedAt=0;
+function syncBar(frac){
+  const bar=document.getElementById('syncBar');if(!bar)return;
+  if(frac==null){
+    bar.classList.remove('show');bar.style.width='0';
+    bar.removeAttribute('aria-valuenow');bar.setAttribute('aria-hidden','true');
+    return;
+  }
+  bar.classList.add('show');
+  bar.style.width=Math.round(Math.max(2,Math.min(100,frac*100)))+'%';
+  bar.setAttribute('aria-valuenow',String(Math.round(frac*100)));
+  bar.setAttribute('aria-hidden','false');
+}
+function syncText(header,menu){
+  const lu=document.getElementById('lastUpdated');if(lu)lu.textContent=header;
+  const note=document.getElementById('settingsUpdated');if(note)note.textContent=menu==null?header:menu;
+}
+// How far along a running pull is, on the line. Fetching is the bulk of the time,
+// so it takes the bulk of the line, paced by page against the last pull's total.
+function syncFraction(s){
+  const order=Object.keys(SYNC_STAGES),i=order.indexOf(s.stage);
+  if(i<0)return 0.02;
+  const start=i?SYNC_STAGES[order[i-1]][0]:0.02,end=SYNC_STAGES[s.stage][0];
+  let within=1;
+  if(s.stage==='activities'){
+    const exp=Math.max(1,s.expectedPages||1);
+    within=Math.min(1,(s.page||0)/exp);
+  }
+  return start+(end-start)*within;
+}
+function syncLeft(ms){
+  const sec=Math.round(ms/1000);
+  if(sec<60)return `about ${Math.max(5,Math.round(sec/5)*5)} s left`;
+  const m=Math.round(sec/60);
+  return m===1?'about a minute left':`about ${m} minutes left`;
+}
+// The status in words: a short line for the header, a fuller one for the menu.
+function syncWords(s){
+  const stage=SYNC_STAGES[s.stage]?SYNC_STAGES[s.stage][1]:'working';
+  const pages=s.stage==='activities'&&s.page
+    ? (s.expectedPages?`page ${s.page} of about ${s.expectedPages}`:`page ${s.page}`):'';
+  const sofar=s.stage==='activities'&&s.fetched?`${s.fetched.toLocaleString('en-GB')} so far`:'';
+  let eta='';
+  if(s.lastDurationMs){
+    const left=s.lastDurationMs-(Date.now()-_syncStartedAt);
+    eta=left>1500?syncLeft(left):'nearly there';
+  }
+  return{
+    header:['Syncing',pages||stage,eta].filter(Boolean).join(' · '),
+    menu:['syncing · '+stage+(pages?' — '+pages:''),sofar,eta].filter(Boolean).join(' · '),
+  };
+}
+function syncStart(text){
+  if(!_syncStartedAt)_syncStartedAt=Date.now();
+  syncBar(0.02);
+  syncText(text||((_updatedText?_updatedText+' · ':'')+'Syncing…'),text?text.toLowerCase():'syncing…');
+  if(_syncPoll)return;
+  const tick=async()=>{
+    try{
+      const r=await fetch(API_BASE+'/refresh-status',{cache:'no-store'});
+      if(!r.ok)return;
+      const s=await r.json();
+      if(!s||s.state!=='running')return;
+      // A record left by a run that died must not narrate this one.
+      if(s.startedAt&&Date.now()-Date.parse(s.startedAt)>10*60*1000)return;
+      if(!_syncPoll)return;
+      const words=syncWords(s);
+      syncBar(syncFraction(s));
+      syncText(words.header,words.menu);
+    }catch(e){/* the status is a courtesy; the load itself decides what happens */}
+  };
+  _syncPoll=setInterval(tick,1500);
+  tick();
+}
+function syncStop({offline}={}){
+  if(_syncPoll){clearInterval(_syncPoll);_syncPoll=null;}
+  _syncStartedAt=0;
+  const bar=document.getElementById('syncBar');
+  if(bar&&bar.classList.contains('show')){
+    // Finish the line, then take it away.
+    bar.style.width='100%';
+    setTimeout(()=>{if(!_syncPoll)syncBar(null);},350);
+  }
+  const text=_updatedText+(offline?' · (offline)':'');
+  syncText(text,text.replace(/^Updated /,''));
 }
 
 // ── SERVICE WORKER ──
