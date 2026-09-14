@@ -1441,12 +1441,20 @@ async function main() {
       await tap(b.x, b.y);
       assert(!(await open_()), 'the new point would not close on a repeat tap');
 
-      // And a tap anywhere off the plot clears whatever is open.
+      // And a tap anywhere off the plot clears whatever is open. A heading, not a fixed
+      // coordinate: on this 390px viewport the plots now run to the page margin, so a
+      // point that used to be card padding can be the edge of a chart — and a tap on a
+      // plot moves the readout rather than closing it, which is the intended behaviour.
       await tap(a.x, a.y);
       assert(await open_(), 'could not reopen for the tap-away case');
-      await page.evaluate(() => window.scrollTo(0, 0));
+      const off = await page.evaluate(() => {
+        const h = document.querySelector('#tab-charts .section-header h2');
+        h.scrollIntoView({ block: 'center' });
+        const r = h.getBoundingClientRect();
+        return { x: r.x + Math.min(24, r.width / 2), y: r.y + r.height / 2 };
+      });
       await page.waitForTimeout(200);
-      await tap(12, 300);
+      await tap(off.x, off.y);
       assert(!(await open_()), 'tapping away from the chart left the readout on screen');
     });
 

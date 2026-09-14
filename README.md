@@ -218,7 +218,7 @@ is the one the theme swaps; the cache is dropped whenever the theme changes.
 | Charts | Three sections. **Volume** — training load, cumulative against last year, monthly distance, rolling twelve months, activity mix, elevation. **Intensity** — heart-rate zones, Relative Effort, pace against distance, speed per heartbeat, power, cadence. **Habits** — time of day, moving vs stopped, race day, temperature |
 | Heatmap | GitHub-style activity calendar, coloured by the sport you spent most time on each day, with every prior year listed beneath |
 | Records | A hero row of records that stand clear, then per-sport tables with a Standing column, then all-time totals (see below) |
-| Mex | Mex Score — the ladder of whole-unit distance buckets, the first gap, which gaps are worth most, and the distance distribution the ladder reduces to a yes/no (see below) |
+| Mex | Mex score — the ladder of whole-unit distance buckets, the first gap, which gaps are worth most, and the distance distribution the ladder reduces to a yes/no (see below) |
 | Social | One count of who you train with, the named partners as a table, and the solo-vs-company chart (see below). Anyone you have not been out with in the last six weeks — Occasional and Lapsed alike — is folded into one collapsed group at the foot of the table, so the people you actually train with are not pushed off the screen by a long tail. The group opens by itself when nobody is current, and remembers its state across re-renders |
 | Gear | Bike and shoe mileage, with a wear bar on running shoes |
 | Activity Log | Searchable, sortable full activity table — including max heart rate, sortable, with readings above 200 bpm flagged so a bad strap reading can be found |
@@ -399,7 +399,7 @@ the floor, and three more have been added since; they are kept now:
 | `athletes` | `athlete_count` | Social group-size cards and the solo/with-others chart |
 | `commute` | `commute` | The Log's commute marker |
 | `wtype` | `workout_type` — 1 = race (run), 11 = race (ride) | The Log's RACE marker |
-| `np` | `weighted_average_watts` | Charts → Power Trend |
+| `np` | `weighted_average_watts` | Charts → Power trend |
 | `pwr_real` | `device_watts` — true only for a real power meter, false for Strava's estimate | Lets the power chart say whether its numbers were measured or modelled |
 | `temp` | `average_temp` — degrees C, from the recording device's own thermometer | Charts → the weather chart; the activity modal. **Empty wherever the device has no sensor**, which is most phone-recorded activities, so the chart states its own coverage rather than implying the gap is a temperature of zero. `0 °C` is a real reading, which is why this uses an explicit null check instead of the usual `\|\| null` idiom |
 
@@ -498,7 +498,7 @@ often arrives as an HTML error page with a `.jpg` name.
 
 ---
 
-## Mex Score
+## Mex score
 
 A Mex is one activity at **every whole-unit distance in ascending order**. Your Mex is the
 highest unbroken rung before the first gap: if you have something at 1, 2, 3 … 17 but
@@ -571,7 +571,7 @@ Only needed once (or if your token is revoked):
 
 ## Location pills
 
-The Summary tab shows a **Locations Found in Activities** section. This is generated dynamically:
+The Summary tab shows a **Locations found in activities** section. This is generated dynamically:
 
 - Activities flagged `near_home: true` are excluded (they're home, not interesting).
 - Remaining activities with GPS coordinates are grouped by lat/lng rounded to 2 decimal places (~1 km grid).
@@ -916,7 +916,7 @@ accumulate. The band between peak and average is what the chart is about.
 
 ## How the mix has shifted
 
-The Activity Mix donut is a snapshot: it says what the split is now and nothing about how it
+The Activity mix donut is a snapshot: it says what the split is now and nothing about how it
 got there. This is the same question asked of every year at once, as 100% stacked bars.
 
 **Three measures, switchable on the card: distance, moving time, or sessions.** They are not
@@ -1205,7 +1205,7 @@ they match and company therefore does not make the day longer.
 
 ## Activity detail modal
 
-Clicking a Recent Activities row on the Summary, or any row in the Activity Log,
+Clicking a Recent activities row on the Summary, or any row in the Activity Log,
 opens the activity. It reuses the gear modal's shell — same backdrop, head, stats
 grid and section titles — so the two read as one idea rather than two designs.
 
@@ -1246,8 +1246,8 @@ the plot, then one plain-English line saying what the shape *means*.
 `.chart-verdict` collapse when empty, so a filter that leaves a chart with
 nothing to say leaves no gap.
 
-Applied to Monthly Distance, Elevation, Activity Mix (chips only — the donut is
-its own verdict), Relative Effort and When You Train. **Deliberately not** applied
+Applied to Monthly distance, Elevation, Activity mix (chips only — the donut is
+its own verdict), Relative Effort and When you train. **Deliberately not** applied
 to Calories or Year-over-Year: a chip reading "total calories" under a chart of
 monthly calories is the axis restated, and the verdict would have to be invented.
 A chart earns these only when there is something true and non-obvious to say.
