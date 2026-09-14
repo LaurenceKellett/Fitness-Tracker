@@ -11,6 +11,7 @@ const {
   scopeIncludes, periodLabel, periodPhrase, isValidScope, rollingWeekly, ratioBand,
   calendarWeek, weekStartISO, weeklyTotals,
   CHRONIC_DAYS, CHRONIC_WEIGHTS, weeklyLoadStats, MONOTONY_CAP,
+  yearEndProjection, projectionWindow, daysInYear, PROJ_WINDOW_MIN, PROJ_WINDOW_MAX,
   setScope,
 } = calc;
 
@@ -1066,5 +1067,120 @@ describe('weeklyLoadStats', () => {
   it('returns nothing at all for no activities', () => {
     expect(weeklyLoadStats([], hours, opts)).toEqual([]);
     expect(weeklyLoadStats(null, hours, opts)).toEqual([]);
+  });
+});
+
+// ── YEAR-END PROJECTION ──────────────────────────────────────────────────────
+// The two methods fail in opposite directions, and the tests are built around
+// making each one fail so the dial can be seen doing its job.
+
+describe('yearEndProjection', () => {
+  // A year of exactly 1 a day is the easiest thing to reason about: any honest
+  // projection of it lands on the number of days in the year.
+  const flat = (n, v = 1) => { const a = new Array(n + 1).fill(0); for (let d = 1; d <= n; d++) a[d] = v; return a; };
+  // A seasonal year: all the work in the first half, nothing after day 180.
+  const frontLoaded = (n) => { const a = new Array(n + 1).fill(0); for (let d = 1; d <= 180; d++) a[d] = 2; return a; };
+
+  it('projects a perfectly steady year onto its own total', () => {
+    const r = yearEndProjection({ 2026: flat(365), 2025: flat(365) }, '2026', 200, 0.5);
+    expect(r.ytd).toBe(200);
+    expect(r.projected).toBeCloseTo(365, 0);
+    expect(r.seasonal).toBeCloseTo(365, 0);
+    expect(r.recent).toBeCloseTo(365, 0);
+  });
+
+  it('lets the recent window see a stop that the seasonal shape cannot', () => {
+    // Trained daily to day 170, then nothing for a month.
+    const stopped = flat(365); for (let d = 171; d <= 200; d++) stopped[d] = 0;
+    const daily = { 2026: stopped, 2025: flat(365) };
+    const recentOnly = yearEndProjection(daily, '2026', 200, 1);
+    const seasonalOnly = yearEndProjection(daily, '2026', 200, 0);
+    // Nothing in the last 7 days, so the recent method adds nothing at all.
+    expect(recentOnly.projected).toBeCloseTo(recentOnly.ytd, 0);
+    // The seasonal method has no idea and scales the year up regardless.
+    expect(seasonalOnly.projected).toBeGreaterThan(recentOnly.projected * 1.5);
+  });
+
+  it('lets the seasonal shape see a winter that the recent window cannot', () => {
+    // Previous years stop dead at midsummer. Asked in June at full tilt, the recent
+    // method promises a second half that has never once happened.
+    const daily = { 2026: frontLoaded(365), 2025: frontLoaded(365), 2024: frontLoaded(366) };
+    const atDay150 = yearEndProjection(daily, '2026', 150, 0);
+    const recent = yearEndProjection(daily, '2026', 150, 1);
+    expect(atDay150.projected).toBeCloseTo(360, 0);      // 180 days x 2, and no more
+    expect(recent.projected).toBeGreaterThan(atDay150.projected);
+  });
+
+  it('slides monotonically between the two', () => {
+    const stopped = flat(365); for (let d = 171; d <= 200; d++) stopped[d] = 0;
+    const daily = { 2026: stopped, 2025: flat(365) };
+    const at = (m) => yearEndProjection(daily, '2026', 200, m).projected;
+    const steps = [0, 0.25, 0.5, 0.75, 1].map(at);
+    for (let i = 1; i < steps.length; i++) expect(steps[i]).toBeLessThanOrEqual(steps[i - 1] + 1e-6);
+    expect(steps[0]).toBeGreaterThan(steps[steps.length - 1]);
+  });
+
+  it('shortens the recent window as the dial moves right', () => {
+    expect(projectionWindow(0)).toBe(PROJ_WINDOW_MAX);
+    expect(projectionWindow(0.5)).toBe(PROJ_WINDOW_MAX);
+    expect(projectionWindow(1)).toBe(PROJ_WINDOW_MIN);
+    expect(projectionWindow(0.75)).toBeLessThan(PROJ_WINDOW_MAX);
+    expect(projectionWindow(0.75)).toBeGreaterThan(PROJ_WINDOW_MIN);
+  });
+
+  it('ignores a part-year, which would otherwise halve every projection', () => {
+    // The year you joined: nothing until September. Counting its shape would claim
+    // day 200 is already most of a year.
+    const joinedLate = new Array(366).fill(0);
+    for (let d = 250; d <= 365; d++) joinedLate[d] = 1;
+    const r = yearEndProjection({ 2026: flat(365), 2025: joinedLate }, '2026', 200, 0);
+    expect(r.teachers).toBe(0);
+    expect(r.seasonal).toBeNull();
+  });
+
+  it('falls back to the recent trend when no finished year can teach it', () => {
+    const r = yearEndProjection({ 2026: flat(365) }, '2026', 200, 0);
+    expect(r.seasonal).toBeNull();
+    // The dial says "all seasonal" and there is no seasonal, so it must not quietly
+    // serve the recent number under that label — the weight says which it used.
+    expect(r.weight).toBe(1);
+    expect(r.projected).toBeCloseTo(r.recent, 6);
+  });
+
+  it('draws a path that starts at today and ends on the projection', () => {
+    const daily = { 2026: flat(365), 2025: flat(365) };
+    const r = yearEndProjection(daily, '2026', 200, 0.5);
+    expect(r.path[200]).toBeCloseTo(r.ytd, 1);
+    expect(r.path[365]).toBeCloseTo(r.projected, 1);
+    expect(r.path[100]).toBeNull();                      // nothing drawn over the past
+    for (let d = 201; d <= 365; d++) expect(r.path[d]).toBeGreaterThanOrEqual(r.path[d - 1]);
+  });
+
+  it('bends the path the way the years usually bend', () => {
+    // Previous years do nothing after midsummer, so a projection made in spring must
+    // flatten out rather than run straight to 31 December.
+    const daily = { 2026: frontLoaded(365), 2025: frontLoaded(365), 2024: frontLoaded(366) };
+    const r = yearEndProjection(daily, '2026', 90, 0);
+    const half = r.path[240], end = r.path[365];
+    expect(half).toBeCloseTo(end, 0);                    // finished by midsummer
+    const straight = r.ytd + (end - r.ytd) * (240 - 90) / (365 - 90);
+    expect(half).toBeGreaterThan(straight);              // and got there sooner
+  });
+
+  it('accepts the app\'s 367-slot day arrays as well as exact-length ones', () => {
+    // index.html sizes every year at 367 regardless of leap years; the projection
+    // must read the same answer from those as from a tight array.
+    const loose = (v) => { const a = new Array(367).fill(0); for (let d = 1; d <= 365; d++) a[d] = v; return a; };
+    const tight = yearEndProjection({ 2026: flat(365), 2025: flat(365) }, '2026', 200, 0.5);
+    const padded = yearEndProjection({ 2026: loose(1), 2025: loose(1) }, '2026', 200, 0.5);
+    expect(padded.projected).toBeCloseTo(tight.projected, 6);
+    expect(padded.seasonal).toBeCloseTo(tight.seasonal, 6);
+  });
+
+  it('knows which years have 366 days', () => {
+    expect(daysInYear('2024')).toBe(366);
+    expect(daysInYear('2026')).toBe(365);
+    expect(daysInYear('2000')).toBe(366);
+    expect(daysInYear('1900')).toBe(365);
   });
 });

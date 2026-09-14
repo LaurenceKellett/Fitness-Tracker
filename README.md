@@ -1042,19 +1042,36 @@ once they share a group. Strava has one `Swim` type covering pool, indoor and op
 the craft you sit on rather than swim in — Kayaking, Canoeing, Rowing, StandUpPaddling,
 Surfing, Kitesurf, Windsurf, Sail — go to `Other` with everything else.
 
-### Where the year lands if nothing changes
+### Where the year lands: the dotted line and its dial
 
-The chart made you ask the question and then left you to do the arithmetic: "on pace for" was
-a chip with no line under it, so there was nothing to hold it against. Drawn, the projection
-runs out to 31 December alongside the years that actually finished — which is the only way to
-see whether being ahead in September means finishing ahead.
+The dotted line runs from today to 31 December alongside the years that actually finished,
+which is the only way to see whether being ahead in September means finishing ahead. It is
+dotted because it is the one series on the chart that has not happened.
 
-It uses the same year-to-date rate the chip does, so the line and the number cannot
-contradict each other, and it is dashed because it is the one series on the chart that has
-not happened. A second chip gives the same projection at the **last 28 days' rate**. One
-number would be false precision: a year-to-date rate cannot see that you have stopped, and a
-28-day rate cannot see that you always stop in November. Both together are a range, which is
-the honest answer.
+It blends two honest projections that fail in opposite directions, and the dial under the
+plot is how much of each you trust:
+
+- **The shape your years usually take** (left). If day 257 has historically been 77% of your
+  year, this year's total so far is 77% of the answer. It knows about winter; it knows nothing
+  about your having been injured since July.
+- **Your recent form** (right). What you have done lately, times the days left. Responsive,
+  and blind to the fact that you always stop in November.
+
+Sliding right leans harder on the recent window *and* shortens it, from 30 days down to 7,
+because both mean "let the recent past speak louder" and two controls for one intention is one
+too many. The default is the middle. A line under the slider says in words what it is
+currently mixing, and a chip gives the range between the two methods, because that gap is the
+uncertainty and belongs on screen rather than in a caveat. The path bends along the average
+shape of your finished years rather than running straight, so a projection made in spring
+flattens through the autumn the way your years do.
+
+Only finished years teach the seasonal shape, and the year you joined Strava is excluded
+because it starts when you signed up rather than in January — counting it would claim day 257
+is most of a normal year and halve every projection. With no finished year at all the dial has
+nothing to blend and says so; the line is then the recent window carried straight to December.
+The arithmetic is `yearEndProjection()` in `calc.js`; the setting is kept in `localStorage`
+(`fitness_proj_mix_v1`) and both cumulative cards, Summary and Charts, read the same one. The
+idea is VeloViewer's; the arithmetic is ours.
 
 `dayOfYear()` is what makes the cumulative chart possible, and `typeMatches()` — one
 predicate for the header's sport filter, which had been written out by hand in three

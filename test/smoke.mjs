@@ -464,7 +464,7 @@ async function main() {
       const proj = await page.evaluate(() => {
         const c = window.Chart.getChart(document.getElementById('chartCumulative'));
         const ds = c && c.data && c.data.datasets ? c.data.datasets : [];
-        const p = ds.find((d) => /at this rate/.test(d.label || ''));
+        const p = ds.find((d) => /projected/.test(d.label || ''));
         if (!p) return { found: false, labels: ds.map((d) => d.label) };
         const pts = p.data.filter((v) => v != null);
         return { found: true, n: pts.length, rising: pts[pts.length - 1] > pts[0], dashed: !!p.borderDash };
@@ -473,6 +473,41 @@ async function main() {
       assert(proj.n > 1, 'the projection has nothing to draw');
       assert(proj.rising, 'the projection does not run forwards');
       assert(proj.dashed, 'the projection is not dashed, so it reads as something that happened');
+    });
+
+    await check('the dotted line has a dial, and the dial moves it', async () => {
+      // The fixture has no finished year, so the seasonal end has nothing to teach and
+      // the dial says so; sliding right must still shorten the recent window.
+      await page.evaluate(() => window.setTab('charts'));
+      await page.waitForTimeout(400);
+      const before = await page.evaluate(() => ({
+        shown: !document.getElementById('cumMixer').hidden,
+        says: document.getElementById('cumMixSays').textContent,
+        chip: [...document.querySelectorAll('#cumChips .chart-chip')].map((c) => c.textContent).find((t) => /projected year end/.test(t)) || '',
+      }));
+      assert(before.shown, 'the dial is hidden while a projection is drawn');
+      assert(/30 days/.test(before.says), `the dial does not say what it mixes: "${before.says}"`);
+      assert(before.chip, 'no "projected year end" chip');
+      await page.evaluate(() => window.setProjMix(100));
+      await page.waitForTimeout(400);
+      const after = await page.evaluate(() => ({
+        says: document.getElementById('cumMixSays').textContent,
+        value: +document.getElementById('cumMix').value,
+        sumSays: document.getElementById('sumCumMixSays').textContent,
+        sumValue: +document.getElementById('sumCumMix').value,
+      }));
+      assert(/7 days/.test(after.says), `sliding right did not shorten the window: "${after.says}"`);
+      assert(after.value === 100, `the slider did not follow the setting: ${after.value}`);
+      assert(after.sumSays === after.says && after.sumValue === 100, 'the Summary card reads a different dial');
+
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => !document.body.classList.contains('is-loading'), { timeout: 15000 });
+      await page.evaluate(() => window.setTab('charts'));
+      await page.waitForTimeout(500);
+      const kept = await page.evaluate(() => +document.getElementById('cumMix').value);
+      assert(kept === 100, `the dial did not survive a reload: ${kept}`);
+      await page.evaluate(() => window.setProjMix(50));
+      await page.waitForTimeout(300);
     });
 
     await check('rolling date scopes filter the data', async () => {
