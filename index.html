@@ -22,13 +22,17 @@
     if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);
   }catch(e){}
 </script>
-<!-- The favicon is the Strava chevron on Strava's orange, the same mark the header
-     wears in the top left, so the tab and the page agree about what this is. The
-     mark is centred in the tile at 72% — big enough to read at 16px, short of the
-     edges so it still looks like a tile rather than a crop. It does NOT follow the
-     system theme: the orange is the identity, in either palette.
-     icons/icon.svg and the PNGs behind it are still the app's own "Signal" mark. -->
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%3E%3Crect%20width%3D'24'%20height%3D'24'%20fill%3D'%23fc4c02'%2F%3E%3Cpath%20fill%3D'%23fff'%20transform%3D'translate%283.17%203.36%29%20scale%28.72%29'%20d%3D'M15.387%2017.944l-2.089-4.116h-3.065L15.387%2024l5.15-10.172h-3.066m-7.008-5.599l2.836%205.598h4.172L10.463%200%204%2013.828h4.172'%2F%3E%3C%2Fsvg%3E">
+<!-- The favicon is the app's own mark, "Signal": a tile and one square of accent,
+     the same mark the header wears in the top left and icons/icon.svg holds at full
+     size. Same geometry too — the 512 viewBox is icon.svg's, so the square's 287/143
+     are the very numbers .logo-square turns into percentages.
+     The tile INVERTS against its ground rather than matching it: ink on a light
+     theme, paper on a dark one. Drawn the other way round — a paper tile with a
+     hairline, as this was — it dissolves into a white browser tab and leaves a pink
+     dot floating in nothing, which at 16px is no mark at all. The hairline frame
+     goes with it; it was only ever there to rescue a tile that matched its ground.
+     The accent square is the constant, in both themes and all three sizes. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20512%20512'%3E%3Cstyle%3E.t%7Bfill%3A%23121214%7D%40media%20%28prefers-color-scheme%3Adark%29%7B.t%7Bfill%3A%23f7f7f7%7D%7D%3C%2Fstyle%3E%3Crect%20class%3D't'%20width%3D'512'%20height%3D'512'%2F%3E%3Crect%20x%3D'287'%20y%3D'287'%20width%3D'143'%20height%3D'143'%20fill%3D'%23ff385c'%2F%3E%3C%2Fsvg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20,400,0,0&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@200;300;400;500&display=swap" rel="stylesheet">
 <!-- Chart.js and Leaflet are fetched by ensureCharts()/ensureLeaflet() rather than
@@ -41,6 +45,11 @@
 :root {
   --bg:#f7f7f7;--surface:#fff;--border:#ebebeb;--border-strong:#dddddd;--text:#222222;--text-muted:#656565;--text-light:#9ca3af;
   --accent:#ff385c;--accent-dark:#d70466;--accent-soft:#ffeef1;
+  /* The logo mark's tile. Signal inverts against its ground instead of matching
+     it — the header sits on --surface, so a tile the colour of the page would
+     dissolve into it. The accent square inside is a constant #ff385c in both
+     themes and both marks, so it is written literally rather than tokenised. */
+  --logo-tile:#121214;
   --hm-cell:clamp(16px,3.5vw,44px);--hm-gap:clamp(2px,0.3vw,4px);
   /* ── PAGE MEASURE ──
      One pair of values for the header and the content beneath it. They have to
@@ -142,6 +151,7 @@
     --bg:#121214;--surface:#1a1a1c;--border:#2b2b2f;--border-strong:#3a3a40;
     --text:#ededef;--text-muted:#a1a1a8;--text-light:#75757d;
     --accent:#ff5c7a;--accent-dark:#ff8098;--accent-soft:#3a1a23;
+    --logo-tile:#f7f7f7;
     --ride:#2e62c9;--ride-soft:#1a263c;
     --virtual:#a47de3;--virtual-soft:#2a2139;
     --run:#cf4040;--run-soft:#3a1d1b;
@@ -175,6 +185,7 @@
   --bg:#121214;--surface:#1a1a1c;--border:#2b2b2f;--border-strong:#3a3a40;
   --text:#ededef;--text-muted:#a1a1a8;--text-light:#75757d;
   --accent:#ff5c7a;--accent-dark:#ff8098;--accent-soft:#3a1a23;
+  --logo-tile:#f7f7f7;
   --ride:#2e62c9;--ride-soft:#1a263c;
   --virtual:#a47de3;--virtual-soft:#2a2139;
   --run:#cf4040;--run-soft:#3a1d1b;
@@ -241,9 +252,11 @@ a{color:inherit;text-decoration:none}
 .scope-sep{width:1px;height:18px;background:var(--border-strong);flex-shrink:0}
 .scope-chip{display:none}
 .logo-wrap{display:flex;align-items:center;gap:8px}
-.logo-icon{width:var(--ctl-h);height:var(--ctl-h);background:#fc4c02;border-radius:0;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-/* The mark keeps its proportion inside the tile whatever height the row takes. */
-.logo-icon svg{width:calc(var(--ctl-h) * .5);height:calc(var(--ctl-h) * .5)}
+.logo-icon{width:var(--ctl-h);height:var(--ctl-h);background:var(--logo-tile);border-radius:0;position:relative;flex-shrink:0}
+/* Signal's geometry, as percentages of the tile rather than pixels, so the mark
+   holds its proportion at whatever height the row takes — 30px here, 40px on a
+   phone. The numbers are icons/icon.svg's own: a 143 square at 287 of 512. */
+.logo-square{position:absolute;left:56.05%;top:56.05%;width:27.93%;height:27.93%;background:#ff385c}
 .logo-name{font-size:15px;font-weight:700;letter-spacing:-.3px;color:var(--text)}
 .last-updated{font-size:10px;color:var(--text-light);white-space:nowrap}
 /* ── WHAT THE REFRESH IS DOING ──
@@ -1622,7 +1635,7 @@ body.is-loading .stats-grid *{visibility:hidden}
     <!-- Band 1 — PLACE: brand, destinations, utilities -->
     <div class="hrow hrow-nav">
       <div class="logo-wrap">
-        <div class="logo-icon"><svg viewBox="0 0 24 24" width="15" height="15"><path fill="white" d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0 4 13.828h4.172"/></svg></div>
+        <div class="logo-icon" aria-hidden="true"><i class="logo-square"></i></div>
         <span class="logo-name">Fitness</span>
       </div>
       <button class="scope-chip" id="scopeChip" onclick="openScopeSheet()" aria-haspopup="dialog">

@@ -1843,34 +1843,72 @@ async function main() {
   // ── 6. Installability ───────────────────────────────────────────────────────
   {
     const { ctx, page } = await open({ skipLibs: true, serviceWorkers: 'allow' });
-    await check('the tab wears the same mark as the top left', async () => {
-      const r = await page.evaluate(async () => {
+    await check('the tab and the top left wear the same mark', async () => {
+      const readMark = () => page.evaluate(() => {
         const link = document.querySelector('link[rel="icon"]');
         const href = link ? link.getAttribute('href') : '';
-        const headerPath = document.querySelector('.logo-icon svg path');
-        // Decoding the URI is one thing; a browser actually rasterising it is another.
-        const drew = await new Promise((res) => {
-          const img = new Image();
-          img.onload = () => res(img.naturalWidth > 0 && img.naturalHeight > 0);
-          img.onerror = () => res(false);
-          img.src = href;
-        });
+        const svg = decodeURIComponent(href.replace(/^data:image\/svg\+xml,/, ''));
+        // The mark is a tile and one square of accent. Pull the square out of the
+        // favicon as a share of its viewBox, so it can be compared with the header's
+        // square, which is expressed in percentages of its own tile.
+        const box = /viewBox='0 0 (\d+) \d+'/.exec(svg);
+        const sq = /<rect x='([\d.]+)' y='[\d.]+' width='([\d.]+)'[^>]*fill='#ff385c'/.exec(svg);
+        const side = box ? +box[1] : 0;
+        const tile = document.querySelector('.logo-icon');
+        const square = document.querySelector('.logo-square');
+        const cs = tile ? getComputedStyle(tile) : null;
+        const sqs = square ? getComputedStyle(square) : null;
         return {
           href,
-          svg: decodeURIComponent(href.replace(/^data:image\/svg\+xml,/, '')),
-          drew,
-          tile: getComputedStyle(document.querySelector('.logo-icon')).backgroundColor,
-          headerPath: headerPath ? headerPath.getAttribute('d') : '',
+          svg,
+          favLeft: sq && side ? (+sq[1] / side) * 100 : null,
+          favWidth: sq && side ? (+sq[2] / side) * 100 : null,
+          hdrLeft: sqs ? (parseFloat(sqs.left) / parseFloat(cs.width)) * 100 : null,
+          hdrWidth: sqs ? (parseFloat(sqs.width) / parseFloat(cs.width)) * 100 : null,
+          hdrSquare: sqs ? sqs.backgroundColor : '',
+          hdrTile: cs ? cs.backgroundColor : '',
+          surface: getComputedStyle(document.querySelector('.hrow-nav').closest('header') || document.body).backgroundColor,
         };
       });
-      assert(/^data:image\/svg\+xml,/.test(r.href), `the icon link is "${r.href.slice(0, 40)}"`);
-      assert(r.drew, 'the favicon data URI does not decode to an image');
-      assert(r.headerPath, 'the header has no mark to compare against');
-      // The whole point of the swap: one mark, two places. A hand-edited data URI is
-      // exactly the kind of thing that drifts from the markup it was copied from.
-      assert(r.svg.includes(r.headerPath), 'the favicon and the header mark have drifted apart');
-      assert(/#fc4c02/i.test(r.svg), `the favicon tile is not Strava orange: ${r.svg}`);
-      assert(r.tile === 'rgb(252, 76, 2)', `the header tile is ${r.tile}`);
+
+      const rasterised = await page.evaluate((href) => new Promise((res) => {
+        const img = new Image();
+        img.onload = () => res(img.naturalWidth > 0 && img.naturalHeight > 0);
+        img.onerror = () => res(false);
+        img.src = href;
+      }), (await readMark()).href);
+      assert(rasterised, 'the favicon data URI does not decode to an image');
+
+      await page.evaluate(() => window.applyTheme('light'));
+      await page.waitForTimeout(300);
+      const light = await readMark();
+      await page.evaluate(() => window.applyTheme('dark'));
+      await page.waitForTimeout(300);
+      const dark = await readMark();
+
+      assert(/^data:image\/svg\+xml,/.test(light.href), `the icon link is "${light.href.slice(0, 40)}"`);
+      assert(/#ff385c/i.test(light.svg), `the favicon has no accent square: ${light.svg}`);
+      assert(light.hdrSquare === 'rgb(255, 56, 92)', `the header square is ${light.hdrSquare}`);
+      assert(dark.hdrSquare === 'rgb(255, 56, 92)', `the accent square moved in dark: ${dark.hdrSquare}`);
+
+      // One mark in two places: the square sits in the same spot and is the same
+      // size in each. Both are hand-written numbers, which is exactly what drifts.
+      assert(light.favLeft !== null && light.hdrLeft !== null, 'could not measure both squares');
+      assert(Math.abs(light.favLeft - light.hdrLeft) < 0.05,
+        `the square sits at ${light.favLeft.toFixed(2)}% in the tab and ${light.hdrLeft.toFixed(2)}% in the header`);
+      assert(Math.abs(light.favWidth - light.hdrWidth) < 0.05,
+        `the square is ${light.favWidth.toFixed(2)}% wide in the tab and ${light.hdrWidth.toFixed(2)}% in the header`);
+
+      // The header tile inverts against its ground rather than matching it — a tile
+      // the colour of the page is the bug this shape of mark invites.
+      assert(light.hdrTile !== dark.hdrTile, `the logo tile is ${light.hdrTile} in both themes`);
+      assert(light.hdrTile === 'rgb(18, 18, 20)', `the light-theme logo tile is ${light.hdrTile}`);
+      assert(dark.hdrTile === 'rgb(247, 247, 247)', `the dark-theme logo tile is ${dark.hdrTile}`);
+      assert(light.hdrTile !== light.surface && dark.hdrTile !== dark.surface,
+        'the logo tile is the same colour as the surface behind it');
+
+      await page.evaluate(() => window.applyTheme('system'));
+      await page.waitForTimeout(200);
     });
 
     await check('ships a valid manifest', async () => {
