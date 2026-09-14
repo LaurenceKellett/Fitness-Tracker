@@ -848,6 +848,8 @@ async function main() {
         active: [...document.querySelectorAll('.hero-unit-ctl .chart-ctl-btn.active')].map((b) => b.dataset.unit),
         type: window.Chart.getChart(document.getElementById('chartSumDist')).config.type,
         hoursType: window.Chart.getChart(document.getElementById('chartSumLoad')).config.type,
+        series: window.Chart.getChart(document.getElementById('chartSumDist')).data.datasets.map((d) => d.label),
+        points: window.Chart.getChart(document.getElementById('chartSumDist')).data.datasets[0].data.length,
         chips: [...document.querySelectorAll('#sumDistChips .chart-chip')].map((e) => e.innerText.replace(/\s+/g, ' ')),
         split: document.querySelector('#sumDistSplit .sum-split-t').textContent,
         base: document.getElementById('sumDistBase').textContent,
@@ -862,13 +864,17 @@ async function main() {
       const week = await read();
       assert(week.labels.length === 2 && week.labels.every((l) => l === 'This week'), `labels read ${week.labels}`);
       assert(week.type === 'line', 'the weekly chart is not the rolling line');
+      assert(week.series.includes('7-day total'), `weekly series are ${week.series}`);
 
       await page.evaluate(() => window.setHeroUnit('month'));
       await page.waitForTimeout(500);
       const month = await read();
       assert(month.labels.every((l) => l === 'This month'), `month labels read ${month.labels}`);
       assert(month.active.every((u) => u === 'month'), 'both controls should show Month');
-      assert(month.type === 'bar' && month.hoursType === 'bar', `month view drew ${month.type} / ${month.hoursType}`);
+      // One form whatever the unit: the month view is the same line, over months.
+      assert(month.type === 'line' && month.hoursType === 'line', `month view drew ${month.type} / ${month.hoursType}`);
+      assert(month.series[0] === 'Per month', `month series are ${month.series}`);
+      assert(month.points === 24, `the month view plots ${month.points} points, not 24`);
       assert(month.chips.some((c) => /this month so far/.test(c)), `month chips: ${month.chips.join(' | ')}`);
       assert(/This month by sport/.test(month.split), `split reads "${month.split}"`);
       assert(/average month/.test(month.base) && /average month/.test(month.hoursBase), `bases read "${month.base}" / "${month.hoursBase}"`);
@@ -880,6 +886,7 @@ async function main() {
       const year = await read();
       assert(year.labels.every((l) => l === 'This year'), `year labels read ${year.labels}`);
       assert(year.chips.some((c) => /this year so far/.test(c)), `year chips: ${year.chips.join(' | ')}`);
+      assert(year.type === 'line' && year.series[0] === 'Per year', `year view drew ${year.type} / ${year.series}`);
       // The fixture has no earlier year, so the honest base line is that there is nothing
       // to compare against; either wording is the year's.
       assert(/average year|compare this year against/.test(year.base), `year base reads "${year.base}"`);
@@ -893,7 +900,8 @@ async function main() {
       await page.evaluate(() => window.setHeroUnit('week'));
       await page.waitForTimeout(500);
       const back = await read();
-      assert(back.type === 'line' && back.labels.every((l) => l === 'This week'), 'Week did not come back');
+      assert(back.type === 'line' && back.series.includes('7-day total') && back.labels.every((l) => l === 'This week'),
+        `Week did not come back: ${back.type} / ${back.series}`);
       await page.evaluate(() => window.setHeroUnit('month'));
       await page.waitForTimeout(400);
     });

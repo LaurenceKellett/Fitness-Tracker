@@ -2538,6 +2538,16 @@ let zwiftCalSelected=null;
 // put in dark mode.
 function getAccentColor(){return activeType==='All'?cssVar('--accent','#ff385c'):groupColor(activeType);}
 
+// ── THE HERO LINE ──
+// The two cards that lead the page draw in green rather than the page accent. The
+// accent belongs to the calendar and the year chart; on the first thing you see every
+// morning it was simply the loudest thing on the screen, and these two cards are the
+// ones you are meant to read rather than notice. A sport filter still wins: a card
+// showing only rides draws in Ride's blue, because then the colour is saying which
+// sport rather than which card. Used by the line, its chip and its key alike, so the
+// three cannot drift apart.
+function heroColor(){return activeType==='All'?cssVar('--success-fg','#16a34a'):groupColor(activeType);}
+
 // Strava's API doesn't expose gear photos, so pictures are supplied manually here.
 // Key must match the gear's exact name/nickname as it comes through from Strava
 // (the same string shown on the gear card). Sourced from the Notion Gear database —
@@ -5621,7 +5631,7 @@ function renderLoad(data,t=LOAD_TARGET){
     type:'line',
     data:{labels:label,datasets:[
       {label:'28-day average',data:chronic,borderColor:'#94a3b8',backgroundColor:'rgba(148,163,184,.14)',fill:true,tension:.25,pointRadius:0,borderWidth:2,order:1},
-      {label:'7-day total',data:acute,borderColor:getAccentColor(),backgroundColor:'transparent',fill:false,tension:.2,pointRadius:0,borderWidth:2,order:0},
+      {label:'7-day total',data:acute,borderColor:heroColor(),backgroundColor:'transparent',fill:false,tension:.2,pointRadius:0,borderWidth:2,order:0},
     ]},
     options:{
       plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},
@@ -5640,7 +5650,7 @@ function renderLoad(data,t=LOAD_TARGET){
   const ratio=c28>0?a7/c28:0;
   const peak=w.peak;
   chartSummary(t.chips,[
-    {n:chipNum(a7,1)+'h',label:'last 7 days',col:getAccentColor()},
+    {n:chipNum(a7,1)+'h',label:'last 7 days',col:heroColor()},
     {n:chipNum(c28,1)+'h',label:'28-day average',col:'#94a3b8'},
     {n:c28>0?ratio.toFixed(2)+'×':'—',label:'acute vs chronic',col:ratio>1.5?'#ef4444':ratio<0.8?'#f59e0b':'#22c55e'},
     {n:chipNum(peak,1)+'h',label:'biggest week in view',col:cssVar('--other','#94a3b8')},
@@ -5679,11 +5689,14 @@ function periodBaseText(cp,unitWord){
 function weekBaseText(cw,unitWord){return periodBaseText(Object.assign({unit:'week'},cw),unitWord);}
 
 // ── THE HERO, BY MONTH OR BY YEAR ──
-// Bars: calendar months (the last 24) or calendar years (all of them), the current one
-// drawn hollow because it has not finished. The month view carries the average of the
-// twelve months before each bar — the "what you have been holding" line the weekly view
-// has in its 28-day average. Chips and verdict use the figure's own arithmetic
-// (calendarPeriod), so the card says one thing.
+// A line, like the weekly view: calendar months (the last 24) or calendar years (all of
+// them). The card keeps one form whatever the unit — a month is still a series over
+// time, and swapping bars in under the same title made the two views read as two
+// different charts. The period in progress is the one point on the line that is not a
+// finished figure, so it is the one point drawn, hollow. The month view carries the
+// average of the twelve months before each point — the "what you have been holding"
+// line the weekly view has in its 28-day average, filled the same way. Chips and
+// verdict use the figure's own arithmetic (calendarPeriod), so the card says one thing.
 const HERO_MEASURE_HOURS={pick:a=>(a.mt||0)/3600,fmt:v=>chipNum(v,1)+'h',word:'Hours',tick:v=>v+'h'};
 const HERO_MEASURE_DIST=u=>({pick:a=>actDistIn(a),fmt:v=>chipNum(v,v<100?1:0)+' '+u,word:u==='mi'?'Miles':'Kilometres',tick:v=>chipNum(v,0)});
 function renderHeroPeriod(data,t,m,cp){
@@ -5697,20 +5710,27 @@ function renderHeroPeriod(data,t,m,cp){
     return;
   }
   setChartEmpty(t.canvas);
-  const accent=getAccentColor(),grey=cssVar('--other','#94a3b8');
+  const accent=heroColor(),grey=cssVar('--other','#94a3b8');
   const labels=tot.map(p=>unit==='month'?monthLabel(p.key):p.key);
+  const lastIdx=tot.length-1,running=!!(tot[lastIdx]&&tot[lastIdx].partial);
   const datasets=[{label:unit==='month'?'Per month':'Per year',data:tot.map(p=>+p.value.toFixed(1)),
-    backgroundColor:tot.map(p=>p.partial?'transparent':accent),borderColor:accent,borderWidth:tot.map(p=>p.partial?1.5:0),order:0}];
+    borderColor:accent,backgroundColor:'transparent',fill:false,borderWidth:2,tension:.25,
+    // Only the period still running gets a marker, hollow, because it is the only
+    // figure on the line that is not final. Everything else is a plain point on a line.
+    pointRadius:tot.map((p,i)=>i===lastIdx&&running?4:0),
+    pointBackgroundColor:cssVar('--surface','#ffffff'),pointBorderColor:accent,pointBorderWidth:2,
+    pointHoverRadius:4,order:0}];
   let avg=null;
   if(unit==='month'){
-    // Twelve finished months behind each bar; the unfinished one reads the twelve before it.
+    // Twelve finished months behind each point; the unfinished one reads the twelve before it.
     avg=tot.map((p,i)=>{
       const from=p.partial?i-12:i-11,to=p.partial?i-1:i;
       if(from<0)return null;
       let s=0;for(let k=from;k<=to;k++)s+=tot[k].value;
       return +(s/12).toFixed(1);
     });
-    datasets.push({type:'line',label:'12-month average',data:avg,borderColor:grey,backgroundColor:'transparent',borderWidth:2,pointRadius:0,tension:.25,order:1,spanGaps:false});
+    datasets.push({label:'12-month average',data:avg,borderColor:grey,backgroundColor:'rgba(148,163,184,.14)',
+      fill:true,borderWidth:2,pointRadius:0,tension:.25,order:1,spanGaps:false});
   }
   document.getElementById(t.sub).textContent=unit==='month'
     ? `${m.word} per month — the last 24 months, this one as far as it has got. The grey line is the average of the twelve months before each.`
@@ -5718,7 +5738,7 @@ function renderHeroPeriod(data,t,m,cp){
 
   destroyChart(t.key);
   charts[t.key]=upsertChart(t.key,document.getElementById(t.canvas).getContext('2d'),{
-    type:'bar',
+    type:'line',
     data:{labels,datasets},
     options:{
       plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},
@@ -5846,7 +5866,7 @@ function renderWeekDistance(data,t=SUM_DIST_TARGET){
     type:'line',
     data:{labels:w.labels,datasets:[
       {label:'28-day average',data:w.chronic,borderColor:cssVar('--other','#94a3b8'),backgroundColor:'rgba(148,163,184,.14)',fill:true,tension:.25,pointRadius:0,borderWidth:2,order:1},
-      {label:'7-day total',data:w.acute,borderColor:getAccentColor(),backgroundColor:'transparent',fill:false,tension:.2,pointRadius:0,borderWidth:2,order:0},
+      {label:'7-day total',data:w.acute,borderColor:heroColor(),backgroundColor:'transparent',fill:false,tension:.2,pointRadius:0,borderWidth:2,order:0},
     ]},
     options:{
       plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},
@@ -5871,7 +5891,7 @@ function renderWeekDistance(data,t=SUM_DIST_TARGET){
   const rollSplit=sportSplit(data,isoOf(new Date(_today()+'T12:00:00').getTime()-6*86400000),_today());
 
   chartSummary(t.chips,[
-    {n:chipNum(a7,1)+' '+u,label:'last 7 days',col:getAccentColor()},
+    {n:chipNum(a7,1)+' '+u,label:'last 7 days',col:heroColor()},
     {n:chipNum(c28,1)+' '+u,label:'28-day average',col:cssVar('--other','#94a3b8')},
     {n:c28>0?ratio.toFixed(2)+'×':'—',label:'acute vs chronic',col:ratioTone(ratio)[0]},
     {n:chipNum(w.peak,1)+' '+u,label:'biggest week in view',col:cssVar('--other','#94a3b8')},

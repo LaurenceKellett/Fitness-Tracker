@@ -667,6 +667,7 @@ The Worker aggregates the last 30 days of activity data and sends it to `@cf/met
 - **Map:** Leaflet 1.9.4 with CARTO Dark Matter tiles
 - **Charts:** Chart.js 4.4.1
 - **Accent colour:** `#ff385c`
+- **The hero line:** the two cards that lead the Summary — this week/month in hours and in distance — draw in green (`--success-fg`, `#16a34a` light / `#4ade80` dark) rather than the accent, which belongs to the calendar and the year chart. `heroColor()` decides it in one place, so the line, its chip and its key agree; a sport filter still wins, because a card showing only rides should draw in Ride's blue.
 - **Sport colours (light):** Ride `#0a46b9` · Virtual `#b180fc` · Run `#d33a3c` · Walk `#d7a10c` · Swim `#1790a3` · Other `#94a3b8`
 - **Sport colours (dark):** Ride `#2e62c9` · Virtual `#a47de3` · Run `#cf4040` · Walk `#bd8c00` · Swim `#1790a3` · Other `#94a3b8`. Dark is its own set of steps, not the light one lifted — the lifted set put Ride and Virtual at ΔE 0.3 for deutan readers. Both sets pass the chart-colour checks all-pairs (light: colour-blind ΔE 13.3, normal 21.8; dark: 9.5 and 15.4); the reasoning is in the tokens' comment in `index.html`
 - **Favicon and app icon:** "Signal" — an ink tile with one square of accent, the dashboard's own mark rather than Strava's chevron. The SVG follows the system theme (paper with a hairline in light, ink in dark); `icons/icon.svg` is the source and `node icons/render.mjs` cuts the PNGs from the same geometry, the maskable one with the square pulled in to survive a circular mask.
@@ -852,10 +853,11 @@ figure, chart, split, chips, verdict, as before.
 Both heroes can be read **by week, month or year** — a Week / Month / Year control beside
 the chart, remembered across visits and shared by the two cards; they open by month. The figure, its base, the
 sport split, the chart and the chips all follow the unit, so "this month" is one idea across
-the card rather than a chart with a week's figure beside it. By month the chart is the last
-24 calendar months as bars, the current one drawn hollow because it has not finished, with
-the average of the twelve months before each bar as the grey line; by year, every year on
-record. The base is the calendar week's arithmetic one size up — this month from the 1st to
+the card rather than a chart with a week's figure beside it. The chart keeps one form whatever the unit — a month is still a series over time, and
+swapping bars in under the same title made the two views read as two different charts. By
+month it is the last 24 calendar months, with the average of the twelve months before each
+point as the filled grey line; by year, every year on record. The period still running is
+the one point drawn, hollow, because it is the only figure on the line that is not final. The base is the calendar week's arithmetic one size up — this month from the 1st to
 today against the same slice of the three months before it, this year from 1 January against
 the same day-count of the three years before (`calendarPeriod()` and `periodTotals()` in
 `calc.js`, both tested). The Charts tab's copy of the load chart stays weekly.
