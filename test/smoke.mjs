@@ -574,7 +574,7 @@ async function main() {
       assert(mid.now && +mid.now > 0 && +mid.now < 100, `the line does not report its value (${mid.now})`);
       assert(/page 3 of about 10/.test(mid.text), `the header does not say where the pull has got to: "${mid.text}"`);
       assert(/left|nearly there/.test(mid.text), `no estimate of the time left: "${mid.text}"`);
-      assert(/page 3/.test(mid.menu) && /600 so far/.test(mid.menu), `the settings sheet does not carry the fuller status: "${mid.menu}"`);
+      assert(/page 3 of ~10/.test(mid.menu) && /left|nearly there/.test(mid.menu), `the settings sheet does not carry the status: "${mid.menu}"`);
       await done;
       await page.waitForTimeout(700);
       const after = await page.evaluate(() => ({

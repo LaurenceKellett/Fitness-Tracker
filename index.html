@@ -1364,7 +1364,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .settings-row:disabled{opacity:.5;cursor:not-allowed}
 .settings-row .refresh-icon{font-size:15px;width:13px;text-align:center;color:var(--text-muted)}
 .settings-row svg{color:var(--text-muted);flex-shrink:0}
-.settings-row-note{margin-left:auto;font-size:10.5px;font-weight:500;color:var(--text-light);white-space:nowrap}
+.settings-row-note{margin-left:auto;font-size:10.5px;font-weight:500;color:var(--text-light);white-space:nowrap;min-width:0;max-width:55%;overflow:hidden;text-overflow:ellipsis;text-align:right}
 .settings-note{font-size:11px;line-height:1.45;color:var(--text-muted);padding:2px 6px 8px}
 .settings-note[hidden]{display:none}
 .settings-row.spinning .refresh-icon{animation:rspin .8s linear infinite}
@@ -8885,7 +8885,6 @@ function syncWords(s){
   const stage=SYNC_STAGES[s.stage]?SYNC_STAGES[s.stage][1]:'working';
   const pages=s.stage==='activities'&&s.page
     ? (s.expectedPages?`page ${s.page} of about ${s.expectedPages}`:`page ${s.page}`):'';
-  const sofar=s.stage==='activities'&&s.fetched?`${s.fetched.toLocaleString('en-GB')} so far`:'';
   let eta='';
   if(s.lastDurationMs){
     const left=s.lastDurationMs-(Date.now()-_syncStartedAt);
@@ -8893,7 +8892,8 @@ function syncWords(s){
   }
   return{
     header:['Syncing',pages||stage,eta].filter(Boolean).join(' · '),
-    menu:['syncing · '+stage+(pages?' — '+pages:''),sofar,eta].filter(Boolean).join(' · '),
+    // The menu's note shares its line with the row label, so it is the terse form.
+    menu:[pages?pages.replace(' of about ',' of ~'):stage,eta?eta.replace('about ','~'):''].filter(Boolean).join(' · '),
   };
 }
 function syncStart(text){
