@@ -23,8 +23,9 @@
  *
  * Bump CACHE_VERSION when the shell list changes; activate() drops every older cache.
  */
-// v2: the app icons changed (the Signal mark), and they are cached cache-first.
-const CACHE_VERSION = 'v2';
+// v3: calc.js is requested with a content stamp (calc.js?v=…), and the shell's offline
+// fallback matches it ignoring the query. v2: the app icons changed (the Signal mark).
+const CACHE_VERSION = 'v3';
 const SHELL_CACHE = `fitness-shell-${CACHE_VERSION}`;
 const ASSET_CACHE = `fitness-assets-${CACHE_VERSION}`;
 const LIB_CACHE = `fitness-libs-${CACHE_VERSION}`;
@@ -77,10 +78,20 @@ async function networkFirst(request, cacheName) {
   const cache = await caches.open(cacheName);
   try {
     const res = await fetch(request);
-    if (res && res.ok) cache.put(request, res.clone());
+    if (res && res.ok) {
+      cache.put(request, res.clone());
+      // A stamped script (calc.js?v=…) gets a new URL every time it changes; the
+      // copies under the old stamps are dead weight, so they go as the new one lands.
+      cache.keys(request, { ignoreSearch: true }).then((keys) =>
+        Promise.all(keys.filter((k) => k.url !== request.url).map((k) => cache.delete(k)))
+      ).catch(() => {});
+    }
     return res;
   } catch (err) {
-    const hit = await cache.match(request) || await cache.match('/index.html');
+    // Offline, whichever stamp of a script is cached is the best there is, so the
+    // match ignores the query; only a navigation may fall back to the cached page.
+    const hit = await cache.match(request, { ignoreSearch: true })
+      || (request.mode === 'navigate' ? await cache.match('/index.html') : null);
     if (hit) return hit;
     throw err;
   }

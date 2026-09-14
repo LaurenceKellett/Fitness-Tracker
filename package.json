@@ -6,7 +6,8 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "smoke": "node test/smoke.mjs"
+    "smoke": "node test/smoke.mjs",
+    "stamp": "node scripts/stamp.mjs"
   },
   "devDependencies": {
     "playwright": "^1.49.0",

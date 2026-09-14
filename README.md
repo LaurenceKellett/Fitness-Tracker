@@ -540,6 +540,20 @@ a thousand, only ever at a boundary.
 
 Cloudflare Pages watches the GitHub repo and deploys automatically on every push to `main`. No action needed.
 
+### The calc.js stamp
+
+`index.html` asks for `calc.js?v=<stamp>`, where the stamp is the first eight hex digits
+of a SHA-1 of `calc.js` (line endings normalised, so a CRLF checkout on Windows and the LF
+copy Pages serves agree). One deploy served a new page against a cached older `calc.js` and
+the dashboard died on "daysInYear is not defined" — a function the old file did not have.
+With the stamp, a page can only ever load the script it was written against: a new stamp is
+a URL no cache has seen.
+
+After editing `calc.js`, run `npm run stamp` to rewrite the tag. `npm test` includes a check
+that the stamp is current, so forgetting fails the suite rather than the deploy. The service
+worker matches shell scripts ignoring the query when offline, and drops the copies under old
+stamps as a new one lands.
+
 ### Worker (worker.js)
 
 `.github/workflows/deploy-worker.yml` runs `wrangler deploy` automatically whenever `worker.js` or `wrangler.toml` changes on `main`.

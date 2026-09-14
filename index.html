@@ -1673,7 +1673,10 @@ body.is-loading .stats-grid *{visibility:hidden}
 <!-- Pure derivations and formatters, split out so they can be unit-tested. Classic
      script on purpose: its top-level declarations share the global lexical scope
      with the inline script below, so every existing call site works unchanged. -->
-<script src="calc.js"></script>
+<!-- calc.js carries a stamp of its own content (npm run stamp; the unit tests check it
+     is current), so a freshly deployed page can never be paired with a cached older copy
+     of the script — which is exactly how one deploy died on "daysInYear is not defined". -->
+<script src="calc.js?v=6621aa2c"></script>
 <div id="dashTooltip" class="dash-tooltip"></div>
 <div class="main">
 
@@ -8500,11 +8503,18 @@ const API_BASE = 'https://activities-api.lk-ff7.workers.dev';
 // from the network, whichever arrives first. Until then the skeleton stays up.
 function clearLoadingState(){document.body.classList.remove('is-loading');}
 
-function showLoadError(msg,{inline}={}){
+function showLoadError(msg,{inline,reload}={}){
   const box=document.getElementById('appError');
   if(!box)return;
   document.getElementById('appErrorMsg').textContent=msg;
   box.classList.toggle('inline',!!inline);
+  // A renderer that threw is not mended by pulling Strava again; a reload — which
+  // also fetches the page and its script afresh — is. The button says which it does.
+  const retry=document.getElementById('appErrorRetry');
+  if(retry){
+    retry.textContent=reload?'Reload the page':'Try again';
+    retry.onclick=reload?()=>location.reload():()=>refreshData();
+  }
   box.classList.add('show');
 }
 function hideLoadError(){
@@ -8605,7 +8615,7 @@ async function loadData(forceRefresh = false) {
     renderFromData();
   } catch (e) {
     console.error('Could not render the dashboard:', e);
-    if (!renderedFromCache) showLoadError('The data loaded but the dashboard failed to draw it. ' + (e && e.message ? e.message : ''));
+    if (!renderedFromCache) showLoadError('The data loaded but the dashboard failed to draw it. ' + (e && e.message ? e.message : ''), {reload:true});
   } finally {
     clearLoadingState();
   }
