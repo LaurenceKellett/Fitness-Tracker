@@ -242,22 +242,33 @@ a{color:inherit;text-decoration:none}
 .tab-btn.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
 .tab-btn:hover:not(.active){color:var(--text)}
 .year-bar{display:flex;align-items:center;gap:5px;flex-shrink:0}
-.year-all{padding:5px 10px;font-size:11px;font-weight:600;color:var(--text-muted);border:1px solid var(--border-strong);border-radius:0;background:transparent;cursor:pointer;transition:all .15s;font-family:inherit}
+/* Every control on this row is one height: var(--ctl-h), which the logo and the
+   settings button were already using. These were sized by padding against four
+   different font sizes instead, which put three different heights — 23, 25 and
+   27px — in a single bar. The vertical padding is gone from all of them, so the
+   box sets the height and the text centres inside it; a later font-size change
+   cannot knock one control out of line again. */
+.year-all{height:var(--ctl-h);display:inline-flex;align-items:center;padding:0 10px;font-size:11px;font-weight:600;color:var(--text-muted);border:1px solid var(--border-strong);border-radius:0;background:transparent;cursor:pointer;transition:all .15s;font-family:inherit}
 .year-all.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent-soft)}
-.year-ctl{display:flex;align-items:center;border:1px solid var(--border-strong);border-radius:0;overflow:hidden}
-.year-arrow{padding:5px 8px;font-size:14px;font-weight:500;color:var(--text-muted);border:none;background:transparent;cursor:pointer;line-height:1;transition:color .15s;font-family:inherit}
+/* stretch rather than center, so the dividers between the arrows and the year run
+   the full height of the box and not just the height of their own text. */
+.year-ctl{display:flex;align-items:stretch;height:var(--ctl-h);border:1px solid var(--border-strong);border-radius:0;overflow:hidden}
+.year-arrow{display:flex;align-items:center;padding:0 8px;font-size:14px;font-weight:500;color:var(--text-muted);border:none;background:transparent;cursor:pointer;line-height:1;transition:color .15s;font-family:inherit}
 .year-arrow:hover:not(:disabled){color:var(--text)}
 .year-arrow:disabled{opacity:.35;cursor:default}
 .year-arrow:first-child{border-right:1px solid var(--border)}
 .year-arrow:last-child{border-left:1px solid var(--border)}
-.year-label{padding:5px 12px;font-size:12px;font-weight:700;color:var(--text)}
-.year-roll{padding:5px 8px;font-size:11px;font-weight:600;color:var(--text-muted);border:none;
+.year-label{display:flex;align-items:center;padding:0 12px;font-size:12px;font-weight:700;color:var(--text)}
+.year-roll{display:flex;align-items:center;padding:0 8px;font-size:11px;font-weight:600;color:var(--text-muted);border:none;
   background:transparent;cursor:pointer;line-height:1;font-family:inherit;transition:all .15s}
 .year-roll+.year-roll{border-left:1px solid var(--border)}
 .year-roll:hover:not(.active){color:var(--text)}
 .year-roll.active{background:var(--accent-soft);color:var(--accent)}
 .type-bar{display:flex;gap:2px;flex-wrap:wrap}
 .type-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;font-size:12px;font-weight:500;color:var(--text-muted);border:none;background:transparent;border-radius:0;cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit}
+/* Scoped to .type-bar so the Zwift toolbar, which uses the same button class at
+   its own size, is left alone. */
+.type-bar .type-btn{height:var(--ctl-h);padding:0 9px}
 .type-btn:hover:not(.active){color:var(--text)}
 .type-btn.active{font-weight:600}
 .type-btn[data-type="All"].active{background:var(--accent-soft);color:var(--accent)}
@@ -350,7 +361,7 @@ a{color:inherit;text-decoration:none}
   .sum-hero{padding:18px}
 }
 /* STATS */
-.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:14px;margin-bottom:24px}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:14px;margin-bottom:24px}
 .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:18px 20px;box-shadow:var(--shadow)}
 .stat-card-link{cursor:pointer;transition:box-shadow .1s}
 .stat-card-link:hover{box-shadow:0 2px 4px rgba(15,23,42,.06),0 8px 20px rgba(15,23,42,.09)}
@@ -1643,7 +1654,7 @@ body.is-loading .stats-grid *{visibility:hidden}
     </div>
     <div class="chart-card sum-consistency">
       <div class="chart-title">Consistency</div>
-      <div class="chart-sub">The last 28 days</div>
+      <div class="chart-sub">The last 12 weeks</div>
       <div id="sumConsistency"></div>
     </div>
   </div>
@@ -2803,6 +2814,8 @@ function saveLayout(tab){
   const out=readLayout()||{};
   layoutZones(tab).forEach(z=>{out[z.dataset.zone]=panelsIn(z).map(p=>p.dataset.panel);});
   try{localStorage.setItem(LAYOUT_KEY,JSON.stringify(out));}catch(e){}
+  stampLayout();
+  queuePrefsPush();
 }
 
 function layoutIsCustom(tab){
@@ -2864,6 +2877,92 @@ function restoreAllLayouts(){
   TAB_ORDER.forEach(t=>{if(tabEl(t))restoreLayout(t);});
 }
 
+/* ── THE SAME LAYOUT ON EVERY DEVICE ──
+ * The order is held in two places. localStorage is what renders: it is
+ * synchronous, it survives being offline, and the page must never wait on a
+ * network round trip to draw its panels in the right order. The Worker holds the
+ * other copy, under one KV key, and that is the one that carries an arrangement
+ * made on the laptop over to the phone.
+ *
+ * Both copies carry a millisecond stamp and the newer wins outright. There is no
+ * merge to attempt: the thing being synced is a single ordering per zone, so two
+ * devices disagreeing means the more recent arrangement is the one that was meant.
+ *
+ * Everything here fails silently and on purpose. A dead network, a cold Worker or
+ * a browser with storage switched off has to leave a working dashboard behind —
+ * in the local order if there is one, the default order if there is not.
+ */
+const LAYOUT_STAMP_KEY='fitness_layout_at_v1';
+let prefsPushTimer=null;
+
+// A function rather than a constant: API_BASE is declared further down this same
+// script, and reading it up here at parse time would be a temporal-dead-zone error
+// before the page had drawn anything at all.
+function prefsUrl(){return API_BASE+'/prefs';}
+
+function layoutStamp(){
+  try{
+    const n=+(localStorage.getItem(LAYOUT_STAMP_KEY)||0);
+    return Number.isFinite(n)?n:0;
+  }catch(e){return 0;}
+}
+function stampLayout(){
+  try{localStorage.setItem(LAYOUT_STAMP_KEY,String(Date.now()));}catch(e){}
+}
+
+// Debounced. Dragging fires saveLayout on every drop and the keyboard path fires it
+// on every arrow press; one write a second after you stop is plenty.
+function queuePrefsPush(){
+  clearTimeout(prefsPushTimer);
+  prefsPushTimer=setTimeout(pushPrefs,1000);
+}
+
+// readLayout()||{} rather than a bail-out on empty: an order that has been reset
+// away is still a change, and has to be sent as one.
+function pushPrefs(){
+  try{
+    fetch(prefsUrl(),{
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({updatedAt:layoutStamp(),prefs:{layout:readLayout()||{}}}),
+    }).catch(()=>{});
+  }catch(e){}
+}
+
+// At boot, once. If the server's copy is newer the tabs are re-laid out in place
+// rather than waiting for whatever redraws them next; if ours is newer it goes up,
+// which is also how a first run seeds an empty server.
+function pullPrefs(){
+  try{
+    fetch(prefsUrl())
+      .then(r=>r.ok?r.json():null)
+      .then(rec=>{
+        if(!rec)return;
+        const remoteAt=Number(rec.updatedAt)||0;
+        const localAt=layoutStamp();
+        const remote=rec.prefs&&rec.prefs.layout;
+        if(remoteAt>localAt&&remote&&typeof remote==='object'&&!Array.isArray(remote)){
+          try{
+            localStorage.setItem(LAYOUT_KEY,JSON.stringify(remote));
+            localStorage.setItem(LAYOUT_STAMP_KEY,String(remoteAt));
+          }catch(e){}
+          restoreAllLayouts();
+          // Reordering can be open on a slow connection, and its move buttons are
+          // built against the order they were drawn from.
+          if(reorderOn)buildReorderControls();
+        }else if(readLayout()&&(localAt>remoteAt||remoteAt===0)){
+          // A layout saved before syncing existed has no stamp. Against an empty
+          // server it is still the only arrangement there is, so it is stamped now
+          // and sent up — otherwise the laptop's order would sit unshared until
+          // the first time something on it was moved.
+          if(!localAt)stampLayout();
+          pushPrefs();
+        }
+      })
+      .catch(()=>{});
+  }catch(e){}
+}
+
 function resetLayout(){
   const tab=reorderTab||activeTab;
   captureDefaultLayout(tab);
@@ -2875,6 +2974,10 @@ function resetLayout(){
     Object.keys(saved).length?localStorage.setItem(LAYOUT_KEY,JSON.stringify(saved))
                              :localStorage.removeItem(LAYOUT_KEY);
   }catch(e){}
+  // A reset is a change like any other, and has to travel: without this, clearing
+  // the order here would be undone by the next device that pushed its own.
+  stampLayout();
+  queuePrefsPush();
   applyLayout(DEFAULT_LAYOUT,tab);
   buildReorderControls();
   announceReorder('Layout reset to the default for this tab.');
@@ -3501,14 +3604,9 @@ function toggleEarlyYears(){
 // mean heart rate taken across swims, dog walks and centuries — described no activity
 // anyone had ever done, which is the defect the per-sport row exists to answer.
 
-// Hours per week, over a trailing window ending today.
-function sumWindowHours(data,days,endMs){
-  const byDay={};
-  data.forEach(a=>{byDay[a.date]=(byDay[a.date]||0)+(a.mt||0);});
-  let t=0;
-  for(let k=0;k<days;k++)t+=byDay[new Date(endMs-k*86400000).toISOString().slice(0,10)]||0;
-  return t/3600;
-}
+// How far back the Consistency calendar looks. Twelve weeks: see the grid note at
+// the call site for why it is not thirteen.
+const CONSISTENCY_DAYS=84;
 
 // "an 11.2 hour base", not "a". Eight, eleven and eighteen are the figures that read
 // with a vowel sound however they are spelled.
@@ -3519,20 +3617,21 @@ const SPORT_PLURAL={Ride:'rides',Run:'runs',Virtual:'virtual rides',Walk:'walks'
 function renderSummaryNow(data){
   const today=new Date().toISOString().slice(0,10);
   const endMs=new Date(today+'T12:00:00').getTime();
-  const a7=sumWindowHours(data,7,endMs);
-  const c28=sumWindowHours(data,28,endMs)/4;   // ÷4 puts 28 days on a weekly scale
-  const ratio=c28>0?a7/c28:0;
+  // "This week" means the week you are standing in — Monday to today — and not a
+  // rolling seven days. The chart below stays rolling and stays labelled that way;
+  // this figure is the one that ought to read zero on a Monday morning, because it
+  // does. See calendarWeek in calc.js for why the base is a part-week too.
+  const cw=calendarWeek(data,a=>(a.mt||0)/3600,{today});
+  const ratio=cw.ratio;
 
   // ── Hero figure ──
   const bigEl=document.getElementById('sumWeekHours');
-  if(bigEl)bigEl.innerHTML=`${a7.toFixed(1)}<span class="sum-big-unit">hours</span>`;
+  if(bigEl)bigEl.innerHTML=`${cw.total.toFixed(1)}<span class="sum-big-unit">hours</span>`;
   const baseEl=document.getElementById('sumWeekBase');
-  if(baseEl)baseEl.textContent=c28>0
-    ? `against ${artFor(c28.toFixed(1))} ${c28.toFixed(1)} h/week base built over the last 28 days`
-    : 'no training in the last 28 days to compare against';
+  if(baseEl)baseEl.textContent=weekBaseText(cw,'h');
   const ratioEl=document.getElementById('sumWeekRatio');
   if(ratioEl){
-    if(!c28){ratioEl.innerHTML='';}
+    if(!(cw.pace>0)||!(cw.total>0)){ratioEl.innerHTML='';}
     else{
       const [col,word]=ratioTone(ratio);
       ratioEl.innerHTML=`<div class="sum-ratio" style="color:${col};background:${col}1a">`+
@@ -3544,21 +3643,24 @@ function renderSummaryNow(data){
   renderWeekDistance(data,SUM_DIST_TARGET);
   renderCumulative(data,SUM_CUM_TARGET);
 
-  // ── Consistency: days trained out of the last 28, plus the streaks ──
+  // ── Consistency: days trained out of the last twelve weeks, plus the streaks ──
+  // Twelve weeks rather than thirteen so the grid stays 14 wide and six deep with
+  // no ragged last row — and because 14 is two whole weeks, every column stays one
+  // weekday, so a day you never train reads as a vertical stripe.
   const trained=new Set(data.map(a=>a.date));
   const cells=[];
-  for(let k=27;k>=0;k--)cells.push(trained.has(new Date(endMs-k*86400000).toISOString().slice(0,10)));
+  for(let k=CONSISTENCY_DAYS-1;k>=0;k--)cells.push(trained.has(isoOf(endMs-k*86400000)));
   const active=cells.filter(Boolean).length;
   const streak=recLongestStreak(data);
   const cur=recCurrentStreak(data,today);
   const consEl=document.getElementById('sumConsistency');
   if(consEl)consEl.innerHTML=
     `<div class="stat-value" style="font-size:34px;margin-top:12px">${active}`+
-      `<span class="stat-unit" style="font-size:15px">of 28 days</span></div>`+
-    `<div class="chart-sub" style="margin:6px 0 0">You trained on ${Math.round(active/28*100)}% of them</div>`+
+      `<span class="stat-unit" style="font-size:15px">of ${CONSISTENCY_DAYS} days</span></div>`+
+    `<div class="chart-sub" style="margin:6px 0 0">You trained on ${Math.round(active/CONSISTENCY_DAYS*100)}% of them</div>`+
     `<div class="sum-cal">${cells.map(x=>
       `<i style="background:${x?getAccentColor():'var(--border)'}"></i>`).join('')}</div>`+
-    `<div class="sum-cal-ends"><span>4 weeks ago</span><span>today</span></div>`+
+    `<div class="sum-cal-ends"><span>12 weeks ago</span><span>today</span></div>`+
     `<div class="sum-streaks">`+
       `<div><div style="font-size:16px;font-weight:700">${cur} day${cur===1?'':'s'}</div>`+
         `<div class="chart-sub" style="margin:0">current streak</div></div>`+
@@ -3575,10 +3677,13 @@ function renderSummaryNow(data){
   groups.forEach(g=>{
     const all=ALL_DATA.filter(a=>typeGroup(a.type)===g);
     if(!all.length)return;
-    const wk=sumWindowHours(all,7,endMs);
-    const base=sumWindowHours(all,28,endMs)/4;
-    const wkDist=all.filter(a=>a.date>new Date(endMs-7*86400000).toISOString().slice(0,10))
-      .reduce((s,a)=>s+(a.dist_mi||0),0);
+    // Same window as the hero: this calendar week, against the same slice of the
+    // last four. A part-week held against a full-week base would mark every sport
+    // as "missing" until about Thursday.
+    const cwH=calendarWeek(all,a=>(a.mt||0)/3600,{today});
+    const wk=cwH.total;
+    const base=cwH.pace;
+    const wkDist=calendarWeek(all,a=>(a.dist_mi||0),{today}).total;
     const ytd=all.filter(a=>a.date.slice(0,4)===thisYear).reduce((s,a)=>s+(a.dist_mi||0),0);
     // Like for like: last year counted only as far into the year as today.
     const prev=all.filter(a=>a.date.slice(0,4)===String(+thisYear-1)&&dayOfYear(a.date)<=doyNow)
@@ -3588,7 +3693,7 @@ function renderSummaryNow(data){
   });
   cards.sort((x,y)=>y.n-x.n);
   const badge=document.getElementById('sumSportBadge');
-  if(badge)badge.textContent='Week to '+fmtDate(today);
+  if(badge)badge.textContent='Week of '+fmtDate(cw.weekStart);
   const wrap=document.getElementById('sumSportCards');
   if(wrap)wrap.innerHTML=cards.slice(0,5).map(c=>{
     const col=groupColor(c.g);
@@ -3600,7 +3705,7 @@ function renderSummaryNow(data){
       <div class="sum-sport-big">${c.wk.toFixed(1)}h</div>
       <div class="chart-sub" style="margin:4px 0 0">this week${c.wkDist>0?' · '+fmtDist(c.wkDist)+' '+distUnit():''}</div>
       <div class="sum-sport-rows">
-        <div class="sum-sport-row"><span>28-day base</span><span>${c.base.toFixed(1)}h/wk</span></div>
+        <div class="sum-sport-row"><span>by now, 4-wk avg</span><span>${c.base.toFixed(1)}h</span></div>
         <div class="sum-sport-row"><span>${thisYear} so far</span><span>${fmtDist(c.ytd)} ${distUnit()}</span></div>
         <div class="sum-sport-row"><span>on last year</span><span style="color:${
           c.d==null?'var(--text-muted)':c.d>=0?'#16a34a':'#dc2626'}">${
@@ -3618,20 +3723,20 @@ function renderSummaryNow(data){
     const yd=prevAll>0?Math.round((ytdAll-prevAll)/prevAll*100):null;
     // Which sport moved furthest from its own base — the "what is missing" clause.
     const moved=cards.filter(c=>c.base>0.2).sort((x,y)=>(x.wk-x.base)-(y.wk-y.base))[0];
-    if(!c28){band.innerHTML='';}
+    if(!(cw.pace>0)){band.innerHTML='';}
     else{
-      const state=ratio>1.3?'building':ratio<0.8?'backing off':'holding steady';
+      const state=!(cw.total>0)?'yet to start'
+        :ratio>1.3?'building':ratio<0.8?'backing off':'holding steady';
       const stateCol=ratio>1.3?'#b45309':ratio<0.8?'#b45309':'#16a34a';
       const yearBit=yd==null?'':
         ` and <span style="color:${yd>=0?'#16a34a':'#dc2626'}">${Math.abs(yd)}% ${yd>=0?'ahead of':'behind'}</span> `+
         `where you stood this time last year`;
-      const sportBit=(moved&&moved.wk<moved.base*0.7)
+      const sportBit=(cw.total>0&&moved&&moved.wk<moved.base*0.7)
         ? ` It is the <span style="color:${groupColor(moved.g)}">${SPORT_PLURAL[moved.g]||moved.g.toLowerCase()}</span> that are missing.`
         : '';
       band.innerHTML=`<span class="ms">insights</span><div class="sum-band-text">You are `+
-        `<span style="color:${stateCol}">${state}</span> — ${a7.toFixed(1)} hours this week against `+
-        `${artFor(c28.toFixed(1))} `+
-        `${c28.toFixed(1)} hour base${yearBit}.${sportBit}</div>`;
+        `<span style="color:${stateCol}">${state}</span> — ${cw.total.toFixed(1)} hours so far this week `+
+        `against ${cw.pace.toFixed(1)} by the same point in an average week${yearBit}.${sportBit}</div>`;
     }
   }
 }
@@ -4973,11 +5078,11 @@ function renderLoad(data,t=LOAD_TARGET){
   (()=>{
     if(!c28)return 'Not enough recent training to have a baseline to compare against.';
     if(a7===0)return `Nothing in the last seven days, against a ${c28.toFixed(1)}h/week base. A gap this size is either deliberate or the start of one.`;
-    if(ratio>1.5)return `The last week is ${ratio.toFixed(1)}× your 28-day base. Weeks that far above the line are where injuries come from — the number worth watching is not the total, it is the jump.`;
-    if(ratio>1.3)return `Building: this week is ${Math.round((ratio-1)*100)}% above your 28-day base. That is a real step up, and a sustainable one if it does not repeat next week.`;
-    if(ratio<0.6)return `This week is ${Math.round((1-ratio)*100)}% below your base. Fine as a taper or a rest week, worth noticing if it was not planned.`;
+    if(ratio>1.5)return `The last seven days are ${ratio.toFixed(1)}× your 28-day base. Spells that far above the line are where injuries come from — the number worth watching is not the total, it is the jump.`;
+    if(ratio>1.3)return `Building: the last seven days are ${Math.round((ratio-1)*100)}% above your 28-day base. That is a real step up, and a sustainable one if it does not repeat.`;
+    if(ratio<0.6)return `The last seven days are ${Math.round((1-ratio)*100)}% below your base. Fine as a taper or a rest week, worth noticing if it was not planned.`;
     if(ratio<0.8)return `Backing off slightly — ${a7.toFixed(1)}h against a ${c28.toFixed(1)}h base.`;
-    return `Steady: ${a7.toFixed(1)}h this week against a ${c28.toFixed(1)}h base. Neither building nor letting go.`;
+    return `Steady: ${a7.toFixed(1)}h over the last seven days against a ${c28.toFixed(1)}h base. Neither building nor letting go.`;
   })());
 }
 
@@ -4987,6 +5092,29 @@ function renderLoad(data,t=LOAD_TARGET){
 // Tone for the acute-vs-chronic ratio, shared by both hero figures so "steady"
 // means the same thing whether you are reading hours or miles. Colours come from
 // the cascade rather than literals, so they follow the theme.
+// How the hero figures describe what they are measured against. The base is the
+// SAME SLICE of the preceding four weeks, so the wording has to say so: "by this
+// point" is the whole difference between a fair comparison and a part-week held
+// against a whole one. Serves hours and distance, hence the unit being passed in.
+function weekBaseText(cw,unitWord){
+  if(!(cw.pace>0))return 'nothing in the last four weeks to compare this week against';
+  const n=cw.pace<100?cw.pace.toFixed(1):Math.round(cw.pace);
+  return cw.complete
+    ? `against ${n} ${unitWord} in an average week over the last four`
+    : `against ${n} ${unitWord} by this point in an average week`;
+}
+
+// Distance by sport group across one date range, biggest first. Two windows need
+// this now — the calendar week under the figure, and the rolling seven days the
+// chart's own verdict talks about — and they must not quietly share one total.
+function sportSplit(data,fromISO,toISO){
+  const by={};
+  data.forEach(a=>{
+    if(a.date>=fromISO&&a.date<=toISO){const g=typeGroup(a.type);by[g]=(by[g]||0)+actDistIn(a);}
+  });
+  return Object.entries(by).filter(([,d])=>d>0).sort((x,y)=>y[1]-x[1]);
+}
+
 function ratioTone(ratio){
   const b=ratioBand(ratio);
   const col=b.tone==='danger'?cssVar('--danger','#dc2626')
@@ -5027,15 +5155,16 @@ function renderWeekDistance(data,t=SUM_DIST_TARGET){
   const w=rollingWeekly(data,a=>actDistIn(a),{today:_today()});
   const a7=w.latest.acute,c28=w.latest.chronic;
   const ratio=c28>0?a7/c28:0;
+  // The figure is the calendar week, matching the hours card above it. The chart
+  // and the chips under it stay rolling, and stay labelled "last 7 days".
+  const cw=calendarWeek(data,a=>actDistIn(a),{today:_today()});
 
   setFig(
-    chipNum(a7,a7<100?1:0),
-    c28>0
-      ? `against a ${chipNum(c28,c28<100?1:0)} ${u}/week base built over the last 28 days`
-      : 'no training in the last 28 days to compare against',
-    c28>0?(()=>{
-      const[col,word]=ratioTone(ratio);
-      return `<div class="sum-ratio" style="color:${col};background:${col}1a"><strong>${ratio.toFixed(2)}×</strong> ${word}</div>`;
+    chipNum(cw.total,cw.total<100?1:0),
+    weekBaseText(cw,u),
+    cw.pace>0&&cw.total>0?(()=>{
+      const[col,word]=ratioTone(cw.ratio);
+      return `<div class="sum-ratio" style="color:${col};background:${col}1a"><strong>${cw.ratio.toFixed(2)}×</strong> ${word}</div>`;
     })():''
   );
 
@@ -5071,14 +5200,13 @@ function renderWeekDistance(data,t=SUM_DIST_TARGET){
   });
 
   // ── This week, by sport ──
-  const from=new Date(_today()+'T12:00:00').getTime()-6*86400000;
-  const fromDay=new Date(from);
-  const fromISO=`${fromDay.getFullYear()}-${String(fromDay.getMonth()+1).padStart(2,'0')}-${String(fromDay.getDate()).padStart(2,'0')}`;
-  const week=data.filter(a=>a.date>=fromISO&&a.date<=_today());
-  const bySport={};
-  week.forEach(a=>{const g=typeGroup(a.type);bySport[g]=(bySport[g]||0)+actDistIn(a);});
-  const split=Object.entries(bySport).filter(([,d])=>d>0).sort((a,b)=>b[1]-a[1]);
-  renderWeekSplit(split,a7);
+  // The calendar week, so it adds up to the figure above rather than to the chart.
+  const split=sportSplit(data,cw.weekStart,_today());
+  renderWeekSplit(split,cw.total);
+  // The verdict belongs to the chips beneath it, which are the rolling seven days,
+  // so it gets its own split over that window. Sharing one would have the verdict
+  // quoting percentages of a total it is not describing.
+  const rollSplit=sportSplit(data,isoOf(new Date(_today()+'T12:00:00').getTime()-6*86400000),_today());
 
   chartSummary(t.chips,[
     {n:chipNum(a7,1)+' '+u,label:'last 7 days',col:getAccentColor()},
@@ -5089,10 +5217,10 @@ function renderWeekDistance(data,t=SUM_DIST_TARGET){
   (()=>{
     if(!c28)return 'Not enough recent training to have a baseline to compare against.';
     if(a7===0)return `Nothing covered in the last seven days, against a ${chipNum(c28,1)} ${u}/week base.`;
-    const top=split[0];
+    const top=rollSplit[0];
     const share=top?Math.round(top[1]/a7*100):0;
-    const mix=top&&split.length>1
-      ? ` ${top[0]} carried ${share}% of it, across ${split.length} sports.`
+    const mix=top&&rollSplit.length>1
+      ? ` ${top[0]} carried ${share}% of it, across ${rollSplit.length} sports.`
       : top?` All of it ${top[0].toLowerCase()}.`:'';
     if(ratio>1.5)return `${chipNum(a7,1)} ${u} — ${ratio.toFixed(1)}× your 28-day base. A jump that size is worth a look even when it felt easy.${mix}`;
     if(ratio>1.3)return `${chipNum(a7,1)} ${u}, ${Math.round((ratio-1)*100)}% above your 28-day base.${mix}`;
@@ -5110,7 +5238,7 @@ function renderWeekSplit(split,total){
   const u=distUnit();
   if(!split.length||!(total>0)){
     el.innerHTML=`<div class="sum-split"><div class="sum-split-head"><span class="sum-split-t">This week by sport</span></div>`+
-      `<div class="sum-split-empty">Nothing logged in the last seven days.</div></div>`;
+      `<div class="sum-split-empty">Nothing logged yet this week.</div></div>`;
     return;
   }
   const pct=d=>d/total*100;
@@ -8016,6 +8144,9 @@ applyTheme(readTheme());
 // Before the first render, so each panel is drawn where it belongs rather than
 // being moved after it has already been painted somewhere else.
 restoreAllLayouts();
+// After the local order is on screen, never before it: the network decides only
+// whether to replace what is already drawn.
+pullPrefs();
 
 loadData();
   

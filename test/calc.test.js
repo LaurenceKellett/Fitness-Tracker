@@ -9,6 +9,7 @@ const {
   extractPartners, formatUpdatedAt, recLongestStreak, recCurrentStreak, mexBuckets, mexOf,
   actDistIn, distIn, ROLLING_ORDER, todayISO, isYearScope, isRollingScope, periodStart,
   scopeIncludes, periodLabel, periodPhrase, isValidScope, rollingWeekly, ratioBand,
+  calendarWeek, weekStartISO,
   CHRONIC_DAYS, CHRONIC_WEIGHTS, weeklyLoadStats, MONOTONY_CAP,
   setScope,
 } = calc;
@@ -683,6 +684,100 @@ describe('rollingWeekly', () => {
     const r = rollingWeekly([], hours, { today: '2026-09-13', scope: 'All' });
     expect(r.latest.acute).toBe(0);
     expect(r.peak).toBe(0);
+  });
+});
+
+// ── THE CALENDAR WEEK ─────────────────────────────────────────────────────────
+// The figure under "This week" is the week you are standing in, not a rolling
+// seven days. The two only agree on a Sunday night, and the difference is most of
+// the point: a Monday you have not trained has to read zero.
+
+describe('weekStartISO', () => {
+  it('returns the Monday of the week containing the date', () => {
+    expect(weekStartISO('2026-09-14')).toBe('2026-09-14');   // a Monday is its own start
+    expect(weekStartISO('2026-09-16')).toBe('2026-09-14');   // Wednesday
+    expect(weekStartISO('2026-09-20')).toBe('2026-09-14');   // Sunday still belongs to it
+  });
+
+  it('treats Sunday as the end of a week, never the start of one', () => {
+    // What this guards: getDay() numbers Sunday 0, so the obvious arithmetic rolls
+    // Sunday forward into a week that has not begun and loses six days of training.
+    expect(weekStartISO('2026-09-13')).toBe('2026-09-07');
+  });
+});
+
+describe('calendarWeek', () => {
+  const hours = (a) => (a.mt || 0) / 3600;
+  const on = (date, h) => ({ date, mt: h * 3600 });
+
+  it('reads zero on a Monday you have not trained, however full the week before', () => {
+    // The reason the function exists. Seven straight days of training, every one of
+    // them last week: a rolling window still calls that a full week.
+    const acts = ['2026-09-07', '2026-09-08', '2026-09-09', '2026-09-10',
+                  '2026-09-11', '2026-09-12', '2026-09-13'].map((d) => on(d, 1));
+    const cw = calendarWeek(acts, hours, { today: '2026-09-14' });
+    expect(cw.total).toBe(0);
+    expect(cw.elapsed).toBe(1);
+    expect(cw.weekStart).toBe('2026-09-14');
+    // Same data, same day, rolling: six hours still inside the trailing window.
+    expect(rollingWeekly(acts, hours, { today: '2026-09-14', scope: 'All' }).latest.acute).toBe(6);
+  });
+
+  it('totals Monday to today and stops there', () => {
+    const acts = [on('2026-09-14', 1), on('2026-09-15', 2), on('2026-09-16', 3), on('2026-09-17', 9)];
+    const cw = calendarWeek(acts, hours, { today: '2026-09-16' });
+    expect(cw.total).toBe(6);          // Thursday's nine hours have not happened yet
+    expect(cw.elapsed).toBe(3);
+    expect(cw.complete).toBe(false);
+  });
+
+  it('counts Monday as day one and Sunday as day seven', () => {
+    expect(calendarWeek([], hours, { today: '2026-09-14' }).elapsed).toBe(1);
+    expect(calendarWeek([], hours, { today: '2026-09-20' }).elapsed).toBe(7);
+    expect(calendarWeek([], hours, { today: '2026-09-20' }).complete).toBe(true);
+    expect(calendarWeek([], hours, { today: '2026-09-14' }).complete).toBe(false);
+  });
+
+  it('measures against the same slice of earlier weeks, not against whole ones', () => {
+    // Two hours every Monday for four weeks, plus a six-hour Saturday in each. A
+    // whole-week base would hold Monday morning against all eight hours and call
+    // it a 75% shortfall every week of the year.
+    const acts = ['2026-08-17', '2026-08-24', '2026-08-31', '2026-09-07'].map((d) => on(d, 2))
+      .concat(['2026-08-22', '2026-08-29', '2026-09-05', '2026-09-12'].map((d) => on(d, 6)));
+
+    const cw = calendarWeek(acts.concat([on('2026-09-14', 2)]), hours, { today: '2026-09-14' });
+    expect(cw.total).toBe(2);
+    expect(cw.pace).toBe(2);           // one Monday against four Mondays
+    expect(cw.ratio).toBe(1);          // on pace, which is the truth of it
+    expect(cw.fullWeek).toBe(8);       // the whole-week figure is still there to be used
+  });
+
+  it('lets empty weeks drag the base down, because they are real weeks', () => {
+    // Trained one week in four. Averaging over "the weeks you trained" would
+    // compare you against your good weeks only and call a normal week a collapse.
+    const cw = calendarWeek([on('2026-09-07', 4)], hours, { today: '2026-09-14' });
+    expect(cw.pace).toBe(1);
+  });
+
+  it('marks the rest of the week as not yet happened', () => {
+    const cw = calendarWeek([on('2026-09-14', 1)], hours, { today: '2026-09-15' });
+    expect(cw.days).toHaveLength(7);
+    expect(cw.days.map((d) => d.future)).toEqual([false, false, true, true, true, true, true]);
+    expect(cw.days[0].date).toBe('2026-09-14');
+    expect(cw.days[0].value).toBe(1);
+  });
+
+  it('reports no ratio at all rather than a wrong one when there is no base', () => {
+    const cw = calendarWeek([on('2026-09-14', 3)], hours, { today: '2026-09-14' });
+    expect(cw.pace).toBe(0);
+    expect(cw.ratio).toBe(0);          // the caller shows nothing on a zero base
+  });
+
+  it('survives an empty history without throwing', () => {
+    const cw = calendarWeek([], hours, { today: '2026-09-16' });
+    expect(cw.total).toBe(0);
+    expect(cw.pace).toBe(0);
+    expect(cw.days).toHaveLength(7);
   });
 });
 

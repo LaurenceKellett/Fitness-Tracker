@@ -445,6 +445,85 @@ function rollingWeekly(acts,pick,opts){
   };
 }
 
+/* ── THE CALENDAR WEEK ──
+ * "This week" on the Summary tab means the week you are standing in — Monday to
+ * today — and not the last seven days. The two are only the same thing on a Sunday
+ * evening. A rolling window answers "what have I just done", which is the question
+ * the hero CHART answers and why its lines stay rolling; the figure above it
+ * answers "how is this week going", and on a Monday morning the honest answer to
+ * that is usually nothing yet.
+ *
+ * Weeks run Monday to Sunday, matching weeklyLoadStats below and the week people
+ * actually plan in.
+ *
+ * ── What it is measured against ──
+ * A part-week cannot be held against a whole-week average: on Tuesday you would be
+ * "80% below your base" every single week, which is noise dressed as a warning. So
+ * the base here is the SAME SLICE of the preceding weeks — Monday-to-Tuesday of the
+ * last four weeks, averaged — which is a like-for-like comparison and needs no
+ * pro-rating. Pro-rating a weekly average by days elapsed would assume training is
+ * spread evenly across the week, and almost nobody's is; it would mark every
+ * weekend-loaded week as behind until Saturday.
+ *
+ * Empty weeks count towards that average. They are real weeks, and dropping them
+ * would quietly compare you against your good weeks only.
+ *
+ * Early in the week the ratio is built on very little — one Monday session against
+ * four previous Mondays — so it moves hard. That is a true reading of a small
+ * sample rather than a fault, but it is why the figure leads and the ratio follows.
+ */
+const WEEK_BASE_WEEKS=4;
+
+// Monday of the week containing `iso`. Anchored at local noon like every other date
+// step in this file, so a DST boundary cannot move it onto the day before.
+function weekStartISO(iso){
+  const d=new Date(iso+'T12:00:00');
+  d.setDate(d.getDate()-((d.getDay()+6)%7));   // getDay: 0=Sun; (d+6)%7 puts Mon=0
+  return isoOf(d.getTime());
+}
+
+function isoOf(ms){
+  const d=new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function calendarWeek(acts,pick,opts){
+  const o=opts||{};
+  const today=o.today||todayISO();
+  const back=o.weeks===undefined?WEEK_BASE_WEEKS:o.weeks;
+
+  const byDay={};
+  (acts||[]).forEach(a=>{byDay[a.date]=(byDay[a.date]||0)+(pick(a)||0);});
+
+  const weekStart=weekStartISO(today);
+  const startMs=new Date(weekStart+'T12:00:00').getTime();
+  // Days of this week that have happened, today included: Monday is 1, Sunday is 7.
+  const elapsed=Math.round((new Date(today+'T12:00:00').getTime()-startMs)/86400000)+1;
+
+  const sliceFrom=(ms,n)=>{let s=0;for(let k=0;k<n;k++)s+=byDay[isoOf(ms+k*86400000)]||0;return s;};
+
+  const total=sliceFrom(startMs,elapsed);
+
+  const prior=[];
+  for(let w=1;w<=back;w++){
+    const ms=startMs-w*7*86400000;
+    prior.push({start:isoOf(ms),toDate:sliceFrom(ms,elapsed),full:sliceFrom(ms,7)});
+  }
+  const mean=xs=>xs.length?xs.reduce((s,v)=>s+v,0)/xs.length:0;
+  const pace=mean(prior.map(p=>p.toDate));
+  const fullWeek=mean(prior.map(p=>p.full));
+
+  return{
+    weekStart,elapsed,total,pace,fullWeek,prior,
+    complete:elapsed===7,
+    ratio:pace>0?total/pace:0,
+    days:Array.from({length:7},(_,k)=>{
+      const date=isoOf(startMs+k*86400000);
+      return{date,value:byDay[date]||0,future:k>=elapsed};
+    }),
+  };
+}
+
 /* ── TRAINING MONOTONY AND STRAIN ──
  * Foster's pair. Monotony is a week's mean daily load divided by the standard
  * deviation of those same seven days; strain is the week's total load multiplied
@@ -542,6 +621,7 @@ if (typeof module !== 'undefined' && module.exports) {
     recLongestStreak,recCurrentStreak,mexBuckets,mexOf,actDistIn,distIn,
     ROLLING_PERIODS,ROLLING_ORDER,todayISO,isYearScope,isRollingScope,periodStart,
     scopeIncludes,periodLabel,periodPhrase,isValidScope,rollingWeekly,ratioBand,RATIO_BANDS,
+    calendarWeek,weekStartISO,isoOf,WEEK_BASE_WEEKS,
     CHRONIC_DAYS,CHRONIC_WEIGHTS,weeklyLoadStats,MONOTONY_CAUTION,MONOTONY_CAP,
     setScope(s){
       if(s.unit!==undefined)unit=s.unit;

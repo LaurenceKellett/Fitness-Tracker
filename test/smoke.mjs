@@ -256,6 +256,12 @@ async function main() {
     await page.route('**/zwift-routes**', (r) =>
       r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], updatedAt: new Date().toISOString() }) })
     );
+    // The panel order syncs through the Worker. Left unstubbed this is a real
+    // request to a real Worker from every test in the file: slow, and it would make
+    // the suite's results depend on somebody's saved layout.
+    await page.route('**/prefs**', (r) =>
+      r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ prefs: {}, updatedAt: 0 }) })
+    );
 
     await page.goto(base + '/index.html', { waitUntil: 'domcontentloaded' });
     return { ctx, page, errors };
@@ -640,19 +646,69 @@ async function main() {
       assert(r.order, 'the distance hero is not below the hours one');
       assert(/miles/.test(r.distText) && r.unit === 'miles', `figure reads "${r.distText}"`);
       assert(!/—/.test(r.distText), 'the figure is still a placeholder');
-      assert(/mi\/week base/.test(r.base), `base line reads "${r.base}"`);
+      // The base is the same slice of the preceding four weeks, not a whole-week
+      // average — a part-week held against a whole one reads as a shortfall every
+      // week of the year, which is noise dressed up as a warning.
+      assert(/\bmi\b/.test(r.base) && /by this point in an average week|average week over the last four/.test(r.base),
+        `base line reads "${r.base}"`);
       assert(r.chips.length === 4, `${r.chips.length} chips`);
       assert(r.verdict.length > 0, 'no verdict');
       assert(r.chart, 'no distance chart instance');
 
-      // The split is this week only, by sport, and it is a share of one total.
-      assert(r.keys.length >= 2, `split shows ${r.keys.length} sports`);
-      const sum = r.widths.reduce((a, b) => a + b, 0);
-      assert(Math.abs(sum - 100) < 0.5, `split bar widths sum to ${sum.toFixed(2)}%, not 100`);
-      // Sorted biggest first, so the bar reads left to right.
-      for (let i = 1; i < r.widths.length; i++) {
-        assert(r.widths[i] <= r.widths[i - 1] + 0.01, 'split is not sorted by size');
+      // The split is the calendar week, by sport, as shares of one total. How many
+      // sports that comes to depends on what day it is — a Monday can honestly be
+      // one — so this checks the split against the week itself rather than against
+      // a fixed count that would pass or fail by the day it was run.
+      const week = await page.evaluate(() => {
+        const today = _today(), start = weekStartISO(today);
+        const by = {};
+        ALL_DATA.filter((a) => a.date >= start && a.date <= today)
+          .forEach((a) => { const g = typeGroup(a.type); by[g] = (by[g] || 0) + actDistIn(a); });
+        return Object.entries(by).filter(([, d]) => d > 0)
+          .sort((x, y) => y[1] - x[1]).map(([g]) => g);
+      });
+      assert(r.keys.length === week.length,
+        `split shows ${r.keys.length} sports, the calendar week has ${week.length}`);
+      week.forEach((g, i) => assert(new RegExp(g, 'i').test(r.keys[i]),
+        `split key ${i} reads "${r.keys[i]}", expected ${g}`));
+      if (week.length) {
+        const sum = r.widths.reduce((a, b) => a + b, 0);
+        assert(Math.abs(sum - 100) < 0.5, `split bar widths sum to ${sum.toFixed(2)}%, not 100`);
+        // Sorted biggest first, so the bar reads left to right.
+        for (let i = 1; i < r.widths.length; i++) {
+          assert(r.widths[i] <= r.widths[i - 1] + 0.01, 'split is not sorted by size');
+        }
       }
+    });
+
+    await check('"this week" is the calendar week, not the last seven days', async () => {
+      await page.evaluate(() => { window.setYear('All'); window.setType('All'); window.setUnit('mi'); window.setTab('summary'); });
+      await page.waitForTimeout(800);
+
+      const r = await page.evaluate(() => {
+        const today = _today();
+        const start = weekStartISO(today);
+        const sum = (from) => ALL_DATA
+          .filter((a) => a.date >= from && a.date <= today)
+          .reduce((s, a) => s + (a.mt || 0) / 3600, 0);
+        const d = new Date(new Date(today + 'T12:00:00').getTime() - 6 * 86400000);
+        const sevenAgo = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        return {
+          start,
+          weekday: new Date(start + 'T12:00:00').getDay(),
+          shown: parseFloat(document.getElementById('sumWeekHours').innerText),
+          week: sum(start),
+          seven: sum(sevenAgo),
+          label: (document.querySelector('[data-panel="sum-load"] .stat-label') || {}).textContent || '',
+        };
+      });
+
+      assert(r.weekday === 1, `the week starts on weekday ${r.weekday}, not Monday`);
+      assert(/This week/i.test(r.label), `the figure is labelled "${r.label}"`);
+      // The figure has to be Monday-to-today. On a Monday with nothing logged that
+      // means zero, however full the seven days behind it were.
+      assert(Math.abs(r.shown - r.week) < 0.05,
+        `hero reads ${r.shown}h, calendar week is ${r.week.toFixed(2)}h (last seven days: ${r.seven.toFixed(2)}h)`);
     });
 
     await check('the distance hero follows the unit toggle', async () => {
@@ -1082,6 +1138,23 @@ async function main() {
       assert(after[1] === before[0], `${before.slice(0, 3)} -> ${after.slice(0, 3)}`);
       const said = await page.evaluate(() => document.getElementById('reorderLive').textContent);
       assert(/position \d+ of \d+/.test(said), `announcement was "${said}"`);
+    });
+
+    await check('a move is sent to the Worker, so every other device picks it up', async () => {
+      // Still in reorder mode from the check above. The push runs a second behind
+      // the last move, so the request is awaited rather than looked for.
+      const before = await flatOrder();
+      const put = page.waitForRequest((r) => r.method() === 'PUT' && /\/prefs\b/.test(r.url()), { timeout: 5000 });
+      await page.evaluate((k) => document.querySelector(
+        `#tab-charts .chart-card[data-panel="${k}"]`).focus(), before[0]);
+      await page.keyboard.press('ArrowDown');
+      const body = (await put).postDataJSON();
+      assert(body && body.prefs && body.prefs.layout && typeof body.prefs.layout === 'object',
+        `PUT body was ${JSON.stringify(body).slice(0, 120)}`);
+      assert(Number(body.updatedAt) > 0,
+        'the record carries no stamp, so the Worker could not tell which device is newer');
+      assert(Object.values(body.prefs.layout).some((z) => Array.isArray(z) && z.includes(before[0])),
+        'the chart that was just moved is not in the layout that went up');
     });
 
     await check('a chart the current filter hides can still be placed', async () => {
