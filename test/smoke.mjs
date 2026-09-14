@@ -802,6 +802,31 @@ async function main() {
       await page.waitForTimeout(500);
     });
 
+    await check('on desktop the hero’s chips sit under the figure, and the chart stretches to them', async () => {
+      await page.evaluate(() => window.setTab('summary'));
+      await page.waitForTimeout(400);
+      const box = () => page.evaluate(() => {
+        const hero = document.querySelector('.sum-hero[data-panel="sum-dist"]');
+        const r = (sel) => hero.querySelector(sel).getBoundingClientRect();
+        const fig = r('.sum-hero-fig'), chips = r('.chart-chips'), chart = r('.sum-hero-chart'), plot = r('.chart-wrap');
+        return { fig, chips, chart, plot };
+      });
+      const d = await box();
+      assert(Math.abs(d.chips.left - d.fig.left) < 2, 'the chips do not start where the figure does');
+      assert(d.chips.top >= d.fig.bottom - 1, 'the chips are not under the figure');
+      assert(d.chips.right <= d.chart.left + 1, 'the chips run under the chart');
+      assert(d.plot.height >= 186, `the plot shrank to ${d.plot.height}px`);
+      assert(d.chart.bottom >= d.chips.bottom - 1, 'the chart does not stretch to the foot of the chips column');
+      // A phone stacks the same markup: figure, chart, then the chips.
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.waitForTimeout(400);
+      const p = await box();
+      assert(p.chips.top >= p.chart.bottom - 1, 'on a phone the chips are not below the chart');
+      assert(Math.abs(p.chips.width - p.chart.width) < 2, 'on a phone the chips do not run the card’s width');
+      await page.setViewportSize({ width: 1400, height: 900 });
+      await page.waitForTimeout(300);
+    });
+
     await check('the gear photo runs to the top and both sides of its card', async () => {
       await page.evaluate(() => window.setTab('gear'));
       await page.waitForTimeout(800);

@@ -787,6 +787,11 @@ What leads now is the week:
   this point in a week, the year so far, and the year-on-year figure, each computed within
   its own sport.
 
+On desktop each hero is a grid: the figure top-left with its chips stacked beneath it, in
+the column the big number leaves empty, and the chart to the right, stretched to the height
+of that column; the sport split and the verdict run the full width beneath. A phone stacks
+figure, chart, split, chips, verdict, as before.
+
 ### Why the figure is a calendar week
 
 "This week" means the week you are standing in — Monday to today — and not the last seven

@@ -314,11 +314,25 @@ a{color:inherit;text-decoration:none}
 .tab-content.enter-from-right{animation:enterFromRight .22s ease}
 .tab-content.enter-from-left{animation:enterFromLeft .22s ease}
 /* SUMMARY — the present-tense block that now leads the page */
-.sum-hero{padding:24px 26px;margin-bottom:14px}
-.sum-hero-row{display:flex;gap:34px;align-items:flex-start}
-.sum-hero-fig{width:250px;flex-shrink:0}
-.sum-hero-chart{flex:1;min-width:0}
-.sum-hero-chart .chart-wrap{height:186px}
+/* The hero is a grid on desktop: the figure top-left with its chips stacked under it,
+   in the column the big number leaves empty; the chart to the right, stretched to the
+   height of that column; the sport split and the verdict across the full width
+   beneath. The row wrapper is transparent to the grid (display:contents) so the same
+   markup can stack on a phone. */
+.sum-hero{padding:24px 26px;margin-bottom:14px;display:grid;grid-template-columns:250px minmax(0,1fr);
+  grid-template-rows:auto 1fr auto auto;grid-template-areas:"fig chart" "chips chart" "split split" "verdict verdict";
+  column-gap:34px;align-items:start}
+.sum-hero-row{display:contents}
+.sum-hero-fig{grid-area:fig;min-width:0}
+.sum-hero-chart{grid-area:chart;min-width:0;align-self:stretch;display:flex;flex-direction:column}
+.sum-hero-chart .chart-wrap{flex:1;height:auto;min-height:186px}
+/* Out of flow, so the canvas cannot size its own wrapper — a shorter chips column
+   could otherwise never shrink the plot back. It fills whatever the grid gives. */
+.sum-hero-chart .chart-wrap>canvas{position:absolute;left:0;top:0}
+.sum-hero>.chart-chips{grid-area:chips;align-self:start;flex-direction:column;gap:8px;margin-top:16px}
+.sum-hero>.chart-chips .chart-chip{margin-right:0}
+.sum-hero>#sumDistSplit{grid-area:split}
+.sum-hero>.chart-verdict{grid-area:verdict}
 .sum-big{font-family:var(--f-fig);font-size:52px;font-weight:var(--w-fig-xl);letter-spacing:-2.6px;line-height:1;margin:10px 0 8px}
 .sum-big-unit{font-size:22px;font-weight:500;color:var(--text-muted);letter-spacing:0;margin-left:11px}
 .sum-ratio{display:inline-flex;align-items:center;gap:8px;padding:0;margin-top:14px;
@@ -390,8 +404,13 @@ a{color:inherit;text-decoration:none}
 .sum-career-fig span{font-size:11px;color:var(--text-muted)}
 .sum-career-sep{width:1px;height:14px;background:var(--border)}
 @media(max-width:1000px){
-  .sum-hero-row{flex-direction:column;gap:18px}
+  .sum-hero{display:block}
+  .sum-hero-row{display:flex;flex-direction:column;gap:18px}
   .sum-hero-fig{width:auto}
+  .sum-hero-chart{display:block}
+  .sum-hero-chart .chart-wrap{height:186px;min-height:0}
+  .sum-hero-chart .chart-wrap>canvas{position:static}
+  .sum-hero>.chart-chips{flex-direction:row;gap:10px;margin-top:14px}
   .sum-two{grid-template-columns:1fr}
   .sum-sport-cols,.sum-sport-tr{grid-template-columns:1.2fr 1fr 1fr 1fr 1fr}
   .sum-sport-dist,.sum-sport-spark{display:none}
