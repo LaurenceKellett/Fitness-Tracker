@@ -326,6 +326,27 @@ describe('escapeAttr', () => {
     expect(escapeAttr('&quot;')).toBe('&amp;quot;');
   });
 
+  // The action-argument attributes are single-quoted, because their value is JSON and
+  // JSON is full of double quotes. An apostrophe is therefore just as dangerous as a
+  // double quote here, and gear and activity names come from Strava.
+  it('neutralises the apostrophe that would end a single-quoted attribute', () => {
+    expect(escapeAttr("Dave's bike")).toBe('Dave&#39;s bike');
+  });
+
+  it('leaves a name with an apostrophe safe to interpolate into single quotes', () => {
+    const hostile = "Dave's' onclick=alert(1) x='";
+    const attr = `data-args-click='${escapeAttr(JSON.stringify([hostile]))}'`;
+    // One opening quote, one closing quote, and nothing in between that ends it early.
+    // The onclick= text is still in there and is meant to be — as inert characters
+    // inside the value, which is exactly what escaping is for.
+    expect(attr.split("'").length - 1).toBe(2);
+    // And it survives the trip: entity-decode the value the way a parser would, and
+    // the arguments come back as the name that went in, not as markup.
+    const value = attr.slice(attr.indexOf("'") + 1, -1);
+    const decoded = value.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+    expect(JSON.parse(decoded)).toEqual([hostile]);
+  });
+
   it('coerces non-strings rather than throwing', () => {
     expect(escapeAttr(42)).toBe('42');
     expect(escapeAttr(null)).toBe('null');

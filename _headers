@@ -1,0 +1,40 @@
+# Response headers for the Pages deployment. Cloudflare reads this file at the root of
+# the build output; the rules are matched top to bottom and every match is applied.
+#
+# The Content-Security-Policy is the point of the file. It is worth having now, and was
+# not before, because the page no longer contains any inline event handlers: there were
+# 101 of them, and a policy that has to allow inline script in order to let its own page
+# work is not a policy. They are delegated actions now — the markup names a handler, and
+# a table in app.js decides whether that name means anything — so script-src can be
+# 'self' and a single hash, with no 'unsafe-inline' anywhere near it.
+#
+# What each source is for, since a CSP nobody can read is a CSP nobody will maintain:
+#
+#   script-src   'self' covers app.js, calc.js and the two libraries, which are served
+#                from this origin now rather than from two CDNs. The hash is the four
+#                lines in <head> that stamp the saved theme before the stylesheet
+#                resolves — the one script that genuinely cannot be deferred, since
+#                moving it costs a flash of the wrong palette on every load.
+#                test/csp.test.js recomputes that hash and fails if it drifts.
+#   style-src    'unsafe-inline' is here and is not a mistake, but it is a real limit
+#                on what this policy buys: the app sets colours per element from data
+#                (a sport's colour, a heatmap cell's intensity) across ~180 style
+#                attributes, and CSP has no hash for those. It bounds the damage of an
+#                injection to styling rather than script, which is the smaller half of
+#                the problem — the larger half is closed above.
+#   img-src      data: for the inline SVG favicon and Chart.js's canvas exports; the
+#                tile servers for the map; three remote product photos that stand in
+#                for gear with no local image yet.
+#   connect-src  the activities Worker and Nominatim, which is what the app fetches.
+#   frame-ancestors / object-src / base-uri / form-action
+#                nothing here is framed, embeds a plugin, has a <base>, or submits a
+#                form, so all four are shut rather than left at their defaults.
+#
+# The other four headers are the standard set that costs nothing: no MIME sniffing, no
+# referrer leakage to third parties, no access to hardware the dashboard never asks for.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-UMFrdK251tLRM4b0BQgSHxtpUXtV8BfJ25/uqXy1d9U='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://*.tile.openstreetmap.org https://www.cycleexchange.co.uk https://media.johnlewiscontent.com https://encrypted-tbn0.gstatic.com; connect-src 'self' https://activities-api.lk-ff7.workers.dev https://nominatim.openstreetmap.org; worker-src 'self'; manifest-src 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), camera=(), microphone=(), payment=(), usb=()
+  X-Frame-Options: DENY

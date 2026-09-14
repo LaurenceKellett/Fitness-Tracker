@@ -63,7 +63,15 @@ function chipNum(v,dp){return Number(dp?(+v).toFixed(dp):Math.round(v)).toLocale
 
 function artFor(n){return /^(8|11|18)(\D|$)/.test(String(n))?'an':'a';}
 
-function escapeAttr(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;');}
+// The apostrophe matters as much as the double quote. This escaped only `"` for a
+// long time, which is safe in a double-quoted attribute and silently wrong in a
+// single-quoted one — and the action-argument attributes are single-quoted, because
+// their value is JSON and JSON is full of double quotes. A gear called "Dave's bike"
+// closed the attribute early and turned the rest of its own name into markup.
+// Activity and gear names come from Strava, so that string is not ours to trust.
+function escapeAttr(s){
+  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
 
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

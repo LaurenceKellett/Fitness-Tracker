@@ -40,23 +40,23 @@
         <div class="logo-icon"><svg viewBox="0 0 24 24" width="15" height="15"><path fill="white" d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0 4 13.828h4.172"/></svg></div>
         <span class="logo-name">Fitness</span>
       </div>
-      <button class="scope-chip" id="scopeChip" onclick="openScopeSheet()" aria-haspopup="dialog">
+      <button class="scope-chip" id="scopeChip" data-on-click="openScopeSheet" aria-haspopup="dialog">
         <span class="ms">calendar_month</span>
         <span class="scope-chip-text" id="scopeChipText">All time · all sports</span>
         <span class="scope-chip-caret">&#9662;</span>
       </button>
       <div class="tab-strip-wrap">
         <div class="tab-strip" id="tabRow" role="tablist" aria-label="Dashboard sections">
-          <button class="tab-btn active" role="tab" id="tabbtn-summary" aria-controls="tab-summary" aria-selected="true" tabindex="0" onclick="setTab('summary')"><span class="ms">home</span><span class="tab-label">Summary</span></button>
-          <button class="tab-btn" role="tab" id="tabbtn-map" aria-controls="tab-map" aria-selected="false" tabindex="-1" onclick="setTab('map')"><span class="ms">map</span><span class="tab-label">Map</span></button>
-          <button class="tab-btn" role="tab" id="tabbtn-charts" aria-controls="tab-charts" aria-selected="false" tabindex="-1" onclick="setTab('charts')"><span class="ms">bar_chart</span><span class="tab-label">Charts</span></button>
-          <button class="tab-btn" role="tab" id="tabbtn-heatmap" aria-controls="tab-heatmap" aria-selected="false" tabindex="-1" onclick="setTab('heatmap')"><span class="ms">grid_view</span><span class="tab-label">Heatmap</span></button>
-          <button class="tab-btn" role="tab" id="tabbtn-records" aria-controls="tab-records" aria-selected="false" tabindex="-1" onclick="setTab('records')"><span class="ms">emoji_events</span><span class="tab-label">Records</span></button>
-          <button class="tab-btn" role="tab" id="tabbtn-mex" aria-controls="tab-mex" aria-selected="false" tabindex="-1" onclick="setTab('mex')"><span class="ms">stairs</span><span class="tab-label">Mex</span></button>
-          <button class="tab-btn" role="tab" id="tabbtn-social" aria-controls="tab-social" aria-selected="false" tabindex="-1" onclick="setTab('social')"><span class="ms">thumb_up</span><span class="tab-label">Social</span></button>
-          <button class="tab-btn" role="tab" id="tabbtn-gear" aria-controls="tab-gear" aria-selected="false" tabindex="-1" onclick="setTab('gear')"><span class="ms">settings</span><span class="tab-label">Gear</span></button>
-          <button class="tab-btn" role="tab" id="tabbtn-log" aria-controls="tab-log" aria-selected="false" tabindex="-1" onclick="setTab('log')"><span class="ms">format_list_bulleted</span><span class="tab-label">Activity Log</span></button>
-          <button class="tab-btn" role="tab" id="tabbtn-zwift" aria-controls="tab-zwift" aria-selected="false" tabindex="-1" onclick="setTab('zwift')"><span class="ms">route</span><span class="tab-label">Zwift Routes</span></button>
+          <button class="tab-btn active" role="tab" id="tabbtn-summary" aria-controls="tab-summary" aria-selected="true" tabindex="0" data-on-click="setTab" data-args-click='["summary"]'><span class="ms">home</span><span class="tab-label">Summary</span></button>
+          <button class="tab-btn" role="tab" id="tabbtn-map" aria-controls="tab-map" aria-selected="false" tabindex="-1" data-on-click="setTab" data-args-click='["map"]'><span class="ms">map</span><span class="tab-label">Map</span></button>
+          <button class="tab-btn" role="tab" id="tabbtn-charts" aria-controls="tab-charts" aria-selected="false" tabindex="-1" data-on-click="setTab" data-args-click='["charts"]'><span class="ms">bar_chart</span><span class="tab-label">Charts</span></button>
+          <button class="tab-btn" role="tab" id="tabbtn-heatmap" aria-controls="tab-heatmap" aria-selected="false" tabindex="-1" data-on-click="setTab" data-args-click='["heatmap"]'><span class="ms">grid_view</span><span class="tab-label">Heatmap</span></button>
+          <button class="tab-btn" role="tab" id="tabbtn-records" aria-controls="tab-records" aria-selected="false" tabindex="-1" data-on-click="setTab" data-args-click='["records"]'><span class="ms">emoji_events</span><span class="tab-label">Records</span></button>
+          <button class="tab-btn" role="tab" id="tabbtn-mex" aria-controls="tab-mex" aria-selected="false" tabindex="-1" data-on-click="setTab" data-args-click='["mex"]'><span class="ms">stairs</span><span class="tab-label">Mex</span></button>
+          <button class="tab-btn" role="tab" id="tabbtn-social" aria-controls="tab-social" aria-selected="false" tabindex="-1" data-on-click="setTab" data-args-click='["social"]'><span class="ms">thumb_up</span><span class="tab-label">Social</span></button>
+          <button class="tab-btn" role="tab" id="tabbtn-gear" aria-controls="tab-gear" aria-selected="false" tabindex="-1" data-on-click="setTab" data-args-click='["gear"]'><span class="ms">settings</span><span class="tab-label">Gear</span></button>
+          <button class="tab-btn" role="tab" id="tabbtn-log" aria-controls="tab-log" aria-selected="false" tabindex="-1" data-on-click="setTab" data-args-click='["log"]'><span class="ms">format_list_bulleted</span><span class="tab-label">Activity Log</span></button>
+          <button class="tab-btn" role="tab" id="tabbtn-zwift" aria-controls="tab-zwift" aria-selected="false" tabindex="-1" data-on-click="setTab" data-args-click='["zwift"]'><span class="ms">route</span><span class="tab-label">Zwift Routes</span></button>
         </div>
       </div>
       <!-- One control, not five. Units, theme, refresh and the profile link all
@@ -65,7 +65,7 @@
            utilities, not navigation, so they belong behind a single affordance.
            `tune` rather than `settings`: the Gear tab already owns that glyph. -->
       <div class="header-toolbar">
-        <button class="icon-btn settings-btn" id="settingsBtn" onclick="toggleSettings(event)"
+        <button class="icon-btn settings-btn" id="settingsBtn" data-on-click="toggleSettings" data-args-click='["$event"]'
                 aria-haspopup="dialog" aria-expanded="false" aria-controls="settingsMenu"
                 title="Settings" aria-label="Settings">
           <span class="ms">tune</span>
@@ -75,18 +75,18 @@
     <!-- Band 2 — SCOPE: the two controls that change what every number means -->
     <div class="hrow hrow-scope" id="typeRow">
       <div class="year-bar">
-        <button class="year-all active" id="yearAll" onclick="setYear('All')">All time</button>
+        <button class="year-all active" id="yearAll" data-on-click="setYear" data-args-click='["All"]'>All time</button>
         <!-- Rolling windows sit in the same slot as the year, because they answer
              the same question and only one of them can be true at a time. -->
         <div class="year-ctl" id="yearRolling" role="group" aria-label="Rolling period">
-          <button class="year-roll" data-period="30d" onclick="setYear('30d')" title="Last 30 days">30d</button>
-          <button class="year-roll" data-period="90d" onclick="setYear('90d')" title="Last 90 days">90d</button>
-          <button class="year-roll" data-period="12m" onclick="setYear('12m')" title="Last 12 months">12m</button>
+          <button class="year-roll" data-period="30d" data-on-click="setYear" data-args-click='["30d"]' title="Last 30 days">30d</button>
+          <button class="year-roll" data-period="90d" data-on-click="setYear" data-args-click='["90d"]' title="Last 90 days">90d</button>
+          <button class="year-roll" data-period="12m" data-on-click="setYear" data-args-click='["12m"]' title="Last 12 months">12m</button>
         </div>
         <div class="year-ctl">
-          <button class="year-arrow" id="yearPrev" onclick="stepYear(-1)">&#8249;</button>
+          <button class="year-arrow" id="yearPrev" data-on-click="stepYear" data-args-click='[-1]'>&#8249;</button>
           <span class="year-label" id="yearDisplay">—</span>
-          <button class="year-arrow" id="yearNext" onclick="stepYear(1)">&#8250;</button>
+          <button class="year-arrow" id="yearNext" data-on-click="stepYear" data-args-click='[1]'>&#8250;</button>
         </div>
       </div>
       <span class="scope-sep"></span>
@@ -96,14 +96,14 @@
     </div>
   </div>
 </div>
-<div class="sheet-backdrop" id="settingsBackdrop" onclick="closeSettings()"></div>
+<div class="sheet-backdrop" id="settingsBackdrop" data-on-click="closeSettings"></div>
 <div class="settings-menu" id="settingsMenu" role="dialog" aria-modal="true" aria-label="Settings">
   <div class="sheet-title">Settings</div>
   <div class="sheet-sec">
     <div class="sheet-lbl">Units</div>
     <div class="sheet-chips" id="settingsUnits">
-      <button class="unit-opt active" data-unit="mi" onclick="setUnit('mi')">Miles</button>
-      <button class="unit-opt" data-unit="km" onclick="setUnit('km')">Kilometres</button>
+      <button class="unit-opt active" data-unit="mi" data-on-click="setUnit" data-args-click='["mi"]'>Miles</button>
+      <button class="unit-opt" data-unit="km" data-on-click="setUnit" data-args-click='["km"]'>Kilometres</button>
     </div>
   </div>
   <div class="sheet-sec">
@@ -112,22 +112,22 @@
          never tells you what the other states are, and "follow system" is not a
          state anyone guesses is hiding behind a sun icon. -->
     <div class="sheet-chips" id="settingsTheme">
-      <button data-theme-opt="system" onclick="setTheme('system')"><span class="ms">brightness_auto</span>System</button>
-      <button data-theme-opt="light" onclick="setTheme('light')"><span class="ms">light_mode</span>Light</button>
-      <button data-theme-opt="dark" onclick="setTheme('dark')"><span class="ms">dark_mode</span>Dark</button>
+      <button data-theme-opt="system" data-on-click="setTheme" data-args-click='["system"]'><span class="ms">brightness_auto</span>System</button>
+      <button data-theme-opt="light" data-on-click="setTheme" data-args-click='["light"]'><span class="ms">light_mode</span>Light</button>
+      <button data-theme-opt="dark" data-on-click="setTheme" data-args-click='["dark"]'><span class="ms">dark_mode</span>Dark</button>
     </div>
   </div>
   <div class="settings-actions">
     <!-- Where the boxes sit is a preference like units and the theme, so it is set
          from the same place they are. The button does not open another panel: it
          turns editing on wherever you already are, on whichever tab that is. -->
-    <button class="settings-row" id="reorderChartsBtn" onclick="startReorder()">
+    <button class="settings-row" id="reorderChartsBtn" data-on-click="startReorder">
       <span class="ms">swap_vert</span>
       <span>Rearrange this tab</span>
       <span class="settings-row-note" id="reorderBtnNote"></span>
     </button>
     <div class="settings-note" id="reorderNotice" hidden></div>
-    <button class="settings-row" id="refreshBtn" onclick="refreshData()">
+    <button class="settings-row" id="refreshBtn" data-on-click="refreshData">
       <span class="refresh-icon">↻</span>
       <span>Refresh from Strava</span>
       <span class="settings-row-note" id="settingsUpdated"></span>
@@ -138,10 +138,10 @@
       <span class="settings-row-note">opens Strava</span>
     </a>
   </div>
-  <button class="sheet-done settings-done" onclick="closeSettings()">Done</button>
+  <button class="sheet-done settings-done" data-on-click="closeSettings">Done</button>
 </div>
 
-<div class="sheet-backdrop" id="scopeBackdrop" onclick="closeScopeSheet()"></div>
+<div class="sheet-backdrop" id="scopeBackdrop" data-on-click="closeScopeSheet"></div>
 <div class="scope-sheet" id="scopeSheet" role="dialog" aria-label="Scope" aria-modal="true">
   <div class="sheet-title">Scope</div>
   <div class="sheet-sec">
@@ -152,7 +152,7 @@
     <div class="sheet-lbl">Sport</div>
     <div class="sheet-chips" id="sheetTypes"></div>
   </div>
-  <button class="sheet-done" onclick="closeScopeSheet()">Done</button>
+  <button class="sheet-done" data-on-click="closeScopeSheet">Done</button>
 </div>
 
 <!-- The reorder mode's own controls. Outside .main so the bar can be fixed to the
@@ -164,8 +164,8 @@
     <strong id="reorderBarWhat">Rearranging</strong>
     <span id="reorderHint">Drag a panel, or focus one and use the arrow keys.</span>
   </div>
-  <button class="reorder-reset" id="reorderResetBtn" onclick="resetLayout()">Reset</button>
-  <button class="reorder-done" onclick="endReorder()">Done</button>
+  <button class="reorder-reset" id="reorderResetBtn" data-on-click="resetLayout">Reset</button>
+  <button class="reorder-done" data-on-click="endReorder">Done</button>
 </div>
 <!-- Every move is announced here. A drag is self-evident on screen and silent to a
      screen reader; the arrow keys and the move buttons are the other way round. -->
@@ -182,7 +182,7 @@
   <div class="app-error-body">
     <div class="app-error-title" id="appErrorTitle">Couldn't load your activities</div>
     <div class="app-error-msg" id="appErrorMsg"></div>
-    <button class="app-error-retry" id="appErrorRetry" onclick="refreshData()">Try again</button>
+    <button class="app-error-retry" id="appErrorRetry" data-on-click="refreshData">Try again</button>
   </div>
 </div>
 
@@ -344,16 +344,16 @@
           <div class="chart-sub" id="projSub">Projected to 31 December</div>
         </div>
         <div class="chart-ctl" id="projMeasureCtl" role="group" aria-label="Project which measure">
-          <button type="button" class="chart-ctl-btn" data-measure="dist" onclick="setProjMeasure('dist')">Distance</button>
-          <button type="button" class="chart-ctl-btn" data-measure="time" onclick="setProjMeasure('time')">Time</button>
-          <button type="button" class="chart-ctl-btn" data-measure="count" onclick="setProjMeasure('count')">Activities</button>
-          <button type="button" class="chart-ctl-btn" data-measure="elev" onclick="setProjMeasure('elev')">Climbing</button>
+          <button type="button" class="chart-ctl-btn" data-measure="dist" data-on-click="setProjMeasure" data-args-click='["dist"]'>Distance</button>
+          <button type="button" class="chart-ctl-btn" data-measure="time" data-on-click="setProjMeasure" data-args-click='["time"]'>Time</button>
+          <button type="button" class="chart-ctl-btn" data-measure="count" data-on-click="setProjMeasure" data-args-click='["count"]'>Activities</button>
+          <button type="button" class="chart-ctl-btn" data-measure="elev" data-on-click="setProjMeasure" data-args-click='["elev"]'>Climbing</button>
         </div>
       </div>
       <div class="proj-mixer">
         <label class="proj-mix-label" for="projMix" id="projMixLabel">Based on</label>
         <input type="range" id="projMix" class="proj-slider" min="0" max="100" step="1" value="50"
-               aria-describedby="projMixSays" oninput="setProjMix(this.value)">
+               aria-describedby="projMixSays" data-on-input="setProjMix" data-args-input='["$el.value"]'>
         <div class="proj-mix-ends" aria-hidden="true">
           <span>How your years usually go</span><span>Just the last week</span>
         </div>
@@ -392,9 +392,9 @@
           <div class="chart-sub" id="mixYearSub">Share of distance by sport, per year</div>
         </div>
         <div class="chart-ctl" id="mixMeasureCtl" role="group" aria-label="Measure the mix by">
-          <button type="button" class="chart-ctl-btn" data-measure="dist" onclick="setMixMeasure('dist')">Distance</button>
-          <button type="button" class="chart-ctl-btn" data-measure="time" onclick="setMixMeasure('time')">Time</button>
-          <button type="button" class="chart-ctl-btn" data-measure="count" onclick="setMixMeasure('count')">Sessions</button>
+          <button type="button" class="chart-ctl-btn" data-measure="dist" data-on-click="setMixMeasure" data-args-click='["dist"]'>Distance</button>
+          <button type="button" class="chart-ctl-btn" data-measure="time" data-on-click="setMixMeasure" data-args-click='["time"]'>Time</button>
+          <button type="button" class="chart-ctl-btn" data-measure="count" data-on-click="setMixMeasure" data-args-click='["count"]'>Sessions</button>
         </div>
       </div>
       <div class="chart-wrap"><canvas id="chartMixYear"></canvas></div>
@@ -611,17 +611,17 @@
 </div>
 
 <!-- GEAR DETAIL MODAL -->
-<div class="gear-modal-backdrop" id="gearModalBackdrop" onclick="if(event.target===this)closeGearModal()">
+<div class="gear-modal-backdrop" id="gearModalBackdrop" data-on-click="closeGearModalIfBackdrop" data-args-click='["$event", "$el"]'>
   <div class="gear-modal" id="gearModal" role="dialog" aria-modal="true" aria-label="Gear detail" tabindex="-1"></div>
 </div>
-<div class="gear-modal-backdrop" id="actModalBackdrop" onclick="if(event.target===this)closeActivityModal()">
+<div class="gear-modal-backdrop" id="actModalBackdrop" data-on-click="closeActivityModalIfBackdrop" data-args-click='["$event", "$el"]'>
   <div class="gear-modal" id="actModal" role="dialog" aria-modal="true" aria-label="Activity detail" tabindex="-1"></div>
 </div>
 
 <!-- LOG -->
 <div id="tab-log" class="tab-content" role="tabpanel" tabindex="0" aria-labelledby="tabbtn-log" hidden>
   <div class="log-controls">
-    <input type="text" class="log-search" id="logSearch" placeholder="Search activities, gear, names…" oninput="filterLog()">
+    <input type="text" class="log-search" id="logSearch" placeholder="Search activities, gear, names…" data-on-input="filterLog">
     <span class="log-count" id="logCount"></span>
   </div>
   <div class="search-summary" id="searchSummary" style="display:none"></div>
@@ -629,25 +629,25 @@
     <div class="scroll-x">
       <table>
         <thead><tr>
-          <th onclick="sortLog('date')" id="th-date">Date<span class="sort-icon">↕</span></th>
+          <th data-on-click="sortLog" data-args-click='["date"]' id="th-date">Date<span class="sort-icon">↕</span></th>
           <th>Type</th>
           <th>Name</th>
-          <th onclick="sortLog('dist')" id="th-dist">Distance<span class="sort-icon">↕</span></th>
-          <th onclick="sortLog('speed')" id="th-speed">Avg Speed<span class="sort-icon">↕</span></th>
-          <th onclick="sortLog('time')" id="th-time">Time<span class="sort-icon">↕</span></th>
-          <th onclick="sortLog('elv')" id="th-elv">Elev<span class="sort-icon">↕</span></th>
-          <th onclick="sortLog('hr')" id="th-hr">HR<span class="sort-icon">↕</span></th>
+          <th data-on-click="sortLog" data-args-click='["dist"]' id="th-dist">Distance<span class="sort-icon">↕</span></th>
+          <th data-on-click="sortLog" data-args-click='["speed"]' id="th-speed">Avg Speed<span class="sort-icon">↕</span></th>
+          <th data-on-click="sortLog" data-args-click='["time"]' id="th-time">Time<span class="sort-icon">↕</span></th>
+          <th data-on-click="sortLog" data-args-click='["elv"]' id="th-elv">Elev<span class="sort-icon">↕</span></th>
+          <th data-on-click="sortLog" data-args-click='["hr"]' id="th-hr">HR<span class="sort-icon">↕</span></th>
           <th>Gear</th>
-          <th onclick="sortLog('cal')" id="th-cal">Cal<span class="sort-icon">↕</span></th>
+          <th data-on-click="sortLog" data-args-click='["cal"]' id="th-cal">Cal<span class="sort-icon">↕</span></th>
           <th>Strava</th>
         </tr></thead>
         <tbody id="logBody"></tbody>
       </table>
     </div>
     <div class="log-pagination">
-      <button class="page-btn" id="prevBtn" onclick="changePage(-1)">← Prev</button>
+      <button class="page-btn" id="prevBtn" data-on-click="changePage" data-args-click='[-1]'>← Prev</button>
       <span id="pageInfo"></span>
-      <button class="page-btn" id="nextBtn" onclick="changePage(1)">Next →</button>
+      <button class="page-btn" id="nextBtn" data-on-click="changePage" data-args-click='[1]'>Next →</button>
     </div>
   </div>
 </div>
@@ -656,9 +656,9 @@
 <div id="tab-zwift" class="tab-content" role="tabpanel" tabindex="0" aria-labelledby="tabbtn-zwift" hidden>
   <div class="zwift-status-bar" id="zwiftStatusFilters"></div>
   <div class="zwift-controls">
-    <input type="text" class="log-search" id="zwiftSearch" placeholder="Search routes…" oninput="filterZwiftRoutes()">
-    <button class="page-btn" onclick="toggleAllZwiftGroups(true)">Expand all</button>
-    <button class="page-btn" onclick="toggleAllZwiftGroups(false)">Collapse all</button>
+    <input type="text" class="log-search" id="zwiftSearch" placeholder="Search routes…" data-on-input="filterZwiftRoutes">
+    <button class="page-btn" data-on-click="toggleAllZwiftGroups" data-args-click='[true]'>Expand all</button>
+    <button class="page-btn" data-on-click="toggleAllZwiftGroups" data-args-click='[false]'>Collapse all</button>
   </div>
   <div id="zwiftCalendar" style="display:none"></div>
   <div id="zwiftRiddenCallout" class="callout" style="display:none"></div>
@@ -676,10 +676,10 @@
     <div class="map-toolbar">
       <div class="map-tgroup">
         <span class="map-tlabel">Go to</span>
-        <button class="map-btn" id="mapHomeBtn" onclick="mapJumpHome()" title="Back to Longridge" aria-label="Back to home">
+        <button class="map-btn" id="mapHomeBtn" data-on-click="mapJumpHome" title="Back to Longridge" aria-label="Back to home">
           <span class="ms ms-fill" style="font-size:15px;color:var(--accent)">home</span><span class="map-btn-text">Home</span>
         </button>
-        <select id="mapJumpSelect" class="map-select" style="width:136px" onchange="mapJumpTo(this.value)">
+        <select id="mapJumpSelect" class="map-select" style="width:136px" data-on-change="mapJumpTo" data-args-change='["$el.value"]'>
           <option value="">Elsewhere…</option>
         </select>
       </div>
@@ -688,8 +688,8 @@
 
       <div class="map-tgroup map-tgroup-grow" id="replayGroup">
         <span class="map-tlabel">Replay</span>
-        <select id="replayPick" class="map-select map-select-grow" onchange="stopReplay()"></select>
-        <button class="map-btn" id="replayBtn" onclick="toggleReplay()">
+        <select id="replayPick" class="map-select map-select-grow" data-on-change="stopReplay"></select>
+        <button class="map-btn" id="replayBtn" data-on-click="toggleReplay">
           <span class="ms" id="replayBtnIcon" style="font-size:15px;color:var(--accent)">play_arrow</span><span id="replayBtnText">Replay</span>
         </button>
       </div>
@@ -700,7 +700,7 @@
         <label class="map-tlabel map-tlabel-icon" for="mapFade">
           <span class="ms" style="font-size:15px;color:var(--text-light)">contrast</span>Fade
         </label>
-        <input type="range" id="mapFade" min="0" max="90" value="0" oninput="setMapWhiteout(this.value)" class="map-fade">
+        <input type="range" id="mapFade" min="0" max="90" value="0" data-on-input="setMapWhiteout" data-args-input='["$el.value"]' class="map-fade">
       </div>
     </div>
 

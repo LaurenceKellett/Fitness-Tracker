@@ -168,6 +168,36 @@ const LEAFLET_STUB = `
 `;
 
 // ── Static server ─────────────────────────────────────────────────────────────
+/* The headers Cloudflare Pages will send, read from the file that configures it.
+ *
+ * Serving these locally is what makes the Content-Security-Policy testable at all. A
+ * policy checked only by reading the file back proves the file parses; it does not
+ * prove the page still works under it, and the failure mode of a too-strict policy is
+ * a blocked script and a blank dashboard. Every scenario below already fails on an
+ * unexpected console error, and a CSP violation logs exactly that — so with the real
+ * headers on, the whole existing suite becomes the policy's test.
+ *
+ * Deliberately simple: this reads the one /* block, not Cloudflare's full matching
+ * rules, because one block is what the file has.
+ */
+function pagesHeaders() {
+  const src = path.join(ROOT, '_headers');
+  if (!fs.existsSync(src)) return {};
+  const out = {};
+  let inGlobal = false;
+  for (const raw of fs.readFileSync(src, 'utf8').split('\n')) {
+    const line = raw.replace(/\s+$/, '');
+    if (!line || line.trimStart().startsWith('#')) continue;
+    if (!/^\s/.test(line)) { inGlobal = line.trim() === '/*'; continue; }
+    if (!inGlobal) continue;
+    const i = line.indexOf(':');
+    if (i > 0) out[line.slice(0, i).trim()] = line.slice(i + 1).trim();
+  }
+  return out;
+}
+
+const DEPLOY_HEADERS = pagesHeaders();
+
 function serve() {
   return new Promise((resolve) => {
     const server = http.createServer((req, res) => {
@@ -177,7 +207,10 @@ function serve() {
         res.writeHead(404).end('not found');
         return;
       }
-      res.writeHead(200, { 'content-type': TYPES[path.extname(file)] || 'application/octet-stream' });
+      res.writeHead(200, {
+        ...DEPLOY_HEADERS,
+        'content-type': TYPES[path.extname(file)] || 'application/octet-stream',
+      });
       fs.createReadStream(file).pipe(res);
     });
     server.listen(0, '127.0.0.1', () => resolve({ server, port: server.address().port }));
@@ -208,10 +241,15 @@ async function main() {
   const { server, port } = await serve();
   const base = `http://127.0.0.1:${port}`;
   // Prefer a Chromium already on the machine (CI images and this sandbox ship one)
-  // over whatever build this Playwright version would download.
-  const browser = await chromium.launch(
-    process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}
-  );
+  // over whatever build this Playwright version would download. CHROMIUM_PATH wins;
+  // failing that, look where PLAYWRIGHT_BROWSERS_PATH points, because Playwright's
+  // own default resolves to a versioned headless-shell directory that an image
+  // pinning a different build does not have — which is a launch failure, not a
+  // fallback. Bare launch() only if neither is there.
+  const browserDir = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
+  const preinstalled = [process.env.CHROMIUM_PATH, path.join(browserDir, 'chromium')]
+    .find((p) => p && fs.existsSync(p));
+  const browser = await chromium.launch(preinstalled ? { executablePath: preinstalled } : {});
 
   // One page per scenario, each with its own console-error collector.
   async function open({ apiStatus = 200, apiBody = ENVELOPE, offline = false, skipLibs = false,
@@ -1607,6 +1645,171 @@ async function main() {
       const title = await page.title();
       assert(/Fitness/.test(title), `offline page title is "${title}"`);
       await ctx.setOffline(false);
+    });
+
+    await ctx.close();
+  }
+
+  /* ── 7. The policy, and the wiring it depends on ──────────────────────────────
+   *
+   * Every scenario above ran with the real _headers applied, so a policy that broke
+   * the page would already have failed one of them. What none of them prove is that
+   * the policy was ever sent — delete _headers and they all still pass. The first
+   * check closes that.
+   *
+   * The rest are about the delegated actions the policy is built on. The markup names
+   * a handler and its arguments in attributes now, and the shape of that wiring is not
+   * something the language checks: a name can be misspelled, an arguments attribute can
+   * hold text that is not JSON, and either way nothing happens until somebody clicks it
+   * and gets nothing. All three had actually shipped — a handler naming a function that
+   * was never written, and four buttons whose arguments were unparseable — so these
+   * check the whole DOM rather than any one control.
+   */
+  {
+    const { ctx, page } = await open();
+
+    await check('the deployment sends a content security policy, with no inline script', async () => {
+      const res = await page.request.get(base + '/index.html');
+      const csp = res.headers()['content-security-policy'];
+      assert(csp, 'no Content-Security-Policy header was sent at all');
+      const script = (csp.match(/(?:^|;)\s*script-src\s+([^;]+)/) || [])[1] || '';
+      assert(!/'unsafe-inline'/.test(script), `script-src allows inline: ${script}`);
+      assert(!/'unsafe-eval'/.test(script), `script-src allows eval: ${script}`);
+      assert(/'sha256-/.test(script), 'script-src names no hash for the theme stamp');
+      for (const d of ['frame-ancestors', 'base-uri', 'object-src']) {
+        assert(new RegExp(`${d}\\s+'none'`).test(csp), `${d} is not shut`);
+      }
+    });
+
+    // Visit every tab so the markup each one builds is in the document to be checked.
+    for (const t of ['summary', 'charts', 'heatmap', 'records', 'mex', 'social', 'gear', 'log']) {
+      await page.evaluate((x) => setTab(x), t);
+      await page.waitForTimeout(250);
+    }
+
+    const EVENTS = ['click', 'input', 'change', 'mouseenter', 'mouseleave', 'toggle', 'error'];
+    const wiring = await page.evaluate((evs) => {
+      const key = (p, e) => p + e[0].toUpperCase() + e.slice(1);
+      const named = new Set(), badArgs = [], orphans = [];
+      for (const ev of evs) {
+        for (const el of document.querySelectorAll(`[data-on-${ev}]`)) named.add(el.dataset[key('on', ev)]);
+        for (const el of document.querySelectorAll(`[data-args-${ev}]`)) {
+          const raw = el.dataset[key('args', ev)];
+          if (!el.dataset[key('on', ev)]) orphans.push(el.outerHTML.slice(0, 90));
+          try {
+            if (!Array.isArray(JSON.parse(raw))) badArgs.push(raw);
+          } catch (e) { badArgs.push(raw); }
+        }
+      }
+      return {
+        count: named.size,
+        missing: [...named].filter((n) => typeof ACTIONS[n] !== 'function'),
+        badArgs, orphans,
+      };
+    }, EVENTS);
+
+    await check('every action the markup names actually exists', async () => {
+      assert(wiring.count > 20, `only ${wiring.count} actions found — did the sweep run?`);
+      assert(wiring.missing.length === 0,
+        `named but not registered: ${JSON.stringify(wiring.missing)}`);
+    });
+
+    await check('every action argument is parseable JSON, not a string that looks like it', async () => {
+      assert(wiring.badArgs.length === 0, `unparseable: ${JSON.stringify(wiring.badArgs.slice(0, 4))}`);
+      assert(wiring.orphans.length === 0, `arguments with no action: ${JSON.stringify(wiring.orphans.slice(0, 3))}`);
+    });
+
+    await check('a name that is not in the table does nothing, rather than something', async () => {
+      const result = await page.evaluate(() => {
+        const b = document.createElement('button');
+        b.dataset.onClick = 'thisIsNotAnAction';
+        document.body.appendChild(b);
+        let threw = false;
+        try { b.dispatchEvent(new MouseEvent('click', { bubbles: true })); }
+        catch (e) { threw = true; }
+        b.remove();
+        return { threw, stillThere: typeof window.thisIsNotAnAction };
+      });
+      assert(!result.threw, 'an unknown action threw instead of being ignored');
+      assert(result.stillThere === 'undefined', 'the dispatcher resolved a name off window');
+    });
+
+    // A gear or activity name arrives from Strava and lands inside a single-quoted
+    // attribute. The apostrophe in one used to end that attribute early.
+    await check('a name with an apostrophe stays inside its attribute', async () => {
+      const out = await page.evaluate(() => {
+        const host = document.createElement('div');
+        const name = "Dave's' onclick=alert(1) x='";
+        host.innerHTML = `<button data-on-click="openGearFromActivity" ` +
+          `data-args-click='${escapeAttr(JSON.stringify([name]))}'>x</button>`;
+        const b = host.firstElementChild;
+        // Parsed in here, but not allowed to throw in here: an escaping failure breaks
+        // the JSON, and an exception inside evaluate reports as a harness error rather
+        // than as this check failing for the reason it exists.
+        let parsed = null, parseError = null;
+        try { parsed = JSON.parse(b.dataset.argsClick || ''); }
+        catch (e) { parseError = e.message; }
+        return { attrs: b.getAttributeNames(), raw: b.dataset.argsClick, parsed, parseError, name };
+      });
+      assert(out.attrs.length === 2,
+        `the attribute leaked and made ${out.attrs.length}: ${JSON.stringify(out.attrs)}`);
+      assert(!out.parseError, `argument no longer parses (${out.parseError}) — raw was ${out.raw}`);
+      assert(out.parsed[0] === out.name, `argument came back as ${JSON.stringify(out.parsed[0])}`);
+    });
+
+    /* Two handlers that the audit above cannot reach, because the markup carrying them
+     * only exists after an interaction — and both were broken. The year calendar named
+     * a function nobody had written, so every click on a day threw; and "This gear"
+     * inside an activity modal read a lookup table that only the Gear tab filled in, so
+     * it did nothing at all until you had visited that tab. */
+    await check('a day on the year calendar opens, and closes on a second click', async () => {
+      const year = await page.evaluate(() => [...new Set(ALL_DATA.map((a) => a.date.slice(0, 4)))].sort().pop());
+      await page.evaluate((y) => { setTab('charts'); setYear(y); }, year);
+      await page.waitForTimeout(900);
+      const day = await page.evaluate(() => {
+        const days = new Set(getFiltered().map((a) => a.date));
+        const cell = [...document.querySelectorAll('.year-cal-cell[data-day-tip]')]
+          .find((e) => days.has(e.dataset.dayTip));
+        return cell ? cell.dataset.dayTip : null;
+      });
+      assert(day, 'the year calendar rendered no day with an activity on it');
+      const state = () => page.evaluate(() => {
+        const d = document.getElementById('yearCalDayDetail');
+        return { shown: d.style.display === 'block', len: d.innerHTML.length };
+      });
+      const tap = () => page.evaluate((d) => document.querySelector(`.year-cal-cell[data-day-tip="${d}"]`)
+        .dispatchEvent(new MouseEvent('click', { bubbles: true })), day);
+      await tap(); await page.waitForTimeout(250);
+      const open = await state();
+      assert(open.shown && open.len > 0, `clicking ${day} showed nothing`);
+      await tap(); await page.waitForTimeout(250);
+      assert(!(await state()).shown, 'a second click left the day detail up');
+    });
+
+    await check('"This gear" works without having visited the Gear tab first', async () => {
+      // A fresh page on purpose: GEAR_DATA is empty until something fills it, and the
+      // point of the check is that opening a gear modal is what fills it.
+      const { ctx: c2, page: p2 } = await open();
+      await p2.evaluate(() => setTab('log'));
+      await p2.waitForTimeout(700);
+      await p2.evaluate(() => {
+        const row = document.querySelector('[data-act]');
+        if (row) row.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+      await p2.waitForTimeout(400);
+      assert(await p2.evaluate(() => document.getElementById('actModalBackdrop').classList.contains('open')),
+        'the activity row did not open its modal');
+      const hasBtn = await p2.evaluate(() => {
+        const b = document.querySelector('#actModal [data-on-click="openGearFromActivity"]');
+        if (!b) return false;
+        b.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        return true;
+      });
+      assert(hasBtn, 'the activity modal offered no gear hand-off');
+      await p2.waitForTimeout(400);
+      assert(await p2.evaluate(() => document.getElementById('gearModalBackdrop').classList.contains('open')),
+        'the gear modal never opened — GEAR_DATA was empty and nothing filled it');
+      await c2.close();
     });
 
     await ctx.close();

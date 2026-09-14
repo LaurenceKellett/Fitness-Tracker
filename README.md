@@ -1,6 +1,6 @@
 # Fitness Tracker
 
-A personal fitness dashboard connected to Strava. Built on Cloudflare (Worker + Pages), with a single-file frontend and an AI-generated monthly summary powered by Workers AI.
+A personal fitness dashboard connected to Strava. Built on Cloudflare (Worker + Pages): the Worker holds the secrets and talks to Strava, the Pages site renders everything client-side.
 
 ---
 
@@ -11,7 +11,7 @@ Strava API
    │
    ▼
 Cloudflare Worker  (activities-api.lk-ff7.workers.dev)
-   OAuth · activity fetch · gear lookup · GPS privacy · KV cache · AI summary
+   OAuth · activity fetch · gear lookup · GPS privacy · KV cache
    │
    ▼
 Cloudflare Pages   (activities-5z4.pages.dev)
@@ -29,16 +29,19 @@ The Worker holds all secrets and does all the heavy work. The Pages frontend is 
 
 | File | Purpose |
 |------|---------|
-| `worker.js` | Cloudflare Worker — OAuth, Strava fetch, GPS privacy trimming, KV caching, AI summary, Zwift Routes proxy, and the scheduled Strava → Notion Training Log sync |
+| `worker.js` | Cloudflare Worker — OAuth, Strava fetch, GPS privacy trimming, KV caching, Zwift Routes proxy, and the scheduled Strava → Notion Training Log sync |
 | `index.html` | The markup. 737 lines of it, since the CSS and the app's own script were lifted out |
 | `app.css` | Every style the dashboard has |
 | `app.js` | The dashboard's own script — rendering, charts, map, filtering, interaction |
 | `calc.js` | The pure derivations and formatters, split out so they can be unit-tested. Loaded as a classic script before `app.js`, so its top-level declarations share the same global scope and every call site works unchanged |
 | `vendor/` | Chart.js and Leaflet, the official npm artefacts pinned in git and served from this origin rather than a CDN |
-| `sw.js` | Service worker — caches the app shell and the two CDN libraries so the dashboard opens offline |
+| `sw.js` | Service worker — caches the app shell and the vendored libraries so the dashboard opens offline |
 | `manifest.webmanifest`, `icons/` | Web app manifest and icons, so it installs to a phone home screen |
 | `test/calc.test.js` | Vitest unit tests for `calc.js` |
-| `test/smoke.mjs` | Playwright smoke test — boots the real page against a stubbed Worker and drives every tab |
+| `test/csp.test.js` | Checks the policy in `_headers` against the page it describes — chiefly that the inline theme script's hash has not drifted |
+| `test/csp-hash.mjs` | Computes that hash. Run it directly (`node test/csp-hash.mjs`) after editing the theme stamp and paste the value into `_headers` |
+| `test/smoke.mjs` | Playwright smoke test — boots the real page against a stubbed Worker, under the real `_headers`, and drives every tab |
+| `_headers` | Response headers for the Pages deployment: the Content-Security-Policy and the usual hardening set |
 | `eslint.config.mjs` | Lint config — correctness rules only, not a style guide |
 | `.github/workflows/test.yml` | Runs lint and both suites on every push |
 | `wrangler.toml` | Wrangler config for the Worker |
@@ -76,6 +79,72 @@ fetched from their CDNs — what is under test is this repo's own lifecycle (tha
 libraries load on demand, that a filter change updates charts rather than rebuilding them,
 that the map mounts when its tab opens), not the libraries themselves. Set `CHROMIUM_PATH`
 to use a Chromium already on the machine instead of Playwright's own download.
+
+---
+
+## Content-Security-Policy
+
+The page is served under a CSP from `_headers`, which Cloudflare Pages applies to the
+deployment. The directive that matters is:
+
+```
+script-src 'self' 'sha256-…'
+```
+
+No `'unsafe-inline'`. That was not possible before: the markup carried 101 inline
+`onclick=` attributes, and every one of them is a piece of JavaScript written inside an
+HTML attribute, which a policy has to allow with `'unsafe-inline'` in order for the page
+to work at all. `'unsafe-inline'` is not a narrower permission than "off" — it *is* off,
+because it allows every injected `<script>` along with the intended ones. A policy the
+page needed switched off to function was not worth writing.
+
+So the handlers are declarative now. An element names an action and its arguments:
+
+```html
+<button data-on-click="setTab" data-args-click='["charts"]'>Charts</button>
+```
+
+and one listener per event type, on `document`, looks the name up in an allowlist in
+`app.js`. The lookup is the point — a name that is not in that table does nothing at all,
+so markup can never introduce behaviour, only request behaviour that already exists in
+the file. There is no `eval` and no `new Function` anywhere in the path.
+
+The event name is part of the attribute rather than a value beside it because a single
+element often wants two of them, and HTML silently keeps only the first of two attributes
+sharing a name — a calendar cell with `data-on="mouseenter"` and `data-on="click"` loses
+the click, with no error anywhere.
+
+Arguments are JSON. Four tokens are resolved at dispatch time for handlers that genuinely
+need them: `"$el"`, `"$event"`, `"$el.value"`, `"$el.checked"`, `"$el.open"`.
+
+### The one inline script
+
+`index.html` still contains exactly one: the four lines in `<head>` that stamp the saved
+theme onto `<html>` before any stylesheet resolves. It cannot be deferred — moving it
+into `app.js` costs a flash of the wrong palette on every load — so the policy allows it
+by hash rather than by keyword.
+
+A hash is exact. **Edit that script and the browser silently refuses to run it**, and the
+page loads in the wrong theme with nothing in the console a user would see. After changing
+it, run:
+
+```bash
+node test/csp-hash.mjs
+```
+
+and paste the value into `_headers`. `test/csp.test.js` fails if the two drift, so this is
+a failing test rather than a bug discovered months later in the dark.
+
+### What the policy does not buy
+
+`style-src` keeps `'unsafe-inline'`, and that is a real limit rather than an oversight.
+The dashboard sets colours per element from data — a sport's colour, a heatmap cell's
+intensity — across roughly 180 `style` attributes, and CSP has no hash mechanism for
+those. It bounds an injection to styling rather than script, which is the smaller half of
+the problem; the larger half is closed.
+
+`test/smoke.mjs` serves the real `_headers`, so every scenario in it runs under the actual
+policy and a CSP violation surfaces as the console error that already fails those checks.
 
 ---
 
@@ -273,7 +342,6 @@ Also in Worker → Settings → Bindings:
 | Binding | Type | Variable name |
 |---------|------|---------------|
 | KV namespace | KV | `CACHE` |
-| Workers AI | AI | `AI` |
 
 ### KV namespace
 
@@ -295,11 +363,6 @@ numbers. The fallback copy is read only when a refresh fails, and the response t
 carries `X-Cache: STALE` rather than `HIT` or `MISS`. Only a Worker that has never
 completed a single refresh can now fail the request.
 
-The scheduled refresh does **not** regenerate the AI summary. The dashboard no longer
-renders it, so regenerating three times a day would be paying Workers AI for output nobody
-reads; the existing summary is carried forward rather than overwritten with the
-placeholder, so a `?refresh=true` from the ↻ button is still the thing that renews it.
-
 Zwift route data is cached under `zwift_routes_v1` with a short 2-minute TTL (Notion is the source of truth, so this cache only absorbs repeated tab opens — it's deleted immediately on every successful edit).
 
 ---
@@ -308,8 +371,8 @@ Zwift route data is cached under `zwift_routes_v1` with a short 2-minute TTL (No
 
 | Route | What it does |
 |-------|-------------|
-| `GET /activities` | Returns the cached activity envelope `{ data, aiSummary, updatedAt }` |
-| `GET /activities?refresh=true` | Bypasses cache, re-fetches from Strava, regenerates AI summary |
+| `GET /activities` | Returns the cached activity envelope `{ data, updatedAt }` |
+| `GET /activities?refresh=true` | Bypasses cache and re-fetches from Strava |
 | `GET /auth` | Redirects to Strava OAuth — run once to get a refresh token |
 | `GET /callback` | Exchanges the OAuth code, stores the refresh token in KV, and shows it for the secret |
 | `GET /debug` | Strava connection diagnostic — reports whether the token refresh worked and returns five activities. Never echoes the token response itself: this route has no auth |
@@ -588,12 +651,6 @@ Geocoding runs in the browser with a 1.1-second delay between requests to respec
 
 ---
 
-## AI monthly summary
-
-The Worker aggregates the last 30 days of activity data and sends it to `@cf/meta/llama-3.2-3b-instruct` via Workers AI. The model returns a short coaching summary displayed in the Summary tab. It is regenerated on every forced refresh and cached alongside activity data.
-
----
-
 ## Design
 
 - **Font:** Plus Jakarta Sans (Google Fonts)
@@ -603,7 +660,7 @@ The Worker aggregates the last 30 days of activity data and sends it to `@cf/met
 - **Accent colour:** `#ff385c`
 - **Sport colours:** Ride `#1d4ed8` · Run `#ef4444` · Walk `#eab308` · Swim `#0ea5e9` · Virtual `#60a5fa`
 - **Corners:** square everywhere. `--radius` and `--radius-sm` are both `0`; nothing in the app rounds, including pills, dots and the favicon. Keep new work sharp.
-- **Shadows:** `--shadow` is the standard card lift. `--shadow-callout` is heavier and reserved for call-out boxes — the AI summary and the sync warning — so they lift off the page without needing a colour fill.
+- **Shadows:** `--shadow` is the standard card lift. `--shadow-callout` is heavier and reserved for call-out boxes — the sync warning, for one — so they lift off the page without needing a colour fill.
 - **Labels:** sentence case. No `text-transform: uppercase` and no letter-spacing on labels, per the house rule across the tools.
 - **Card colour:** one rule — a 3px `border-top` in the relevant colour. Not a left border, not a `::before` bar. An uncoloured card uses `var(--border)` so it keeps the same height.
 - **Chart marks:** bars promise a zero baseline, so anything compared across a narrow range uses points on a line instead — a band-average chart drawn as bars from zero turns a real 8% difference into five identical rectangles. Reversed pace axes read quicker-is-higher everywhere, and any copy describing a pace chart has to describe the picture rather than the falling number.
@@ -1304,6 +1361,5 @@ read-only: it never writes a status back.
 | `/activities` returns empty array | Token refresh failing — visit `/debug` for raw Strava response |
 | `X-Cache: MISS` every request | KV namespace not bound — check Worker → Settings → Bindings for a `CACHE` binding |
 | GitHub Actions deploy fails | `CLOUDFLARE_API_TOKEN` secret missing or expired — regenerate and re-add in repo Settings → Secrets |
-| AI summary stale | Force regeneration: `https://activities-api.lk-ff7.workers.dev/activities?refresh=true` |
 | Zwift Routes tab shows "Could not load Zwift routes" | Check `NOTION_API_KEY` is set as a Worker secret, and that the Notion integration is connected to the "Zwift Routes" database (`•••` → Connections in Notion) — a valid key with no database access still 404s |
 | Zwift route edit fails to save | Error message shows inline on the still-open edit row; check the Worker logs for the Notion error code (401 = bad/expired key, 404 = integration not connected, 429 = rate-limited, try again) |

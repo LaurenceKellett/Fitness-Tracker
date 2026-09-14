@@ -508,7 +508,7 @@ function buildYearStepper(){
   if(next)next.disabled=isYearScope(activeYear)&&idx===years.length-1;
   const sy=document.getElementById('sheetYears');
   if(sy)sy.innerHTML=['All',...ROLLING_ORDER,...years.slice().reverse()].map(y=>
-    `<button class="${y===activeYear?'active':''}" onclick="setYear('${escapeAttr(y)}')">${escapeHtml(periodLabel(y))}</button>`).join('');
+    `<button class="${y===activeYear?'active':''}" data-on-click="setYear" data-args-click='${escapeAttr(JSON.stringify([y]))}'>${escapeHtml(periodLabel(y))}</button>`).join('');
   updateScopeChip();
 }
 function stepYear(dir){
@@ -546,12 +546,12 @@ function buildTypeFilters(){
   if(el)el.innerHTML=groups.map(({t,empty})=>{
     const dot=t!=='All'?`<span class="type-dot" style="background:${groupColor(t)}"></span>`:'';
     return`<button class="type-btn${t===activeType?' active':''}${empty?' type-btn-empty':''}" data-type="${t}"${
-      empty?` title="No ${t.toLowerCase()} activities in this period"`:''} onclick="setType('${t}')">${dot}${t}</button>`;
+      empty?` title="No ${t.toLowerCase()} activities in this period"`:''} data-on-click="setType" data-args-click='${escapeAttr(JSON.stringify([t]))}'>${dot}${t}</button>`;
   }).join('');
   const st=document.getElementById('sheetTypes');
   if(st)st.innerHTML=groups.map(({t,empty})=>{
     const dot=t!=='All'?`<span class="type-dot" style="background:${groupColor(t)}"></span>`:'';
-    return`<button class="${t===activeType?'active':''}${empty?' type-btn-empty':''}" onclick="setType('${t}')">${dot}${t==='All'?'All sports':t}${empty?' <span class="type-btn-note">none here</span>':''}</button>`;
+    return`<button class="${t===activeType?'active':''}${empty?' type-btn-empty':''}" data-on-click="setType" data-args-click='${escapeAttr(JSON.stringify([t]))}'>${dot}${t==='All'?'All sports':t}${empty?' <span class="type-btn-note">none here</span>':''}</button>`;
   }).join('');
   updateScopeChip();
 }
@@ -1292,8 +1292,8 @@ function renderSummary(){
       `<div class="sum-career-fig"><b>${n}</b><span>${l}</span></div>`+
       (k===careerFigs.length-1?'':'<div class="sum-career-sep"></div>')).join('')}
     <div style="margin-left:auto;display:flex;gap:14px">
-      <a href="#" onclick="setTab('records');return false" style="font-size:11px;font-weight:600;color:var(--accent)">Records →</a>
-      <a href="#" onclick="setTab('mex');return false" style="font-size:11px;font-weight:600;color:var(--accent)">Mex →</a>
+      <a href="#" data-on-click="setTabFromLink" data-args-click='["records"]' style="font-size:11px;font-weight:600;color:var(--accent)">Records →</a>
+      <a href="#" data-on-click="setTabFromLink" data-args-click='["mex"]' style="font-size:11px;font-weight:600;color:var(--accent)">Mex →</a>
     </div>
   </div>`;
 
@@ -1339,7 +1339,7 @@ function renderSummary(){
   const th=`<tr><th>Year</th><th>Acts</th>${typeKeys.map(t=>`<th><span style="display:inline-block;width:8px;height:8px;border-radius:0;background:${typeDotColors[t]||'#94a3b8'};margin-right:4px;vertical-align:middle"></span>${t} (${distUnit()})</th>`).join('')}<th>Time</th><th>Elev</th><th>Cal</th></tr>`;
   const earlyHtml=earlyYears.length?`
     <tbody id="earlyYearsBody" style="display:none">${earlyYears.map(yearRow).join('')}</tbody>
-    <tbody><tr><td colspan="${typeKeys.length+5}" class="early-years-toggle" onclick="toggleEarlyYears()" id="earlyYearsToggleRow">▶ Show earlier years (2013–2018)</td></tr></tbody>`:'';
+    <tbody><tr><td colspan="${typeKeys.length+5}" class="early-years-toggle" data-on-click="toggleEarlyYears" id="earlyYearsToggleRow">▶ Show earlier years (2013–2018)</td></tr></tbody>`:'';
   const allYearsForTable=[...new Set(data.map(a=>a.date.slice(0,4)))].sort().reverse();
   const totActs=allYearsForTable.reduce((s,y)=>s+data.filter(a=>a.date.slice(0,4)===y).length,0);
   const totByType={};typeKeys.forEach(t=>{totByType[t]=data.filter(a=>typeGroup(a.type)===t).reduce((s,a)=>s+(a.dist_mi||0),0);});
@@ -1357,10 +1357,10 @@ function renderSummary(){
     return`
     <div class="top-gear-row">
       <div class="top-gear-rank">${i+1}</div>
-      ${img?`<img class="top-gear-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" loading="lazy" data-tile="gear-icon-inline" data-soft="${groupSoft(grp)}" data-colour="${groupColor(grp)}" data-icon="${gearIconName(grp)}" data-fallback="${escapeAttr(gearPhotoFallback(name))}" onerror="gearPhotoFailed(this)">`:gearIconTile(grp,'gear-icon-inline')}
+      ${img?`<img class="top-gear-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" loading="lazy" data-tile="gear-icon-inline" data-soft="${groupSoft(grp)}" data-colour="${groupColor(grp)}" data-icon="${gearIconName(grp)}" data-fallback="${escapeAttr(gearPhotoFallback(name))}" data-on-error="gearPhotoFailed" data-args-error='["$el"]'>`:gearIconTile(grp,'gear-icon-inline')}
       <div class="top-gear-name">${escapeHtml(gearLabel(name))}</div>
       <div class="top-gear-dist">${fmtDist(s.dist)} ${distUnit()} · ${s.count.toLocaleString('en-GB')} acts</div>
-    </div>`;}).join('')+'<button class="gear-view-all" onclick="setTab(\"gear\")">View all gear →</button>';
+    </div>`;}).join('')+'<button class="gear-view-all" data-on-click="setTab" data-args-click="[&quot;gear&quot;]">View all gear →</button>';
 
   // Recent
   const recentAll=[...data].reverse();
@@ -1370,8 +1370,8 @@ function renderSummary(){
   // View more / go to log
   const recentMoreHtml=recentAll.length>15?(
     !recentShowAll?
-    `<button class="view-more-btn" onclick="recentShowAll=true;renderSummary()">▼ View more activities (${Math.min(recentAll.length,30)-15} more)</button>`:
-    `<button class="go-log-btn" onclick="setTab('log')">→ Open Activity Log${activeType!=='All'?' (filtered: '+activeType+')':''}</button>`
+    `<button class="view-more-btn" data-on-click="showAllRecent">▼ View more activities (${Math.min(recentAll.length,30)-15} more)</button>`:
+    `<button class="go-log-btn" data-on-click="setTab" data-args-click='["log"]'>→ Open Activity Log${activeType!=='All'?' (filtered: '+activeType+')':''}</button>`
   ):'';
   document.getElementById('recentMoreWrap').innerHTML=recentMoreHtml;
 }
@@ -2951,7 +2951,7 @@ function renderYearCalendarChart(year,data){
       else bg=dayCellBg(dd,maxDist);
       const cursor=dd?'cursor:pointer;':'';
       weekCells.push(dd?
-        `<div class="year-cal-cell" data-day-tip="${ds}" role="gridcell" tabindex="-1" aria-label="${dayCellLabel(ds,dd)}" style="${cursor}background:${bg}" onmouseenter="showDashTooltip(event,'${ds}')" onmouseleave="hideDashTooltip()" onclick="showYearCalDay('${ds}')"></div>`:
+        `<div class="year-cal-cell" data-day-tip="${ds}" role="gridcell" tabindex="-1" aria-label="${dayCellLabel(ds,dd)}" style="${cursor}background:${bg}" data-on-mouseenter="showDashTooltip" data-args-mouseenter='${escapeAttr(JSON.stringify(["$event", ds]))}' data-on-mouseleave="hideDashTooltip" data-on-click="showYearCalDay" data-args-click='${escapeAttr(JSON.stringify([ds]))}'></div>`:
         `<div class="year-cal-cell" style="background:${bg}"></div>`);
       cur.setDate(cur.getDate()+1);
     }
@@ -3501,9 +3501,9 @@ function renderHeatmap(){
     const prev=idx>0?allDataYears[idx-1]:null;
     const next=idx<allDataYears.length-1?allDataYears[idx+1]:null;
     navEl.innerHTML=
-      (prev?`<button class="hm-nav-btn" onclick="setYear('${prev}')">← ${prev}</button>`:`<span style="width:64px"></span>`)+
+      (prev?`<button class="hm-nav-btn" data-on-click="setYear" data-args-click='${escapeAttr(JSON.stringify([prev]))}'>← ${prev}</button>`:`<span style="width:64px"></span>`)+
       `<span class="hm-nav-year">${displayYear}</span>`+
-      (next?`<button class="hm-nav-btn" onclick="setYear('${next}')">${next} →</button>`:``);
+      (next?`<button class="hm-nav-btn" data-on-click="setYear" data-args-click='${escapeAttr(JSON.stringify([next]))}'>${next} →</button>`:``);
   }
 
   // GitHub-style horizontal heatmap (vertical on mobile)
@@ -3540,7 +3540,7 @@ function renderHeatmap(){
       if(!day.inY)return`<div style="width:${sz}px;height:${sz}px;border-radius:0;"></div>`;
       const bg=cellBg(day.dd);
       const cls=day.dd?'hm-cell active':'hm-cell';
-      const ev=day.dd?`data-day-tip="${day.ds}" role="gridcell" tabindex="-1" aria-label="${dayCellLabel(day.ds,day.dd)}" onmouseenter="showDashTooltip(event,'${day.ds}')" onmouseleave="hideDashTooltip()" onclick="showDayDetail('${day.ds}')"`:''
+      const ev=day.dd?`data-day-tip="${day.ds}" role="gridcell" tabindex="-1" aria-label="${dayCellLabel(day.ds,day.dd)}" data-on-mouseenter="showDashTooltip" data-args-mouseenter='${escapeAttr(JSON.stringify(["$event", day.ds]))}' data-on-mouseleave="hideDashTooltip" data-on-click="showDayDetail" data-args-click='${escapeAttr(JSON.stringify([day.ds]))}'`:''
       return`<div class="${cls}" style="width:${sz}px;height:${sz}px;border-radius:0;background:${bg}" ${ev}></div>`;
     }
 
@@ -3644,6 +3644,28 @@ function showDayDetail(date){
   const data=getFiltered().filter(a=>a.date===date);
   const detail=document.getElementById('heatmapDayDetail');
   if(!data.length){detail.style.display='none';return;}
+  detail.style.display='block';detail.style.marginTop='20px';
+  detail.innerHTML=`<div class="heatmap-wrap"><div class="heatmap-title">${fmtDate(date)}</div><div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">`+
+    data.map(a=>recentItemHtml(a,false)).join('')+
+  '</div></div>';
+}
+
+// The Charts tab's year calendar had a click handler naming this since it was
+// written, and the function never existed — so every click on a day threw. The panel
+// it fills has been sitting in the markup the whole time.
+//
+// It is showDayDetail's twin against a different container, with one addition: a
+// second click on the day already open closes it, because this calendar sits above
+// the rest of the tab and an open panel pushes everything down.
+function showYearCalDay(date){
+  const detail=document.getElementById('yearCalDayDetail');
+  if(!detail)return;
+  if(detail.dataset.day===date&&detail.style.display==='block'){
+    detail.style.display='none';detail.dataset.day='';return;
+  }
+  const data=getFiltered().filter(a=>a.date===date);
+  if(!data.length){detail.style.display='none';detail.dataset.day='';return;}
+  detail.dataset.day=date;
   detail.style.display='block';detail.style.marginTop='20px';
   detail.innerHTML=`<div class="heatmap-wrap"><div class="heatmap-title">${fmtDate(date)}</div><div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">`+
     data.map(a=>recentItemHtml(a,false)).join('')+
@@ -3774,7 +3796,7 @@ function renderRecords(){
   const bar=document.getElementById('recYearBar');
   if(bar)bar.innerHTML='<span class="lbl">Best of</span>'+
     [['All','All time'],...years.slice(0,6).map(y=>[y,y])].map(([v,l])=>
-      `<button class="rec-yr${recYear===v?' on':''}" onclick="setRecYear(${escapeAttr(JSON.stringify(v))})">${escapeHtml(l)}</button>`).join('');
+      `<button class="rec-yr${recYear===v?' on':''}" data-on-click="setRecYear" data-args-click='${escapeAttr(JSON.stringify([v]))}'>${escapeHtml(l)}</button>`).join('');
 
   // Every record, per section.
   const found={};
@@ -3982,7 +4004,7 @@ function renderPrProgression(){
 
 
 // ── SOCIAL ──
-function logSearchAttr(name){return `onclick="goToLogSearch(${escapeAttr(JSON.stringify(String(name)))})"`;}
+function logSearchAttr(name){return `data-on-click="goToLogSearch" data-args-click='${escapeAttr(JSON.stringify([String(name)]))}'`;}
 // Every clickable row in the app is a div or a tr with a delegated click handler,
 // which means a pointer can open it and a keyboard cannot. Making them focusable is
 // half the job; this is the other half.
@@ -4492,7 +4514,7 @@ function renderSocial(){
         <div class="soc-head"><div></div><div>Partner</div><div>Together</div><div>Distance</div><div>Last out</div><div></div></div>
         ${current.map(row).join('')}
         ${current.length?'':`<div class="soc-empty-current">Nobody in this filter has been out with you in the last six weeks.</div>`}
-        ${dormant.length?`<details class="soc-dormant"${dormantOpen?' open':''} ontoggle="onSocDormantToggle(this.open)">
+        ${dormant.length?`<details class="soc-dormant"${dormantOpen?' open':''} data-on-toggle="onSocDormantToggle" data-args-toggle='["$el.open"]'>
           <summary>
             <span class="soc-dormant-n">${dormant.length}</span>
             <span class="soc-dormant-t">${dormant.length===1?'person you have':'people you have'} not been out with recently</span>
@@ -4632,7 +4654,7 @@ function openPartnerModal(name){
         <div class="gear-modal-title">${escapeHtml(p.name)}</div>
         <div class="gear-modal-sub" style="color:${st.col}">${st.label} · ${p.count.toLocaleString('en-GB')} activities together</div>
       </div>
-      <button class="gear-modal-close" onclick="closeActivityModal()" aria-label="Close">✕</button>
+      <button class="gear-modal-close" data-on-click="closeActivityModal" aria-label="Close">✕</button>
     </div>
     <div class="gear-modal-body">
       <div class="gear-modal-stats">${stats.map(s=>`<div><div class="gear-modal-stat-label">${s.label}</div><div class="gear-modal-stat-value">${s.value}</div></div>`).join('')}</div>
@@ -4707,13 +4729,12 @@ function gearForecast(topType,s,col,name){
   </div>`;
 }
 
-function renderGear(){
-  const data=getFiltered();
-  // Sync indicator — computes dynamically from today's date
-  const _lastDate=ALL_DATA.map(a=>a.date).sort().slice(-1)[0];
-  const _daysSince=_lastDate?Math.floor((new Date()-new Date(_lastDate+' 12:00:00'))/86400000):null;
-  const _syncEl=document.getElementById('gearSyncIndicator');
-  if(_syncEl){if(_daysSince!==null&&_daysSince>2){_syncEl.style.display='flex';const _sd=_syncEl.querySelector('.sync-days');if(_sd)_sd.textContent=_daysSince;}else _syncEl.style.display='none';}
+// Lifted out of renderGear so it can be built on demand. GEAR_DATA used to be
+// assigned only while the Gear tab rendered, which made openGearModal depend on
+// having visited that tab: the "This gear" button inside an activity modal looked up
+// an empty object and returned silently on a fresh load. It is one pass over the
+// filtered set, so building it when it is asked for costs nothing worth saving.
+function gearTotals(data){
   const gm={};
   data.forEach(a=>{
     const g=a.gear;if(!g)return;
@@ -4724,7 +4745,18 @@ function renderGear(){
     if(a.date>gm[g].last)gm[g].last=a.date;
     gm[g].acts.push(a);
   });
-  GEAR_DATA=gm;
+  return gm;
+}
+
+function renderGear(){
+  const data=getFiltered();
+  // Sync indicator — computes dynamically from today's date
+  const _lastDate=ALL_DATA.map(a=>a.date).sort().slice(-1)[0];
+  const _daysSince=_lastDate?Math.floor((new Date()-new Date(_lastDate+' 12:00:00'))/86400000):null;
+  const _syncEl=document.getElementById('gearSyncIndicator');
+  if(_syncEl){if(_daysSince!==null&&_daysSince>2){_syncEl.style.display='flex';const _sd=_syncEl.querySelector('.sync-days');if(_sd)_sd.textContent=_daysSince;}else _syncEl.style.display='none';}
+  GEAR_DATA=gearTotals(data);
+  const gm=GEAR_DATA;
   // Retired items sink below everything still in use. They keep their figures —
   // a retired shoe is still 3,379 miles of your life — but they stop competing
   // with current gear for the top of the page.
@@ -4738,7 +4770,7 @@ function renderGear(){
     const col=groupColor(topType);
     const img=gearPhoto(name);
     return`<div class="gear-card${isRetiredGear(name)?' is-retired':''}" style="border-top:3px solid ${col}" data-gear="${escapeAttr(name)}" tabindex="0" role="button" aria-label="${escapeAttr(gearLabel(name)+', '+fmtDist(s.dist)+' '+distUnit())}">
-      ${img?`<img class="gear-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" loading="lazy" data-tile="gear-icon-tile" data-soft="${groupSoft(topType)}" data-colour="${col}" data-icon="${gearIconName(topType)}" data-fallback="${escapeAttr(gearPhotoFallback(name))}" onerror="gearPhotoFailed(this)">`:gearIconTile(topType,'gear-icon-tile')}
+      ${img?`<img class="gear-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" loading="lazy" data-tile="gear-icon-tile" data-soft="${groupSoft(topType)}" data-colour="${col}" data-icon="${gearIconName(topType)}" data-fallback="${escapeAttr(gearPhotoFallback(name))}" data-on-error="gearPhotoFailed" data-args-error='["$el"]'>`:gearIconTile(topType,'gear-icon-tile')}
       <div class="gear-name" title="${escapeAttr(gearLabel(name))}">${escapeHtml(gearLabel(name))}</div>
       ${isUnresolvedGear(name)?`<div class="gear-unresolved">${escapeHtml(name)}</div>`:''}
       <div class="gear-type" style="color:${col}">${typeEmoji(topType)} ${topType}${gearMetaLine(name)}${gearRetiredTag(name)}</div>
@@ -4887,6 +4919,9 @@ document.addEventListener('keydown',e=>{
 });
 
 function openGearModal(name){
+  // Build it if the Gear tab has not rendered yet — otherwise this returns silently
+  // when opened from an activity modal on a fresh load.
+  if(!Object.keys(GEAR_DATA).length)GEAR_DATA=gearTotals(getFiltered());
   const s=GEAR_DATA[name];
   if(!s)return;
   const topType=dominantType(s.types);
@@ -4914,12 +4949,12 @@ function openGearModal(name){
     {label:'In use',value:daysBetween(s.first,s.last).toLocaleString('en-GB')+' days'},
   ];
   document.getElementById('gearModal').innerHTML=`
-    ${img?`<img class="gear-modal-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" data-tile="gear-modal-icon" data-soft="${groupSoft(topType)}" data-colour="${col}" data-icon="${gearIconName(topType)}" data-fallback="${escapeAttr(gearPhotoFallback(name))}" onerror="gearPhotoFailed(this)">`:gearIconTile(topType,'gear-modal-icon')}
+    ${img?`<img class="gear-modal-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" data-tile="gear-modal-icon" data-soft="${groupSoft(topType)}" data-colour="${col}" data-icon="${gearIconName(topType)}" data-fallback="${escapeAttr(gearPhotoFallback(name))}" data-on-error="gearPhotoFailed" data-args-error='["$el"]'>`:gearIconTile(topType,'gear-modal-icon')}
     <div class="gear-modal-head">
       <div><div class="gear-modal-title">${escapeHtml(gearLabel(name))}</div><div class="gear-modal-sub" style="color:${col}">${typeEmoji(topType)} Mostly ${topType.toLowerCase()}</div>${isUnresolvedGear(name)
         ?`<div class="gear-unresolved" style="margin-top:4px">Strava id ${escapeHtml(name)} — the name lookup failed. It is retried on every sync, so this usually fixes itself.</div>`
         :`<div class="gear-photo-hint is-hidden">No photo yet — drop one in as <code>gear-images/${escapeHtml(gearSlug(name))}.jpg</code> and it appears here, no code change needed.</div>`}</div>
-      <button class="gear-modal-close" onclick="closeGearModal()">✕</button>
+      <button class="gear-modal-close" data-on-click="closeGearModal">✕</button>
     </div>
     <div class="gear-modal-body">
       <div class="gear-modal-stats">${stats.map(s=>`<div><div class="gear-modal-stat-label">${s.label}</div><div class="gear-modal-stat-value">${s.value}</div></div>`).join('')}</div>
@@ -5018,7 +5053,7 @@ function openActivityModal(id){
         <div class="gear-modal-sub" style="color:${col}">${typeEmoji(g)} ${escapeHtml(a.sport||a.type)} · ${when}</div>
         ${marks?`<div class="act-marks">${marks}</div>`:''}
       </div>
-      <button class="gear-modal-close" onclick="closeActivityModal()" aria-label="Close">✕</button>
+      <button class="gear-modal-close" data-on-click="closeActivityModal" aria-label="Close">✕</button>
     </div>
     <div class="gear-modal-body">
       <div class="gear-modal-stats">${stats.map(s=>`<div${s.title?` title="${escapeAttr(s.title)}"`:''}><div class="gear-modal-stat-label">${s.label}</div><div class="gear-modal-stat-value">${s.value}</div></div>`).join('')}</div>
@@ -5026,7 +5061,7 @@ function openActivityModal(id){
       ${prs?`<div class="gear-modal-section-title" style="margin-top:20px">Segment bests on this run</div><div class="gear-modal-types">${prs}</div>`:''}
       <div class="act-actions">
         ${a.id?`<a class="strava" href="https://www.strava.com/activities/${encodeURIComponent(a.id)}" target="_blank" rel="noopener">↗ View on Strava</a>`:''}
-        ${a.gear?`<button onclick="closeActivityModal();openGearModal(${escapeAttr(JSON.stringify(String(a.gear)))})">This gear</button>`:''}
+        ${a.gear?`<button data-on-click="openGearFromActivity" data-args-click='${escapeAttr(JSON.stringify([String(a.gear)]))}'>This gear</button>`:''}
         ${a.name?`<button ${logSearchAttr(a.name)}>Find in log</button>`:''}
       </div>
     </div>`;
@@ -5238,7 +5273,7 @@ function buildZwiftStatusFilters(){
     const active=s===zwiftStatusFilter;
     const color=s==='All'?'#ff385c':zwiftStatusColor(s);
     const style=active?` style="color:${color};background:${color}1a"`:'';
-    return`<button class="type-btn${active?' active':''}"${style} onclick="setZwiftStatusFilter('${s}')">${s}</button>`;
+    return`<button class="type-btn${active?' active':''}"${style} data-on-click="setZwiftStatusFilter" data-args-click='${escapeAttr(JSON.stringify([s]))}'>${s}</button>`;
   }).join('');
 }
 function setZwiftStatusFilter(s){zwiftStatusFilter=s;buildZwiftStatusFilters();renderZwiftTable();}
@@ -5333,8 +5368,8 @@ function renderZwiftTable(){
       const catBadges=(r.maps||[]).filter(m=>ZWIFT_CATEGORY_TAGS.includes(m)&&m!==g.name).map(m=>
         `<span class="zwift-cat-badge" style="background:${mapDotColor(m)}1a;color:${mapDotColor(m)}">${ZWIFT_CATEGORY_LABEL[m]}</span>`
       ).join('');
-      return`<div id="zwift-row-${r.id}">
-        <div class="zwift-list-row" onclick="toggleZwiftEdit('${r.id}')">
+      return`<div id="zwift-row-${escapeAttr(r.id)}">
+        <div class="zwift-list-row" data-on-click="toggleZwiftEdit" data-args-click='${escapeAttr(JSON.stringify([r.id]))}'>
           <span class="zwift-dot" style="background:${zwiftStatusColor(r.status)}"></span>
           <div class="zwift-row-main">
             <span class="zwift-row-name">${r.route}</span>
@@ -5351,7 +5386,7 @@ function renderZwiftTable(){
       </div>`;
     }).join('');
     const groupOpen=zwiftGroupOpen[g.name]===true;
-    return`<details class="zwift-group"${groupOpen?' open':''} ontoggle="onZwiftGroupToggle('${g.name}',this.open)">
+    return`<details class="zwift-group"${groupOpen?' open':''} data-on-toggle="onZwiftGroupToggle" data-args-toggle='${escapeAttr(JSON.stringify([g.name, "$el.open"]))}'>
       <summary style="background:${mapSoftBg(g.name)}"><span class="zwift-summary-left"><span class="zwift-map-dot" style="background:${mapDotColor(g.name)}"></span>${g.name}</span><span class="zwift-group-count">${complete}/${g.routes.length} complete</span></summary>
       ${rowsHtml}
     </details>`;
@@ -5417,13 +5452,13 @@ function renderZwiftCalendar(){
     const routes=planned[dateStr]||[];
     const has=routes.length>0;
     const sel=zwiftCalSelected===dateStr;
-    return`<div class="zwift-cal-day${has?' has-routes':''}${sel?' selected':''}" ${has?`onclick="selectZwiftCalDay('${dateStr}')"`:''}>${day}${has?'<div class="zwift-cal-dot"></div>':''}</div>`;
+    return`<div class="zwift-cal-day${has?' has-routes':''}${sel?' selected':''}" ${has?`data-on-click="selectZwiftCalDay" data-args-click='${escapeAttr(JSON.stringify([dateStr]))}'`:''}>${day}${has?'<div class="zwift-cal-dot"></div>':''}</div>`;
   }).join('');
 
   const selRoutes=zwiftCalSelected?(planned[zwiftCalSelected]||[]):[];
   const detail=zwiftCalSelected?`<div class="zwift-cal-detail">
     <div style="font-weight:600;margin-bottom:4px">${fmtDate(zwiftCalSelected)}</div>
-    ${selRoutes.map(r=>`<div class="zwift-cal-detail-item" onclick="goToZwiftRoute('${r.id}')">
+    ${selRoutes.map(r=>`<div class="zwift-cal-detail-item" data-on-click="goToZwiftRoute" data-args-click='${escapeAttr(JSON.stringify([r.id]))}'>
       <span>${r.route}</span><span style="color:var(--text-muted)">${(r.maps||[]).join(', ')}</span>
     </div>`).join('')}
   </div>`:'';
@@ -5432,8 +5467,8 @@ function renderZwiftCalendar(){
     <div class="zwift-cal-head">
       <span class="zwift-cal-title">${monthLabel}</span>
       <div class="zwift-cal-nav">
-        <button class="page-btn" onclick="stepZwiftCalMonth(-1)">‹</button>
-        <button class="page-btn" onclick="stepZwiftCalMonth(1)">›</button>
+        <button class="page-btn" data-on-click="stepZwiftCalMonth" data-args-click='[-1]'>‹</button>
+        <button class="page-btn" data-on-click="stepZwiftCalMonth" data-args-click='[1]'>›</button>
       </div>
     </div>
     <div class="zwift-cal-grid">${dowRow}${blanks}${days}</div>
@@ -5502,7 +5537,7 @@ function zwiftLink(url,label){
   let u;
   try{u=new URL(String(url),location.href);}catch(e){return'';}
   if(u.protocol!=='http:'&&u.protocol!=='https:')return'';
-  return`<a href="${escapeAttr(u.href)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${escapeHtml(label)}</a>`;
+  return`<a href="${escapeAttr(u.href)}" target="_blank" rel="noopener noreferrer" data-on-click="stopPropagation" data-args-click='["$event"]'>${escapeHtml(label)}</a>`;
 }
 
 function renderZwiftDetail(r){
@@ -5517,29 +5552,29 @@ function renderZwiftDetail(r){
     const checked=zwiftChecklists[r.id]||{};
     const doneCount=Object.keys(checked).length;
     const turnsHtml=parsed.turns.map((t,i)=>`<label class="zwift-turn-row">
-      <input type="checkbox" class="zwift-turn-check" data-route="${escapeAttr(r.id)}" ${checked[i]?'checked':''} onchange="onZwiftTurnToggle('${r.id}',${i},this.checked,${parsed.turns.length})">
+      <input type="checkbox" class="zwift-turn-check" data-route="${escapeAttr(r.id)}" ${checked[i]?'checked':''} data-on-change="onZwiftTurnToggle" data-args-change='${escapeAttr(JSON.stringify([r.id, i, "$el.checked", parsed.turns.length]))}'>
       <span>${boldZwiftTurnDirection(t)}</span>
     </label>`).join('');
     directions=`<div class="zwift-directions">
       <div class="zwift-directions-title">
         Directions
         ${parsed.turns.length?`<span class="zwift-turn-progress" id="zwift-progress-${r.id}">${doneCount}/${parsed.turns.length}</span>`:''}
-        ${parsed.turns.length?`<button class="zwift-reset-btn" type="button" onclick="resetZwiftChecklist('${r.id}',${parsed.turns.length})">Reset</button>`:''}
+        ${parsed.turns.length?`<button class="zwift-reset-btn" type="button" data-on-click="resetZwiftChecklist" data-args-click='${escapeAttr(JSON.stringify([r.id, parsed.turns.length]))}'>Reset</button>`:''}
       </div>
       ${parsed.leadIn?`<div class="zwift-directions-leadin">${escapeHtml(parsed.leadIn)}</div>`:''}
       ${turnsHtml?`<div class="zwift-turn-list">${turnsHtml}</div>`:''}
       ${parsed.trailing?`<div class="zwift-directions-trailing">${escapeHtml(parsed.trailing)}</div>`:''}
     </div>`;
   }
-  return`<div class="zwift-detail" onclick="event.stopPropagation()">
+  return`<div class="zwift-detail" data-on-click="stopPropagation" data-args-click='["$event"]'>
     <div class="zwift-edit-form">
-      <label>Status<select id="ze-status-${r.id}" onchange="handleZwiftStatusChange('${r.id}','${r.status}')">
+      <label>Status<select id="ze-status-${r.id}" data-on-change="handleZwiftStatusChange" data-args-change='${escapeAttr(JSON.stringify([r.id, r.status]))}'>
         ${ZWIFT_STATUS_ORDER.map(s=>`<option value="${escapeAttr(s)}"${s===r.status?' selected':''}>${escapeHtml(s)}</option>`).join('')}
       </select></label>
       <label>Date completed<input type="date" id="ze-date-${escapeAttr(r.id)}" value="${escapeAttr(r.date_completed||'')}"></label>
       <label>Time (HH:MM:SS)<input type="text" id="ze-time-${escapeAttr(r.id)}" placeholder="00:00:00" value="${escapeAttr(r.time||'')}"></label>
-      <button class="page-btn" onclick="saveZwiftEdit('${r.id}')" id="ze-save-${r.id}">Save</button>
-      <button class="page-btn" onclick="cancelZwiftEdit()">Cancel</button>
+      <button class="page-btn" data-on-click="saveZwiftEdit" data-args-click='${escapeAttr(JSON.stringify([r.id]))}' id="ze-save-${r.id}">Save</button>
+      <button class="page-btn" data-on-click="cancelZwiftEdit">Cancel</button>
       <div class="zwift-edit-error" id="ze-error-${r.id}"></div>
     </div>
     <table class="zwift-detail-info">
@@ -5613,6 +5648,143 @@ async function saveZwiftEdit(id){
     zwiftSaving=false;
   }
 }
+
+/* ── EVENT DELEGATION ──
+ * Every handler in the markup used to be an inline onclick. A hundred and one of
+ * them, and each one is a small piece of JavaScript written inside an HTML
+ * attribute — which is exactly what a Content-Security-Policy has to allow with
+ * 'unsafe-inline' to let them run. 'unsafe-inline' is not a qualified permission;
+ * it turns script-src off. So the policy at the bottom of this file could not exist
+ * while these did.
+ *
+ * They are declarative now: an element names an action and its arguments, and one
+ * listener per event type looks the name up in ACTIONS below. The lookup is the
+ * point — a name that is not in that table does nothing at all, so markup can never
+ * introduce behaviour, only ask for behaviour that already exists here. No eval, no
+ * new Function, and nothing to allow in the policy.
+ *
+ *   <button data-on-click="setTab" data-args-click='["charts"]'>
+ *
+ * The event name is part of the attribute rather than a value beside it, because a
+ * single element often wants two of them — a calendar cell opens its day on click
+ * and previews it on mouseenter — and HTML keeps only the first of two attributes
+ * with the same name. A `data-on="mouseenter" data-on="click"` pair silently loses
+ * the click. Per-event attributes cannot collide.
+ *
+ * It also leaves `data-act` alone, which predates all of this and means an activity
+ * id: the row handler further up reads it to open a modal.
+ *
+ * Arguments are JSON, with four tokens resolved at call time because some handlers
+ * genuinely need the element or the event:
+ *   "$el"        the element carrying the action
+ *   "$event"     the event object
+ *   "$el.value"  / "$el.checked" / "$el.open"   the usual form-control reads
+ */
+const ACTIONS = {};
+
+// Registered rather than referenced, so the allowlist is written down in one place
+// and a typo is a missing action rather than a silent global lookup.
+function registerActions(map){
+  Object.keys(map).forEach(k=>{ACTIONS[k]=map[k];});
+}
+
+function resolveActionArg(a,el,ev){
+  if(typeof a!=='string')return a;
+  switch(a){
+    case'$el':        return el;
+    case'$event':     return ev;
+    case'$el.value':  return el.value;
+    case'$el.checked':return el.checked;
+    case'$el.open':   return el.open;
+    default:          return a;
+  }
+}
+
+// dataset keys are camelCase, so data-on-click reads back as dataset.onClick.
+function datasetKey(prefix,type){ return prefix+type.charAt(0).toUpperCase()+type.slice(1); }
+
+function runAction(el,ev,type){
+  const name=el.dataset[datasetKey('on',type)];
+  const fn=ACTIONS[name];
+  if(!fn){
+    // Loud on purpose. A missing action is a markup/table mismatch, and the old
+    // inline version would at least have thrown into the console.
+    console.error('No such action:',name,el);
+    return;
+  }
+  let args=[];
+  const raw=el.dataset[datasetKey('args',type)];
+  if(raw){
+    try{args=JSON.parse(raw);}
+    catch(e){console.error('Bad action arguments on',el,e);return;}
+  }
+  fn.apply(null,args.map(a=>resolveActionArg(a,el,ev)));
+}
+
+// One listener per event type, on the document, so markup rendered later works
+// without anything having to re-bind. `closest` because a click usually lands on a
+// span inside the button that carries the action.
+['click','input','change'].forEach(type=>{
+  document.addEventListener(type,ev=>{
+    const el=ev.target.closest&&ev.target.closest(`[data-on-${type}]`);
+    if(el)runAction(el,ev,type);
+  });
+});
+
+// These four do not bubble, so they are delegated in the capture phase instead —
+// and without `closest`, since a non-bubbling event's target is the element itself.
+['mouseenter','mouseleave','toggle','error'].forEach(type=>{
+  document.addEventListener(type,ev=>{
+    const el=ev.target;
+    if(el&&el.dataset&&el.dataset[datasetKey('on',type)])runAction(el,ev,type);
+  },true);
+});
+
+/* The allowlist. Every name the markup is permitted to ask for, and nothing else —
+ * a name that is not here does nothing, so the markup can only request
+ * behaviour that already exists in this file.
+ *
+ * Most are the function itself. The handful below it are the ones that were
+ * compound expressions in an attribute, which is precisely the kind of thing that
+ * should have been a named function all along.
+ */
+registerActions({
+  // Scope and navigation
+  setTab, setType, setYear, stepYear, setUnit, setTheme, sortLog, changePage,
+  filterLog, setRecYear, toggleEarlyYears, goToLogSearch,
+  // Panels and sheets
+  openScopeSheet, closeScopeSheet, toggleSettings, closeSettings,
+  closeGearModal, closeActivityModal, refreshData,
+  // Rearranging
+  startReorder, endReorder, resetLayout,
+  // Chart controls
+  setMixMeasure, setProjMeasure, setProjMix,
+  // Calendars and detail
+  showDashTooltip, hideDashTooltip, showDayDetail, showYearCalDay,
+  // Map
+  mapJumpHome, mapJumpTo, toggleReplay, stopReplay, setMapWhiteout,
+  // Gear
+  gearPhotoFailed,
+  // Social
+  onSocDormantToggle,
+  // Zwift
+  toggleZwiftEdit, cancelZwiftEdit, saveZwiftEdit, goToZwiftRoute,
+  setZwiftStatusFilter, filterZwiftRoutes, toggleAllZwiftGroups, onZwiftGroupToggle,
+  onZwiftTurnToggle, resetZwiftChecklist, handleZwiftStatusChange,
+  selectZwiftCalDay, stepZwiftCalMonth,
+
+  // ── The ones that were compound expressions in an attribute ──
+  // A backdrop closes only when the click landed on the backdrop itself, not on the
+  // dialog sitting on top of it.
+  closeGearModalIfBackdrop:(ev,el)=>{if(ev.target===el)closeGearModal();},
+  closeActivityModalIfBackdrop:(ev,el)=>{if(ev.target===el)closeActivityModal();},
+  // An <a> that switches tab rather than following its href.
+  setTabFromLink:(tab)=>{setTab(tab);return false;},
+  showAllRecent:()=>{recentShowAll=true;renderSummary();},
+  openGearFromActivity:(gear)=>{closeActivityModal();openGearModal(gear);},
+  // A control inside a row that is itself clickable.
+  stopPropagation:(ev)=>ev.stopPropagation(),
+});
 
 /* ── KEYBOARD ACCESS FOR THE CALENDARS ──
  * Both calendars are grids of divs with a click handler: a pointer could open any
