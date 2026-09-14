@@ -467,7 +467,11 @@ Strava actually returns.
 
 Where one item is known by two names, add both keys pointing at the same file rather than
 picking a winner — `Eddy Merckx` and `Merckx EMX-3` are one bike and share
-`merckx-emx-3.jpg`.
+`merckx-emx-3.jpg`. Strava renamed a run of gear in 2026 (`Nike React Pegasus Trail 3`
+became `Nike Pegasus Trail 3`, the S-LAB gained a slash and a "Speed", the work shoe
+swapped its punctuation, the wellies doubled their name) and every rename silently blanked a
+photo the repo already had; each new spelling now has its own key. A unit test checks that
+every local path in the map is a file that exists.
 
 An item with no entry, or whose picture fails to load, falls back to a tile carrying its
 sport icon — derived from the activities logged against it, not from its name. The tile is
