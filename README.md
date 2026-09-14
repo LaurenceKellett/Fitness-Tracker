@@ -481,6 +481,13 @@ Within a shelf the order is **what you used last**, so whatever is in rotation l
 gear is held below everything current in its own shelf, even if it was worn last week — that
 decision is already made — and it stays dimmed.
 
+Each card is coloured and labelled by **what the thing is for**, not by what it was used for:
+a pair of Pegasus is a running shoe through a winter of dog walks, so it reads as Run and
+wears Run's red. Running brands are recognised by name (`FOOTWEAR_RUNNING`); wellies, work
+shoes and hiking boots are named explicitly and win over the brand (`FOOTWEAR_WALKING`);
+anything else falls back to whatever it was actually used for. Where the two disagree the
+count below is labelled "Uses" rather than "Runs", so neither figure has to lie.
+
 **The wear bar** tracks shoes against **750 miles**. The usual guidance is 300–500; 750 is
 nearer what these pairs actually do, and the bar names the number it is holding them to
 rather than implying a measurement. It follows the *shoe*, not the sport: walking miles wear

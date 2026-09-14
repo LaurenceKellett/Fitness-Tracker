@@ -340,7 +340,7 @@ a{color:inherit;text-decoration:none}
 .sum-hero>#sumDistSplit{grid-area:split}
 .sum-hero>.chart-verdict{grid-area:verdict}
 .sum-hero-head{margin-bottom:0}
-.sum-hero-head .chart-sub{flex:1;min-width:min(220px,100%)}
+.sum-hero-head .chart-sub{flex:1;min-width:min(220px,100%);margin-bottom:0}
 .sum-big{font-family:var(--f-fig);font-size:52px;font-weight:var(--w-fig-xl);letter-spacing:-2.6px;line-height:1;margin:10px 0 8px}
 .sum-big-unit{font-size:22px;font-weight:500;color:var(--text-muted);letter-spacing:0;margin-left:11px}
 .sum-ratio{display:inline-flex;align-items:center;gap:8px;padding:0;margin-top:14px;
@@ -604,7 +604,10 @@ a{color:inherit;text-decoration:none}
    Chart.js draws its legend on the canvas: small, centred underneath, a few pixels tall
    to tap. The key is HTML instead — square pills, right-aligned above the plot — and does
    what the legend did: click a series to hide it, click again to bring it back. */
-.chart-key{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.chart-key{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:6px;margin:6px 0 12px}
+/* Two rows of bordered controls stacked on top of each other read as one confused
+   block, so a head that carries a control keeps the key at arm's length. */
+.chart-head:has(.chart-ctl)+.chart-key{margin-top:14px}
 .chart-key[hidden]{display:none}
 .chart-key-item{display:inline-flex;align-items:center;gap:7px;height:24px;padding:0 9px;border:1px solid var(--border-strong);border-radius:0;
   background:transparent;font-family:inherit;font-size:11px;font-weight:600;color:var(--text);cursor:pointer;transition:border-color .15s,color .15s}
@@ -7481,6 +7484,22 @@ const SHOE_LIFE_MI=750;
 // resolved before the Worker started passing the kind through. The order of these
 // keys is the order the shelves appear in.
 const GEAR_KIND_LABEL={bike:'Bikes',shoe:'Shoes',other:'Other kit'};
+// What a thing is FOR, which is not always what it was used for. A pair of Pegasus
+// is a running shoe through a winter of dog walks, and the card should say so — the
+// alternative is a running shoe filed under walking because that is where the miles
+// happened. Wellies and work boots are not running shoes whatever their mileage, so
+// they are named explicitly and win over the brand.
+const FOOTWEAR_WALKING=/wellie|welly|boot\b|hiking|hike|work ?shoe|walking/i;
+const FOOTWEAR_RUNNING=/\b(nike|salomon|asics|brooks|saucony|hoka|new balance|adidas|under ?armour|altra|inov-?8|mizuno|puma|reebok|on running)\b/i;
+function gearSport(name,kind,topType){
+  if(kind!=='shoe')return topType;
+  const m=GEAR_META[name]||{};
+  const words=[name,m.brand,m.model].filter(Boolean).join(' ');
+  if(FOOTWEAR_WALKING.test(words))return 'Walk';
+  if(FOOTWEAR_RUNNING.test(words))return 'Run';
+  return topType;
+}
+
 function gearKind(name,topType){
   const m=GEAR_META[name];
   if(m&&m.kind&&GEAR_KIND_LABEL[m.kind])return m.kind;
@@ -7496,8 +7515,7 @@ function gearForecast(topType,s,col,name,kind){
   // A retired shoe does not need telling it is past its life. Report what it did
   // and stop nagging — the wear bar is advice, and the decision is already made.
   if(name&&isRetiredGear(name)){
-    const pctR=Math.round(s.dist/SHOE_LIFE_MI*100);
-    return`<div class="gear-forecast"><div class="gear-forecast-sub">Retired${isShoe?` at ${pctR}% of the ${fmtDist(SHOE_LIFE_MI)} ${distUnit()} guideline`:''}, after ${fmtDist(s.dist)} ${distUnit()} and ${s.count.toLocaleString('en-GB')} outing${s.count===1?'':'s'}.</div></div>`;
+      return`<div class="gear-forecast"><div class="gear-forecast-sub">Retired after ${fmtDist(s.dist)} ${distUnit()} and ${s.count.toLocaleString('en-GB')} outing${s.count===1?'':'s'}.</div></div>`;
   }
   const now=new Date(),cutoff=new Date(now.getFullYear(),now.getMonth(),now.getDate()-90).toISOString().slice(0,10);
   const recent=s.acts.filter(a=>a.date>=cutoff).reduce((t,a)=>t+(a.dist_mi||0),0);
@@ -7515,7 +7533,9 @@ function gearForecast(topType,s,col,name,kind){
   // brand-new pair came out the same red as a worn-out one. Green, amber, red.
   const barCol=pct>=100?'#ef4444':pct>=80?'#f59e0b':'#22c55e';
   let when;
-  if(pct>=100)when=`Past the ${fmtDist(SHOE_LIFE_MI)} ${distUnit()} mark.`;
+  // Past its life the bar has already said so in figures; a sentence saying it again
+  // is a lecture.
+  if(pct>=100)when='';
   else if(perWeek>0.05){
     const weeks=Math.ceil(left/perWeek);
     // A date three years out is not a forecast, it is arithmetic with a date on
@@ -7529,7 +7549,7 @@ function gearForecast(topType,s,col,name,kind){
   return`<div class="gear-forecast">
     <div class="gear-forecast-head"><span>Wear</span><span>${pct}% of ${fmtDist(SHOE_LIFE_MI)} ${distUnit()}</span></div>
     <div class="gear-forecast-bar"><span style="width:${pct}%;background:${barCol}"></span></div>
-    <div class="gear-forecast-sub">${when} ${rate}. A shoe's life is a rule of thumb rather than a measurement; this bar holds them to ${fmtDist(SHOE_LIFE_MI)} ${distUnit()}.</div>
+    <div class="gear-forecast-sub">${[when,rate].filter(Boolean).join(' ')}.</div>
   </div>`;
 }
 
@@ -7538,19 +7558,22 @@ function gearForecast(topType,s,col,name,kind){
 function gearCardHtml([name,s]){
     const topType=dominantType(s.types);
     const kind=gearKind(name,topType);
-    const col=groupColor(topType);
+    // The colour, the icon and the type line follow what the thing is for; the
+    // count below still follows what you actually did in it, so neither has to lie.
+    const sport=gearSport(name,kind,topType);
+    const col=groupColor(sport);
     const img=gearPhoto(name);
     return`<div class="gear-card${isRetiredGear(name)?' is-retired':''}" style="border-top:3px solid ${col}" data-gear="${escapeAttr(name)}" tabindex="0" role="button" aria-label="${escapeAttr(gearLabel(name)+', '+fmtDist(s.dist)+' '+distUnit())}">
-      ${img?`<span class="gear-shot"><img class="gear-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" loading="lazy" data-tile="gear-icon-tile" data-soft="${groupSoft(topType)}" data-colour="${col}" data-icon="${gearIconName(topType)}" data-fallback="${escapeAttr(gearPhotoFallback(name))}" onerror="gearPhotoFailed(this)"><i class="gear-wash" style="background:linear-gradient(180deg,${hexA(col,.12)},${hexA(col,.4)})"></i></span>`:gearIconTile(topType,'gear-icon-tile')}
+      ${img?`<span class="gear-shot"><img class="gear-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" loading="lazy" data-tile="gear-icon-tile" data-soft="${groupSoft(sport)}" data-colour="${col}" data-icon="${gearIconName(sport)}" data-fallback="${escapeAttr(gearPhotoFallback(name))}" onerror="gearPhotoFailed(this)"><i class="gear-wash" style="background:linear-gradient(180deg,${hexA(col,.12)},${hexA(col,.4)})"></i></span>`:gearIconTile(sport,'gear-icon-tile')}
       <div class="gear-name" title="${escapeAttr(gearLabel(name))}">${escapeHtml(gearLabel(name))}</div>
       ${isUnresolvedGear(name)?`<div class="gear-unresolved">${escapeHtml(name)}</div>`:''}
-      <div class="gear-type" style="color:${col}">${typeEmoji(topType)} ${topType}${gearMetaLine(name)}${gearRetiredTag(name)}</div>
+      <div class="gear-type" style="color:${col}">${typeEmoji(sport)} ${sport}${gearMetaLine(name)}${gearRetiredTag(name)}</div>
       <div class="gear-hero">
         <div class="gear-hero-label">Distance</div>
         <div class="gear-hero-value">${fmtDist(s.dist)} <em>${distUnit()}</em></div>
       </div>
       <div class="gear-trio">
-        <div><div class="gear-trio-label">${topType==='Run'?'Runs':topType==='Walk'?'Walks':topType==='Swim'?'Swims':'Uses'}</div><div class="gear-trio-value">${s.count.toLocaleString('en-GB')}</div></div>
+        <div><div class="gear-trio-label">${sport!==topType?'Uses':topType==='Run'?'Runs':topType==='Walk'?'Walks':topType==='Swim'?'Swims':'Uses'}</div><div class="gear-trio-value">${s.count.toLocaleString('en-GB')}</div></div>
         <div><div class="gear-trio-label">Moving</div><div class="gear-trio-value" title="${escapeAttr(fmtTime(s.time))}">${Math.round(s.time/3600).toLocaleString('en-GB')}h</div></div>
         <div><div class="gear-trio-label">Climbed</div><div class="gear-trio-value">${fmtElv(s.elv)}</div></div>
       </div>
@@ -7736,7 +7759,8 @@ function openGearModal(name){
   const s=GEAR_DATA[name];
   if(!s)return;
   const topType=dominantType(s.types);
-  const col=groupColor(topType);
+  const sport=gearSport(name,gearKind(name,topType),topType);
+  const col=groupColor(sport);
   const img=gearPhoto(name);
   const avgDist=s.count?s.dist/s.count:0;
   const avgTime=s.count?s.time/s.count:0;
@@ -7760,9 +7784,9 @@ function openGearModal(name){
     {label:'In use',value:daysBetween(s.first,s.last).toLocaleString('en-GB')+' days'},
   ];
   document.getElementById('gearModal').innerHTML=`
-    ${img?`<img class="gear-modal-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" data-tile="gear-modal-icon" data-soft="${groupSoft(topType)}" data-colour="${col}" data-icon="${gearIconName(topType)}" data-fallback="${escapeAttr(gearPhotoFallback(name))}" onerror="gearPhotoFailed(this)">`:gearIconTile(topType,'gear-modal-icon')}
+    ${img?`<img class="gear-modal-photo" src="${escapeAttr(img)}" alt="${escapeAttr(name)}" data-tile="gear-modal-icon" data-soft="${groupSoft(sport)}" data-colour="${col}" data-icon="${gearIconName(sport)}" data-fallback="${escapeAttr(gearPhotoFallback(name))}" onerror="gearPhotoFailed(this)">`:gearIconTile(topType,'gear-modal-icon')}
     <div class="gear-modal-head">
-      <div><div class="gear-modal-title">${escapeHtml(gearLabel(name))}</div><div class="gear-modal-sub" style="color:${col}">${typeEmoji(topType)} Mostly ${topType.toLowerCase()}</div>${isUnresolvedGear(name)
+      <div><div class="gear-modal-title">${escapeHtml(gearLabel(name))}</div><div class="gear-modal-sub" style="color:${col}">${typeEmoji(sport)} ${sport}${sport!==topType?` · mostly ${topType.toLowerCase()}`:''}</div>${isUnresolvedGear(name)
         ?`<div class="gear-unresolved" style="margin-top:4px">Strava id ${escapeHtml(name)} — the name lookup failed. It is retried on every sync, so this usually fixes itself.</div>`
         :`<div class="gear-photo-hint is-hidden">No photo yet — drop one in as <code>gear-images/${escapeHtml(gearSlug(name))}.jpg</code> and it appears here, no code change needed.</div>`}</div>
       <button class="gear-modal-close" onclick="closeGearModal()">✕</button>
