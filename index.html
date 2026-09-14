@@ -564,7 +564,7 @@ a{color:inherit;text-decoration:none}
    which is information. One toolbar now, sharing the map's border, grouped Go to /
    Replay / Fade. The legend moved onto the map, where legends belong and where it
    costs no layout height. */
-.map-object{border:1px solid var(--border);background:var(--surface);box-shadow:var(--shadow)}
+.map-object{border:1px solid var(--border);background:var(--surface);box-shadow:none}
 .map-toolbar{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--border);background:var(--bg)}
 .map-tgroup{display:flex;align-items:center;gap:8px;min-width:0}
 .map-tgroup-grow{flex:1;min-width:0}
@@ -709,9 +709,9 @@ details:not([open])>*:not(summary){display:none}
 .rec-yr:hover{border-color:var(--border-strong);color:var(--text)}
 .rec-yr.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
 .rec-hero-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(216px,1fr));gap:14px;margin-bottom:30px}
-.rec-hero{background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--hc);
-  padding:16px 18px;box-shadow:var(--shadow);cursor:pointer;transition:border-color .15s}
-.rec-hero:hover{border-color:var(--border-strong);border-top-color:var(--hc)}
+.rec-hero{background:transparent;border:0;border-top:2px solid var(--hc);
+  padding:14px 0 0;box-shadow:none;cursor:pointer;transition:opacity .15s}
+.rec-hero:hover{opacity:.8}
 .rec-hero-lbl{font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:7px}
 .rec-hero-val{font-family:var(--f-fig);font-size:30px;font-weight:var(--w-fig);letter-spacing:-1px;line-height:1}
 .rec-hero-val .u{font-size:14px;font-weight:400;color:var(--text-muted);letter-spacing:0;margin-left:3px}
@@ -720,7 +720,7 @@ details:not([open])>*:not(summary){display:none}
 .rec-sect{display:flex;align-items:baseline;gap:10px;margin:0 0 10px}
 .rec-sect h3{font-size:14px;font-weight:700}
 .rec-sect span{font-size:11px;color:var(--text-light)}
-.rec-tbl{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);margin-bottom:8px}
+.rec-tbl{background:transparent;border:0;border-top:1px solid var(--border);box-shadow:none;margin-bottom:8px}
 .rec-head,.rec-row{display:grid;grid-template-columns:180px 122px 1fr 96px 118px;gap:14px;align-items:center;padding:0 16px}
 .rec-head{height:32px;background:var(--bg);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;color:var(--text-light)}
 .rec-row{height:42px;border-bottom:1px solid var(--bg);font-size:12.5px;cursor:pointer;transition:background .12s}
@@ -746,7 +746,7 @@ details:not([open])>*:not(summary){display:none}
    the other, disagreeing: a stat row from Strava's participant count, and partner cards
    from a regex over activity titles. One definition leads now, and the named list is
    explicitly the subset written into titles. */
-.soc-lead{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);padding:20px 22px}
+.soc-lead{background:transparent;border:0;border-top:1px solid var(--border);box-shadow:none;padding:18px 0 0}
 .soc-lead-top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .soc-lead-n{font-family:var(--f-fig);font-size:30px;font-weight:var(--w-fig);letter-spacing:-1px;line-height:1}
 .soc-lead-t{font-size:13px;color:var(--text-muted);padding-bottom:2px}
@@ -759,7 +759,7 @@ details:not([open])>*:not(summary){display:none}
 .soc-caveat .ms{font-size:17px;color:var(--warn-icon);flex-shrink:0}
 .soc-caveat div{font-size:12px;color:var(--text-muted);line-height:1.6}
 .soc-caveat strong{color:var(--text);font-weight:700}
-.soc-tbl{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow)}
+.soc-tbl{background:transparent;border:0;border-top:1px solid var(--border);box-shadow:none}
 .soc-head,.soc-row{display:grid;grid-template-columns:34px minmax(0,2fr) minmax(92px,.8fr) minmax(100px,.8fr) minmax(104px,.9fr) 92px;gap:14px;align-items:center;padding:0 16px}
 .soc-head{height:32px;background:var(--bg);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;color:var(--text-light)}
 .soc-row{min-height:52px;border-bottom:1px solid var(--bg);font-size:12.5px;cursor:pointer;transition:background .12s}
@@ -884,7 +884,7 @@ details:not([open])>*:not(summary){display:none}
 .search-summary-value{font-size:18px;font-weight:700;letter-spacing:-.3px}
 .search-summary-unit{font-size:12px;font-weight:400;color:var(--text-muted);margin-left:2px}
 /* LOG TABLE */
-.log-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:0;overflow:hidden;box-shadow:var(--shadow)}
+.log-table-wrap{background:transparent;border:0;border-top:1px solid var(--border);border-radius:0;overflow:hidden;box-shadow:none}
 table{width:100%;border-collapse:collapse;font-size:13px}
 thead th{padding:11px 14px;text-align:left;font-size:12px;font-weight:600;color:var(--text-muted);background:var(--bg);border-bottom:1px solid var(--border);cursor:pointer;white-space:nowrap;user-select:none}
 thead th:hover{color:var(--text)}
@@ -915,8 +915,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .zwift-status-bar .type-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;font-size:12px;font-weight:500;color:var(--text-muted);border:none;background:transparent;border-radius:0;cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit}
 .zwift-status-bar .type-btn:hover:not(.active){color:var(--text)}
 .zwift-status-bar .type-btn.active{font-weight:600}
-.zwift-group{background:var(--surface);border:1px solid var(--border);border-radius:0;margin-bottom:12px;box-shadow:var(--shadow);overflow:hidden}
-.zwift-group summary{padding:12px 16px;font-weight:700;font-size:13px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center}
+.zwift-group{background:transparent;border:0;border-top:1px solid var(--border);border-radius:0;margin-bottom:12px;box-shadow:none;overflow:hidden}
+.zwift-group summary{padding:12px 0;font-weight:700;font-size:13px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center}
 .zwift-group summary::-webkit-details-marker{display:none}
 .zwift-group-count{font-size:11px;font-weight:500;color:var(--text-muted)}
 .zwift-summary-left{display:flex;align-items:center}
@@ -1058,8 +1058,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .section-header .badge{flex:0 0 100%;background:transparent;border:none;padding:0;border-radius:0;
   font-size:12px;font-weight:500;line-height:1.5;color:var(--text-light)}
 .section-header .badge:empty{display:none}
-.year-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:0;overflow:hidden;box-shadow:var(--shadow);margin-bottom:24px}
-.dow-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:18px 20px;box-shadow:var(--shadow)}
+.year-table-wrap{background:transparent;border:0;border-top:1px solid var(--border);border-radius:0;overflow:hidden;box-shadow:none;margin-bottom:24px}
+.dow-card{background:transparent;border:0;border-top:1px solid var(--border);border-radius:0;padding:16px 0 0;box-shadow:none}
 .dow-bars{display:flex;gap:8px;align-items:flex-end;height:90px}
 .dow-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end}
 .dow-bar-wrap{flex:1;display:flex;align-items:flex-end;width:100%}
@@ -1079,7 +1079,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .early-years-toggle:hover{color:var(--text)}
 /* TYPE ROW */
 .type-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:12px;margin-bottom:24px}
-.type-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:16px 18px;box-shadow:var(--shadow);display:flex;gap:14px;align-items:flex-start}
+.type-card{background:transparent;border:0;border-top:1px solid var(--border);border-radius:0;padding:14px 0 0;box-shadow:none;display:flex;gap:14px;align-items:flex-start}
 .type-icon{width:40px;height:40px;border-radius:0;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
 .type-info .type-name{font-size:13px;font-weight:700;margin-bottom:2px}
 .type-info .type-count{font-size:12px;color:var(--text-muted)}
@@ -1087,9 +1087,9 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .type-info .type-dist small{font-size:12px;font-weight:400;color:var(--text-muted)}
 /* RECENT */
 .recent-list{display:flex;flex-direction:column;gap:8px}
-.recent-item{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:12px 16px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow)}
-/* The sport colour rides on the row's left edge rather than a separate swatch. */
-.recent-item{border-left-width:3px;border-left-style:solid}
+.recent-item{background:transparent;border:0;border-top:1px solid var(--border);border-radius:0;padding:12px 0;display:flex;align-items:center;gap:12px;box-shadow:none}
+/* The sport colour is a square at the start of the row, as it is everywhere else. */
+.recent-sw{width:8px;height:8px;flex-shrink:0}
 .recent-info{flex:1;min-width:0}
 .recent-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .recent-meta{font-size:11px;color:var(--text-muted);margin-top:2px}
@@ -1097,7 +1097,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .recent-dist{font-size:14px;font-weight:700}.recent-time{font-size:11px;color:var(--text-muted)}
 /* SOCIAL */
 .partner-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px;margin-bottom:20px}
-.partner-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:14px;box-shadow:var(--shadow);text-align:center}
+.partner-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:14px;box-shadow:none;text-align:center}
 .partner-avatar{width:38px;height:38px;border-radius:0;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:white;margin:0 auto 8px}
 .partner-name{font-size:13px;font-weight:700;margin-bottom:2px}
 .partner-count{font-size:12px;color:var(--text-muted)}.partner-dist{font-size:14px;font-weight:700;margin-top:4px}
@@ -1109,9 +1109,9 @@ tbody td{padding:10px 14px;vertical-align:middle}
    different rules. */
 .gear-card{--gear-pad-y:16px;--gear-pad-x:18px;
   background:var(--surface);border:1px solid var(--border);border-radius:0;
-  padding:var(--gear-pad-y) var(--gear-pad-x);box-shadow:var(--shadow);cursor:pointer;
-  transition:transform .1s,box-shadow .1s}
-.gear-card:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(15,23,42,.06),0 8px 20px rgba(15,23,42,.09)}
+  padding:var(--gear-pad-y) var(--gear-pad-x);box-shadow:none;cursor:pointer;
+  transition:transform .1s}
+.gear-card:hover{transform:translateY(-2px)}
 /* Flush to the top of the card and to both sides, under the sport-coloured rule.
    An <img> is a replaced element, so `width:auto` would resolve to its intrinsic
    width rather than stretching — the padding has to be added back explicitly. */
@@ -1204,8 +1204,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
   .act-actions a,.act-actions button{min-height:44px;flex-basis:calc(50% - 4px)}
 }
 /* TOP GEAR in summary */
-.top-gear-list{background:var(--surface);border:1px solid var(--border);border-radius:0;overflow:hidden;box-shadow:var(--shadow)}
-.top-gear-row{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border);font-size:13px}
+.top-gear-list{background:transparent;border:0;border-top:1px solid var(--border);border-radius:0;overflow:hidden;box-shadow:none}
+.top-gear-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border);font-size:13px}
 .top-gear-row:last-child{border-bottom:none}
 .top-gear-rank{font-size:12px;font-weight:700;color:var(--text-muted);width:20px;flex-shrink:0}
 /* YEAR CAL VERTICAL */
@@ -2616,7 +2616,8 @@ function recentItemHtml(a,showDate){
   const g=typeGroup(a.type);
   const hr=a.hr?' · <span class="ms ms-fill" style="font-size:13px;color:#ef4444">favorite</span> '+Math.round(a.hr)+' bpm':'';
   const gear=a.gear?' · <span class="ms" style="font-size:13px">'+gearIconName(g)+'</span> '+escapeHtml(gearLabel(a.gear).split(' ').slice(0,2).join(' ')):'';
-  return`<div class="recent-item${a.id?' act-row-click':''}"${a.id?` data-act="${escapeAttr(a.id)}" tabindex="0" role="button" aria-label="${escapeAttr((a.name||a.type||'Activity')+', '+fmtDate(a.date))}"`:''} style="border-left-color:${groupColor(g)}">
+  return`<div class="recent-item${a.id?' act-row-click':''}"${a.id?` data-act="${escapeAttr(a.id)}" tabindex="0" role="button" aria-label="${escapeAttr((a.name||a.type||'Activity')+', '+fmtDate(a.date))}"`:''}>
+      <i class="recent-sw" style="background:${groupColor(g)}"></i>
       <div class="recent-info">
         <div class="recent-name">${escapeHtml(a.name||a.type)}</div>
         <div class="recent-meta">${showDate?fmtDate(a.date)+' · ':''}${typeEmoji(g)} ${g}${hr}${gear}</div>
@@ -3807,7 +3808,7 @@ function renderSummaryNow(data){
     `<div class="sum-sport-cols"><span>Sport</span><span>This week</span><span class="sum-sport-dist">Distance</span>`+
     `<span class="sum-sport-base">By now, 4-week average</span><span class="sum-sport-ytd">${thisYear} so far</span>`+
     `<span>On last year</span><span class="sum-sport-spark">Twelve weeks</span></div>`+
-    cards.map(c=>{
+    cards.filter(c=>c.wk>0||c.ytd>0||c.d!=null).map(c=>{
       const col=groupColor(c.g);
       return`<div class="sum-sport-tr">
         <span class="sum-sport-name"><i style="background:${col}"></i>${c.g}</span>
