@@ -357,6 +357,25 @@ a{color:inherit;text-decoration:none}
 .sum-sport-muted small{font-size:10px}
 .sum-sport-yoy{font-weight:600}
 .sum-sport-spark svg{display:block}
+/* ── THE COLOUR FIELD ──
+   A treemap of the last 28 days. Tiles are placed by the squarified algorithm from
+   percentages, so the same layout code serves every width; a one-pixel border in
+   the page colour is the gap between fills, so neighbours separate without a stroke. */
+.sum-field-tiles{position:relative;height:360px;margin-top:14px}
+.sum-field-tile{position:absolute;box-sizing:border-box;border:1px solid var(--bg);padding:16px 18px;overflow:hidden;display:flex;flex-direction:column}
+.sum-field-name{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.85}
+.sum-field-big{font-weight:300;line-height:1;margin-top:auto;letter-spacing:-.04em}
+.sum-field-big.xl{font-family:var(--f-fig);font-size:64px}
+.sum-field-big.lg{font-family:var(--f-fig);font-size:40px}
+.sum-field-big.md{font-family:var(--f-fig);font-size:26px;font-weight:400}
+.sum-field-big.sm{font-size:15px;font-weight:600;letter-spacing:0}
+.sum-field-big .u{font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif;font-size:.3em;font-weight:500;letter-spacing:0;margin-left:.15em;opacity:.85}
+.sum-field-sub{font-size:11.5px;opacity:.85;margin-top:6px}
+.sum-field-spark{position:absolute;left:18px;right:18px;bottom:14px;opacity:.7}
+.sum-field-spark svg{display:block;width:100%}
+.sum-field-empty{padding:40px 0 20px;font-size:12px;color:var(--text-muted)}
+@media(max-width:640px){.sum-field-tiles{height:440px}.sum-field-tile{padding:12px 13px}}
+
 /* The trophies, demoted to one line. */
 .sum-career{background:transparent;border:0;border-top:1px solid var(--border);box-shadow:none;
   padding:16px 0 0;display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:24px}
@@ -1674,6 +1693,25 @@ body.is-loading .stats-grid *{visibility:hidden}
        the hero, and it is not the load chart's own verdict one size smaller either —
        it is the only line on the page that speaks to load, year and sport together. -->
   <div class="span-full" data-panel="sum-band" data-panel-label="The read across load, year and sport"><div class="sum-band" id="sumBand"></div></div>
+
+  <!-- The mix of the month as a field of colour: each sport's area is its share. The
+       one place on the page where colour is allowed to be big, because here the
+       colour IS the data — the tiles have no other job. -->
+  <div class="chart-card span-full sum-field" data-panel="sum-field" data-panel-label="The last 28 days by sport">
+    <div class="chart-head">
+      <div class="chart-head-text">
+        <div class="chart-title">The last 28 days by sport</div>
+        <div class="chart-sub" id="sumFieldSub">Each sport’s area is its share of your moving time.</div>
+      </div>
+      <div class="chart-ctl field-measure-ctl" role="group" aria-label="Measure the month by">
+        <button type="button" class="chart-ctl-btn" data-measure="time" onclick="setFieldMeasure('time')">Time</button>
+        <button type="button" class="chart-ctl-btn" data-measure="dist" onclick="setFieldMeasure('dist')">Distance</button>
+        <button type="button" class="chart-ctl-btn" data-measure="count" onclick="setFieldMeasure('count')">Activities</button>
+      </div>
+    </div>
+    <div class="sum-field-tiles" id="sumField"></div>
+    <div id="sumFieldVerdict" class="chart-verdict"></div>
+  </div>
 
   <div class="span-full" data-panel="sum-two" data-panel-label="Against last year, and consistency">
   <div class="sum-two">
@@ -3706,6 +3744,7 @@ function renderSummaryNow(data){
   renderLoad(data,SUM_LOAD_TARGET);
   renderWeekDistance(data,SUM_DIST_TARGET);
   renderCumulative(data,SUM_CUM_TARGET);
+  renderColourField(data);
 
   // ── Consistency: days trained out of the last twelve weeks, plus the streaks ──
   // Twelve weeks rather than thirteen so the grid stays 14 wide and six deep with
@@ -3803,6 +3842,119 @@ function renderSummaryNow(data){
         `against ${cw.pace.toFixed(1)} by the same point in an average week${yearBit}.${sportBit}</div>`;
     }
   }
+}
+
+// ── THE COLOUR FIELD ──
+// The last 28 days as a treemap: each sport's area is its share of the month by one
+// of three measures. Time is the default because it is the fairest across sports — a
+// swim and a century are equally an hour — but a month measured in miles or in
+// sessions is a different month, so the measure switches and is remembered, the way
+// the mix and year cards do it.
+const FIELD_MEASURE_KEY='fitness_field_measure_v1';
+const FIELD_MEASURES={
+  time :{pick:a=>(a.mt||0)/3600, noun:'moving time', unit:()=>'h',          fmt:v=>(v<10?v.toFixed(1):String(Math.round(v)))},
+  dist :{pick:a=>distIn(a),      noun:'distance',    unit:()=>distUnit(),   fmt:v=>chipNum(v,v<100?1:0)},
+  count:{pick:()=>1,             noun:'activities',  unit:()=>'',           fmt:v=>String(Math.round(v))},
+};
+let fieldMeasure='time';
+try{const v=localStorage.getItem(FIELD_MEASURE_KEY);if(FIELD_MEASURES[v])fieldMeasure=v;}catch(e){}
+function setFieldMeasure(m){
+  if(!FIELD_MEASURES[m]||m===fieldMeasure)return;
+  fieldMeasure=m;
+  try{localStorage.setItem(FIELD_MEASURE_KEY,m);}catch(e){}
+  renderColourField(getFiltered());
+}
+
+// Ink or white on a fill, by the fill's luminance. Text inside a coloured tile is
+// the one place text is allowed onto a data colour, and it has to clear it.
+function onFill(hex){
+  const m=/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex).trim());
+  if(!m)return '#ffffff';
+  const c=[m[1],m[2],m[3]].map(h=>parseInt(h,16)/255).map(v=>v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4));
+  return (0.2126*c[0]+0.7152*c[1]+0.0722*c[2])>0.22?'#121214':'#ffffff';
+}
+
+// Squarified treemap (Bruls, Huizing and van Wijk): rows laid along the shorter side,
+// each row taking items while the worst aspect ratio in it keeps improving. Items
+// arrive sorted by value; the result is in the same units as the box passed in.
+function squarify(items,x,y,w,h){
+  const out=[];let rest=items.slice();let rx=x,ry=y,rw=w,rh=h;
+  const worst=(row,scale,side)=>{
+    const sum=row.reduce((a,i)=>a+i.v,0)*scale,s2=sum*sum,d2=side*side;let wr=0;
+    row.forEach(i=>{const a=i.v*scale;wr=Math.max(wr,d2*a/s2,s2/(d2*a));});return wr;
+  };
+  while(rest.length){
+    const total=rest.reduce((a,i)=>a+i.v,0);if(total<=0)break;
+    const scale=(rw*rh)/total,vertical=rw>=rh,side=vertical?rh:rw;
+    let row=[rest[0]],best=worst(row,scale,side);
+    for(let i=1;i<rest.length;i++){
+      const cand=row.concat([rest[i]]),wr=worst(cand,scale,side);
+      if(wr<=best){row=cand;best=wr;}else break;
+    }
+    const rowArea=row.reduce((a,i)=>a+i.v,0)*scale;
+    if(vertical){const cw=rowArea/rh;let cy=ry;row.forEach(i=>{const ch=i.v*scale/cw;out.push(Object.assign({},i,{x:rx,y:cy,w:cw,h:ch}));cy+=ch;});rx+=cw;rw-=cw;}
+    else{const ch=rowArea/rw;let cx=rx;row.forEach(i=>{const cw=i.v*scale/ch;out.push(Object.assign({},i,{x:cx,y:ry,w:cw,h:ch}));cx+=cw;});ry+=ch;rh-=ch;}
+    rest=rest.slice(row.length);
+  }
+  return out;
+}
+
+function renderColourField(data){
+  const el=document.getElementById('sumField');if(!el)return;
+  const measure=FIELD_MEASURES[fieldMeasure]||FIELD_MEASURES.time;
+  document.querySelectorAll('.field-measure-ctl .chart-ctl-btn').forEach(b=>{
+    const on=b.dataset.measure===fieldMeasure;
+    b.classList.toggle('active',on);b.setAttribute('aria-pressed',on?'true':'false');
+  });
+  const sub=document.getElementById('sumFieldSub');
+  if(sub)sub.textContent=`Each sport’s area is its share of your ${measure.noun} over the last 28 days.`;
+
+  const today=_today(),fromMs=new Date(today+'T12:00:00').getTime()-27*86400000,from=isoOf(fromMs);
+  const by={};
+  (data||[]).forEach(a=>{
+    if(a.date<from||a.date>today)return;
+    const g=typeGroup(a.type);
+    const e=by[g]||(by[g]={g,v:0,n:0,days:new Array(28).fill(0)});
+    const val=measure.pick(a)||0;
+    e.v+=val;e.n++;
+    const d=Math.round((new Date(a.date+'T12:00:00').getTime()-fromMs)/86400000);
+    if(d>=0&&d<28)e.days[d]+=val;
+  });
+  const items=Object.values(by).filter(i=>i.v>0).sort((a,b)=>b.v-a.v);
+  const total=items.reduce((a,i)=>a+i.v,0);
+  const verdict=document.getElementById('sumFieldVerdict');
+  if(!items.length){
+    el.innerHTML=`<div class="sum-field-empty">Nothing in the last 28 days of this filter.</div>`;
+    if(verdict)verdict.textContent='';
+    return;
+  }
+
+  // Laid out in a 1000 × 360 box and written back as percentages, so the tiles follow
+  // the card's width without a resize handler.
+  const tiles=squarify(items,0,0,1000,360);
+  el.innerHTML=tiles.map(t=>{
+    const fill=groupColor(t.g),ink=onFill(fill);
+    const wp=t.w/10,hp=t.h/3.6;
+    const size=wp>=40&&hp>=50?'xl':wp>=22&&hp>=40?'lg':wp>=14&&hp>=28?'md':'sm';
+    const share=Math.round(t.v/total*100);
+    const unit=measure.unit();
+    const spark=(wp>=24&&hp>=45)?(()=>{
+      const max=Math.max.apply(null,t.days.concat([0.01]));
+      const d=t.days.map((v,i)=>`${i?'L':'M'}${(1+i/27*98).toFixed(2)} ${(28-2-(v/max)*24).toFixed(2)}`).join('');
+      return `<div class="sum-field-spark"><svg viewBox="0 0 100 28" preserveAspectRatio="none" height="28" aria-hidden="true"><path d="${d}" fill="none" stroke="${ink}" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"></path></svg></div>`;
+    })():'';
+    const label=`${t.g}: ${measure.fmt(t.v)}${unit?' '+unit:''} · ${share}% · ${t.n} ${t.n===1?'session':'sessions'}`;
+    return `<div class="sum-field-tile" style="left:${(t.x/10).toFixed(3)}%;top:${(t.y/3.6).toFixed(3)}%;width:${(t.w/10).toFixed(3)}%;height:${(t.h/3.6).toFixed(3)}%;background:${fill};color:${ink}" title="${escapeAttr(label)}">`+
+      `<div class="sum-field-name">${escapeHtml(t.g)}</div>`+
+      `<div class="sum-field-big ${size}">${escapeHtml(measure.fmt(t.v))}${unit&&size!=='sm'?`<span class="u">${escapeHtml(unit)}</span>`:''}</div>`+
+      (size==='sm'?'':`<div class="sum-field-sub">${share}% · ${t.n} ${t.n===1?'session':'sessions'}</div>`)+spark+`</div>`;
+  }).join('');
+
+  const top=items[0];
+  const rest=items.length-1;
+  if(verdict)verdict.textContent=
+    `${top.g} took ${Math.round(top.v/total*100)}% of your ${measure.noun} this month`+
+    (rest?` — ${measure.fmt(total)}${measure.unit()?' '+measure.unit():''} across ${items.length} sports.`:`, and there was nothing else.`);
 }
 
 // ── CHARTS ──
