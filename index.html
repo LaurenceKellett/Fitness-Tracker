@@ -364,21 +364,36 @@ a{color:inherit;text-decoration:none}
 .sum-two{display:grid;grid-template-columns:1fr;gap:18px;margin-bottom:26px}
 .sum-two .chart-wrap{height:172px}
 .sum-consistency{display:flex;flex-direction:column}
-.sum-cal{display:grid;grid-template-columns:repeat(14,1fr);gap:3px;margin-top:16px}
+/* Full width, the 14-column calendar grew to fifty-pixel cells and a card half a
+   screen tall. The calendar is capped and the streaks sit beside it on desktop; a
+   phone stacks them, calendar first. */
+.sum-cons{display:flex;gap:32px;align-items:flex-start}
+.sum-cons-cal{flex:0 0 auto;width:min(100%,404px)}
+.sum-cal{display:grid;grid-template-columns:repeat(14,1fr);gap:3px;margin-top:14px}
 .sum-cal i{aspect-ratio:1;display:block;border-radius:0}
 .sum-cal-ends{display:flex;justify-content:space-between;margin-top:6px;font-size:9px;color:var(--text-light)}
-.sum-streaks{border-top:1px solid var(--border);margin-top:auto;padding-top:14px;
-  display:flex;justify-content:space-between}
+.sum-streaks{flex:1;display:flex;flex-direction:column;gap:18px;align-self:stretch;justify-content:center;
+  border-left:1px solid var(--border);padding-left:28px;margin-top:12px}
+@media(max-width:700px){
+  .sum-cons{flex-direction:column;gap:0}
+  .sum-cons-cal{width:100%}
+  .sum-streaks{flex-direction:row;justify-content:space-between;gap:12px;border-left:0;padding-left:0;
+    border-top:1px solid var(--border);padding-top:14px;margin-top:14px}
+  .sum-streaks>div:last-child{text-align:right}
+}
 /* One row per sport rather than five cards: the eye reads down a column to compare,
-   and each sport gets a shape (twelve weeks of hours) as well as its numbers. */
+   and each sport gets a shape (twelve weeks of distance) as well as its numbers.
+   Distance leads — it is what the page measures the year in — and hours get their
+   own column rather than standing in for it. */
 .sum-sports{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);padding:16px 22px 4px;margin-bottom:26px}
 .sum-sport-note{flex:0 0 100%;margin-bottom:0;max-width:64ch}
-.sum-sport-cols,.sum-sport-tr{display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr 1fr 1fr 110px;gap:12px;align-items:center}
+.sum-sport-cols,.sum-sport-tr{display:grid;grid-template-columns:1.2fr 1fr .8fr 1fr 1fr .8fr 110px;gap:12px;align-items:center}
 .sum-sport-cols{padding-bottom:8px;font-size:10px;font-weight:600;color:var(--text-light)}
-.sum-sport-tr{padding:13px 0;border-top:1px solid var(--border);font-size:12.5px}
+.sum-sport-tr{padding:10px 0;border-top:1px solid var(--border);font-size:12.5px}
 .sum-sport-name{display:inline-flex;align-items:center;gap:8px;font-weight:600}
 .sum-sport-name i{display:inline-block;width:8px;height:8px;flex-shrink:0}
-.sum-sport-big{font-family:var(--f-fig);font-size:24px;font-weight:var(--w-fig);letter-spacing:-.6px;line-height:1}
+.sum-sport-big{font-family:var(--f-fig);font-size:24px;font-weight:var(--w-fig);letter-spacing:-.6px;line-height:1;white-space:nowrap}
+.sum-sport-u{font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif;font-size:11px;font-weight:500;color:var(--text-muted);letter-spacing:0}
 .sum-sport-muted{color:var(--text-muted)}
 .sum-sport-muted small{font-size:10px}
 .sum-sport-yoy{font-weight:600}
@@ -420,13 +435,13 @@ a{color:inherit;text-decoration:none}
   .sum-hero-chart .chart-wrap>canvas{position:static}
   .sum-hero>.chart-chips{flex-direction:row;gap:10px;margin-top:14px}
   .sum-two{grid-template-columns:1fr}
-  .sum-sport-cols,.sum-sport-tr{grid-template-columns:1.2fr 1fr 1fr 1fr 1fr}
-  .sum-sport-dist,.sum-sport-spark{display:none}
+  .sum-sport-cols,.sum-sport-tr{grid-template-columns:1.2fr 1fr .8fr 1fr 1fr .8fr}
+  .sum-sport-spark{display:none}
   .sum-sport-note{display:none}
 }
 @media(max-width:640px){
   .sum-big{font-size:44px}
-  .sum-sport-cols,.sum-sport-tr{grid-template-columns:1.2fr 1fr 1fr}
+  .sum-sport-cols,.sum-sport-tr{grid-template-columns:1.2fr 1fr .8fr .8fr}
   .sum-sport-base,.sum-sport-ytd{display:none}
   .sum-hero{padding:18px}
 }
@@ -3909,19 +3924,20 @@ function renderSummaryNow(data){
   const cur=recCurrentStreak(data,today);
   const consEl=document.getElementById('sumConsistency');
   if(consEl)consEl.innerHTML=
+    `<div class="sum-cons"><div class="sum-cons-cal">`+
     `<div class="stat-value" style="font-size:34px;margin-top:12px">${active}`+
       `<span class="stat-unit" style="font-size:15px">of ${CONSISTENCY_DAYS} days</span></div>`+
     `<div class="chart-sub" style="margin:6px 0 0">You trained on ${Math.round(active/CONSISTENCY_DAYS*100)}% of them</div>`+
     `<div class="sum-cal">${cells.map(x=>
       `<i style="background:${x?getAccentColor():'var(--border)'}"></i>`).join('')}</div>`+
     `<div class="sum-cal-ends"><span>12 weeks ago</span><span>today</span></div>`+
-    `<div class="sum-streaks">`+
+    `</div><div class="sum-streaks">`+
       `<div><div style="font-size:16px;font-weight:700">${cur} day${cur===1?'':'s'}</div>`+
         `<div class="chart-sub" style="margin:0">current streak</div></div>`+
-      `<div style="text-align:right"><div style="font-size:16px;font-weight:700">`+
+      `<div><div style="font-size:16px;font-weight:700">`+
         `${streak?streak.len+' day'+(streak.len===1?'':'s'):'—'}</div>`+
         `<div class="chart-sub" style="margin:0">${streak?(streak.current?'longest — still running':'longest, '+fmtDate(streak.to)):'no streak yet'}</div></div>`+
-    `</div>`;
+    `</div></div>`;
 
   // ── Per sport, never averaged together ──
   const groups=['Ride','Run','Virtual','Walk','Swim','Other'];
@@ -3934,33 +3950,33 @@ function renderSummaryNow(data){
     // Same window as the hero: this calendar week, against the same slice of the
     // last four. A part-week held against a full-week base would mark every sport
     // as "missing" until about Thursday.
-    const cwH=calendarWeek(all,a=>(a.mt||0)/3600,{today});
-    const wk=cwH.total;
-    const base=cwH.pace;
-    const wkDist=calendarWeek(all,a=>(a.dist_mi||0),{today}).total;
+    const cwD=calendarWeek(all,a=>(a.dist_mi||0),{today});
+    const wkDist=cwD.total;
+    const base=cwD.pace;
+    const wk=calendarWeek(all,a=>(a.mt||0)/3600,{today}).total;
     const ytd=all.filter(a=>a.date.slice(0,4)===thisYear).reduce((s,a)=>s+(a.dist_mi||0),0);
     // Like for like: last year counted only as far into the year as today.
     const prev=all.filter(a=>a.date.slice(0,4)===String(+thisYear-1)&&dayOfYear(a.date)<=doyNow)
       .reduce((s,a)=>s+(a.dist_mi||0),0);
     const d=prev>0?Math.round((ytd-prev)/prev*100):null;
     cards.push({g,wk,base,wkDist,ytd,d,n:all.length,
-      spark:weeklyTotals(all,a=>(a.mt||0)/3600,{today,weeks:12})});
+      spark:weeklyTotals(all,a=>(a.dist_mi||0),{today,weeks:12})});
   });
   cards.sort((x,y)=>y.n-x.n);
   const badge=document.getElementById('sumSportBadge');
   if(badge)badge.textContent='Week of '+fmtDate(cw.weekStart);
   const wrap=document.getElementById('sumSportCards');
   if(wrap)wrap.innerHTML=
-    `<div class="sum-sport-cols"><span>Sport</span><span>This week</span><span class="sum-sport-dist">Distance</span>`+
+    `<div class="sum-sport-cols"><span>Sport</span><span>This week</span><span class="sum-sport-hours">Hours</span>`+
     `<span class="sum-sport-base">By now, 4-week average</span><span class="sum-sport-ytd">${thisYear} so far</span>`+
     `<span>On last year</span><span class="sum-sport-spark">Twelve weeks</span></div>`+
-    cards.filter(c=>c.wk>0||c.ytd>0||c.d!=null).map(c=>{
+    cards.filter(c=>c.wkDist>0||c.wk>0||c.ytd>0||c.d!=null).map(c=>{
       const col=groupColor(c.g);
       return`<div class="sum-sport-tr">
         <span class="sum-sport-name"><i style="background:${col}"></i>${c.g}</span>
-        <span class="sum-sport-big">${c.wk.toFixed(1)}h</span>
-        <span class="sum-sport-muted sum-sport-dist">${c.wkDist>0?fmtDist(c.wkDist)+' '+distUnit():'—'}</span>
-        <span class="sum-sport-muted sum-sport-base">${c.base.toFixed(1)}h <small>by now</small></span>
+        <span class="sum-sport-big">${c.wkDist>0?fmtDist(c.wkDist):'0'}<small class="sum-sport-u"> ${distUnit()}</small></span>
+        <span class="sum-sport-muted sum-sport-hours">${c.wk>0?c.wk.toFixed(1)+'h':'—'}</span>
+        <span class="sum-sport-muted sum-sport-base">${c.base>0?fmtDist(c.base)+' '+distUnit():'—'} <small>by now</small></span>
         <span class="sum-sport-ytd">${fmtDist(c.ytd)} ${distUnit()}</span>
         <span class="sum-sport-yoy" style="color:${c.d==null?'var(--text-muted)':c.d>=0?'var(--success-fg)':'var(--warn-icon)'}">${
           c.d==null?'—':(c.d>=0?'+':'')+c.d+'%'}</span>

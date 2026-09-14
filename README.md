@@ -803,7 +803,7 @@ What leads now is the week:
   days trained out of the last 84 — twelve weeks, so the 14-wide grid stays six clean rows
   and, 14 being two weeks, every column stays one weekday — plus the current streak and
   the longest.
-- **A row of five sport cards** — this week so far, what that sport usually amounts to by
+- **A row per sport** — this week's distance so far, its hours beside it, what that sport usually amounts to by
   this point in a week, the year so far, and the year-on-year figure, each computed within
   its own sport.
 
