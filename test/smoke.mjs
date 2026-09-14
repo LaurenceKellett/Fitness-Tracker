@@ -975,7 +975,7 @@ async function main() {
         // Every card sits inside a shelf, and each shelf has its own grid.
         loose: document.querySelectorAll('#gearCards > .gear-card').length,
         grids: document.querySelectorAll('.gear-group > .gear-grid').length,
-        order: [...document.querySelectorAll('.gear-group[data-kind="shoe"] .gear-card .gear-span span:last-child')].map((e) => e.textContent),
+        order: [...document.querySelectorAll('.gear-group[data-kind="shoe"] .gear-card [data-span="to"] .gear-span-value')].map((e) => e.textContent),
         wear: (document.querySelector('.gear-group[data-kind="shoe"] .gear-forecast-head') || {}).innerText || '',
         bikeWear: (document.querySelector('.gear-group[data-kind="bike"] .gear-forecast-head') || {}).innerText || '',
       }));
@@ -993,6 +993,58 @@ async function main() {
       // A shoe wears out against 750; a bike gets a usage rate and no wear bar.
       assert(/750/.test(r.wear), `the wear bar reads "${r.wear}"`);
       assert(!r.bikeWear, `a bike was given a wear bar: "${r.bikeWear}"`);
+    });
+
+    await check('the span row says which date is which, and names the gap', async () => {
+      await page.evaluate(() => window.setTab('gear'));
+      await page.waitForTimeout(400);
+      const r = await page.evaluate(() => {
+        const card = document.querySelector('.gear-card');
+        const cell = (k) => {
+          const el = card.querySelector(`[data-span="${k}"]`);
+          return el ? { label: el.querySelector('.gear-span-label').textContent,
+                        value: el.querySelector('.gear-span-value').textContent } : null;
+        };
+        const row = card.querySelector('.gear-span');
+        return {
+          from: cell('from'), to: cell('to'), service: cell('service'),
+          // Three content-width columns in a 200px card is exactly where a date
+          // wraps or pushes the card wider than its grid track.
+          rowOverflow: row.scrollWidth - row.clientWidth,
+          cardOverflow: card.scrollWidth - card.clientWidth,
+          lines: [...card.querySelectorAll('.gear-span-value, .gear-span-label')]
+            .map((e) => Math.round(e.getBoundingClientRect().height)),
+        };
+      });
+      assert(r.from && r.to && r.service, 'the span row is missing a cell');
+      assert(r.from.label === 'From' && r.to.label === 'To', `labels read ${r.from.label}/${r.to.label}`);
+      assert(/^\d{2}\/\d{2}\/\d{4}$/.test(r.from.value), `From reads "${r.from.value}"`);
+      assert(/^\d{2}\/\d{2}\/\d{4}$/.test(r.to.value), `To reads "${r.to.value}"`);
+      assert(/^(\d+y( \d+m)?|\d+m|\d+d)$/.test(r.service.value), `In service reads "${r.service.value}"`);
+      assert(r.rowOverflow <= 0 && r.cardOverflow <= 0,
+        `the span row overflows its card by ${Math.max(r.rowOverflow, r.cardOverflow)}px`);
+      // Every label and value on one line each — a wrapped date is the failure here.
+      const tall = r.lines.filter((h) => h > 20);
+      assert(!tall.length, `a span cell wrapped to ${tall.join(', ')}px`);
+    });
+
+    await check('the span row survives a phone', async () => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.waitForTimeout(400);
+      const r = await page.evaluate(() => {
+        const cards = [...document.querySelectorAll('.gear-card')];
+        return {
+          worst: Math.max(...cards.map((c) => c.scrollWidth - c.clientWidth)),
+          tall: cards.flatMap((c) => [...c.querySelectorAll('.gear-span-value')])
+            .map((e) => Math.round(e.getBoundingClientRect().height)).filter((h) => h > 20),
+          doc: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        };
+      });
+      assert(r.worst <= 0, `a gear card overflows by ${r.worst}px on a phone`);
+      assert(!r.tall.length, `a span value wrapped to ${r.tall.join(', ')}px on a phone`);
+      assert(r.doc <= 0, `the page scrolls sideways by ${r.doc}px on a phone`);
+      await page.setViewportSize({ width: 1400, height: 900 });
+      await page.waitForTimeout(300);
     });
 
     await check('retired gear is off the shelf until you ask for it', async () => {

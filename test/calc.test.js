@@ -5,6 +5,7 @@ const {
   fmtDist, distUnit, fmtElv, fmtElevUnit, fmtElevVal, fmtTime, fmtSpeed, fmtPace, fmtDate,
   fmtNum, fmtCal, fmtPRTime, fmtHours, chipNum, artFor, escapeAttr, escapeHtml, typeGroup,
   mapTypeGroup, typeMatches, isFootSport, isRace, dayOfYear, daysBetween, monthsBetween,
+  fmtServiceSpan,
   monthLabel, haversineMi, decodePolylinePts, gearKey, gearSlug, socCanon, socInitials,
   extractPartners, formatUpdatedAt, recLongestStreak, recCurrentStreak, mexBuckets, mexOf,
   actDistIn, distIn, ROLLING_ORDER, todayISO, isYearScope, isRollingScope, periodStart,
@@ -235,6 +236,37 @@ describe('fmtDate / monthLabel', () => {
 
   it('abbreviates a month key', () => {
     expect(monthLabel('2026-01')).toBe('Jan 26');
+  });
+});
+
+describe('fmtServiceSpan', () => {
+  it('counts calendar years and months, not averaged ones', () => {
+    expect(fmtServiceSpan('2021-03-14', '2024-09-20')).toBe('3y 6m');
+    expect(fmtServiceSpan('2023-01-05', '2023-08-05')).toBe('7m');
+  });
+
+  it('drops the months when a span lands on whole years', () => {
+    expect(fmtServiceSpan('2020-06-10', '2024-06-10')).toBe('4y');
+    expect(fmtServiceSpan('2020-06-10', '2021-06-09')).toBe('11m');
+  });
+
+  it('will not call a month a month until the date comes round again', () => {
+    // One day short of three months is two months, not three.
+    expect(fmtServiceSpan('2024-01-15', '2024-04-14')).toBe('2m');
+    expect(fmtServiceSpan('2024-01-15', '2024-04-15')).toBe('3m');
+  });
+
+  it('says it in days under a month, counting inclusively', () => {
+    expect(fmtServiceSpan('2024-05-01', '2024-05-01')).toBe('1d');
+    expect(fmtServiceSpan('2024-05-01', '2024-05-18')).toBe('18d');
+    // A month boundary crossed with fewer than a month's days is still days.
+    expect(fmtServiceSpan('2024-01-31', '2024-02-05')).toBe('6d');
+  });
+
+  it('has nothing to say without both ends', () => {
+    expect(fmtServiceSpan(null, '2024-01-01')).toBe('—');
+    expect(fmtServiceSpan('2024-01-01', null)).toBe('—');
+    expect(fmtServiceSpan('2024-06-01', '2024-01-01')).toBe('—');
   });
 });
 

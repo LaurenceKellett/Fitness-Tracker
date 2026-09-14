@@ -123,6 +123,31 @@ function dayOfYear(dateStr){
 
 function daysBetween(d1,d2){return Math.round((new Date(d2)-new Date(d1))/86400000)+1;}
 
+// How long a thing was in service, in calendar years and months. Calendar rather
+// than averaged (365.25 days, 30.44 days): "first worn in March, last worn in
+// September" is seven months to anyone counting on their fingers, and a figure
+// that disagrees with the two dates printed either side of it reads as a bug
+// rather than as a rounding convention.
+//
+// Note this measures first logged use to last logged use — the only span the
+// activity data actually supports. It is not purchase to retirement: Strava's
+// gear record carries neither date.
+function fmtServiceSpan(first,last){
+  if(!first||!last)return'\u2014';
+  const[y1,m1,d1]=first.split('-').map(Number);
+  const[y2,m2,d2]=last.split('-').map(Number);
+  let months=(y2-y1)*12+(m2-m1);
+  // Not a whole month until the day of the month comes round again.
+  if(d2<d1)months--;
+  if(months<0)return'\u2014';
+  // Under a month there is nothing to round to, so say it in days. daysBetween
+  // counts inclusively, so a thing used once reads "1d" rather than "0d".
+  if(months===0)return daysBetween(first,last)+'d';
+  const y=Math.floor(months/12),m=months%12;
+  if(!y)return m+'m';
+  return m?`${y}y ${m}m`:`${y}y`;
+}
+
 // Enumerate every month from first to last inclusive, including the empty ones —
 // a rolling total that skipped a month with no activities would quietly shorten
 // its own window and overstate the result.
@@ -816,7 +841,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     fmtDist,distUnit,fmtElv,fmtElevUnit,fmtElevVal,fmtTime,fmtSpeed,fmtPace,fmtDate,fmtNum,
     fmtCal,fmtPRTime,fmtHours,chipNum,artFor,escapeAttr,escapeHtml,typeGroup,mapTypeGroup,
-    typeMatches,isFootSport,isRace,dayOfYear,daysBetween,monthsBetween,monthLabel,haversineMi,
+    typeMatches,isFootSport,isRace,dayOfYear,daysBetween,monthsBetween,fmtServiceSpan,monthLabel,haversineMi,
     decodePolylinePts,gearKey,gearSlug,socCanon,socInitials,extractPartners,formatUpdatedAt,
     recLongestStreak,recCurrentStreak,mexBuckets,mexOf,actDistIn,distIn,
     ROLLING_PERIODS,ROLLING_ORDER,todayISO,isYearScope,isRollingScope,periodStart,

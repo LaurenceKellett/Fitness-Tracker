@@ -1285,7 +1285,23 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .gear-trio{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px;padding-top:11px;border-top:1px solid var(--border)}
 .gear-trio-label{font-size:9.5px;font-weight:700;color:var(--text-light)}
 .gear-trio-value{font-size:13px;font-weight:700;margin-top:2px;letter-spacing:-.2px}
-.gear-span{display:flex;justify-content:space-between;gap:10px;font-size:10.5px;color:var(--text-light);margin-top:11px;padding-top:9px;border-top:1px solid var(--border)}
+/* ── THE SPAN ──
+   Two bare dates at opposite ends of a rule, and no word anywhere saying which
+   was which — you had to know that the left one was the first outing. They are
+   labelled now, and the gap between them is named rather than left as a
+   subtraction for the reader to do.
+   The span sits on its own line rather than as a third column: two dd/mm/yyyy
+   dates and the words "In service" do not fit across a 200px card, and what
+   they do instead is wrap mid-date. As a label-left, value-right line it also
+   matches the wear row further down, which is the same shape of statement. */
+.gear-span{display:flex;justify-content:space-between;gap:8px;margin-top:11px;padding-top:9px;border-top:1px solid var(--border)}
+.gear-span>div:last-child{text-align:right}
+.gear-service{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:7px}
+/* The same label as the trio above it, so the two rows read as one system; the
+   value deliberately quieter than the trio's, because when a thing was used
+   does not outrank how far it went. */
+.gear-span-label{font-size:9.5px;font-weight:700;color:var(--text-light);white-space:nowrap}
+.gear-span-value{font-size:11px;font-weight:600;color:var(--text-muted);margin-top:2px;white-space:nowrap}
 .gear-stat{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--bg)}
 .gear-stat-label{color:var(--text-muted)}.gear-stat-value{font-weight:600}
 .gear-forecast{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
@@ -1774,7 +1790,7 @@ body.is-loading .stats-grid *{visibility:hidden}
 <!-- calc.js carries a stamp of its own content (npm run stamp; the unit tests check it
      is current), so a freshly deployed page can never be paired with a cached older copy
      of the script — which is exactly how one deploy died on "daysInYear is not defined". -->
-<script src="calc.js?v=88deeeda"></script>
+<script src="calc.js?v=149b9600"></script>
 <div id="dashTooltip" class="dash-tooltip"></div>
 <div class="main">
 
@@ -7658,7 +7674,11 @@ function gearCardHtml([name,s]){
         <div><div class="gear-trio-label">Climbed</div><div class="gear-trio-value">${fmtElv(s.elv)}</div></div>
       </div>
       ${gearForecast(topType,s,col,name,kind)}
-      <div class="gear-span"><span>${fmtDate(s.first)}</span><span>${fmtDate(s.last)}</span></div>
+      <div class="gear-span">
+        <div data-span="from"><div class="gear-span-label">From</div><div class="gear-span-value">${fmtDate(s.first)}</div></div>
+        <div data-span="to"><div class="gear-span-label">To</div><div class="gear-span-value">${fmtDate(s.last)}</div></div>
+      </div>
+      <div class="gear-service" data-span="service"><span class="gear-span-label">In service</span><span class="gear-span-value">${fmtServiceSpan(s.first,s.last)}</span></div>
     </div>`;
 }
 

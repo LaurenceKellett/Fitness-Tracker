@@ -479,6 +479,14 @@ everything else other kit.
 
 Within a shelf the order is **what you used last**, so whatever is in rotation leads.
 
+**"Retired" is Strava's own flag, not a guess.** `GET /gear/{id}` returns `retired: true`
+once you retire a thing in Strava, and the Worker copies it verbatim (`retired: !!data.retired`)
+into the cached gear record and out again in the envelope's `gearMeta`. Nothing here infers it
+from dates, mileage or how long something has sat unused. One consequence worth knowing:
+`fetchGearNames` only calls Strava for ids it has never seen (`gearIds.filter(id => !known[id])`),
+so a gear record already in KV is never refreshed — retire a pair in Strava today and this
+dashboard will not notice until that cache entry is cleared.
+
 **Retired gear is off the shelves by default.** Dimming a retired pair and sinking it to the
 end of its shelf still leaves it on the shelf, and a collection only accumulates: eventually
 the kit you actually reach for is outnumbered by the kit you have finished with. So the
@@ -496,6 +504,17 @@ wears Run's red. Running brands are recognised by name (`FOOTWEAR_RUNNING`); wel
 shoes and hiking boots are named explicitly and win over the brand (`FOOTWEAR_WALKING`);
 anything else falls back to whatever it was actually used for. Where the two disagree the
 count below is labelled "Uses" rather than "Runs", so neither figure has to lie.
+
+**The span at the foot of the card** names its two dates — *From* and *To* — rather than
+leaving you to know that the left one was the first outing, and then names the gap between
+them instead of leaving it as a subtraction: *In service · 3y 6m*. It is measured in calendar
+years and months (`fmtServiceSpan`), not averaged ones, so it agrees with the two dates printed
+directly above it; under a month it is given in days. Note it measures **first logged use to
+last logged use**, which is the only span the data supports — Strava's gear record carries
+neither a purchase date nor a retirement date — so for something still in rotation it is the
+period you have used it over, not a count up to today. It sits on its own line, label left and
+value right like the wear row, because two `dd/mm/yyyy` dates and the words "In service" do not
+fit across a 200px card.
 
 **The wear bar** tracks shoes against **750 miles**. The usual guidance is 300–500; 750 is
 nearer what these pairs actually do, and the bar names the number it is holding them to
