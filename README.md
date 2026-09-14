@@ -602,6 +602,7 @@ The Worker aggregates the last 30 days of activity data and sends it to `@cf/met
 - **Panels:** every tile is a box — the surface colour, a hairline border and the slight shadow in `--shadow`. Colour is kept for data (chart lines, the squares beside sport names, calendar cells, the colour field) and never decorates the box; active controls are marked with an ink underline rather than a tinted fill.
 - **Layout:** one chart per line on desktop. Phones stack everything as they always did.
 - **Type:** sentence case throughout and no block capitals; Sora, light, only on figures of 24px and up.
+- **Keys:** chart legends are HTML, not canvas — square pills right-aligned above the plot; click a series to hide it, click again to bring it back. Single-series charts have no key; the title already says what is plotted.
 - **Corners:** square everywhere. `--radius` and `--radius-sm` are both `0`; nothing in the app rounds, including pills, dots and the favicon. Keep new work sharp.
 - **Shadows:** `--shadow` is the standard card lift. `--shadow-callout` is heavier and reserved for call-out boxes — the AI summary and the sync warning — so they lift off the page without needing a colour fill.
 - **Labels:** sentence case. No `text-transform: uppercase` and no letter-spacing on labels, per the house rule across the tools.

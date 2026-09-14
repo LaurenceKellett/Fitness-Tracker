@@ -556,6 +556,21 @@ a{color:inherit;text-decoration:none}
 .chart-chip{display:flex;align-items:baseline;gap:7px;padding:0;margin-right:6px;font-size:11px;font-weight:500;color:var(--text-muted)}
 .chart-chip strong{font-size:13px;font-weight:700;color:var(--text)}
 .chip-sw{display:inline-block;width:7px;height:7px;flex-shrink:0;align-self:center}
+/* ── THE KEY ──
+   Chart.js draws its legend on the canvas: small, centred underneath, a few pixels tall
+   to tap. The key is HTML instead — square pills, right-aligned above the plot — and does
+   what the legend did: click a series to hide it, click again to bring it back. */
+.chart-key{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.chart-key[hidden]{display:none}
+.chart-key-item{display:inline-flex;align-items:center;gap:7px;height:24px;padding:0 9px;border:1px solid var(--border-strong);border-radius:0;
+  background:transparent;font-family:inherit;font-size:11px;font-weight:600;color:var(--text);cursor:pointer;transition:border-color .15s,color .15s}
+.chart-key-item:hover{border-color:var(--text)}
+.chart-key-item:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.chart-key-item i{display:inline-block;width:8px;height:8px;flex-shrink:0}
+.chart-key-item i.dash{width:14px;height:0;border-top:2px dashed;background:transparent}
+.chart-key-item.is-off{color:var(--text-light);border-style:dashed}
+.chart-key-item.is-off i{opacity:.3}
+@media(max-width:640px){.chart-key{justify-content:flex-start}}
 .chart-verdict{font-size:11px;color:var(--text-muted);line-height:1.55;margin-top:12px}
 .chart-verdict:empty,.chart-chips:empty{display:none}
 /* ── THE MAP AND ITS CONTROLS, AS ONE OBJECT ──
@@ -4040,6 +4055,10 @@ function upsertChart(key,ctx,config){
   // No library, no chart — but the surrounding card, its title, its chips and its
   // verdict line are all still rendered by the caller and still worth reading.
   if(!window.Chart){noteChartUnavailable(ctx);return null;}
+  // The key is drawn in HTML (renderChartKey); the canvas legend is switched off here
+  // so no renderer has to know. Whether a chart wanted one is read before it goes.
+  const wantsKey=chartKeyWanted(config);
+  silenceCanvasLegend(config);
   const prev=charts[key]||_retiredCharts[key];
   if(chartCanReuse(prev,ctx,config)){
     delete _retiredCharts[key];
@@ -4051,6 +4070,7 @@ function upsertChart(key,ctx,config){
     prev.update();
     __chartStats.updated++;
     charts[key]=prev;
+    renderChartKey(prev,wantsKey);
     return prev;
   }
   if(prev){
@@ -4060,7 +4080,81 @@ function upsertChart(key,ctx,config){
   }
   const c=new Chart(ctx,config);
   __chartStats.created++;
+  renderChartKey(c,wantsKey);
   return c;
+}
+
+// ── THE KEY ──
+// A chart that asked for no legend gets no key, and a chart with one series needs
+// none — its title already says what is plotted. Doughnuts key their slices.
+function chartKeyWanted(config){
+  const lg=config.options&&config.options.plugins&&config.options.plugins.legend;
+  if(lg&&lg.display===false)return false;
+  if(config.type==='doughnut'||config.type==='pie')return true;
+  return ((config.data&&config.data.datasets)||[]).length>1;
+}
+function silenceCanvasLegend(config){
+  config.options=config.options||{};
+  config.options.plugins=config.options.plugins||{};
+  config.options.plugins.legend=Object.assign({},config.options.plugins.legend||{},{display:false});
+}
+// The key lives just above the plot's wrapper, right-aligned, so it reads as part of
+// the chart and not of the card's heading.
+function chartKeyHost(chart,create){
+  // A stand-in chart (the smoke harness stubs the library) has no real canvas; no key.
+  if(!(chart&&chart.canvas instanceof HTMLCanvasElement))return null;
+  const wrap=chart.canvas.parentElement;
+  if(!wrap||!wrap.parentElement)return null;
+  const prev=wrap.previousElementSibling;
+  let host=prev&&prev.classList&&prev.classList.contains('chart-key')?prev:null;
+  if(!host&&create){
+    host=document.createElement('div');
+    host.className='chart-key';
+    host.setAttribute('role','group');
+    host.setAttribute('aria-label','Series shown');
+    wrap.parentElement.insertBefore(host,wrap);
+  }
+  return host;
+}
+function renderChartKey(chart,wanted){
+  const host=chartKeyHost(chart,wanted);
+  if(!host)return;
+  if(!wanted){host.innerHTML='';host.hidden=true;return;}
+  const type=chart.config.type;
+  const isPie=type==='doughnut'||type==='pie';
+  // Chart.js's own label generator, so the key says exactly what the legend would have.
+  const over=Chart.overrides&&Chart.overrides[type]&&Chart.overrides[type].plugins&&Chart.overrides[type].plugins.legend&&Chart.overrides[type].plugins.legend.labels;
+  const dflt=Chart.defaults&&Chart.defaults.plugins&&Chart.defaults.plugins.legend&&Chart.defaults.plugins.legend.labels;
+  const gen=(over&&over.generateLabels)||(dflt&&dflt.generateLabels);
+  if(typeof gen!=='function'||typeof chart.isDatasetVisible!=='function'){host.innerHTML='';host.hidden=true;return;}
+  let items=[];
+  try{items=gen(chart)||[];}catch(e){items=[];}
+  if(!Array.isArray(items)||!items.length){host.innerHTML='';host.hidden=true;return;}
+  host.hidden=false;
+  const clear=c=>{const v=String(c==null?'':c);return v&&v!=='transparent'&&!/^rgba\(\s*\d+,\s*\d+,\s*\d+,\s*0\)$/.test(v);};
+  host.innerHTML=items.map(it=>{
+    const idx=isPie?it.index:it.datasetIndex;
+    const off=isPie?!chart.getDataVisibility(idx):!chart.isDatasetVisible(idx);
+    const dashed=Array.isArray(it.lineDash)&&it.lineDash.length>0;
+    // Lines are known by their stroke, bars and slices by their fill. Chart.js's
+    // default borderColor is a 10% black, which would make a bar's pill near-invisible.
+    const ds=isPie?null:chart.data.datasets[idx];
+    const lineLike=((ds&&ds.type)||type)==='line'||((ds&&ds.type)||type)==='scatter';
+    const one=c=>Array.isArray(c)?c[0]:c;
+    const stroke=one(it.strokeStyle),fill=one(it.fillStyle);
+    const col=lineLike?(clear(stroke)?stroke:(clear(fill)?fill:'currentColor')):(clear(fill)?fill:(clear(stroke)?stroke:'currentColor'));
+    return `<button type="button" class="chart-key-item${off?' is-off':''}" data-idx="${idx}" aria-pressed="${off?'false':'true'}" title="${off?'Show':'Hide'} ${escapeAttr(String(it.text))}">`+
+      `<i class="${dashed?'dash':''}" style="${dashed?'border-color':'background'}:${escapeAttr(String(col))}"></i>${escapeHtml(String(it.text))}</button>`;
+  }).join('');
+  host.querySelectorAll('.chart-key-item').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const i=+b.dataset.idx;
+      if(isPie)chart.toggleDataVisibility(i);
+      else chart.setDatasetVisibility(i,!chart.isDatasetVisible(i));
+      chart.update();
+      renderChartKey(chart,true);
+    });
+  });
 }
 
 // ── CLOSING A READOUT ON A TOUCHSCREEN ──
@@ -5030,6 +5124,8 @@ function setChartEmpty(canvasId,msg){
   let note=wrap.querySelector('.chart-empty');
   if(!msg){cv.style.display='';if(note)note.remove();return;}
   destroyChart(canvasId.replace(/^chart/,'').toLowerCase());
+  const keyEl=wrap.previousElementSibling;
+  if(keyEl&&keyEl.classList&&keyEl.classList.contains('chart-key'))keyEl.hidden=true;
   cv.style.display='none';
   if(!note){note=document.createElement('div');note.className='chart-empty';wrap.appendChild(note);}
   note.textContent=msg;
