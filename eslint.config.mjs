@@ -30,11 +30,18 @@ export default [
     },
     linterOptions: { reportUnusedDisableDirectives: true },
     rules: {
-      // The whole point of the file.
+      // vars:'local' rather than the default. The top level of app.js and calc.js IS
+      // the page's global scope: they share it with each other and with the markup,
+      // so a function declared here and called from an onclick attribute or from the
+      // other file is used, and ESLint cannot see either. Checking locals still
+      // catches the thing worth catching — a dead binding inside a function, which
+      // is where the two it found on its first run were.
       'no-unused-vars': ['error', {
+        vars: 'local',
         args: 'none',                 // handlers routinely ignore their event
         varsIgnorePattern: '^_',
         caughtErrors: 'none',         // `catch(e){}` is a deliberate idiom here
+        ignoreRestSiblings: true,     // `const {polylines, ...rest} = a` is an omit
       }],
       // calc.js and app.js share a global scope on purpose, so cross-file
       // references are correct and no-undef cannot see them. Globals are listed

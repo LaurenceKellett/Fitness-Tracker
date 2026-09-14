@@ -31,7 +31,10 @@ const SHELL_CACHE = `fitness-shell-${CACHE_VERSION}`;
 const ASSET_CACHE = `fitness-assets-${CACHE_VERSION}`;
 const ALL_CACHES = [SHELL_CACHE, ASSET_CACHE];
 
-const SHELL = ['/', '/index.html', '/calc.js'];
+// index.html is markup only now; the CSS and the app's own script were lifted out
+// of it and are part of the shell rather than carried inside it. They also cache
+// independently, so an edit to one no longer re-downloads the other.
+const SHELL = ['/', '/index.html', '/app.css', '/calc.js', '/app.js'];
 const ASSETS = [
   // Same-origin now, so they precache like anything else and the Map works on a
   // first visit offline — which it never did while Leaflet came from unpkg.

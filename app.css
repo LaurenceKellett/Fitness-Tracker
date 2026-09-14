@@ -1,0 +1,1406 @@
+:root {
+  --bg:#f7f7f7;--surface:#fff;--border:#ebebeb;--border-strong:#dddddd;--text:#222222;--text-muted:#656565;--text-light:#9ca3af;
+  --accent:#ff385c;--accent-dark:#d70466;--accent-soft:#ffeef1;
+  --hm-cell:clamp(16px,3.5vw,44px);--hm-gap:clamp(2px,0.3vw,4px);
+  /* ── PAGE MEASURE ──
+     One pair of values for the header and the content beneath it. They have to
+     agree or the tab strip stops lining up with the cards it sits above, and
+     before this they were two independent copies of the same two numbers.
+     1200/24 left a 64px gutter each side on a 1280px laptop before the content
+     even started; 1300/20 gives the charts about 108px more to work with without
+     letting lines of body text run long on a wide monitor. */
+  --page-max:1300px;--page-pad:20px;
+  /* ── HEADER CONTROL HEIGHT ──
+     The brand tile, the scope chip and the settings button sit on one row and each
+     used to size itself: 26px, whatever its own padding and line-height came to,
+     and 40px. Three heights on three adjacent boxes reads as sloppy rather than
+     deliberate. One number, and the row lines up. */
+  --ctl-h:30px;
+  --ride:#1d4ed8;--ride-soft:#dbeafe;
+  /* Virtual was #60a5fa — a second blue, 5.3 ΔE from Swim in normal vision, which is
+     below the point where a full-colour reader can separate them at all, and 2.6 under
+     protanopia. Violet takes the worst pair in the set to 15.9. It matters more than it
+     used to now that hue is the calendars' primary encoding. */
+  --virtual:#8b5cf6;--virtual-soft:#ede9fe;
+  --run:#ef4444;--run-soft:#fee2e2;--walk:#eab308;--walk-soft:#fefce8;
+  --swim:#0ea5e9;--swim-soft:#e0f2fe;--other:#94a3b8;--other-soft:#f8fafc;
+  /* Chip labels: the hue darkened far enough to carry 12px text on its own -soft
+     ground. Virtual's was #1e6fa8 — a blue left behind when the chip itself moved
+     to violet, so the label and its background disagreed. */
+  --standing-reg:#166534;--standing-reg-bg:#dcfce7;
+  --standing-occ:#475569;--standing-occ-bg:#f1f5f9;
+  --standing-lapsed:#b45309;--standing-lapsed-bg:#fef3c7;
+  --ride-fg:#1d4ed8;--virtual-fg:#6d28d9;--run-fg:#b91c1c;--walk-fg:#92400e;
+  --swim-fg:#075985;--other-fg:#475569;
+  --radius:0;--radius-sm:0;
+
+  /* ── THE BIG FIGURES ──
+     Sora, light, and ONLY on figures of 24px and up. Everything else on the page keeps
+     Plus Jakarta Sans, unchanged.
+     The weight is the whole point: a thin stroke needs size to read, so 200 is reserved
+     for the 52px Summary hero and 300 does the 24–30px figures. Applied any smaller
+     than that it stops looking deliberate and starts looking faint — which is why this
+     is a size-gated rule rather than a font swap.
+     Letter-spacing tightens with size, as Sora is drawn a little wide for display use. */
+  --f-fig:'Sora',-apple-system,BlinkMacSystemFont,sans-serif;
+  --w-fig:400;
+  /* The hero alone sits a step above the rest. Heavier than the smaller figures is
+     the opposite of the usual rule — normally the bigger the lighter — but at 52px
+     against 24px it holds, and it is the one number the page is built around. */
+  --w-fig-xl:500;
+  --shadow:0 1px 2px rgba(15,23,42,.04),0 4px 12px rgba(15,23,42,.06);
+  /* Reserved for call-out boxes only — the AI summary, sync warnings, the Mex ceiling. */
+  --shadow-callout:0 2px 4px rgba(15,23,42,.06),0 10px 28px rgba(15,23,42,.13);
+
+  /* ── SEMANTIC TOKENS ──
+     Everything below was a hex literal scattered through the sheet. They are named
+     here because dark mode has to move them, and a colour you cannot name is a
+     colour you cannot re-theme. Light values are exactly what was there before. */
+  --success:#166534;--success-soft:#dcfce7;--success-dot:#22c55e;--success-fg:#16a34a;
+  --warn:#854d0e;--warn-soft:#fef9c3;--warn-border:#fde047;--warn-icon:#b45309;
+  --danger:#dc2626;--danger-border:#f3c4c4;
+  --neutral-soft:#e2e8f0;--neutral-fg:#475569;
+  --tag-soft:#f1f5f9;--tag-fg:#64748b;
+  --explore-bar:#cbd5e1;
+  --tooltip-bg:rgba(20,20,30,.92);--tooltip-fg:#fff;
+  --glass:rgba(255,255,255,.94);
+  /* The tab-strip fade and the scroll shadows fade to the surface colour; as a
+     gradient stop they need the transparent form of that same colour, which
+     `transparent` cannot supply without greying through in Safari. */
+  --surface-fade:rgba(255,255,255,0);
+  --on-accent:#fff;
+  --skel-a:#ececec;--skel-b:#f6f6f6;
+  --map-tile-filter:none;--map-bg:#fff;
+  /* Chart.js reads these through getComputedStyle rather than duplicating hexes. */
+  --chart-grid:#f0f0f0;--chart-tick:#9ca3af;
+  color-scheme:light;
+}
+
+/* ── DARK MODE ──
+   Token overrides only: no rule below this block knows which theme it is in.
+   Three states, deliberately: the system default (no data-theme attribute, decided
+   by prefers-color-scheme), and the two explicit choices from the header toggle,
+   each of which has to beat the media query in its own direction — hence the
+   :not([data-theme="light"]) guard on the query and a separate [data-theme="dark"]
+   block after it.
+
+   The surface is #1a1a1c rather than pure black so the 1px borders that carry this
+   layout still read, and the sport hues are lifted a step: #1d4ed8 on a dark ground
+   drops under 3:1 against the surface, which is where a colour stops being a label
+   and becomes a smudge. */
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#121214;--surface:#1a1a1c;--border:#2b2b2f;--border-strong:#3a3a40;
+    --text:#ededef;--text-muted:#a1a1a8;--text-light:#75757d;
+    --accent:#ff5c7a;--accent-dark:#ff8098;--accent-soft:#3a1a23;
+    --ride:#60a5fa;--ride-soft:#16243d;
+    --virtual:#a78bfa;--virtual-soft:#2a2140;
+    --run:#f87171;--run-soft:#3d1c1c;
+    --walk:#facc15;--walk-soft:#3a3016;
+    --swim:#38bdf8;--swim-soft:#0f2e40;
+    --other:#94a3b8;--other-soft:#24272c;
+    --standing-reg:#86efac;--standing-reg-bg:#12301f;
+    --standing-occ:#c2c9d4;--standing-occ-bg:#2b2f36;
+    --standing-lapsed:#fbbf24;--standing-lapsed-bg:#3a2c0d;
+    --ride-fg:#93c5fd;--virtual-fg:#c4b5fd;--run-fg:#fca5a5;--walk-fg:#fde047;
+    --swim-fg:#7dd3fc;--other-fg:#cbd5e1;
+    --shadow:0 1px 2px rgba(0,0,0,.5),0 4px 12px rgba(0,0,0,.4);
+    --shadow-callout:0 2px 4px rgba(0,0,0,.5),0 10px 28px rgba(0,0,0,.55);
+    --success:#86efac;--success-soft:#12301f;--success-dot:#22c55e;--success-fg:#4ade80;
+    --warn:#fde68a;--warn-soft:#352a0d;--warn-border:#6b5410;--warn-icon:#fbbf24;
+    --danger:#f87171;--danger-border:#5c2626;
+    --neutral-soft:#2b2f36;--neutral-fg:#c2c9d4;
+    --tag-soft:#26292e;--tag-fg:#9aa3b0;
+    --explore-bar:#4a515c;
+    --tooltip-bg:rgba(245,245,250,.95);--tooltip-fg:#17171a;
+    --glass:rgba(26,26,28,.94);
+    --surface-fade:rgba(26,26,28,0);
+    --skel-a:#232327;--skel-b:#2e2e34;
+    --map-tile-filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.92);
+    --map-bg:#121214;
+    --chart-grid:#2b2b2f;--chart-tick:#75757d;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121214;--surface:#1a1a1c;--border:#2b2b2f;--border-strong:#3a3a40;
+  --text:#ededef;--text-muted:#a1a1a8;--text-light:#75757d;
+  --accent:#ff5c7a;--accent-dark:#ff8098;--accent-soft:#3a1a23;
+  --ride:#60a5fa;--ride-soft:#16243d;
+  --virtual:#a78bfa;--virtual-soft:#2a2140;
+  --run:#f87171;--run-soft:#3d1c1c;
+  --walk:#facc15;--walk-soft:#3a3016;
+  --swim:#38bdf8;--swim-soft:#0f2e40;
+  --other:#94a3b8;--other-soft:#24272c;
+  --standing-reg:#86efac;--standing-reg-bg:#12301f;
+  --standing-occ:#c2c9d4;--standing-occ-bg:#2b2f36;
+  --standing-lapsed:#fbbf24;--standing-lapsed-bg:#3a2c0d;
+  --ride-fg:#93c5fd;--virtual-fg:#c4b5fd;--run-fg:#fca5a5;--walk-fg:#fde047;
+  --swim-fg:#7dd3fc;--other-fg:#cbd5e1;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 4px 12px rgba(0,0,0,.4);
+  --shadow-callout:0 2px 4px rgba(0,0,0,.5),0 10px 28px rgba(0,0,0,.55);
+  --success:#86efac;--success-soft:#12301f;--success-dot:#22c55e;--success-fg:#4ade80;
+  --warn:#fde68a;--warn-soft:#352a0d;--warn-border:#6b5410;--warn-icon:#fbbf24;
+  --danger:#f87171;--danger-border:#5c2626;
+  --neutral-soft:#2b2f36;--neutral-fg:#c2c9d4;
+  --tag-soft:#26292e;--tag-fg:#9aa3b0;
+  --explore-bar:#4a515c;
+  --tooltip-bg:rgba(245,245,250,.95);--tooltip-fg:#17171a;
+  --glass:rgba(26,26,28,.94);
+  --surface-fade:rgba(26,26,28,0);
+  --skel-a:#232327;--skel-b:#2e2e34;
+  --map-tile-filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.92);
+  --map-bg:#121214;
+  --chart-grid:#2b2b2f;--chart-tick:#75757d;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.ms{font-family:'Material Symbols Rounded';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 20;font-size:inherit;line-height:1;vertical-align:-3px;display:inline-block}
+.ms-fill{font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 20}
+.type-icon .ms{font-size:22px;vertical-align:0}
+.gear-icon-tile .ms,.gear-icon-inline .ms{vertical-align:0}
+.recent-meta .ms{font-size:13px}
+.gear-type .ms{font-size:13px}
+a{color:inherit;text-decoration:none}
+/* HEADER */
+.header{background:var(--surface);border-bottom:1px solid var(--border-strong);position:sticky;top:0;z-index:100}
+.header-inner{max-width:var(--page-max);margin:0 auto;padding:0 var(--page-pad)}
+.hrow{display:flex;align-items:center;padding:8px 0;gap:6px}
+/* Ten tab buttons need about 1100px. Between the 640px phone breakpoint — where the
+   row is swapped for a select — and roughly 1400px they were pushing the whole
+   document wider than the viewport, so every tab scrolled sideways on a tablet or a
+   small laptop. The row scrolls on its own now instead of dragging the page with it. */
+.hrow+.hrow{border-top:1px solid var(--border)}
+/* Two bands, grouped by kind: "place" (brand, destinations, utilities) then
+   "scope" (the two controls that change what every number on the page means).
+   The year stepper used to live at the end of the tab row, which pushed its
+   right edge to 1078px — off-screen on anything narrower, with no hint it was
+   there. Moving it here returns 137px to the tabs and fixes that outright. */
+.hrow-nav{gap:16px;padding:9px 0}
+.hrow-scope{gap:10px;padding:5px 0}
+.tab-strip-wrap{display:flex;flex:1;min-width:0;position:relative;align-self:stretch;
+  margin-right:14px}
+.tab-strip-wrap::after{content:'';position:absolute;right:0;top:0;bottom:0;width:34px;
+  pointer-events:none;background:linear-gradient(to right,var(--surface-fade),var(--surface))}
+.tab-strip{display:flex;align-items:stretch;gap:2px;flex:1;min-width:0;overflow-x:auto;
+  scrollbar-width:none;-ms-overflow-style:none}
+.tab-strip::-webkit-scrollbar{display:none}
+/* Only the tabs stretch. The logo and the toolbar stay centred on the row's own
+   align-items, which is right for a mark and a control rather than a tab. */
+.tab-strip .tab-btn{flex-shrink:0;padding-top:0;padding-bottom:0}
+.scope-sep{width:1px;height:18px;background:var(--border-strong);flex-shrink:0}
+.scope-chip{display:none}
+.logo-wrap{display:flex;align-items:center;gap:8px}
+.logo-icon{width:var(--ctl-h);height:var(--ctl-h);background:#fc4c02;border-radius:0;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+/* The mark keeps its proportion inside the tile whatever height the row takes. */
+.logo-icon svg{width:calc(var(--ctl-h) * .5);height:calc(var(--ctl-h) * .5)}
+.logo-name{font-size:15px;font-weight:700;letter-spacing:-.3px;color:var(--text)}
+.last-updated{font-size:10px;color:var(--text-light);white-space:nowrap}
+.header-toolbar{display:flex;align-items:stretch;border:1px solid var(--border-strong);border-radius:0;overflow:hidden;flex-shrink:0;height:30px}
+.unit-opt{padding:0 9px;font-size:11px;font-weight:600;color:var(--text-muted);border:none;background:transparent;cursor:pointer;line-height:1;font-family:inherit;display:flex;align-items:center}
+.unit-opt.active{background:var(--text);color:var(--surface)}
+.icon-btn{width:32px;border:none;background:transparent;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);font-size:15px;text-decoration:none;flex-shrink:0;transition:color .15s;font-family:inherit}
+.icon-btn:hover{color:var(--text)}
+.icon-btn:disabled{opacity:.5;cursor:not-allowed}
+.tab-btn{padding:6px 10px;font-size:12px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text-muted);border-radius:0;white-space:nowrap;transition:all .15s;font-family:inherit;display:inline-flex;align-items:center;gap:4px}
+.tab-btn .ms{font-size:14px;vertical-align:0}
+.tab-btn.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.tab-btn:hover:not(.active){color:var(--text)}
+.year-bar{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.year-all{padding:5px 10px;font-size:11px;font-weight:600;color:var(--text-muted);border:1px solid var(--border-strong);border-radius:0;background:transparent;cursor:pointer;transition:all .15s;font-family:inherit}
+.year-all.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent-soft)}
+.year-ctl{display:flex;align-items:center;border:1px solid var(--border-strong);border-radius:0;overflow:hidden}
+.year-arrow{padding:5px 8px;font-size:14px;font-weight:500;color:var(--text-muted);border:none;background:transparent;cursor:pointer;line-height:1;transition:color .15s;font-family:inherit}
+.year-arrow:hover:not(:disabled){color:var(--text)}
+.year-arrow:disabled{opacity:.35;cursor:default}
+.year-arrow:first-child{border-right:1px solid var(--border)}
+.year-arrow:last-child{border-left:1px solid var(--border)}
+.year-label{padding:5px 12px;font-size:12px;font-weight:700;color:var(--text)}
+.year-roll{padding:5px 8px;font-size:11px;font-weight:600;color:var(--text-muted);border:none;
+  background:transparent;cursor:pointer;line-height:1;font-family:inherit;transition:all .15s}
+.year-roll+.year-roll{border-left:1px solid var(--border)}
+.year-roll:hover:not(.active){color:var(--text)}
+.year-roll.active{background:var(--accent-soft);color:var(--accent)}
+.type-bar{display:flex;gap:2px;flex-wrap:wrap}
+.type-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;font-size:12px;font-weight:500;color:var(--text-muted);border:none;background:transparent;border-radius:0;cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit}
+.type-btn:hover:not(.active){color:var(--text)}
+.type-btn.active{font-weight:600}
+.type-btn[data-type="All"].active{background:var(--accent-soft);color:var(--accent)}
+.type-btn[data-type="Ride"].active{background:var(--ride-soft);color:var(--ride)}
+.type-btn[data-type="Virtual"].active{background:var(--virtual-soft);color:var(--virtual-fg)}
+.type-btn[data-type="Run"].active{background:var(--run-soft);color:var(--run-fg)}
+.type-btn[data-type="Walk"].active{background:var(--walk-soft);color:var(--walk-fg)}
+.type-btn[data-type="Swim"].active{background:var(--swim-soft);color:var(--swim-fg)}
+.type-btn[data-type="Other"].active{background:var(--other-soft);color:var(--other-fg)}
+/* Only ever the selected sport, kept on the row after the period stopped containing
+   any of it. Dimmed, so an empty page below reads as "you have filtered it away"
+   rather than as "the dashboard broke". */
+.type-btn-empty{opacity:.45}
+.type-btn-empty .type-dot{filter:grayscale(1)}
+.type-btn-note{font-size:10px;font-weight:500;color:var(--text-light)}
+.type-dot{width:7px;height:7px;border-radius:0;flex-shrink:0}
+.refresh-icon{display:inline-block;transition:transform .6s}
+.icon-btn.spinning .refresh-icon{animation:rspin .8s linear infinite}
+@keyframes rspin{to{transform:rotate(360deg)}}
+.main{max-width:var(--page-max);margin:0 auto;padding:28px var(--page-pad)}
+.tab-content{display:none}.tab-content.active{display:block}
+@keyframes enterFromRight{from{transform:translateX(28px);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes enterFromLeft{from{transform:translateX(-28px);opacity:0}to{transform:translateX(0);opacity:1}}
+.tab-content.enter-from-right{animation:enterFromRight .22s ease}
+.tab-content.enter-from-left{animation:enterFromLeft .22s ease}
+/* SUMMARY — the present-tense block that now leads the page */
+.sum-hero{border-top:3px solid var(--accent);padding:24px 26px;margin-bottom:14px}
+.sum-hero-row{display:flex;gap:34px;align-items:flex-start}
+.sum-hero-fig{width:250px;flex-shrink:0}
+.sum-hero-chart{flex:1;min-width:0}
+.sum-hero-chart .chart-wrap{height:186px}
+.sum-big{font-family:var(--f-fig);font-size:52px;font-weight:var(--w-fig-xl);letter-spacing:-2.6px;line-height:1;margin:10px 0 8px}
+.sum-big-unit{font-size:22px;font-weight:500;color:var(--text-muted);letter-spacing:0;margin-left:11px}
+.sum-ratio{display:inline-flex;align-items:baseline;gap:6px;padding:6px 11px;margin-top:14px;
+  font-size:11px;font-weight:600;border-radius:0}
+.sum-ratio strong{font-size:14px;font-weight:700}
+/* Quiet by design: B earns its place by what it says, not by its size. */
+.sum-band{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);
+  padding:16px 22px;display:flex;align-items:flex-start;gap:14px;margin-bottom:22px}
+.sum-band:empty{display:none}
+.sum-band .ms{font-size:17px;color:var(--text-muted);vertical-align:0;flex-shrink:0;margin-top:1px}
+.sum-band-text{font-size:16px;font-weight:600;line-height:1.5}
+/* The per-sport split under the distance hero. Tighter than the Social one it
+   borrows from: it sits inside a card that already carries a chart. */
+.sum-split{margin-top:18px;padding-top:16px;border-top:1px solid var(--border)}
+.sum-split-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.sum-split-t{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-light)}
+.sum-split-n{font-size:11.5px;color:var(--text-muted)}
+.sum-split .split-bar{height:14px;margin:9px 0 9px}
+.sum-split .split-key{gap:5px 16px}
+.sum-split-empty{font-size:12px;color:var(--text-muted);margin-top:9px}
+.sum-two{display:grid;grid-template-columns:1.6fr 1fr;gap:18px;margin-bottom:26px}
+.sum-two .chart-wrap{height:172px}
+.sum-consistency{display:flex;flex-direction:column}
+.sum-cal{display:grid;grid-template-columns:repeat(14,1fr);gap:3px;margin-top:16px}
+.sum-cal i{aspect-ratio:1;display:block;border-radius:0}
+.sum-cal-ends{display:flex;justify-content:space-between;margin-top:6px;font-size:9px;color:var(--text-light)}
+.sum-streaks{border-top:1px solid var(--border);margin-top:auto;padding-top:14px;
+  display:flex;justify-content:space-between}
+.sum-sports{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:26px}
+.sum-sport-note{flex:0 0 100%;margin-bottom:0;max-width:64ch}
+.sum-sport-card{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);
+  padding:18px;border-top-width:3px;border-top-style:solid}
+.sum-sport-head{display:flex;align-items:center;gap:7px;margin-bottom:14px}
+.sum-sport-head .ms{font-size:17px;vertical-align:0}
+.sum-sport-name{font-size:13px;font-weight:700}
+.sum-sport-big{font-family:var(--f-fig);font-size:30px;font-weight:var(--w-fig);letter-spacing:-1.1px;line-height:1}
+.sum-sport-rows{border-top:1px solid var(--border);margin-top:14px;padding-top:12px;
+  display:flex;flex-direction:column;gap:9px}
+.sum-sport-row{display:flex;justify-content:space-between;align-items:baseline}
+.sum-sport-row span:first-child{font-size:11px;color:var(--text-muted)}
+.sum-sport-row span:last-child{font-size:12px;font-weight:600}
+/* The trophies, demoted to one line. */
+.sum-career{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);
+  padding:14px 22px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:24px}
+.sum-career-fig{display:flex;align-items:baseline;gap:6px}
+.sum-career-fig b{font-size:13px;font-weight:700}
+.sum-career-fig span{font-size:11px;color:var(--text-muted)}
+.sum-career-sep{width:1px;height:14px;background:var(--border)}
+@media(max-width:1000px){
+  .sum-hero-row{flex-direction:column;gap:18px}
+  .sum-hero-fig{width:auto}
+  .sum-two{grid-template-columns:1fr}
+  .sum-sports{grid-template-columns:repeat(2,1fr)}
+  .sum-sport-note{display:none}
+}
+@media(max-width:640px){
+  .sum-big{font-size:44px}
+  .sum-sports{grid-template-columns:1fr}
+  .sum-hero{padding:18px}
+}
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:14px;margin-bottom:24px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:18px 20px;box-shadow:var(--shadow)}
+.stat-card-link{cursor:pointer;transition:box-shadow .1s}
+.stat-card-link:hover{box-shadow:0 2px 4px rgba(15,23,42,.06),0 8px 20px rgba(15,23,42,.09)}
+.stat-label{font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:6px}
+.stat-value{font-family:var(--f-fig);font-size:24px;font-weight:var(--w-fig);letter-spacing:-.6px;line-height:1}
+/* The figure beside this carries negative tracking, which pulls the unit in against
+   it; the extra margin pays that back. */
+.stat-unit{font-size:13px;font-weight:400;color:var(--text-muted);margin-left:6px}
+.stat-sub{font-size:12px;color:var(--text-muted);margin-top:5px}
+.stat-delta{font-size:12px;font-weight:600;margin-top:4px}
+.stat-delta.up{color:var(--success-fg)}.stat-delta.down{color:var(--danger)}
+/* CHARTS */
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+.charts-grid.wide{grid-template-columns:1fr}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:20px 22px;box-shadow:var(--shadow)}
+.chart-title{font-size:13px;font-weight:600;margin-bottom:4px}
+.chart-sub{font-size:11px;color:var(--text-muted);margin-bottom:16px}
+.chart-wrap{position:relative;height:240px}.chart-wrap.tall{height:320px}
+@media(max-width:700px){.charts-grid{grid-template-columns:1fr}}
+/* A panel's own width, declared on the panel rather than imposed by the row it sits
+   in. Below 700px the grid is one column and both of these collapse to the same
+   thing, which is why reordering needs no separate mobile model: there is one
+   order, and the grid decides how to lay it out.
+   Not scoped to .chart-card: a panel that is a stats grid or a list wants to claim
+   the row just as often as one that is a chart. */
+.span-full{grid-column:1 / -1}
+/* What the current scope has nothing to say about — a whole card, or the half of a
+   card that swaps between a bar chart and a calendar. A class rather than an inline
+   style, because an inline `display` outranks the whole stylesheet: reorder mode
+   could then neither collapse a card nor bring a hidden one back. */
+.is-hidden{display:none}
+
+/* ── REORDERING PANELS ──
+   In place, on the real page, with every panel collapsed to a title row.
+   Dragging at full height was the obvious thing and it does not work: a chart card
+   is 300–400px tall, the tab is five screens long, and moving the last card to the
+   top is then a four-screen drag on a phone and a scroll-chase on a desktop.
+   Collapsed, a whole tab is one or two screens and every move is a short one —
+   while still being the actual panels in their actual positions, so what you see
+   while you drag is what you get when you finish.
+
+   Keyed off [data-panel] rather than .chart-card so the same rules dress a chart, a
+   stats grid, a table and a list identically. The title is an element injected by
+   buildReorderControls, not a heading revealed from inside: a summary panel may
+   have a section header, a hero card has none, and a generated one has whatever it
+   was born with. One injected label is the only version that reads the same
+   everywhere. */
+.reordering [data-panel]{display:flex;align-items:center;gap:12px;
+  padding:12px 14px;cursor:grab;touch-action:none;user-select:none;
+  background:var(--surface);border:1px solid var(--border-strong);
+  box-shadow:var(--shadow);margin:0}
+.reordering [data-zone]{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.reordering [data-panel]>*{display:none}
+.reordering [data-panel]>.reorder-grip,
+.reordering [data-panel]>.reorder-name,
+.reordering [data-panel]>.reorder-ctl{display:flex}
+.reorder-name{flex:1;min-width:0;align-items:center;font-size:12.5px;font-weight:600;
+  color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* A panel hidden by the current scope is still yours to place. Shown greyed with a
+   reason, because a card you cannot see is one you cannot put anywhere. */
+.reordering [data-panel].is-hidden{display:flex;opacity:.55;border-style:dashed}
+.reordering [data-panel].is-hidden>.reorder-name::after{
+  content:' · hidden by this filter';color:var(--text-light);font-weight:500}
+.reordering [data-panel]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.reordering [data-panel].dragging{opacity:.3;cursor:grabbing}
+/* Section headings belong to the panel under them once panels exist, so a loose one
+   between zones is only scaffolding while reordering. */
+.reordering>.section-header,.reordering [data-panel].span-full{grid-column:1 / -1}
+.reordering>.section-header{margin:14px 0 2px}
+.reordering{padding-bottom:84px}
+@media(max-width:700px){.reordering [data-zone]{grid-template-columns:1fr}}
+/* Boxed and clipped, both of them. A Material Symbol is a ligature: until the font
+   arrives — or for good, if it never does — `drag_indicator` renders as those
+   fourteen literal characters, and an unclipped 110px-wide "icon" pushes the card
+   past the edge of a phone. Sized by the box, never by the glyph. */
+.reorder-grip{width:22px;height:22px;overflow:hidden;flex-shrink:0;
+  align-items:center;justify-content:center;color:var(--text-light)}
+.reorder-grip .ms{font-size:19px;vertical-align:0}
+.reorder-ctl{gap:2px;flex-shrink:0;margin-left:auto}
+.reorder-move{display:flex;align-items:center;justify-content:center;width:30px;height:30px;
+  overflow:hidden;background:transparent;border:1px solid var(--border);color:var(--text-muted);
+  font-family:inherit;cursor:pointer;padding:0}
+.reorder-move:hover:not(:disabled){background:var(--bg);color:var(--text)}
+.reorder-move:disabled{opacity:.3;cursor:not-allowed}
+.reorder-move .ms{font-size:17px;vertical-align:0}
+/* The tile that follows the pointer. The real card stays in the grid, faded, so the
+   gap it would leave moves live under your finger rather than appearing at the end. */
+.reorder-ghost{position:fixed;top:0;left:0;z-index:300;pointer-events:none;margin:0;
+  display:flex;align-items:center;gap:12px;padding:12px 14px;
+  background:var(--surface);border:1px solid var(--accent);
+  box-shadow:var(--shadow-callout);opacity:.96}
+.reorder-ghost .reorder-grip{color:var(--accent)}
+.reorder-ghost .chart-title{flex:1;min-width:0;margin:0;font-size:12.5px;font-weight:600;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Fixed to the bottom rather than sticky under the header: the header is two bands
+   whose height changes with the viewport, and the bottom is where a thumb is. */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
+.reorder-bar{position:fixed;left:0;right:0;bottom:0;z-index:202;
+  display:flex;align-items:center;gap:14px;
+  background:var(--surface);border-top:1px solid var(--border-strong);
+  box-shadow:0 -8px 24px rgba(15,23,42,.14);
+  padding:12px max(var(--page-pad),calc((100vw - var(--page-max))/2 + var(--page-pad)));
+  padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+.reorder-bar[hidden]{display:none}
+.reorder-bar-icon{display:flex;align-items:center;justify-content:center;
+  width:22px;height:22px;overflow:hidden;flex-shrink:0;color:var(--accent)}
+.reorder-bar-icon .ms{font-size:20px;vertical-align:0}
+.reorder-bar-text{min-width:0;flex:1}
+.reorder-bar-text strong{display:block;font-size:12.5px;font-weight:700}
+.reorder-bar-text span{font-size:11px;color:var(--text-muted);line-height:1.45}
+.reorder-bar button{font-family:inherit;font-size:12.5px;font-weight:700;padding:10px 16px;
+  border-radius:0;cursor:pointer;flex-shrink:0}
+.reorder-reset{background:transparent;border:1px solid var(--border-strong);color:var(--text-muted)}
+.reorder-reset:hover:not(:disabled){color:var(--text)}
+.reorder-reset:disabled{opacity:.4;cursor:not-allowed}
+.reorder-done{background:var(--text);border:none;color:var(--surface)}
+@media(max-width:700px){
+  /* The instruction line is the first thing to go: by the time you are on a phone
+     you are already holding a card. */
+  .reorder-bar-text span{display:none}
+  .reorder-bar{gap:10px}
+  .reorder-bar button{padding:10px 13px}
+}
+/* The pattern from the heart-rate zone card, generalised: a row of tinted figure
+   chips under the plot, then one plain-English line saying what the shape means.
+   A chart earns these only when there is something true and non-obvious to say —
+   chips that restate the axis, or a verdict that restates the chips, are noise. */
+/* A title on the left and the control that changes what the chart measures on the
+   right. Wraps rather than shrinks: below about 440px the three buttons drop to
+   their own line instead of squeezing the title into two words a line. */
+.chart-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.chart-head-text{min-width:min(220px,100%);flex:1}
+.chart-ctl{display:flex;flex-shrink:0;border:1px solid var(--border-strong);border-radius:0;overflow:hidden}
+.chart-ctl-btn{padding:5px 9px;font-size:11px;font-weight:600;color:var(--text-muted);
+  border:none;background:transparent;cursor:pointer;font-family:inherit;line-height:1.45;white-space:nowrap}
+.chart-ctl-btn+.chart-ctl-btn{border-left:1px solid var(--border)}
+.chart-ctl-btn:hover:not(.active){color:var(--text)}
+.chart-ctl-btn.active{background:var(--accent-soft);color:var(--accent)}
+.proj-mixer{margin:2px 0 16px}
+.proj-mix-label{display:block;font-size:10.5px;font-weight:700;letter-spacing:.5px;
+  text-transform:uppercase;color:var(--text-light);margin-bottom:6px}
+.proj-slider{width:100%;margin:0;height:22px;background:transparent;
+  -webkit-appearance:none;appearance:none;cursor:pointer}
+.proj-slider:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.proj-slider::-webkit-slider-runnable-track{height:4px;background:var(--border-strong);border-radius:0}
+.proj-slider::-moz-range-track{height:4px;background:var(--border-strong);border-radius:0}
+.proj-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+  width:18px;height:18px;margin-top:-7px;border-radius:0;background:var(--accent);
+  border:2px solid var(--surface);box-shadow:var(--shadow);cursor:grab}
+.proj-slider::-moz-range-thumb{width:18px;height:18px;border-radius:0;background:var(--accent);
+  border:2px solid var(--surface);box-shadow:var(--shadow);cursor:grab}
+.proj-mix-ends{display:flex;justify-content:space-between;gap:12px;
+  font-size:10px;color:var(--text-light);margin-top:-2px}
+.proj-mix-ends span:last-child{text-align:right}
+.proj-mix-says{font-size:11px;color:var(--text-muted);margin-top:7px;line-height:1.5}
+.chart-chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.chart-chip{display:flex;align-items:baseline;gap:6px;padding:5px 11px;font-size:11px;font-weight:600}
+.chart-chip strong{font-size:13px;font-weight:700}
+.chart-verdict{font-size:11px;color:var(--text-muted);line-height:1.55;margin-top:12px}
+.chart-verdict:empty,.chart-chips:empty{display:none}
+/* ── THE MAP AND ITS CONTROLS, AS ONE OBJECT ──
+   There used to be three strips above the map in three different treatments: a bare
+   legend-and-fade row, a row of eight jump pills, and a bordered, shadowed replay bar.
+   Nothing grouped by function — Fade is a display control that sat with the legend,
+   which is information. One toolbar now, sharing the map's border, grouped Go to /
+   Replay / Fade. The legend moved onto the map, where legends belong and where it
+   costs no layout height. */
+.map-object{border:1px solid var(--border);background:var(--surface);box-shadow:var(--shadow)}
+.map-toolbar{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--border);background:var(--bg)}
+.map-tgroup{display:flex;align-items:center;gap:8px;min-width:0}
+.map-tgroup-grow{flex:1;min-width:0}
+.map-tlabel{font-size:12px;font-weight:500;color:var(--text-muted);white-space:nowrap;flex-shrink:0}
+.map-tlabel-icon{display:flex;align-items:center;gap:6px}
+.map-tdiv{width:1px;align-self:stretch;background:var(--border);flex-shrink:0}
+.map-btn{height:32px;display:inline-flex;align-items:center;gap:5px;padding:0 9px;border:1px solid var(--border);
+  border-radius:0;background:var(--surface);font-family:inherit;font-size:12px;font-weight:600;color:var(--text);
+  cursor:pointer;white-space:nowrap;flex-shrink:0;transition:border-color .15s,background .15s}
+.map-btn:hover{border-color:var(--border-strong);background:var(--bg)}
+.map-btn.playing{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.map-select{height:32px;padding:0 8px;border:1px solid var(--border);border-radius:0;font-family:inherit;
+  font-size:12px;background:var(--surface);color:var(--text);cursor:pointer;flex-shrink:0;box-sizing:border-box}
+.map-select-grow{flex:1;min-width:0}
+.map-fade{width:92px;accent-color:var(--accent);flex-shrink:0}
+.map-stage{position:relative;height:680px}
+/* Overlays sit on the map's own surface, so they cost no vertical space. Both are
+   translucent white rather than solid — a route under one stays readable. */
+.map-legend{position:absolute;left:14px;bottom:14px;z-index:500;display:flex;flex-direction:column;gap:5px;
+  padding:10px 12px;background:var(--glass);border:1px solid var(--border);pointer-events:none}
+.map-legend-title{font-size:10px;font-weight:700;color:var(--text-light);margin-bottom:1px}
+.map-legend-row{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted)}
+.map-legend-row i{width:9px;height:9px;display:inline-block;font-style:normal;flex-shrink:0}
+.map-legend-row b{margin-left:auto;padding-left:14px;font-weight:400;color:var(--text-light)}
+.map-readout{position:absolute;right:14px;bottom:14px;z-index:500;display:flex;align-items:center;gap:12px;
+  padding:9px 14px;background:var(--glass);border:1px solid var(--accent);pointer-events:none}
+.map-readout-name{font-size:12px;font-weight:700}
+.map-readout-sub{font-size:11px;color:var(--text-muted);margin-top:1px}
+.map-readout-pct{font-size:19px;font-weight:800;color:var(--accent);letter-spacing:-.4px}
+/* The picker's group headers. Notable first because it is what you would want to
+   watch; recent under it because it is what you would want to check. */
+#replayPick optgroup{font-size:11px;font-weight:700;color:var(--text-light)}
+#replayPick option{font-size:12px;font-weight:400;color:var(--text)}
+@media(max-width:1100px){
+  .map-tlabel{display:none}
+  .map-tgroup{gap:6px}
+}
+/* Two rows on a phone: Go to and Fade share the first, the replay picker and its
+   button take the second — the button beside the thing it acts on, not above it. */
+@media(max-width:640px){
+  /* Exactly two rows. Home drops to its icon and the fade slider to 64px so the
+     first row holds Go to and Fade together; the replay picker and its button take
+     the second, the button beside the thing it acts on rather than above it. Three
+     rows here would be 155px of toolbar — no better than the strips it replaced. */
+  .map-toolbar{flex-wrap:wrap;gap:8px;padding:8px}
+  .map-tdiv{display:none}
+  .map-tlabel{display:none}
+  .map-tgroup{flex:1 1 auto;min-width:0;gap:8px}
+  .map-tgroup-grow{flex:1 1 100%;order:3}
+  .map-btn,.map-select{height:44px;font-size:13px}
+  .map-btn{padding:0 12px}
+  #mapHomeBtn{width:44px;padding:0;justify-content:center;flex-shrink:0}
+  #mapHomeBtn .map-btn-text{display:none}
+  #mapHomeBtn .ms{font-size:19px}
+  #mapJumpSelect{width:auto!important;flex:1 1 auto;min-width:0}
+  .map-tgroup:last-of-type{flex:0 0 auto}
+  .map-fade{width:64px;flex-shrink:0}
+  #replayPick{flex:1 1 auto;min-width:0}
+  #replayBtn{width:44px;padding:0;justify-content:center;flex-shrink:0}
+  #replayBtn .ms{font-size:20px}
+  #replayBtnText{display:none}
+  .map-stage{height:420px}
+  .map-legend{left:10px;bottom:10px;padding:8px 10px;flex-direction:row;flex-wrap:wrap;gap:4px 10px;max-width:66%}
+  .map-legend-title{display:none}
+  .map-legend-row b{display:none}
+  .map-readout{right:10px;top:10px;bottom:auto;padding:6px 10px;gap:8px}
+  .map-readout-sub{display:none}
+  .map-readout-pct{font-size:15px}
+}
+.explore-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border)}
+.explore-row:last-child{border-bottom:none}
+.explore-year{width:44px;flex-shrink:0;font-size:12px;font-weight:700;color:var(--text-muted)}
+.explore-track{flex:1;min-width:0;height:16px;background:var(--bg);border:1px solid var(--border);box-sizing:border-box}
+.explore-bar{height:100%;background:var(--explore-bar);position:relative}
+.explore-bar span{position:absolute;inset:0 auto 0 0;background:var(--accent);display:block}
+.explore-fig{flex-shrink:0;font-size:11px;color:var(--text-muted);white-space:nowrap}
+.explore-fig strong{font-size:12px;font-weight:700;color:var(--text)}
+@media(max-width:640px){
+  .explore-row{flex-wrap:wrap;gap:6px 10px}
+  .explore-track{order:3;flex-basis:100%;flex-grow:1}
+  .explore-fig{margin-left:auto}
+}
+.chart-empty{display:flex;align-items:center;justify-content:center;height:100%;font-size:12px;color:var(--text-light);text-align:center;padding:0 20px}
+/* YEAR CAL */
+.year-cal-grid{display:flex;gap:2px;overflow-x:auto;padding-bottom:4px}
+.year-cal-col{display:flex;flex-direction:column;gap:2px}
+.year-cal-cell{width:14px;height:14px;border-radius:0;cursor:pointer;transition:opacity .1s}
+.year-cal-cell:hover{opacity:.75}
+.year-cal-months{display:flex;gap:2px;margin-bottom:3px;min-height:14px}
+.year-cal-dows{display:flex;flex-direction:column;gap:2px;margin-right:4px;padding-top:17px}
+.year-cal-dow-lbl{height:14px;font-size:9px;color:var(--text-light);line-height:14px}
+.year-cal-wrap{display:flex;margin-top:8px}
+/* HEATMAP */
+.heatmap-wrap{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:24px;box-shadow:var(--shadow)}
+.heatmap-title{font-size:14px;font-weight:600;margin-bottom:4px}
+.heatmap-sub{font-size:12px;color:var(--text-muted);margin-bottom:16px}
+.heatmap-year-nav{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.hm-nav-btn{padding:4px 10px;border:1px solid var(--border);border-radius:0;font-size:12px;font-weight:600;cursor:pointer;background:var(--surface);color:var(--text-muted);transition:all .15s}
+.hm-nav-btn:hover{background:var(--bg);color:var(--text)}
+.hm-nav-year{font-size:15px;font-weight:700;min-width:48px;text-align:center}
+.hm-grid-outer{display:inline-block}
+.hm-row{display:flex;align-items:center;gap:var(--hm-gap)}
+.hm-month-lbl{width:clamp(26px,3.2vw,38px);font-size:clamp(9px,0.9vw,12px);color:var(--text-light);text-align:right;padding-right:4px;flex-shrink:0;line-height:1}
+.hm-dow-hdr{width:var(--hm-cell);font-size:clamp(9px,0.85vw,12px);color:var(--text-light);text-align:center;flex-shrink:0;padding-bottom:2px}
+.hm-cell{width:var(--hm-cell);height:var(--hm-cell);border-radius:0;cursor:default;flex-shrink:0;transition:opacity .1s}
+.hm-cell.active{cursor:pointer}.hm-cell.active:hover{opacity:.75}
+.heatmap-legend{display:flex;align-items:center;gap:4px;margin-top:10px;font-size:11px;color:var(--text-muted)}
+/* ── DISCLOSURE CONTENT ──
+   A closed <details> does not reliably hide a child that carries an explicit
+   `display`, and all three of ours do: the prior-year heatmaps are display:block
+   (or :none, swapped at the phone breakpoint) and the partner rows are display:grid.
+   The prior years were the live symptom — collapsing one left its whole 144px
+   heatmap on the page, so the toggle appeared to do nothing at all.
+   This only enforces what a closed <details> already means. */
+details:not([open])>*:not(summary){display:none}
+
+.hm-prior{margin-top:24px;padding-top:20px;border-top:1px solid var(--border)}
+.hm-prior>summary{cursor:pointer;list-style:none}
+.hm-prior>summary::-webkit-details-marker{display:none}
+.hm-prior>summary::after{content:'▸';margin-left:auto;color:var(--text-light);font-size:11px;transition:transform .15s}
+.hm-prior[open]>summary::after{transform:rotate(90deg)}
+.hm-prior-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.hm-prior-spark{display:flex;align-items:flex-end;gap:2px;height:18px;width:132px;flex-shrink:0}
+.hm-prior-spark i{flex:1;display:block;font-style:normal}
+.hm-prior-year{font-size:15px;font-weight:700}
+.hm-prior-meta{font-size:11px;color:var(--text-muted)}
+.heatmap-legend-cells{display:flex;gap:2px}
+.heatmap-legend-cell{width:11px;height:11px;border-radius:0}
+/* RECORDS */
+.records-section{margin-bottom:28px}
+.records-section h3{font-size:14px;font-weight:700;margin-bottom:14px}
+.records-note{font-size:11px;color:var(--text-muted);line-height:1.55;margin-top:12px;max-width:70ch}
+/* ── RECORDS, REBUILT ──
+   28 equal-weight cards became a hero row plus tables. The table earns its keep by
+   adding a Standing column: the date was always there and never did anything, and
+   how long a record has held is the part that is actually interesting. */
+.rec-yearbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.rec-yearbar .lbl{font-size:12px;color:var(--text-muted)}
+.rec-yr{height:30px;display:inline-flex;align-items:center;padding:0 11px;border:1px solid var(--border);
+  border-radius:0;background:var(--surface);font-family:inherit;font-size:12px;font-weight:600;
+  color:var(--text-muted);cursor:pointer;transition:all .15s}
+.rec-yr:hover{border-color:var(--border-strong);color:var(--text)}
+.rec-yr.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.rec-hero-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(216px,1fr));gap:14px;margin-bottom:30px}
+.rec-hero{background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--hc);
+  padding:16px 18px;box-shadow:var(--shadow);cursor:pointer;transition:border-color .15s}
+.rec-hero:hover{border-color:var(--border-strong);border-top-color:var(--hc)}
+.rec-hero-lbl{font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:7px}
+.rec-hero-val{font-family:var(--f-fig);font-size:30px;font-weight:var(--w-fig);letter-spacing:-1px;line-height:1}
+.rec-hero-val .u{font-size:14px;font-weight:400;color:var(--text-muted);letter-spacing:0;margin-left:3px}
+.rec-hero-nm{font-size:12px;font-weight:600;margin-top:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec-hero-sub{font-size:11px;color:var(--text-light);margin-top:2px}
+.rec-sect{display:flex;align-items:baseline;gap:10px;margin:0 0 10px}
+.rec-sect h3{font-size:14px;font-weight:700}
+.rec-sect span{font-size:11px;color:var(--text-light)}
+.rec-tbl{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);margin-bottom:8px}
+.rec-head,.rec-row{display:grid;grid-template-columns:180px 122px 1fr 96px 118px;gap:14px;align-items:center;padding:0 16px}
+.rec-head{height:32px;background:var(--bg);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;color:var(--text-light)}
+.rec-row{height:42px;border-bottom:1px solid var(--bg);font-size:12.5px;cursor:pointer;transition:background .12s}
+.rec-row:last-child{border-bottom:none}
+.rec-row:hover{background:var(--bg)}
+.rec-name{font-weight:600;display:flex;align-items:center;gap:7px;min-width:0}
+.rec-name i{width:7px;height:7px;flex-shrink:0;font-style:normal}
+.rec-best{font-weight:700;font-size:14px;font-variant-numeric:tabular-nums}
+.rec-act{color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec-set{color:var(--text-light);font-size:11.5px;font-variant-numeric:tabular-nums}
+.rec-std{font-size:11.5px;color:var(--text-muted)}
+.rec-fresh{font-size:10px;font-weight:700;color:var(--success);background:var(--success-soft);padding:1px 6px;white-space:nowrap}
+.rec-shared{font-size:11.5px;color:var(--text-muted);margin-bottom:26px;display:flex;align-items:flex-start;gap:7px;max-width:104ch;line-height:1.55}
+.rec-shared .ms{font-size:14px;color:var(--accent);flex-shrink:0;margin-top:1px}
+/* Totals are not bests, so they do not wear the bests' card. */
+.rec-totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(154px,1fr));gap:1px;background:var(--border);border:1px solid var(--border)}
+.rec-totals>div{background:var(--surface);padding:13px 15px}
+.rec-tot-l{font-size:10px;font-weight:700;color:var(--text-light);margin-bottom:5px}
+.rec-tot-v{font-size:19px;font-weight:800;letter-spacing:-.5px;line-height:1}
+.rec-tot-s{font-size:10.5px;color:var(--text-light);margin-top:4px}
+/* ── SOCIAL, REBUILT ──
+   The page used to hold two different definitions of "social" and show them one above
+   the other, disagreeing: a stat row from Strava's participant count, and partner cards
+   from a regex over activity titles. One definition leads now, and the named list is
+   explicitly the subset written into titles. */
+.soc-lead{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);padding:20px 22px}
+.soc-lead-top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.soc-lead-n{font-family:var(--f-fig);font-size:30px;font-weight:var(--w-fig);letter-spacing:-1px;line-height:1}
+.soc-lead-t{font-size:13px;color:var(--text-muted);padding-bottom:2px}
+.split-bar{display:flex;height:26px;margin:14px 0 10px;overflow:hidden}
+.split-bar span{display:block;height:100%}
+.split-key{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:11.5px;color:var(--text-muted)}
+.split-key i{width:9px;height:9px;display:inline-block;margin-right:5px;font-style:normal}
+.split-key b{font-weight:700;color:var(--text)}
+.soc-caveat{margin-top:14px;padding-top:13px;border-top:1px solid var(--border);display:flex;align-items:flex-start;gap:10px}
+.soc-caveat .ms{font-size:17px;color:var(--warn-icon);flex-shrink:0}
+.soc-caveat div{font-size:12px;color:var(--text-muted);line-height:1.6}
+.soc-caveat strong{color:var(--text);font-weight:700}
+.soc-tbl{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow)}
+.soc-head,.soc-row{display:grid;grid-template-columns:34px minmax(0,2fr) minmax(92px,.8fr) minmax(100px,.8fr) minmax(104px,.9fr) 92px;gap:14px;align-items:center;padding:0 16px}
+.soc-head{height:32px;background:var(--bg);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;color:var(--text-light)}
+.soc-row{min-height:52px;border-bottom:1px solid var(--bg);font-size:12.5px;cursor:pointer;transition:background .12s}
+.soc-row:last-child{border-bottom:none}
+.soc-row:hover{background:var(--bg)}
+.soc-av{width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700}
+.soc-nm{min-width:0}
+.soc-nm-top{display:flex;align-items:center;gap:7px;font-weight:700;min-width:0}
+.soc-nm-top>:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.soc-dots{display:inline-flex;gap:3px;flex-shrink:0}
+.soc-dots i{width:7px;height:7px;display:block;font-style:normal}
+.soc-nm small{display:block;font-size:10.5px;font-weight:400;color:var(--text-light);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.soc-also{font-style:normal;color:var(--text-muted)}
+/* display:contents lets one wrapper hold the three figures for the phone layout
+   without disturbing the desktop grid, where they stay individual columns. */
+.soc-meta{display:contents}
+.soc-cell{font-variant-numeric:tabular-nums;white-space:nowrap}
+.soc-cell b{font-weight:700;font-size:13.5px}
+.soc-cell span{color:var(--text-light);font-size:11px}
+.soc-cell::before{content:attr(data-lbl) ': ';display:none;color:var(--text-light);font-size:11px}
+.soc-last{display:flex;align-items:center;min-width:0}
+.soc-ago{color:var(--text-muted)}
+.soc-ago b{font-weight:400}
+.soc-warm{font-size:10px;font-weight:700;padding:2px 7px;white-space:nowrap}
+/* The dormant group. Styled as a band inside the table rather than a card of its
+   own, so it reads as part of the same list — which it is — instead of a second
+   thing that happens to sit underneath. */
+.soc-dormant{border-top:1px solid var(--border)}
+.soc-dormant>summary{display:flex;align-items:center;gap:9px;padding:11px 16px;cursor:pointer;
+  list-style:none;background:var(--bg);font-size:12px;color:var(--text-muted);transition:color .12s}
+.soc-dormant>summary::-webkit-details-marker{display:none}
+.soc-dormant>summary:hover{color:var(--text)}
+.soc-dormant>summary::after{content:'▸';margin-left:auto;color:var(--text-light);font-size:11px;transition:transform .15s}
+.soc-dormant[open]>summary::after{transform:rotate(90deg)}
+.soc-dormant[open]>summary{border-bottom:1px solid var(--border)}
+.soc-dormant-n{font-weight:700;color:var(--text);font-size:13px}
+.soc-dormant-t{font-weight:500}
+.soc-dormant-sub{font-size:11px;color:var(--text-light)}
+.soc-dormant .soc-row:last-child{border-bottom:none}
+.soc-empty-current{padding:18px 16px;font-size:12px;color:var(--text-muted)}
+@media(max-width:640px){
+  .soc-dormant>summary{flex-wrap:wrap;gap:4px 8px;padding:12px 14px}
+  .soc-dormant-sub{flex-basis:100%}
+  .soc-dormant>summary::after{position:absolute;right:14px}
+  .soc-dormant{position:relative}
+}
+.soc-note{font-size:11.5px;color:var(--text-muted);margin-top:10px;max-width:104ch;line-height:1.6}
+.soc-note strong{color:var(--text);font-weight:700}
+/* Partner panel, on the gear/activity modal shell. */
+.soc-modal-head{display:flex;align-items:center;gap:14px;padding:20px 22px 0}
+.soc-modal-av{width:52px;height:52px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:21px;font-weight:700;flex-shrink:0}
+.soc-variants{display:flex;flex-wrap:wrap;gap:7px}
+.soc-variant{display:inline-flex;align-items:baseline;gap:6px;font-size:12px;padding:5px 10px;border:1px solid var(--border);color:var(--text-muted)}
+.soc-variant.is-primary{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:700}
+.soc-variant b{font-weight:700;font-size:11px;opacity:.7}
+.soc-variant-note{font-size:11px;color:var(--text-light);line-height:1.6;margin-top:8px}
+@media(max-width:900px){
+  .soc-head,.soc-row{grid-template-columns:34px minmax(0,1.6fr) 78px 92px 96px 88px;gap:10px}
+}
+@media(max-width:640px){
+  .soc-lead{padding:16px 17px}
+  .soc-lead-n{font-size:26px}
+  /* Two lines instead of five columns. The old rule dropped distance and
+     last-out on a phone, which hid the two figures the table exists for. */
+  .soc-head{display:none}
+  .soc-row{display:grid;grid-template-columns:32px 1fr auto;grid-template-areas:'av nm warm' '. meta meta';
+    gap:5px 10px;padding:11px 14px;min-height:0;align-items:center}
+  .soc-avc{grid-area:av;align-self:start;padding-top:1px}
+  .soc-nm{grid-area:nm}
+  .soc-last{grid-area:warm;align-self:start}
+  .soc-meta{display:block;grid-area:meta;font-size:12px;line-height:1.5}
+  .soc-cell{display:inline;white-space:normal}
+  /* "34 out · 733 mi" needs no labels — the units say which is which. Only the
+     date does, and it gets the short form so the line stays on one row. */
+  .soc-cell::before{display:none}
+  .soc-cell+.soc-cell::before{content:' · ';display:inline}
+  .soc-cell.soc-ago::before{content:' · last out ';display:inline}
+  .soc-cell b{font-size:12.5px}
+  .soc-ago{color:var(--text-muted)}
+  .soc-nm small{white-space:normal}
+}
+@media(max-width:900px){
+  .rec-head,.rec-row{grid-template-columns:150px 104px 1fr 104px}
+  .rec-head>:nth-child(4),.rec-row>:nth-child(4){display:none}
+}
+@media(max-width:640px){
+  /* The activity name is the first thing to go: the row opens the activity anyway. */
+  .rec-head,.rec-row{grid-template-columns:1fr 96px 106px;gap:10px;padding:0 14px}
+  .rec-head>:nth-child(3),.rec-row>:nth-child(3){display:none}
+  .rec-row{height:52px}
+  .rec-yr{min-height:44px}
+  .rec-hero-val{font-size:26px}
+  .rec-tot-v{font-size:17px}
+}
+.records-note:empty{display:none}
+.records-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:12px}
+.record-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:16px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.record-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.record-card.run::before{background:var(--run)}.record-card.ride::before{background:var(--ride)}
+.record-card.virtual::before{background:var(--virtual)}.record-card.walk::before{background:var(--walk)}
+.record-card.swim::before{background:var(--swim)}
+.record-label{font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:6px}
+.record-value{font-size:22px;font-weight:700;letter-spacing:-.3px}
+.record-date{font-size:11px;color:var(--text-muted);margin-top:4px}
+.record-name{font-size:11px;color:var(--text-muted);margin-top:2px;font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.record-log{display:block;width:100%;margin-top:8px;padding:6px 8px;border:1px solid var(--border);font-size:11px;font-weight:600;color:var(--text-muted);background:transparent;cursor:pointer;font-family:inherit;transition:all .15s}
+.record-log:hover{background:var(--bg);color:var(--text);border-color:var(--border-strong)}
+.record-strava{display:inline-flex;align-items:center;gap:4px;margin-top:8px;color:#fc4c02;font-size:11px;font-weight:600;text-decoration:none;opacity:.85;transition:opacity .15s}
+.record-strava:hover{opacity:1}
+/* Takes no part in desktop layout — the two actions fall through into the card's own
+   block flow exactly as they did before the wrapper existed. The phone overrides this
+   to a flex row; see the 640px block. */
+.record-actions{display:contents}
+/* LOG */
+.log-controls{display:flex;gap:10px;margin-bottom:12px;align-items:center;flex-wrap:wrap}
+.log-search{padding:8px 12px;border:1px solid var(--border);border-radius:0;font-size:13px;outline:none;flex:1;min-width:180px;background:var(--surface)}
+.log-search:focus{border-color:var(--ride)}
+.log-count{font-size:12px;color:var(--text-muted);white-space:nowrap}
+/* SEARCH SUMMARY */
+.search-summary{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:16px;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:0;box-shadow:var(--shadow)}
+.search-summary-label{font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:4px}
+.search-summary-value{font-size:18px;font-weight:700;letter-spacing:-.3px}
+.search-summary-unit{font-size:12px;font-weight:400;color:var(--text-muted);margin-left:2px}
+/* LOG TABLE */
+.log-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:0;overflow:hidden;box-shadow:var(--shadow)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{padding:11px 14px;text-align:left;font-size:12px;font-weight:600;color:var(--text-muted);background:var(--bg);border-bottom:1px solid var(--border);cursor:pointer;white-space:nowrap;user-select:none}
+thead th:hover{color:var(--text)}
+thead th .sort-icon{margin-left:4px;opacity:.4}
+thead th.sorted .sort-icon{opacity:1}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--bg)}
+tbody td{padding:10px 14px;vertical-align:middle}
+.type-badge{display:inline-block;padding:2px 8px;border-radius:0;font-size:11px;font-weight:600}
+/* Second line inside a table cell: the supporting number, never the headline one. */
+.cell-sub{font-size:10px;color:var(--text-light);margin-top:1px;font-weight:500;white-space:nowrap}
+.row-mark{display:inline-flex;align-items:center;vertical-align:middle;margin-right:6px;font-size:9px;font-weight:800;letter-spacing:.04em;padding:1px 4px}
+.row-mark.race{background:var(--accent-soft);color:var(--accent)}
+.row-mark.commute{background:var(--neutral-soft);color:var(--neutral-fg);padding:1px 3px}
+.row-mark.commute .ms{font-size:12px}
+.badge-ride{background:var(--ride-soft);color:var(--ride)}.badge-virtual{background:var(--virtual-soft);color:var(--virtual)}
+.badge-run{background:var(--run-soft);color:var(--run)}.badge-walk{background:var(--walk-soft);color:var(--walk)}
+.badge-swim{background:var(--swim-soft);color:var(--swim)}.badge-other{background:var(--other-soft);color:var(--other)}
+.strava-link{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:#fc4c02;color:white;border-radius:0;font-size:10px;font-weight:700;transition:opacity .15s}
+.strava-link:hover{opacity:.85}
+.log-pagination{display:flex;align-items:center;gap:8px;padding:14px 16px;border-top:1px solid var(--border);font-size:13px;color:var(--text-muted)}
+.page-btn{padding:5px 10px;border:1px solid var(--border);border-radius:0;cursor:pointer;font-size:12px;background:var(--surface);transition:all .15s}
+.page-btn:hover:not(:disabled){background:var(--bg)}.page-btn:disabled{opacity:.4;cursor:default}
+.zwift-controls{display:flex;gap:10px;margin-bottom:6px;align-items:center;flex-wrap:wrap}
+.zwift-status-bar{display:flex;gap:2px;flex-wrap:wrap;margin-bottom:10px}
+.zwift-status-bar .type-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;font-size:12px;font-weight:500;color:var(--text-muted);border:none;background:transparent;border-radius:0;cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit}
+.zwift-status-bar .type-btn:hover:not(.active){color:var(--text)}
+.zwift-status-bar .type-btn.active{font-weight:600}
+.zwift-group{background:var(--surface);border:1px solid var(--border);border-radius:0;margin-bottom:12px;box-shadow:var(--shadow);overflow:hidden}
+.zwift-group summary{padding:12px 16px;font-weight:700;font-size:13px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center}
+.zwift-group summary::-webkit-details-marker{display:none}
+.zwift-group-count{font-size:11px;font-weight:500;color:var(--text-muted)}
+.zwift-summary-left{display:flex;align-items:center}
+.zwift-map-dot{width:9px;height:9px;border-radius:0;display:inline-block;margin-right:8px;flex-shrink:0}
+.zwift-list-row{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;border-top:1px solid var(--border);transition:background .1s}
+.zwift-list-row:hover{background:var(--bg)}
+.zwift-dot{width:9px;height:9px;border-radius:0;flex-shrink:0}
+.zwift-row-main{display:flex;align-items:baseline;gap:8px;min-width:0;flex:1}
+.zwift-row-name{font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.zwift-row-stats{font-size:12px;color:var(--text-muted);white-space:nowrap;flex-shrink:0}
+.zwift-cat-badge{font-size:10px;font-weight:700;padding:1px 6px;border-radius:0;white-space:nowrap;flex-shrink:0}
+.zwift-row-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.zwift-row-status{font-size:12px;font-weight:600}
+.zwift-chevron{color:var(--text-light);display:inline-flex;transition:transform .15s}
+.zwift-chevron.open{transform:rotate(180deg)}
+.zwift-row-saved{background:var(--success-soft)!important;transition:background 1s}
+.zwift-cal{background:var(--surface);border:1px solid var(--border);border-radius:0;box-shadow:var(--shadow);padding:14px 16px;margin-bottom:14px}
+.zwift-cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.zwift-cal-title{font-size:13px;font-weight:700}
+.zwift-cal-nav{display:flex;gap:4px}
+.zwift-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
+.zwift-cal-dow{font-size:10px;color:var(--text-muted);font-weight:600;padding-bottom:4px}
+.zwift-cal-day{position:relative;padding:6px 0;font-size:12px;border-radius:0;cursor:default;color:var(--text)}
+.zwift-cal-day.has-routes{cursor:pointer}
+.zwift-cal-day.has-routes:hover{background:var(--bg)}
+.zwift-cal-day.selected{background:var(--virtual-soft)}
+.zwift-cal-day.empty{visibility:hidden}
+.zwift-cal-dot{width:5px;height:5px;border-radius:0;background:var(--ride);margin:2px auto 0}
+.zwift-cal-detail{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:12px}
+.zwift-cal-detail-item{display:flex;justify-content:space-between;align-items:center;padding:4px 0;cursor:pointer}
+.zwift-cal-detail-item:hover{color:var(--accent)}
+.zwift-detail{padding:14px 16px;background:var(--bg);border-top:1px solid var(--border)}
+.zwift-edit-form{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+.zwift-edit-form label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--text-muted);font-weight:600}
+.zwift-edit-form select,.zwift-edit-form input{padding:6px 8px;border:1px solid var(--border);border-radius:0;font-size:13px;font-family:inherit;background:var(--surface)}
+.zwift-edit-error{color:var(--danger);font-size:12px;margin-top:6px;width:100%}
+.zwift-detail-info{font-size:12px}
+.zwift-detail-info tr td{padding:4px 0;color:var(--text-muted)}
+.zwift-detail-info tr td:last-child{text-align:right;color:var(--text)}
+.zwift-detail-info a{color:var(--accent);margin-left:10px}
+.zwift-directions{margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.zwift-directions-title{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:8px}
+.zwift-turn-progress{font-weight:600;text-transform:none;letter-spacing:0}
+.zwift-reset-btn{margin-left:auto;font-size:11px;font-weight:500;text-transform:none;letter-spacing:0;padding:2px 9px;border:1px solid var(--border);border-radius:0;background:var(--surface);color:var(--text-muted);cursor:pointer;transition:all .15s}
+.zwift-reset-btn:hover{color:var(--text);border-color:var(--border-strong)}
+.zwift-directions-leadin{font-size:12px;color:var(--text);margin-bottom:10px;line-height:1.6}
+.zwift-turn-list{display:flex;flex-direction:column;gap:1px}
+.zwift-turn-row{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text);padding:4px 2px;cursor:pointer;border-radius:0}
+.zwift-turn-row:hover{background:var(--surface)}
+.zwift-turn-row input{margin-top:3px;flex-shrink:0;cursor:pointer}
+.zwift-turn-row input:checked+span{text-decoration:line-through;color:var(--text-muted)}
+.zwift-directions-trailing{margin-top:8px;font-size:11px;color:var(--text-muted);font-style:italic}
+/* SCOPE LINE — the header's year and sport controls do not mean the same thing on
+   every tab, so each tab states what it is actually showing, and says so plainly
+   when a filter above it is being ignored. */
+.scope-line{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+.scope-badge{background:var(--surface);border:1px solid var(--border);padding:4px 10px;font-size:12px;color:var(--text-muted)}
+.scope-warn{display:inline-flex;align-items:center;gap:6px;background:var(--warn-soft);border:1px solid var(--warn-border);padding:4px 10px;font-size:12px;color:var(--warn)}
+.scope-warn .ms{font-size:14px}
+@media(max-width:640px){.scope-line{margin-bottom:14px}.scope-badge,.scope-warn{font-size:11px}}
+/* MEX */
+.mex-ladder{display:flex;flex-direction:column;gap:6px}
+.mex-row{display:flex;align-items:flex-start;gap:12px}
+.mex-row-label{width:56px;font-size:10px;font-weight:600;color:var(--text-light);text-align:right;flex-shrink:0;line-height:34px}
+.mex-cells{display:flex;gap:6px;flex-wrap:wrap}
+/* border-box matters: an empty cell carries a 1px border and the gap cell a 2px one, so
+   without it the rows come out different widths and the columns stop lining up. */
+.mex-cell{width:46px;height:34px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.mex-cell.empty{background:var(--surface);border:1px dashed var(--border-strong);color:var(--text-light);font-weight:500}
+.mex-cell.gap{background:var(--accent-soft);border:2px solid var(--accent);color:var(--accent);font-weight:800}
+.mex-legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);font-size:11px;color:var(--text-muted)}
+.mex-legend-item{display:flex;align-items:center;gap:6px}
+.mex-swatch{width:12px;height:12px;box-sizing:border-box;flex-shrink:0}
+.mex-plan-row{display:flex;align-items:center;gap:14px;padding:11px 16px;border-bottom:1px solid var(--border)}
+.mex-plan-row:last-child{border-bottom:none}
+.mex-plan-n{width:20px;font-size:12px;font-weight:700;color:var(--text-light);flex-shrink:0}
+.mex-plan-main{flex:1;min-width:0}
+.mex-plan-title{font-size:13px;font-weight:700}
+.mex-plan-sub{font-size:11px;color:var(--text-muted);margin-top:2px}
+.mex-plan-delta{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.mex-plan-to{font-size:15px;font-weight:800}
+.mex-gain{font-size:11px;font-weight:700;color:var(--success);background:var(--success-soft);padding:2px 7px}
+.mex-sports{display:flex;flex-wrap:wrap;gap:8px}
+.mex-sport-chip{display:flex;align-items:baseline;gap:6px;padding:5px 11px;font-size:11px;font-weight:600}
+.mex-sport-chip strong{font-size:13px;font-weight:700}
+.mex-note{font-size:11px;color:var(--text-muted);line-height:1.55}
+.mex-empty{text-align:center;padding:60px 20px;color:var(--text-muted);font-size:14px}
+/* MOTION
+   Three rules only, and each one earns its place by pointing at something:
+   the ladder builds left-to-right so you read it in the order it means,
+   the gap cell keeps breathing because it is the one cell that is a to-do,
+   and prior years fade up as you reach them rather than all at once.
+   Everything here is switched off wholesale under prefers-reduced-motion. */
+@keyframes mexIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+@keyframes gapPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,56,92,.35)}50%{box-shadow:0 0 0 5px rgba(255,56,92,0)}}
+@keyframes yearIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.mex-anim .mex-cell{animation:mexIn .3s ease both;animation-delay:var(--d,0ms)}
+.mex-anim .mex-cell.gap{animation:mexIn .3s ease both,gapPulse 2.8s ease-in-out 1s infinite;animation-delay:var(--d,0ms),0ms}
+.reveal{opacity:0}
+.reveal.shown{animation:yearIn .45s cubic-bezier(.2,.7,.3,1) both}
+/* Cards on a freshly-opened tab come in as a short left-to-right run rather than
+   all at once. Capped at eight steps of 26ms: past that it stops reading as one
+   movement and starts reading as a slow page. Applied by setTab, cleared when it
+   finishes, so a filter change re-rendering the same cards does not replay it. */
+.stagger>*{animation:yearIn .34s cubic-bezier(.2,.7,.3,1) both}
+.stagger>*:nth-child(1){animation-delay:0ms}
+.stagger>*:nth-child(2){animation-delay:26ms}
+.stagger>*:nth-child(3){animation-delay:52ms}
+.stagger>*:nth-child(4){animation-delay:78ms}
+.stagger>*:nth-child(5){animation-delay:104ms}
+.stagger>*:nth-child(6){animation-delay:130ms}
+.stagger>*:nth-child(7){animation-delay:156ms}
+.stagger>*:nth-child(n+8){animation-delay:182ms}
+@media(prefers-reduced-motion:reduce){
+  .mex-anim .mex-cell,.reveal.shown,.stagger>*{animation:none!important}
+  .reveal{opacity:1}
+  *{transition-duration:.01ms!important}
+}
+/* On a phone a 20-wide row wraps into ragged sixes and the ladder stops being
+   readable, so the row becomes a labelled block of two tidy tens instead. */
+@media(max-width:700px){
+  .mex-row{flex-direction:column;align-items:stretch;gap:4px}
+  .mex-row-label{width:auto;text-align:left;line-height:1.4}
+  .mex-cells{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:4px;flex-wrap:nowrap}
+  .mex-cell{width:auto;height:30px;font-size:11px}
+  .mex-row-label{font-size:11px}
+}
+/* LAYOUT */
+/* The line that explains a section ("How much — miles, feet, and whether you're
+   ahead of yourself") used to sit beside the title in a bordered pill. A box draws
+   the eye to itself, and these are the quietest text on the page — a subtitle, not
+   a label. They read as a subtitle now: under the title, no box, light.
+
+   The title takes a full row rather than the header becoming a column, because two
+   of these carry a second element beside the badge and a wrap keeps both flowing
+   naturally underneath instead of needing a wrapper element in the markup. */
+.section-header{display:flex;align-items:baseline;flex-wrap:wrap;gap:3px 10px;margin-bottom:16px;margin-top:4px}
+.section-header h2{font-size:15px;font-weight:700;flex:0 0 100%}
+.section-header .badge{flex:0 0 100%;background:transparent;border:none;padding:0;border-radius:0;
+  font-size:12px;font-weight:500;line-height:1.5;color:var(--text-light)}
+.section-header .badge:empty{display:none}
+.year-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:0;overflow:hidden;box-shadow:var(--shadow);margin-bottom:24px}
+.dow-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:18px 20px;box-shadow:var(--shadow)}
+.dow-bars{display:flex;gap:8px;align-items:flex-end;height:90px}
+.dow-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end}
+.dow-bar-wrap{flex:1;display:flex;align-items:flex-end;width:100%}
+.dow-bar{width:100%;border-radius:0;min-height:3px;transition:height .3s}
+.dow-label{font-size:10px;color:var(--text-muted)}.dow-count{font-size:9px;color:var(--text-muted)}
+.two-col{display:grid;grid-template-columns:2fr 1fr;gap:18px;margin-bottom:24px}
+@media(max-width:700px){.two-col{grid-template-columns:1fr}}
+/* Summary only: let Most Active Days grow to the height of the Activity Breakdown cards
+   beside it, instead of sitting at its natural height with a gap underneath. */
+.two-col-fill>div{display:flex;flex-direction:column;min-width:0}
+.two-col-fill .type-row{margin-bottom:0}
+.two-col-fill .dow-card{flex:1;display:flex;flex-direction:column}
+.two-col-fill .dow-bars{flex:1;height:auto;min-height:90px}
+.scroll-x{overflow-x:auto}
+/* EARLY YEARS TOGGLE */
+.early-years-toggle{cursor:pointer;color:var(--text-muted);font-size:12px;padding:10px 14px;background:var(--bg);border-top:1px solid var(--border);text-align:left;transition:color .15s}
+.early-years-toggle:hover{color:var(--text)}
+/* TYPE ROW */
+.type-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:12px;margin-bottom:24px}
+.type-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:16px 18px;box-shadow:var(--shadow);display:flex;gap:14px;align-items:flex-start}
+.type-icon{width:40px;height:40px;border-radius:0;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.type-info .type-name{font-size:13px;font-weight:700;margin-bottom:2px}
+.type-info .type-count{font-size:12px;color:var(--text-muted)}
+.type-info .type-dist{font-size:18px;font-weight:700;letter-spacing:-.3px;margin-top:4px}
+.type-info .type-dist small{font-size:12px;font-weight:400;color:var(--text-muted)}
+/* RECENT */
+.recent-list{display:flex;flex-direction:column;gap:8px}
+.recent-item{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:12px 16px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow)}
+/* The sport colour rides on the row's left edge rather than a separate swatch. */
+.recent-item{border-left-width:3px;border-left-style:solid}
+.recent-info{flex:1;min-width:0}
+.recent-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.recent-meta{font-size:11px;color:var(--text-muted);margin-top:2px}
+.recent-stats{text-align:right;flex-shrink:0}
+.recent-dist{font-size:14px;font-weight:700}.recent-time{font-size:11px;color:var(--text-muted)}
+/* SOCIAL */
+.partner-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px;margin-bottom:20px}
+.partner-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:14px;box-shadow:var(--shadow);text-align:center}
+.partner-avatar{width:38px;height:38px;border-radius:0;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:white;margin:0 auto 8px}
+.partner-name{font-size:13px;font-weight:700;margin-bottom:2px}
+.partner-count{font-size:12px;color:var(--text-muted)}.partner-dist{font-size:14px;font-weight:700;margin-top:4px}
+.partner-type{font-size:10px;color:var(--text-muted)}
+/* GEAR */
+.gear-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:24px}
+/* The photo bleeds out to the card's edges, so the padding is a variable rather
+   than a literal — the two have to be the same number and they are set in
+   different rules. */
+.gear-card{--gear-pad-y:16px;--gear-pad-x:18px;
+  background:var(--surface);border:1px solid var(--border);border-radius:0;
+  padding:var(--gear-pad-y) var(--gear-pad-x);box-shadow:var(--shadow);cursor:pointer;
+  transition:transform .1s,box-shadow .1s}
+.gear-card:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(15,23,42,.06),0 8px 20px rgba(15,23,42,.09)}
+/* Flush to the top of the card and to both sides, under the sport-coloured rule.
+   An <img> is a replaced element, so `width:auto` would resolve to its intrinsic
+   width rather than stretching — the padding has to be added back explicitly. */
+.gear-photo,.gear-icon-tile{
+  width:calc(100% + var(--gear-pad-x,0px) * 2);
+  margin:calc(-1 * var(--gear-pad-y,0px)) calc(-1 * var(--gear-pad-x,0px)) 12px;
+  display:block;background:var(--bg);border-radius:0}
+.gear-photo{height:110px;object-fit:cover}
+/* Same 110px block whether or not the item has a photo, so a row of cards stays level. */
+.gear-icon-tile{height:110px;display:flex;align-items:center;justify-content:center}
+.gear-icon-tile .ms{font-size:34px}
+.gear-icon-inline{width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:var(--bg);flex:none}
+.gear-icon-inline .ms{font-size:17px}
+.gear-unresolved{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;color:var(--text-light);margin-bottom:6px}
+.gear-photo-hint{font-size:11px;color:var(--text-light);line-height:1.5;margin-top:5px}
+.gear-photo-hint.is-hidden{display:none}
+.gear-brand{color:var(--text-light);font-weight:500}
+.gear-retired-tag{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;background:var(--tag-soft);color:var(--tag-fg);padding:1px 5px;margin-left:4px;vertical-align:1px}
+.gear-card.is-retired{opacity:.72}
+.gear-card.is-retired:hover{opacity:1}
+.gear-photo-hint code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;background:var(--bg);border:1px solid var(--border);padding:0 4px}
+.top-gear-photo{width:28px;height:28px;object-fit:cover;border-radius:0;flex:none}
+.gear-name{font-size:13px;font-weight:700;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gear-type{font-size:11px;font-weight:600;margin-bottom:8px}
+/* The card used to be six label/value rows where Distance — the thing you came
+   to see — had the same weight as "First used". It leads now, at the same
+   24px/700 as every other headline figure in the app. */
+.gear-hero{padding-top:11px;margin-top:9px;border-top:1px solid var(--border)}
+.gear-hero-label{font-size:12px;font-weight:600;color:var(--text-muted)}
+.gear-hero-value{font-family:var(--f-fig);font-size:24px;font-weight:var(--w-fig);letter-spacing:-.6px;margin-top:2px}
+.gear-hero-value em{font-size:13px;font-weight:600;color:var(--text-muted);font-style:normal}
+.gear-trio{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px;padding-top:11px;border-top:1px solid var(--border)}
+.gear-trio-label{font-size:9.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-light)}
+.gear-trio-value{font-size:13px;font-weight:700;margin-top:2px;letter-spacing:-.2px}
+.gear-span{display:flex;justify-content:space-between;gap:10px;font-size:10.5px;color:var(--text-light);margin-top:11px;padding-top:9px;border-top:1px solid var(--border)}
+.gear-stat{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--bg)}
+.gear-stat-label{color:var(--text-muted)}.gear-stat-value{font-weight:600}
+.gear-forecast{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.gear-forecast-head{display:flex;justify-content:space-between;font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text-light);margin-bottom:5px}
+.gear-forecast-bar{height:5px;background:var(--bg);border:1px solid var(--border);box-sizing:border-box}
+.gear-forecast-bar span{display:block;height:100%;transition:width .4s ease}
+.gear-forecast-sub{font-size:10px;color:var(--text-light);line-height:1.5;margin-top:6px}
+.gear-modal-backdrop{display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1000;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 16px}
+.gear-modal-backdrop.open{display:flex}
+.gear-modal{background:var(--surface);border-radius:0;box-shadow:0 12px 40px rgba(15,23,42,.25);width:100%;max-width:640px;margin:auto}
+.gear-modal-photo{width:100%;height:200px;object-fit:cover;border-radius:0;display:block;background:var(--bg)}
+.gear-modal-head{display:flex;align-items:flex-start;justify-content:space-between;padding:20px 22px 0}
+.gear-modal-icon{width:100%;height:200px;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+.gear-modal-icon .ms{font-size:56px;vertical-align:0}
+.gear-modal-title{font-size:18px;font-weight:700}
+.gear-modal-sub{font-size:12px;font-weight:600;margin-top:4px}
+.gear-modal-close{width:28px;height:28px;border:1px solid var(--border-strong);border-radius:0;background:transparent;color:var(--text-muted);cursor:pointer;font-family:inherit;font-size:14px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.gear-modal-close:hover{color:var(--text)}
+.gear-modal-body{padding:18px 22px 22px}
+.gear-modal-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;margin-bottom:20px}
+.gear-modal-stat-label{font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:3px}
+.gear-modal-stat-value{font-size:15px;font-weight:700}
+.gear-modal-section-title{font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:8px}
+.gear-modal-types{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
+.gear-modal-type-chip{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:5px 10px;border-radius:0;background:var(--bg)}
+.gear-modal-acts{max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:0}
+.gear-modal-act-row{display:flex;align-items:center;gap:10px;padding:8px 12px;font-size:12px;border-bottom:1px solid var(--bg)}
+.gear-modal-act-row:last-child{border-bottom:none}
+.gear-modal-act-date{color:var(--text-muted);width:72px;flex-shrink:0}
+.gear-modal-act-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gear-modal-act-dist{font-weight:600;flex-shrink:0}
+/* ── ACTIVITY MODAL ──
+   Reuses the gear modal's shell so the two read as the same object. What differs is
+   the header: a map of the route where there is one, the sport tile where there is not. */
+.act-map{width:100%;height:210px;background:var(--bg);display:block}
+.act-map-none{width:100%;height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:var(--bg)}
+.act-map-none .ms{font-size:44px;vertical-align:0}
+.act-map-none span.lbl{font-size:11px;color:var(--text-muted)}
+.act-marks{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+.act-mark{font-size:10px;font-weight:700;padding:2px 7px}
+.act-zonebar{display:flex;height:10px;margin-bottom:6px;overflow:hidden}
+.act-zonebar span{display:block;height:100%}
+.act-zonekey{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:10px;color:var(--text-muted)}
+.act-zonekey i{display:inline-block;width:8px;height:8px;margin-right:4px;font-style:normal}
+.act-actions{display:flex;gap:8px;margin-top:20px}
+.act-actions a,.act-actions button{flex:1;min-height:40px;display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  border:1px solid var(--border-strong);background:transparent;font-family:inherit;font-size:12px;font-weight:600;
+  color:var(--text-muted);cursor:pointer;text-decoration:none;transition:all .15s}
+.act-actions a:hover,.act-actions button:hover{color:var(--text);background:var(--bg)}
+.act-actions a.strava{color:#fc4c02;border-color:#fc4c02}
+.act-row-click{cursor:pointer}
+@media(max-width:640px){
+  .act-map{height:170px}
+  .act-actions{flex-wrap:wrap}
+  .act-actions a,.act-actions button{min-height:44px;flex-basis:calc(50% - 4px)}
+}
+/* TOP GEAR in summary */
+.top-gear-list{background:var(--surface);border:1px solid var(--border);border-radius:0;overflow:hidden;box-shadow:var(--shadow)}
+.top-gear-row{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border);font-size:13px}
+.top-gear-row:last-child{border-bottom:none}
+.top-gear-rank{font-size:12px;font-weight:700;color:var(--text-muted);width:20px;flex-shrink:0}
+/* YEAR CAL VERTICAL */
+.ycal-grid{display:flex;flex-direction:column;gap:2px}
+.ycal-header-row,.ycal-row{display:flex;align-items:center;gap:2px}
+.ycal-month-label{font-size:9px;color:var(--text-light);width:26px;flex-shrink:0;text-align:right;padding-right:4px;line-height:14px}
+.ycal-dow-hdr{font-size:9px;color:var(--text-light);width:14px;height:14px;text-align:center;line-height:14px;flex-shrink:0}
+/* TOOLTIP */
+.dash-tooltip{position:fixed;background:var(--tooltip-bg);color:var(--tooltip-fg);border-radius:0;padding:8px 12px;font-size:12px;pointer-events:none;z-index:9999;max-width:260px;line-height:1.5;display:none;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+/* STREAK PILL */
+.streak-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:var(--success-soft);color:var(--success);border-radius:0;font-size:11px;font-weight:700;margin-top:6px}
+.streak-dot{width:8px;height:8px;border-radius:0;background:var(--success-dot);display:inline-block;animation:sdot 1.4s ease-in-out infinite}
+@keyframes sdot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.7)}}
+/* AI SUMMARY */
+/* LOCATIONS */
+.loc-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.loc-pill{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;background:var(--surface);border:1px solid var(--border);border-radius:0;font-size:12px;font-weight:500;color:var(--text-muted);transition:background .15s,border-color .15s}
+.loc-pill:hover{background:var(--bg);border-color:var(--text-muted)}
+/* HEATMAP MORE */
+.hm-more-toggle{text-align:center;padding:10px 0;cursor:pointer;font-size:12px;color:var(--text-muted);border-top:1px dashed var(--border);margin-top:10px}
+.hm-more-toggle:hover{color:var(--text)}
+/* VIEW MORE RECENT */
+.view-more-btn{width:100%;padding:10px;border:1px dashed var(--border);border-radius:0;font-size:12px;color:var(--text-muted);cursor:pointer;background:transparent;margin-top:8px;transition:all .15s}
+.view-more-btn:hover{background:var(--bg);color:var(--text)}
+.go-log-btn{width:100%;padding:10px 16px;border:none;border-radius:0;font-size:13px;font-weight:600;color:white;background:var(--text);cursor:pointer;margin-top:8px;transition:opacity .15s}
+.go-log-btn:hover{opacity:.85}
+
+.top-gear-name{flex:1;font-weight:500}
+.top-gear-dist{font-weight:700;color:var(--text-muted);font-size:12px}
+/* SCOPE CHIP + SHEET (phone) — one chip stating the scope in words, which is
+   also the control that changes it. Replaces two selects and a 24px read-only
+   line that said the same thing a third time. */
+.scope-chip{align-items:center;gap:7px;flex:1;min-width:0;height:var(--ctl-h);border:1px solid var(--border-strong);border-radius:0;background:var(--surface);padding:0 10px;font-family:inherit;font-size:12.5px;color:var(--text);cursor:pointer;text-align:left}
+.scope-chip .ms{font-size:16px;color:var(--text-muted);flex-shrink:0}
+.scope-chip-text{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.scope-chip-sport{font-weight:500;color:var(--text-muted);margin-left:4px}
+.scope-chip.open .scope-chip-sport{color:var(--accent)}
+.scope-chip-caret{margin-left:auto;color:var(--text-light);font-size:10px;flex-shrink:0}
+.scope-chip.open{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.scope-chip.open .ms,.scope-chip.open .scope-chip-caret{color:var(--accent)}
+.sheet-backdrop{display:none;position:fixed;inset:0;background:rgba(15,23,42,.32);z-index:200}
+.sheet-backdrop.open{display:block}
+.scope-sheet{display:none;position:fixed;left:0;right:0;bottom:0;z-index:201;background:var(--surface);border-top:1px solid var(--border-strong);box-shadow:0 -8px 24px rgba(15,23,42,.12);padding:16px 16px calc(20px + env(safe-area-inset-bottom))}
+.scope-sheet.open{display:block;animation:sheetUp .18s ease-out}
+@keyframes sheetUp{from{transform:translateY(16px);opacity:.5}to{transform:none;opacity:1}}
+.sheet-title{font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-muted)}
+.sheet-sec{margin-top:14px}
+.sheet-lbl{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-light);margin-bottom:7px}
+.sheet-chips{display:flex;gap:7px;flex-wrap:wrap}
+.sheet-chips button{display:flex;align-items:center;gap:6px;font-family:inherit;font-size:12px;font-weight:600;padding:8px 12px;border:1px solid var(--border);border-radius:0;background:var(--surface);color:var(--text-muted);cursor:pointer}
+.sheet-chips button.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+/* ── SETTINGS MENU ──
+   A popover hung off the button on a desktop, the same bottom sheet the scope
+   control already uses on a phone. It reuses .sheet-title/.sheet-lbl/.sheet-chips
+   wholesale so the two panels are visibly the same idea rather than two designs
+   that happen to sit in the same header. */
+/* Fixed, and placed from the button's own rect at open time. An absolutely
+   positioned menu inside .header-toolbar would be trapped in the sticky header's
+   stacking context and render underneath the backdrop; one outside it has no
+   ancestor to anchor to. Measuring is the way out of both. */
+.settings-menu{display:none;position:fixed;z-index:201;
+  width:290px;background:var(--surface);border:1px solid var(--border-strong);
+  box-shadow:var(--shadow-callout);padding:14px 16px 12px}
+.settings-menu.open{display:block;animation:sheetUp .14s ease-out}
+.settings-btn.open{background:var(--accent-soft);color:var(--accent)}
+.settings-menu .sheet-chips button{flex:1;justify-content:center}
+.settings-menu .sheet-chips .ms{font-size:15px}
+.settings-actions{margin-top:16px;border-top:1px solid var(--border);padding-top:6px}
+.settings-row{display:flex;align-items:center;gap:9px;width:100%;padding:9px 6px;
+  font-family:inherit;font-size:12.5px;font-weight:600;color:var(--text);
+  background:transparent;border:none;cursor:pointer;text-align:left;text-decoration:none}
+.settings-row:hover:not(:disabled){background:var(--bg)}
+.settings-row:disabled{opacity:.5;cursor:not-allowed}
+.settings-row .refresh-icon{font-size:15px;width:13px;text-align:center;color:var(--text-muted)}
+.settings-row svg{color:var(--text-muted);flex-shrink:0}
+.settings-row-note{margin-left:auto;font-size:10.5px;font-weight:500;color:var(--text-light);white-space:nowrap}
+.settings-note{font-size:11px;line-height:1.45;color:var(--text-muted);padding:2px 6px 8px}
+.settings-note[hidden]{display:none}
+.settings-row.spinning .refresh-icon{animation:rspin .8s linear infinite}
+/* Only the bottom sheet needs it — a popover closes by clicking away from it. */
+.settings-done{display:none}
+/* The toolbar is one button now, so its old segmented border is just a box
+   around a single icon. */
+.header-toolbar{border:none;height:auto}
+.settings-btn{width:var(--ctl-h);height:var(--ctl-h);border:1px solid var(--border-strong)}
+.sheet-done{margin-top:16px;width:100%;background:var(--text);color:var(--surface);font-family:inherit;font-size:13px;font-weight:700;padding:12px;border:none;border-radius:0;cursor:pointer}
+/* Between the phone breakpoint and 1100px the labels are what overflows, so
+   they go and the icons carry the row. Ten icons plus gaps is about 320px. */
+@media(min-width:641px) and (max-width:1100px){
+  .hrow-nav .tab-label{display:none}
+  .hrow-nav .tab-btn{padding:6px 9px}
+  .hrow-nav .tab-btn .ms{font-size:17px}
+}
+@media(max-width:640px){
+  /* A 40px row clears the touch-target minimum the rest of this block enforces,
+     and every control on it follows from the one value. */
+  :root{--ctl-h:40px}
+  .hrow-nav{flex-wrap:wrap;gap:9px;padding:8px 0 0}
+  .logo-name{display:none}
+  /* The caret already says this opens something, so the calendar glyph is
+     23px spent on decoration the chip's own text can't afford. */
+  .scope-chip{display:flex;padding:0 8px;gap:5px}
+  .scope-chip .ms{display:none}
+  .hrow-scope{display:none}
+  .last-updated{display:none}
+  /* Bleeds the strip to both screen edges by cancelling the page padding, then
+     .tab-strip puts it back as scroll padding so the first tab still lines up with
+     the cards below. Both halves have to be the same number as --page-pad: they
+     were a hardcoded 24px, so widening the page measure grew this row by the
+     difference and pushed the whole document sideways. */
+  .tab-strip-wrap{order:3;flex-basis:100%;width:100%;margin:0 calc(-1 * var(--page-pad));border-top:1px solid var(--border)}
+  .tab-strip-wrap::after{content:'';position:absolute;right:0;top:0;bottom:0;width:32px;background:linear-gradient(90deg,var(--surface-fade),var(--surface) 70%);pointer-events:none}
+  .tab-strip{padding:2px var(--page-pad) 0}
+  .tab-strip .tab-btn{flex-direction:column;gap:3px;padding:6px 10px 7px;font-size:10px;line-height:1.2}
+  .tab-strip .tab-btn .ms{font-size:20px}
+  /* No block behind the active tab on a phone. Stacked icon-over-label, the tab is
+     two lines tall, so the accent-soft fill became a solid slab that dominated the
+     row — it reads as a button rather than as "you are here". The icon fills in
+     instead, which is what the Material Symbols FILL axis is for, and the label
+     takes the accent from .tab-btn.active as it already did. */
+  .tab-strip .tab-btn.active{background:transparent}
+  .tab-strip .tab-btn.active .ms{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 20}
+}
+/* PARTNER LOG BTN */
+.partner-log-btn{width:100%;margin-top:8px;padding:5px 8px;border:1px solid var(--border);border-radius:0;font-size:11px;color:var(--text-muted);background:transparent;cursor:pointer;transition:all .15s;font-family:inherit;text-align:center}
+.partner-log-btn:hover{background:var(--bg);color:var(--text)}
+/* SYNC INDICATOR */
+.sync-indicator{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--warn-soft);border:1px solid var(--warn-border);border-radius:0;font-size:12px;color:var(--warn);margin-bottom:16px;box-shadow:var(--shadow-callout)}
+.callout{display:flex;align-items:flex-start;gap:10px;padding:12px 16px;background:var(--accent-soft);border:1px solid var(--accent);font-size:12px;line-height:1.6;color:var(--text);margin-bottom:16px;box-shadow:var(--shadow-callout)}
+.callout .ms{font-size:17px;color:var(--accent);flex-shrink:0}
+.callout strong{font-weight:700}
+.callout-body{min-width:0}
+.callout-status{font-size:10px;font-weight:700;letter-spacing:.02em}
+.callout-note{font-size:11px;color:var(--text-muted);display:inline-block;margin-top:4px}
+.zwift-ridden{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:1px 5px;background:var(--accent-soft);color:var(--accent);flex-shrink:0}
+.zwift-ridden .ms{font-size:11px}
+/* EDDINGTON INFO ICON */
+.edd-info-wrap{position:relative;display:inline-block;margin-left:5px;vertical-align:middle;top:-1px}
+.edd-info-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:0;background:var(--border);color:var(--text-muted);font-size:9px;font-weight:700;cursor:help;line-height:1}
+.edd-tooltip-box{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--tooltip-bg);color:var(--tooltip-fg);border-radius:0;padding:9px 12px;font-size:11px;font-weight:400;white-space:normal;width:220px;line-height:1.6;z-index:9999;text-align:left;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.3);text-transform:none;letter-spacing:0}
+.edd-tooltip-box::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:rgba(20,20,30,.95)}
+.edd-info-wrap:hover .edd-tooltip-box{display:block}
+/* TOP GEAR VIEW ALL */
+.gear-view-all{display:block;width:100%;text-align:center;padding:10px;font-size:12px;color:var(--text-muted);border:none;border-top:1px solid var(--border);cursor:pointer;transition:color .15s;background:transparent;font-family:inherit}
+.gear-view-all:hover{color:var(--text)}
+
+.hm-layout-desktop{display:block}
+.hm-layout-mobile{display:none}
+@media(max-width:640px){.hm-layout-desktop{display:none}.hm-layout-mobile{display:block}}
+
+/* A phone has none of the width to spare that a laptop does: 24px each side was
+   12% of a 390px screen given over to margin. */
+@media(max-width:640px){:root{--page-pad:16px}}
+
+/* ── PHONE ──────────────────────────────────────────────────────────────────
+   Measured at 390px. Three problems this fixes: almost every control was
+   24–37px tall against a 44px minimum touch target, a dozen labels sat at
+   9–10px, and the stats grid fell to a single column by two pixels. */
+@media(max-width:640px){
+  /* minmax(165px) needs 344px for two columns and the pane offers 342, so every
+     stat card was going full width. Ask for two explicitly. */
+  .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stat-value{font-size:21px}
+
+  /* 44px touch targets */
+  .loc-pill,.hm-nav-btn,.page-btn,.zwift-status-bar .type-btn,
+  .partner-log-btn,.gear-view-all,.view-more-btn,.go-log-btn,.record-log,
+  .early-years-toggle,.zwift-reset-btn{min-height:44px}
+  .loc-pill,.hm-nav-btn,.page-btn,.zwift-status-bar .type-btn,.partner-log-btn{
+    display:inline-flex;align-items:center;justify-content:center}
+  .log-search{height:44px}
+  .unit-opt,.icon-btn{min-height:var(--ctl-h)}
+  .header-toolbar{height:auto}
+  /* Full-width bottom sheet below 640px, matching the scope panel exactly. */
+  .settings-done{display:block;margin-top:14px}
+  .settings-menu{position:fixed;top:auto;left:0;right:0;bottom:0;width:auto;
+    border:none;border-top:1px solid var(--border-strong);
+    box-shadow:0 -8px 24px rgba(15,23,42,.12);
+    padding:16px 16px calc(14px + env(safe-area-inset-bottom))}
+  .zwift-list-row{min-height:44px}
+  input[type=range]{height:34px}
+  .strava-link{min-height:32px;display:inline-flex;align-items:center}
+
+  /* RECORD CARDS ON A PHONE
+     At 390px each card ran to about 220px for five short facts, because the
+     full-width "Find in log" slab sat in the middle of them and the activity name
+     was stranded underneath it. Reading order is now label, figure, what it was,
+     when — then both actions together on one row at the foot of the card. Roughly
+     160px, so three fit on screen instead of one and a half. */
+  .record-card{padding:14px 15px}
+  .record-value{font-size:24px}
+  .record-name{margin-top:4px;font-size:12px;font-style:normal;color:var(--text)}
+  .record-date{margin-top:2px}
+  .record-actions{display:flex;gap:8px;margin-top:12px}
+  .record-log{margin-top:0;flex:1;min-width:0;min-height:44px;display:inline-flex;
+    align-items:center;justify-content:center;width:auto}
+  /* Given a border it reads as the pair to Find in log rather than a loose link,
+     and it carries its own 44px target instead of borrowing the row's. */
+  .record-strava{margin-top:0;flex-shrink:0;min-height:44px;justify-content:center;
+    padding:0 14px;border:1px solid var(--border);font-size:12px}
+  thead th{padding:15px 14px}
+
+  /* nothing below 11px */
+  .dow-count,.dow-label,.edd-info-icon,.gear-unresolved,.partner-type,
+  .strava-link,.record-label,.zwift-cat-badge,.hm-month-lbl,.hm-dow-hdr,
+  .cell-sub,.row-mark,.gear-forecast-head,.gear-forecast-sub,.zwift-ridden{font-size:11px}
+  .row-mark .ms,.zwift-ridden .ms{font-size:13px}
+
+  /* The log is 11 columns wide on a 390px screen, so the only things visible
+     without scrolling sideways were date, type and name — every actual metric
+     was off-screen with nothing to say so. Drop the five least-used columns
+     and distance, time and the Strava link come into view. */
+  .log-table-wrap th:nth-child(5),.log-table-wrap td:nth-child(5),
+  .log-table-wrap th:nth-child(7),.log-table-wrap td:nth-child(7),
+  .log-table-wrap th:nth-child(8),.log-table-wrap td:nth-child(8),
+  .log-table-wrap th:nth-child(9),.log-table-wrap td:nth-child(9),
+  .log-table-wrap th:nth-child(10),.log-table-wrap td:nth-child(10){display:none}
+  .log-table-wrap td,.log-table-wrap th{padding-left:10px;padding-right:10px}
+}
+/* ── LOADING SKELETON ──
+   A cold visit used to lay the whole page out in em-dashes, which reads as broken
+   rather than pending. The shimmer says "a number is coming here". It covers only
+   the three things that are genuinely unknown until data lands — the hero figure,
+   the chart bodies, and the stat tiles — so the page's structure is still legible
+   underneath while it loads. */
+@keyframes skel-sweep{100%{background-position:-200% 0}}
+body.is-loading .sum-big,
+body.is-loading .chart-wrap,
+body.is-loading .stats-grid,
+body.is-loading #sumConsistency,
+body.is-loading #sumSportCards,
+body.is-loading .recent-list,
+body.is-loading .top-gear-list{
+  border-radius:0;color:transparent!important;position:relative;overflow:hidden;
+  background:linear-gradient(90deg,var(--skel-a) 25%,var(--skel-b) 37%,var(--skel-a) 63%);
+  background-size:200% 100%;animation:skel-sweep 1.4s linear infinite}
+body.is-loading .sum-big{min-height:52px}
+body.is-loading .stats-grid{min-height:92px;display:block}
+body.is-loading #sumConsistency{min-height:120px}
+body.is-loading #sumSportCards{min-height:110px}
+body.is-loading .recent-list,body.is-loading .top-gear-list{min-height:140px}
+body.is-loading .sum-big *,body.is-loading .chart-wrap *,
+body.is-loading .stats-grid *{visibility:hidden}
+@media (prefers-reduced-motion:reduce){
+  body.is-loading .sum-big,body.is-loading .chart-wrap,body.is-loading .stats-grid,
+  body.is-loading #sumConsistency,body.is-loading #sumSportCards,
+  body.is-loading .recent-list,body.is-loading .top-gear-list{animation:none;background:var(--skel-a)}
+}
+
+/* ── LOAD FAILURE ──
+   Previously a failed fetch left the page sitting on "Syncing…" forever with no
+   way back. Two shapes: a full card when there is nothing to show at all, and a
+   thin inline strip when cached data is already on screen and only the refresh
+   failed. */
+.app-error{display:none;align-items:flex-start;gap:12px;padding:16px 18px;margin-bottom:20px;
+  background:var(--surface);border:1px solid var(--danger-border);box-shadow:var(--shadow)}
+.app-error.show{display:flex}
+.app-error .ms{color:var(--danger);font-size:20px;flex-shrink:0;margin-top:1px}
+.app-error-body{flex:1;min-width:0}
+.app-error-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:3px}
+.app-error-msg{font-size:12px;color:var(--text-muted);line-height:1.6;word-break:break-word}
+.app-error-retry{margin-top:10px;padding:7px 14px;font-family:inherit;font-size:12px;font-weight:700;
+  background:var(--text);color:var(--surface);border:none;cursor:pointer}
+.app-error-retry:disabled{opacity:.5;cursor:not-allowed}
+.app-error.inline{padding:9px 14px;align-items:center}
+.app-error.inline .app-error-title{display:none}
+.app-error.inline .app-error-retry{margin-top:0;margin-left:auto;flex-shrink:0}
+.app-error.inline .ms{font-size:17px;margin-top:0}
+/* OpenStreetMap ships no dark raster tiles, so the layer is inverted in place.
+   Routes and markers sit in their own panes above it and are left alone — inverting
+   those too would undo the sport colours the map is read by. */
+.leaflet-tile-pane{filter:var(--map-tile-filter)}
+.leaflet-container{background:var(--map-bg)}
+.act-row-click:focus-visible,.soc-row:focus-visible,.gear-card:focus-visible,.loc-pill:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.chart-offline{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:12px;color:var(--text-light);background:var(--skel-a);text-align:center;padding:12px}
+/* A stubbed or slow-loading chart canvas can sit a few px past its card. */
+.chart-wrap canvas{max-width:100%}

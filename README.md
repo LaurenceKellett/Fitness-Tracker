@@ -30,13 +30,17 @@ The Worker holds all secrets and does all the heavy work. The Pages frontend is 
 | File | Purpose |
 |------|---------|
 | `worker.js` | Cloudflare Worker — OAuth, Strava fetch, GPS privacy trimming, KV caching, AI summary, Zwift Routes proxy, and the scheduled Strava → Notion Training Log sync |
-| `index.html` | Dashboard frontend — all CSS, HTML, and the app's own JS |
-| `calc.js` | The pure derivations and formatters, split out of `index.html` so they can be unit-tested. Loaded as a classic script before the inline one, so its top-level declarations share the same global scope and every existing call site works unchanged |
+| `index.html` | The markup. 737 lines of it, since the CSS and the app's own script were lifted out |
+| `app.css` | Every style the dashboard has |
+| `app.js` | The dashboard's own script — rendering, charts, map, filtering, interaction |
+| `calc.js` | The pure derivations and formatters, split out so they can be unit-tested. Loaded as a classic script before `app.js`, so its top-level declarations share the same global scope and every call site works unchanged |
+| `vendor/` | Chart.js and Leaflet, the official npm artefacts pinned in git and served from this origin rather than a CDN |
 | `sw.js` | Service worker — caches the app shell and the two CDN libraries so the dashboard opens offline |
 | `manifest.webmanifest`, `icons/` | Web app manifest and icons, so it installs to a phone home screen |
 | `test/calc.test.js` | Vitest unit tests for `calc.js` |
 | `test/smoke.mjs` | Playwright smoke test — boots the real page against a stubbed Worker and drives every tab |
-| `.github/workflows/test.yml` | Runs both suites on every push |
+| `eslint.config.mjs` | Lint config — correctness rules only, not a style guide |
+| `.github/workflows/test.yml` | Runs lint and both suites on every push |
 | `wrangler.toml` | Wrangler config for the Worker |
 | `.github/workflows/deploy-worker.yml` | Auto-deploys the Worker to Cloudflare on every push that touches `worker.js` or `wrangler.toml` |
 | `activities.csv` | **Not committed** (in `.gitignore`) — personal Strava export, never goes to GitHub |
@@ -47,9 +51,23 @@ The Worker holds all secrets and does all the heavy work. The Pages frontend is 
 
 ```bash
 npm install
+npm run lint      # ESLint — correctness only, no style opinions
 npm test          # Vitest — the pure functions in calc.js
 npm run smoke     # Playwright — boots index.html in Chromium against a stubbed Worker
 ```
+
+The lint config is deliberately **not** a style guide. A linter arguing about quotes
+across this much code is a thousand-line diff that hides the one finding worth having,
+so what is switched on is the set of rules that catch things which are *wrong* rather
+than merely different. `no-unused-vars` runs with `vars: 'local'`, because the top level
+of `app.js` and `calc.js` **is** the page's global scope — they share it with each other
+and with the markup, so a function called from an `onclick` attribute is used and ESLint
+cannot see that. Checking locals still catches the thing worth catching.
+
+It paid for itself on the first run and again on the second: two dead bindings, then —
+once `index.html` was split and `app.js` could be linted at all — a whole dead
+year-on-year calculation in `renderSummary`, three passes over the filtered history plus
+one over the previous year, every render, feeding a string that was never printed.
 
 `npm test` is fast and needs nothing but Node. `npm run smoke` drives a real browser: it
 serves the repo over HTTP, stubs the Worker's `/activities` response, opens every tab, and
