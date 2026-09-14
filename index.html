@@ -50,22 +50,31 @@
      and 40px. Three heights on three adjacent boxes reads as sloppy rather than
      deliberate. One number, and the row lines up. */
   --ctl-h:30px;
-  --ride:#1d4ed8;--ride-soft:#dbeafe;
+  /* ── SPORT COLOURS, RE-STEPPED ──
+     Six identities and hue families as before, each moved only as far as it needs to
+     pass the chart-colour checks (OKLCH lightness band, chroma floor, colour-blind
+     and normal-vision separation, contrast). Ride deepens and Virtual lightens so the
+     pair stays apart under protanopia (they were ΔE 7.5); Walk drops from lemon to
+     gold so it holds on white; Swim turns a step toward teal so it stops reading as
+     Ride's lighter twin. Other stays the deliberate neutral. Validated all-pairs on
+     white: colour-blind ΔE 13.3, normal vision 21.8. Walk and Virtual sit under 3:1
+     on white, as gold and lavender do — every use carries a label or a square. */
+  --ride:#0a46b9;--ride-soft:#e2edff;
   /* Virtual was #60a5fa — a second blue, 5.3 ΔE from Swim in normal vision, which is
      below the point where a full-colour reader can separate them at all, and 2.6 under
      protanopia. Violet takes the worst pair in the set to 15.9. It matters more than it
      used to now that hue is the calendars' primary encoding. */
-  --virtual:#8b5cf6;--virtual-soft:#ede9fe;
-  --run:#ef4444;--run-soft:#fee2e2;--walk:#eab308;--walk-soft:#fefce8;
-  --swim:#0ea5e9;--swim-soft:#e0f2fe;--other:#94a3b8;--other-soft:#f8fafc;
+  --virtual:#b180fc;--virtual-soft:#f0e9ff;
+  --run:#d33a3c;--run-soft:#ffe6e3;--walk:#d7a10c;--walk-soft:#f6ecd7;
+  --swim:#1790a3;--swim-soft:#d7f3f9;--other:#94a3b8;--other-soft:#f8fafc;
   /* Chip labels: the hue darkened far enough to carry 12px text on its own -soft
      ground. Virtual's was #1e6fa8 — a blue left behind when the chip itself moved
      to violet, so the label and its background disagreed. */
   --standing-reg:#166534;--standing-reg-bg:#dcfce7;
   --standing-occ:#475569;--standing-occ-bg:#f1f5f9;
   --standing-lapsed:#b45309;--standing-lapsed-bg:#fef3c7;
-  --ride-fg:#1d4ed8;--virtual-fg:#6d28d9;--run-fg:#b91c1c;--walk-fg:#92400e;
-  --swim-fg:#075985;--other-fg:#475569;
+  --ride-fg:#0a46b9;--virtual-fg:#6d28d9;--run-fg:#b91c1c;--walk-fg:#92400e;
+  --swim-fg:#005969;--other-fg:#475569;
   --radius:0;--radius-sm:0;
 
   /* ── THE BIG FIGURES ──
@@ -127,17 +136,17 @@
     --bg:#121214;--surface:#1a1a1c;--border:#2b2b2f;--border-strong:#3a3a40;
     --text:#ededef;--text-muted:#a1a1a8;--text-light:#75757d;
     --accent:#ff5c7a;--accent-dark:#ff8098;--accent-soft:#3a1a23;
-    --ride:#60a5fa;--ride-soft:#16243d;
-    --virtual:#a78bfa;--virtual-soft:#2a2140;
-    --run:#f87171;--run-soft:#3d1c1c;
-    --walk:#facc15;--walk-soft:#3a3016;
-    --swim:#38bdf8;--swim-soft:#0f2e40;
+    --ride:#2e62c9;--ride-soft:#1a263c;
+    --virtual:#a47de3;--virtual-soft:#2a2139;
+    --run:#cf4040;--run-soft:#3a1d1b;
+    --walk:#bd8c00;--walk-soft:#312409;
+    --swim:#1790a3;--swim-soft:#032c33;
     --other:#94a3b8;--other-soft:#24272c;
     --standing-reg:#86efac;--standing-reg-bg:#12301f;
     --standing-occ:#c2c9d4;--standing-occ-bg:#2b2f36;
     --standing-lapsed:#fbbf24;--standing-lapsed-bg:#3a2c0d;
-    --ride-fg:#93c5fd;--virtual-fg:#c4b5fd;--run-fg:#fca5a5;--walk-fg:#fde047;
-    --swim-fg:#7dd3fc;--other-fg:#cbd5e1;
+    --ride-fg:#94b8f8;--virtual-fg:#c4b5fd;--run-fg:#fca5a5;--walk-fg:#fde047;
+    --swim-fg:#73cddf;--other-fg:#cbd5e1;
     --shadow:0 1px 2px rgba(0,0,0,.5),0 4px 12px rgba(0,0,0,.4);
     --shadow-callout:0 2px 4px rgba(0,0,0,.5),0 10px 28px rgba(0,0,0,.55);
     --success:#86efac;--success-soft:#12301f;--success-dot:#22c55e;--success-fg:#4ade80;
@@ -160,17 +169,17 @@
   --bg:#121214;--surface:#1a1a1c;--border:#2b2b2f;--border-strong:#3a3a40;
   --text:#ededef;--text-muted:#a1a1a8;--text-light:#75757d;
   --accent:#ff5c7a;--accent-dark:#ff8098;--accent-soft:#3a1a23;
-  --ride:#60a5fa;--ride-soft:#16243d;
-  --virtual:#a78bfa;--virtual-soft:#2a2140;
-  --run:#f87171;--run-soft:#3d1c1c;
-  --walk:#facc15;--walk-soft:#3a3016;
-  --swim:#38bdf8;--swim-soft:#0f2e40;
+  --ride:#2e62c9;--ride-soft:#1a263c;
+  --virtual:#a47de3;--virtual-soft:#2a2139;
+  --run:#cf4040;--run-soft:#3a1d1b;
+  --walk:#bd8c00;--walk-soft:#312409;
+  --swim:#1790a3;--swim-soft:#032c33;
   --other:#94a3b8;--other-soft:#24272c;
   --standing-reg:#86efac;--standing-reg-bg:#12301f;
   --standing-occ:#c2c9d4;--standing-occ-bg:#2b2f36;
   --standing-lapsed:#fbbf24;--standing-lapsed-bg:#3a2c0d;
-  --ride-fg:#93c5fd;--virtual-fg:#c4b5fd;--run-fg:#fca5a5;--walk-fg:#fde047;
-  --swim-fg:#7dd3fc;--other-fg:#cbd5e1;
+  --ride-fg:#94b8f8;--virtual-fg:#c4b5fd;--run-fg:#fca5a5;--walk-fg:#fde047;
+  --swim-fg:#73cddf;--other-fg:#cbd5e1;
   --shadow:0 1px 2px rgba(0,0,0,.5),0 4px 12px rgba(0,0,0,.4);
   --shadow-callout:0 2px 4px rgba(0,0,0,.5),0 10px 28px rgba(0,0,0,.55);
   --success:#86efac;--success-soft:#12301f;--success-dot:#22c55e;--success-fg:#4ade80;
@@ -2319,8 +2328,11 @@ const ZWIFT_STATUS_ORDER=['Not started','Blocked','Planned','Complete'];
 let zwiftCalDate=new Date();zwiftCalDate.setDate(1);
 let zwiftCalSelected=null;
 
-const ACCENT_COLORS={All:'#22c55e',Ride:'#1d4ed8',Virtual:'#8b5cf6',Run:'#ef4444',Walk:'#eab308',Swim:'#0ea5e9',Other:'#94a3b8'};
-function getAccentColor(){return ACCENT_COLORS[activeType]||'#22c55e';}
+// The colour the "what you just did" lines and chips wear: the sport's own when one
+// is filtered, the page accent for everything together. Read from the tokens, so it
+// follows the theme — this used to be a table of six light-mode hexes that stayed
+// put in dark mode.
+function getAccentColor(){return activeType==='All'?cssVar('--accent','#ff385c'):groupColor(activeType);}
 
 // Strava's API doesn't expose gear photos, so pictures are supplied manually here.
 // Key must match the gear's exact name/nickname as it comes through from Strava
@@ -2386,10 +2398,10 @@ function mapFilterMatches(a){
 }
 // Kept in step with the --ride/--virtual/... tokens by hand: Chart.js needs a literal
 // hex, not a CSS variable. Virtual is violet rather than a second blue — see the token.
-// NOTE: the sport palette is written out by hand in five places — this, groupSoft,
-// ACCENT_COLORS, typeDotColors and colorFull — plus the CSS tokens. Changing a sport
-// colour means changing all six, or it comes out violet on the donut and blue on the
-// filter dots. Worth consolidating; not today.
+// The sport palette lives in the CSS tokens and nowhere else now: palette() reads them
+// for groupColor/groupSoft, and getAccentColor, the year table's dots and the mix
+// chart all go through groupColor. A colour changes in one place and follows the
+// theme; the five hand-kept copies this note used to list are gone.
 /* ── SPORT AND STANDING COLOURS ──
  * These were the last colours in the app still pinned to the light palette: a
  * second copy of the stylesheet's values, written in JS, that dark mode could not
@@ -2409,11 +2421,11 @@ function palette(){
   const v=(n,f)=>cs.getPropertyValue(n).trim()||f;
   _paletteCache={
     sport:{
-      Ride:   [v('--ride','#1d4ed8'),    v('--ride-soft','#dbeafe')],
-      Virtual:[v('--virtual','#8b5cf6'), v('--virtual-soft','#ede9fe')],
-      Run:    [v('--run','#ef4444'),     v('--run-soft','#fee2e2')],
-      Walk:   [v('--walk','#eab308'),    v('--walk-soft','#fefce8')],
-      Swim:   [v('--swim','#0ea5e9'),    v('--swim-soft','#e0f2fe')],
+      Ride:   [v('--ride','#0a46b9'),    v('--ride-soft','#e2edff')],
+      Virtual:[v('--virtual','#b180fc'), v('--virtual-soft','#f0e9ff')],
+      Run:    [v('--run','#d33a3c'),     v('--run-soft','#ffe6e3')],
+      Walk:   [v('--walk','#d7a10c'),    v('--walk-soft','#f6ecd7')],
+      Swim:   [v('--swim','#1790a3'),    v('--swim-soft','#d7f3f9')],
       Other:  [v('--other','#94a3b8'),   v('--other-soft','#f8fafc')],
     },
     standing:{
@@ -3566,7 +3578,7 @@ function renderSummary(){
     const totalT=yd.reduce((s,a)=>s+(a.mt||0),0),totalE=yd.reduce((s,a)=>s+(a.elv||0),0),totalC=yd.reduce((s,a)=>s+(a.cal||0),0);
     return`<tr><td style="font-weight:700">${y}</td><td>${yd.length.toLocaleString('en-GB')}</td>${typeKeys.map(t=>`<td>${byType[t]?fmtDist(byType[t]):'—'}</td>`).join('')}<td>${fmtTime(totalT)}</td><td>${fmtElv(totalE)}</td><td>${fmtNum(totalC)}</td></tr>`;
   }
-  const typeDotColors={Ride:'#1d4ed8',Virtual:'#8b5cf6',Run:'#ef4444',Walk:'#eab308',Swim:'#0ea5e9',Other:'#94a3b8'};
+  const typeDotColors=Object.fromEntries(['Ride','Virtual','Run','Walk','Swim','Other'].map(g=>[g,groupColor(g)]));
   const th=`<tr><th>Year</th><th>Acts</th>${typeKeys.map(t=>`<th><span style="display:inline-block;width:8px;height:8px;border-radius:0;background:${typeDotColors[t]||'#94a3b8'};margin-right:4px;vertical-align:middle"></span>${t} (${distUnit()})</th>`).join('')}<th>Time</th><th>Elev</th><th>Cal</th></tr>`;
   const earlyHtml=earlyYears.length?`
     <tbody id="earlyYearsBody" style="display:none">${earlyYears.map(yearRow).join('')}</tbody>
@@ -3991,7 +4003,7 @@ function renderCharts(){
   const monthKeys=getMonthKeys();
   const typeKeys=['Ride','Virtual','Run','Walk','Swim','Other'];
   // Order matches typeKeys: Ride, Virtual, Run, Walk, Swim, Other.
-  const colorFull=['#1d4ed8','#8b5cf6','#ef4444','#eab308','#0ea5e9','#94a3b8'];
+  const colorFull=typeKeys.map(groupColor);
   const isSpecificYear=isYearScope(activeYear);
   const isSpecificType=activeType!=='All';
 

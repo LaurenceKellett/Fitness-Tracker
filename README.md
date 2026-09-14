@@ -596,7 +596,8 @@ The Worker aggregates the last 30 days of activity data and sends it to `@cf/met
 - **Map:** Leaflet 1.9.4 with CARTO Dark Matter tiles
 - **Charts:** Chart.js 4.4.1
 - **Accent colour:** `#ff385c`
-- **Sport colours:** Ride `#1d4ed8` · Run `#ef4444` · Walk `#eab308` · Swim `#0ea5e9` · Virtual `#60a5fa`
+- **Sport colours (light):** Ride `#0a46b9` · Virtual `#b180fc` · Run `#d33a3c` · Walk `#d7a10c` · Swim `#1790a3` · Other `#94a3b8`
+- **Sport colours (dark):** Ride `#2e62c9` · Virtual `#a47de3` · Run `#cf4040` · Walk `#bd8c00` · Swim `#1790a3` · Other `#94a3b8`. Dark is its own set of steps, not the light one lifted — the lifted set put Ride and Virtual at ΔE 0.3 for deutan readers. Both sets pass the chart-colour checks all-pairs (light: colour-blind ΔE 13.3, normal 21.8; dark: 9.5 and 15.4); the reasoning is in the tokens' comment in `index.html`
 - **Corners:** square everywhere. `--radius` and `--radius-sm` are both `0`; nothing in the app rounds, including pills, dots and the favicon. Keep new work sharp.
 - **Shadows:** `--shadow` is the standard card lift. `--shadow-callout` is heavier and reserved for call-out boxes — the AI summary and the sync warning — so they lift off the page without needing a colour fill.
 - **Labels:** sentence case. No `text-transform: uppercase` and no letter-spacing on labels, per the house rule across the tools.
