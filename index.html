@@ -366,7 +366,9 @@ a{color:inherit;text-decoration:none}
    percentages, so the same layout code serves every width; a one-pixel border in
    the page colour is the gap between fills, so neighbours separate without a stroke. */
 .sum-field-tiles{position:relative;height:360px;margin-top:14px}
-.sum-field-tile{position:absolute;box-sizing:border-box;border:1px solid var(--surface);padding:16px 18px;overflow:hidden;display:flex;flex-direction:column}
+.sum-field-tile{position:absolute;box-sizing:border-box;border:1px solid var(--surface);padding:16px 18px;overflow:hidden;display:flex;flex-direction:column;isolation:isolate}
+/* Behind the figures: the month's routes for that sport, faint enough to read through. */
+.sum-field-routes{position:absolute;left:0;top:0;width:100%;height:100%;z-index:-1;opacity:.3;pointer-events:none}
 .sum-field-name{font-size:11px;font-weight:700;opacity:.85}
 .sum-field-big{font-weight:300;line-height:1;margin-top:auto;letter-spacing:-.04em}
 .sum-field-big.xl{font-family:var(--f-fig);font-size:64px}
@@ -1129,6 +1131,12 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .recent-meta{font-size:11px;color:var(--text-muted);margin-top:2px}
 .recent-stats{text-align:right;flex-shrink:0}
 .recent-dist{font-size:14px;font-weight:700}.recent-time{font-size:11px;color:var(--text-muted)}
+/* ── ROUTES AS INK ──
+   A route drawn as a line on nothing — no tiles, no labels, just the shape of where
+   you went — the way Strava lays a track over a darkened map. Every recent row gets
+   one; a session with no track keeps its colour square in the same space. */
+.recent-route{width:64px;height:40px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+.recent-route svg{display:block;width:100%;height:100%}
 /* SOCIAL */
 .partner-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px;margin-bottom:20px}
 .partner-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:14px;box-shadow:var(--shadow);text-align:center}
@@ -2663,7 +2671,7 @@ function recentItemHtml(a,showDate){
   const hr=a.hr?' · <span class="ms ms-fill" style="font-size:13px;color:#ef4444">favorite</span> '+Math.round(a.hr)+' bpm':'';
   const gear=a.gear?' · <span class="ms" style="font-size:13px">'+gearIconName(g)+'</span> '+escapeHtml(gearLabel(a.gear).split(' ').slice(0,2).join(' ')):'';
   return`<div class="recent-item${a.id?' act-row-click':''}"${a.id?` data-act="${escapeAttr(a.id)}" tabindex="0" role="button" aria-label="${escapeAttr((a.name||a.type||'Activity')+', '+fmtDate(a.date))}"`:''}>
-      <i class="recent-sw" style="background:${groupColor(g)}"></i>
+      ${routeThumb(a,groupColor(g))}
       <div class="recent-info">
         <div class="recent-name">${escapeHtml(a.name||a.type)}</div>
         <div class="recent-meta">${showDate?fmtDate(a.date)+' · ':''}${typeEmoji(g)} ${g}${hr}${gear}</div>
@@ -3950,6 +3958,63 @@ function squarify(items,x,y,w,h){
   return out;
 }
 
+// ── ROUTES AS INK ──
+// The decoded track of an activity, thinned to a few hundred points — a thumbnail
+// does not need every GPS fix — one array of [lat,lng] per segment.
+function routePaths(a,maxPts){
+  const segs=a.polylines||(a.polyline?[a.polyline]:[]);
+  const out=[];
+  segs.forEach(seg=>{
+    if(!seg)return;
+    let pts;try{pts=decodePolylinePts(seg);}catch(e){return;}
+    if(!pts||pts.length<2)return;
+    const step=Math.max(1,Math.ceil(pts.length/(maxPts||240)));
+    const thin=[];for(let i=0;i<pts.length;i+=step)thin.push(pts[i]);
+    if(thin[thin.length-1]!==pts[pts.length-1])thin.push(pts[pts.length-1]);
+    out.push(thin);
+  });
+  return out;
+}
+// Fit a set of routes into a w×h box together, so a long ride and a short run keep
+// their proportion. Equirectangular with longitude squeezed by cos(latitude), which
+// is as much projection as a thumbnail needs. One SVG path string per route.
+function routesToSvgPaths(routes,w,h,pad){
+  let minLat=Infinity,maxLat=-Infinity,minLng=Infinity,maxLng=-Infinity,any=false;
+  routes.forEach(r=>r.forEach(p=>{any=true;
+    if(p[0]<minLat)minLat=p[0];if(p[0]>maxLat)maxLat=p[0];if(p[1]<minLng)minLng=p[1];if(p[1]>maxLng)maxLng=p[1];}));
+  if(!any)return [];
+  const k=Math.cos((minLat+maxLat)/2*Math.PI/180)||1e-6;
+  const spanX=Math.max((maxLng-minLng)*k,1e-6),spanY=Math.max(maxLat-minLat,1e-6);
+  const s=Math.min((w-2*pad)/spanX,(h-2*pad)/spanY);
+  const ox=(w-spanX*s)/2,oy=(h-spanY*s)/2;
+  return routes.map(r=>r.map((p,i)=>(i?'L':'M')+(ox+(p[1]-minLng)*k*s).toFixed(1)+' '+(oy+(maxLat-p[0])*s).toFixed(1)).join(''));
+}
+// The routes near where most of them are. A month with a holiday in it would
+// otherwise shrink every local loop to a dot to make room for one far-away line.
+function homeCluster(routes,km){
+  if(routes.length<2)return routes;
+  const cents=routes.map(r=>{let la=0,ln=0;r.forEach(p=>{la+=p[0];ln+=p[1];});return [la/r.length,ln/r.length];});
+  const med=i=>{const v=cents.map(c=>c[i]).sort((a,b)=>a-b);return v[Math.floor(v.length/2)];};
+  const m=[med(0),med(1)];
+  return routes.filter((r,i)=>haversineMi(cents[i],m)*1.60934<=(km||60));
+}
+// The recent row's thumbnail: the track in the sport's colour, or the colour square
+// where there is no track, in the same 64×40 space so the names line up.
+function routeThumb(a,col){
+  const ds=routesToSvgPaths(routePaths(a,160),64,40,4);
+  if(!ds.length)return `<span class="recent-route" aria-hidden="true"><i class="recent-sw" style="background:${col}"></i></span>`;
+  return `<span class="recent-route" aria-hidden="true"><svg viewBox="0 0 64 40">`+
+    ds.map(d=>`<path d="${d}" fill="none" stroke="${col}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>`).join('')+`</svg></span>`;
+}
+// A sport's month of routes, fitted together into its tile, drawn in the tile's ink.
+function fieldRoutesSvg(acts,pw,ph,ink){
+  const routes=homeCluster(acts.flatMap(a=>routePaths(a,120)));
+  const ds=routes.length?routesToSvgPaths(routes,pw,ph,12):[];
+  if(!ds.length)return '';
+  return `<svg class="sum-field-routes" viewBox="0 0 ${pw.toFixed(1)} ${ph.toFixed(1)}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">`+
+    ds.map(d=>`<path d="${d}" fill="none" stroke="${ink}" stroke-width="1.2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>`).join('')+`</svg>`;
+}
+
 function renderColourField(data){
   const el=document.getElementById('sumField');if(!el)return;
   const measure=FIELD_MEASURES[fieldMeasure]||FIELD_MEASURES.time;
@@ -3958,16 +4023,16 @@ function renderColourField(data){
     b.classList.toggle('active',on);b.setAttribute('aria-pressed',on?'true':'false');
   });
   const sub=document.getElementById('sumFieldSub');
-  if(sub)sub.textContent=`Each sport’s area is its share of your ${measure.noun} over the last 28 days.`;
+  if(sub)sub.textContent=`Each sport’s area is its share of your ${measure.noun} over the last 28 days; behind the figures, where it took you.`;
 
   const today=_today(),fromMs=new Date(today+'T12:00:00').getTime()-27*86400000,from=isoOf(fromMs);
   const by={};
   (data||[]).forEach(a=>{
     if(a.date<from||a.date>today)return;
     const g=typeGroup(a.type);
-    const e=by[g]||(by[g]={g,v:0,n:0,days:new Array(28).fill(0)});
+    const e=by[g]||(by[g]={g,v:0,n:0,days:new Array(28).fill(0),acts:[]});
     const val=measure.pick(a)||0;
-    e.v+=val;e.n++;
+    e.v+=val;e.n++;e.acts.push(a);
     const d=Math.round((new Date(a.date+'T12:00:00').getTime()-fromMs)/86400000);
     if(d>=0&&d<28)e.days[d]+=val;
   });
@@ -3983,6 +4048,9 @@ function renderColourField(data){
   // Laid out in a 1000 × 360 box and written back as percentages, so the tiles follow
   // the card's width without a resize handler.
   const tiles=squarify(items,0,0,1000,360);
+  // The routes need the tile's real proportions, which the percentage layout hides;
+  // measured once here, and the SVG keeps its own aspect if the card is resized.
+  const fieldW=el.clientWidth||1000,fieldH=el.clientHeight||360;
   el.innerHTML=tiles.map(t=>{
     const fill=groupColor(t.g),ink=onFill(fill);
     const wp=t.w/10,hp=t.h/3.6;
@@ -3994,8 +4062,11 @@ function renderColourField(data){
       const d=t.days.map((v,i)=>`${i?'L':'M'}${(1+i/27*98).toFixed(2)} ${(28-2-(v/max)*24).toFixed(2)}`).join('');
       return `<div class="sum-field-spark"><svg viewBox="0 0 100 28" preserveAspectRatio="none" height="28" aria-hidden="true"><path d="${d}" fill="none" stroke="${ink}" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"></path></svg></div>`;
     })():'';
+    // Behind the figures, where that sport took you this month. Not on the smallest
+    // tiles, where it would only be noise under the number.
+    const routes=size==='sm'?'':fieldRoutesSvg(t.acts,t.w/1000*fieldW,t.h/360*fieldH,ink);
     const label=`${t.g}: ${measure.fmt(t.v)}${unit?' '+unit:''} · ${share}% · ${t.n} ${t.n===1?'session':'sessions'}`;
-    return `<div class="sum-field-tile" style="left:${(t.x/10).toFixed(3)}%;top:${(t.y/3.6).toFixed(3)}%;width:${(t.w/10).toFixed(3)}%;height:${(t.h/3.6).toFixed(3)}%;background:${fill};color:${ink}" title="${escapeAttr(label)}">`+
+    return `<div class="sum-field-tile" style="left:${(t.x/10).toFixed(3)}%;top:${(t.y/3.6).toFixed(3)}%;width:${(t.w/10).toFixed(3)}%;height:${(t.h/3.6).toFixed(3)}%;background:${fill};color:${ink}" title="${escapeAttr(label)}">`+routes+
       `<div class="sum-field-name">${escapeHtml(t.g)}</div>`+
       `<div class="sum-field-big ${size}">${escapeHtml(measure.fmt(t.v))}${unit&&size!=='sm'?`<span class="u">${escapeHtml(unit)}</span>`:''}</div>`+
       (size==='sm'?'':`<div class="sum-field-sub">${share}% · ${t.n} ${t.n===1?'session':'sessions'}</div>`)+spark+`</div>`;

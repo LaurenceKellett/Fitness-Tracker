@@ -810,6 +810,25 @@ implementations of one figure drift apart; one implementation with two targets c
 
 ---
 
+### Routes as ink
+
+Every row in Recent activities carries a thumbnail of its route: the track, thinned to a
+couple of hundred points and drawn as a line in the sport's colour on nothing at all — no
+tiles, no labels, the way Strava lays a track over a darkened map. A session with no track
+(a pool swim, a turbo session) keeps its colour square in the same 64×40 space, so the names
+still line up.
+
+The colour field does the same for a whole month: behind each sport's figure, that sport's
+routes from the last 28 days are fitted together into the tile and drawn faintly in the tile's
+ink. Fitted together rather than one by one, so a long ride and a short run keep their
+proportion, and only the routes near where most of them are — a holiday in the month would
+otherwise shrink every local loop to a dot to make room for one far-away line. The smallest
+tiles are left alone; a line under a number that size is noise.
+
+The drawing is `routePaths()`, `routesToSvgPaths()` and `homeCluster()` in `index.html`, on
+top of `decodePolylinePts()`. Routes may be missing from the on-device copy for older
+activities (see "The on-device copy"); a row without one simply shows the square.
+
 ## Training load
 
 Every other trend on the Charts tab buckets by `date.slice(0,7)` — a month, which

@@ -510,6 +510,37 @@ async function main() {
       await page.waitForTimeout(300);
     });
 
+    await check('recent rows draw the route, and keep the colour square where there is none', async () => {
+      await page.evaluate(() => window.setTab('summary'));
+      await page.waitForTimeout(400);
+      const r = await page.evaluate(() => ({
+        rows: document.querySelectorAll('#recentList .recent-item').length,
+        thumbs: document.querySelectorAll('#recentList .recent-route').length,
+        routes: document.querySelectorAll('#recentList .recent-route svg path').length,
+        squares: document.querySelectorAll('#recentList .recent-route .recent-sw').length,
+      }));
+      assert(r.rows > 0, 'no recent rows');
+      assert(r.thumbs === r.rows, `${r.thumbs} thumbnails for ${r.rows} rows`);
+      assert(r.routes > 0, 'no route drawn on any recent row');
+      assert(r.squares > 0, 'a row without a track lost its colour square');
+    });
+
+    await check('the colour field draws the month’s routes behind the figures', async () => {
+      const r = await page.evaluate(() => {
+        const svg = document.querySelector('#sumField .sum-field-tile svg.sum-field-routes');
+        return {
+          tiles: document.querySelectorAll('#sumField .sum-field-tile').length,
+          withRoutes: document.querySelectorAll('#sumField .sum-field-tile svg.sum-field-routes').length,
+          paths: document.querySelectorAll('#sumField svg.sum-field-routes path').length,
+          z: svg ? getComputedStyle(svg).zIndex : null,
+        };
+      });
+      assert(r.tiles > 0, 'no tiles in the field');
+      assert(r.withRoutes > 0, 'no tile carries its routes');
+      assert(r.paths > 0, 'the route layer is empty');
+      assert(r.z === '-1', `the routes are not behind the figures (z-index ${r.z})`);
+    });
+
     await check('rolling date scopes filter the data', async () => {
       const all = await page.evaluate(() => { window.setYear('All'); return window.getFiltered().length; });
       const d30 = await page.evaluate(() => { window.setYear('30d'); return window.getFiltered().length; });
