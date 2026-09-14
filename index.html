@@ -29,8 +29,7 @@
      linked here. Together they were ~350 KB of render-blocking work before a single
      pixel, and Leaflet was all of it wasted for anyone who never opens the Map tab.
      Preconnect so the on-demand fetch does not also pay DNS and TLS. -->
-<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-<link rel="dns-prefetch" href="https://unpkg.com">
+
 <style>
 :root {
   --bg:#f7f7f7;--surface:#fff;--border:#ebebeb;--border-strong:#dddddd;--text:#222222;--text-muted:#656565;--text-light:#9ca3af;
@@ -2175,9 +2174,29 @@ function loadStyleOnce(href){
   }));
 }
 
-const CHART_JS_SRC='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
-const LEAFLET_JS_SRC='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-const LEAFLET_CSS_SRC='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+/* Served from this origin, not from a CDN.
+ *
+ * These used to come from cdnjs and unpkg with no integrity hash, into a page that
+ * holds a full location history — and sw.js then cached whatever came back. The
+ * obvious fix is SRI, and SRI is the weaker one: it can only tell you the bytes
+ * changed, after the request has already been made, and it still leaves the page
+ * unable to start when someone else's CDN is having a bad day.
+ *
+ * Self-hosting removes the question instead of answering it. The files are the
+ * official npm artefacts, pinned in git where they can be read and diffed, and they
+ * are already the minified production builds — 69KB and 43KB over the wire once
+ * gzipped. It also means two fewer hosts in the CSP, no cross-origin special case
+ * in the service worker, and a map that works on a first visit offline.
+ *
+ * The shared-CDN-cache argument for the old arrangement stopped being true years
+ * ago: browsers partition the HTTP cache by origin now, so a visitor never arrives
+ * with these already downloaded from somebody else's site.
+ *
+ * To update: npm pack chart.js@<version> / leaflet@<version>, take dist/ verbatim.
+ */
+const CHART_JS_SRC='/vendor/chart.umd.js';
+const LEAFLET_JS_SRC='/vendor/leaflet.js';
+const LEAFLET_CSS_SRC='/vendor/leaflet.css';
 
 // Charts are on the Summary tab, so this resolves on essentially every visit — the
 // win is that it no longer blocks the parser, not that it is often skipped.
@@ -5100,7 +5119,7 @@ function renderYearCalendarChart(year,data){
       else bg=dayCellBg(dd,maxDist);
       const cursor=dd?'cursor:pointer;':'';
       weekCells.push(dd?
-        `<div class="year-cal-cell" data-day-tip="${ds}" style="${cursor}background:${bg}" onmouseenter="showDashTooltip(event,'${ds}')" onmouseleave="hideDashTooltip()" onclick="showYearCalDay('${ds}')"></div>`:
+        `<div class="year-cal-cell" data-day-tip="${ds}" role="gridcell" tabindex="-1" aria-label="${dayCellLabel(ds,dd)}" style="${cursor}background:${bg}" onmouseenter="showDashTooltip(event,'${ds}')" onmouseleave="hideDashTooltip()" onclick="showYearCalDay('${ds}')"></div>`:
         `<div class="year-cal-cell" style="background:${bg}"></div>`);
       cur.setDate(cur.getDate()+1);
     }
@@ -5109,6 +5128,7 @@ function renderYearCalendarChart(year,data){
   const hdr=`<div class="ycal-header-row"><div class="ycal-month-label"></div>${['M','T','W','T','F','S','S'].map(l=>`<div class="ycal-dow-hdr">${l}</div>`).join('')}</div>`;
   const rows=weeks.map(w=>`<div class="ycal-row"><div class="ycal-month-label">${w.label}</div>${w.cells.join('')}</div>`).join('');
   document.getElementById('firstChartCalendar').innerHTML=`<div class="ycal-grid">${hdr}${rows}</div>`;
+  armCalendarGrids(document.getElementById('firstChartCalendar'));
 }
 
 // Where each of these two charts draws. The Summary hero and the Charts tab show the
@@ -5688,7 +5708,7 @@ function renderHeatmap(){
       if(!day.inY)return`<div style="width:${sz}px;height:${sz}px;border-radius:0;"></div>`;
       const bg=cellBg(day.dd);
       const cls=day.dd?'hm-cell active':'hm-cell';
-      const ev=day.dd?`data-day-tip="${day.ds}" onmouseenter="showDashTooltip(event,'${day.ds}')" onmouseleave="hideDashTooltip()" onclick="showDayDetail('${day.ds}')"`:''
+      const ev=day.dd?`data-day-tip="${day.ds}" role="gridcell" tabindex="-1" aria-label="${dayCellLabel(day.ds,day.dd)}" onmouseenter="showDashTooltip(event,'${day.ds}')" onmouseleave="hideDashTooltip()" onclick="showDayDetail('${day.ds}')"`:''
       return`<div class="${cls}" style="width:${sz}px;height:${sz}px;border-radius:0;background:${bg}" ${ev}></div>`;
     }
 
@@ -5783,6 +5803,9 @@ function renderHeatmap(){
     const bg=`rgb(${Math.round(240+(r2l-240)*i)},${Math.round(240+(g2l-240)*i)},${Math.round(240+(b2l-240)*i)})`;
     return`<div class="heatmap-legend-cell" style="background:${bg}"></div>`;
   }).join('');
+  // Every calendar block on this tab gets its single tab stop back. The grids are
+  // rebuilt from innerHTML on each render, so this has to run after, every time.
+  armCalendarGrids(document.getElementById('tab-heatmap'));
 }
 
 function showDayDetail(date){
@@ -7752,6 +7775,78 @@ async function saveZwiftEdit(id){
     zwiftSaving=false;
   }
 }
+
+/* ── KEYBOARD ACCESS FOR THE CALENDARS ──
+ * Both calendars are grids of divs with a click handler: a pointer could open any
+ * of the 1,800 day cells and a keyboard could open none of them.
+ *
+ * The naive fix — tabindex="0" on every cell — is worse than the bug. It puts 1,800
+ * stops between the calendar and whatever follows it, so anyone tabbing through the
+ * page is trapped for the rest of the afternoon.
+ *
+ * This is the grid pattern instead: exactly ONE cell per calendar is in the tab
+ * order, and the arrow keys move within it. Tab reaches the calendar, arrows walk
+ * the days, Enter or Space opens one, and Tab again leaves. Home and End jump to the
+ * ends of a row, PageUp/PageDown to the same weekday a week away.
+ *
+ * The roving cell is tracked per grid rather than globally, because the Heatmap tab
+ * draws one grid per year and each should remember where you were in it.
+ */
+function dayCellLabel(ds,dd){
+  const d=new Date(ds+'T12:00:00');
+  const when=d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  if(!dd)return when+', nothing logged';
+  const n=dd.count||(dd.acts?dd.acts.length:0);
+  const dist=dd.dist!=null?`, ${fmtDist(dd.dist)} ${distUnit()}`:'';
+  return n?`${when}, ${n} activit${n===1?'y':'ies'}${dist}`:when;
+}
+
+function dayCellsIn(grid){
+  return[...grid.querySelectorAll('[data-day-tip]')].filter(c=>c.offsetParent!==null);
+}
+
+// Called after each calendar render: one cell per grid gets the tab stop back.
+function armCalendarGrids(root){
+  // One grid per calendar block: the year calendar on Charts, and on the Heatmap
+  // tab the desktop strip, the mobile layout, and each prior year's disclosure.
+  (root||document).querySelectorAll('.ycal-grid,.hm-layout-desktop,.hm-layout-mobile,.hm-prior').forEach(grid=>{
+    if(!grid.hasAttribute('role'))grid.setAttribute('role','grid');
+    const cells=dayCellsIn(grid);
+    if(!cells.length)return;
+    if(!cells.some(c=>c.tabIndex===0))cells[0].tabIndex=0;
+  });
+}
+
+function moveDayFocus(cell,delta){
+  const grid=cell.closest('[role="grid"]')||cell.parentElement;
+  const cells=dayCellsIn(grid);
+  const i=cells.indexOf(cell);
+  if(i<0)return false;
+  const j=Math.max(0,Math.min(cells.length-1,i+delta));
+  if(j===i)return false;
+  cells.forEach(c=>{c.tabIndex=-1;});
+  cells[j].tabIndex=0;
+  cells[j].focus();
+  return true;
+}
+
+document.addEventListener('keydown',e=>{
+  const cell=e.target&&e.target.closest&&e.target.closest('[data-day-tip]');
+  if(!cell||cell.tabIndex<0)return;
+  // A calendar row is a week, which is what makes up/down a sensible seven.
+  const step={ArrowRight:1,ArrowLeft:-1,ArrowDown:7,ArrowUp:-7,PageDown:7,PageUp:-7}[e.key];
+  if(step!==undefined){e.preventDefault();moveDayFocus(cell,step);return;}
+  if(e.key==='Home'||e.key==='End'){
+    e.preventDefault();
+    const cells=dayCellsIn(cell.closest('[role="grid"]')||cell.parentElement);
+    moveDayFocus(cell,(e.key==='Home'?0:cells.length-1)-cells.indexOf(cell));
+    return;
+  }
+  if(e.key==='Enter'||e.key===' '){
+    e.preventDefault();
+    cell.click();
+  }
+});
 
 function showDashTooltip(event,date){
   const el=document.getElementById('dashTooltip');

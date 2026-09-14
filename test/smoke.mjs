@@ -237,15 +237,14 @@ async function main() {
     await page.route(/fonts\.g(oogleapis|static)\.com/, (r) => r.abort());
     await page.route(/nominatim\.openstreetmap\.org/, (r) => r.abort());
 
-    // Chart.js and Leaflet are served as stubs rather than fetched from their CDNs.
-    // What is under test here is the dashboard's own lifecycle — that the libraries
-    // are fetched on demand rather than up front, that a filter change updates the
+    // Chart.js and Leaflet are served as stubs rather than as their real selves.
+    // They live in /vendor on this origin now rather than on a CDN, but what is under
+    // test is unchanged: the dashboard's own lifecycle — that the libraries are
+    // fetched on demand rather than up front, that a filter change updates the
     // existing charts instead of rebuilding them, that the map mounts when its tab
-    // opens. None of that is a test of Chart.js or Leaflet, and pulling 350 KB over
-    // the network would only make the suite slower and able to fail for reasons
-    // that have nothing to do with this repo.
+    // opens. None of that is a test of Chart.js or Leaflet.
     if (!skipLibs) {
-      await page.route(/chart\.umd\.min\.js/, (r) =>
+      await page.route(/chart\.umd(\.min)?\.js/, (r) =>
         r.fulfill({ status: 200, contentType: 'text/javascript', body: CHART_STUB }));
       await page.route(/leaflet\.js(\?|$)/, (r) =>
         r.fulfill({ status: 200, contentType: 'text/javascript', body: LEAFLET_STUB }));
@@ -832,6 +831,69 @@ async function main() {
         assert(pill.tabindex === '0' && pill.role === 'button',
           `location pill is tabindex=${pill.tabindex} role=${pill.role}`);
       }
+    });
+
+    await check('calendar days are reachable by keyboard without 1,800 tab stops', async () => {
+      // They were divs with an onclick: a pointer could open any of ~1,800 day cells
+      // and a keyboard could open none. The naive fix is worse than the bug — a tab
+      // stop on every cell traps anyone tabbing through the page for the afternoon —
+      // so this is the grid pattern: one stop per calendar, arrows move within it.
+      await page.evaluate(() => window.setTab('heatmap'));
+      await page.waitForTimeout(800);
+
+      const stops = await page.evaluate(() => {
+        const cells = [...document.querySelectorAll('#tab-heatmap [data-day-tip]')]
+          .filter((c) => c.offsetParent !== null);
+        return { total: cells.length, tabbable: cells.filter((c) => c.tabIndex === 0).length };
+      });
+      assert(stops.total > 100, `only ${stops.total} day cells found — the calendar did not render`);
+      assert(stops.tabbable > 0, 'no day cell is reachable by keyboard at all');
+      assert(stops.tabbable < 10,
+        `${stops.tabbable} of ${stops.total} cells are tab stops — that is the trap, not the fix`);
+
+      // Arrow keys walk the grid and move the single tab stop with them.
+      const first = await page.evaluate(() => {
+        const c = [...document.querySelectorAll('#tab-heatmap [data-day-tip]')]
+          .filter((x) => x.offsetParent !== null && x.tabIndex === 0)[0];
+        c.focus();
+        return c.dataset.dayTip;
+      });
+      await page.keyboard.press('ArrowRight');
+      await page.waitForTimeout(120);
+      const moved = await page.evaluate(() => document.activeElement.dataset.dayTip);
+      assert(moved && moved !== first, `ArrowRight left focus on ${moved}`);
+      // One stop PER GRID, not per tab: the Heatmap draws a desktop strip, a mobile
+      // layout and a disclosure per prior year, and each should remember its own place.
+      const perGrid = await page.evaluate(() => {
+        const focused = document.activeElement.closest('[role="grid"]');
+        const cells = [...focused.querySelectorAll('[data-day-tip]')].filter((c) => c.offsetParent !== null);
+        return {
+          stops: cells.filter((c) => c.tabIndex === 0).length,
+          onFocused: document.activeElement.tabIndex,
+        };
+      });
+      assert(perGrid.stops === 1, `the focused grid has ${perGrid.stops} tab stops, not one`);
+      assert(perGrid.onFocused === 0, 'the tab stop did not rove with the focus');
+
+      // A week is a row, so down is seven days.
+      await page.keyboard.press('ArrowDown');
+      await page.waitForTimeout(120);
+      const down = await page.evaluate(() => document.activeElement.dataset.dayTip);
+      const days = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400000);
+      assert(days(moved, down) === 7, `ArrowDown moved ${days(moved, down)} days, not a week`);
+
+      // Enter opens the day, the way a click does.
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(400);
+      assert(await page.evaluate(() => {
+        const d = document.getElementById('heatmapDayDetail');
+        return d && d.style.display !== 'none' && d.innerHTML.trim().length > 0;
+      }), 'Enter on a focused day opened nothing');
+
+      // And each cell says what it is, rather than being an unlabelled box.
+      const label = await page.evaluate(() => document.activeElement.getAttribute('aria-label'));
+      assert(label && /\d{4}|January|February|March|April|May|June|July|August|September|October|November|December/.test(label),
+        `a day cell announces itself as "${label}"`);
     });
 
     await check('sport and standing colours follow the theme', async () => {

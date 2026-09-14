@@ -23,22 +23,27 @@
  *
  * Bump CACHE_VERSION when the shell list changes; activate() drops every older cache.
  */
-const CACHE_VERSION = 'v1';
+// v2: Chart.js and Leaflet moved from two CDNs onto this origin, so the separate
+// library cache and its cross-origin rule are gone. Old caches are dropped on
+// activate, which also clears whatever those CDNs had last served.
+const CACHE_VERSION = 'v2';
 const SHELL_CACHE = `fitness-shell-${CACHE_VERSION}`;
 const ASSET_CACHE = `fitness-assets-${CACHE_VERSION}`;
-const LIB_CACHE = `fitness-libs-${CACHE_VERSION}`;
-const ALL_CACHES = [SHELL_CACHE, ASSET_CACHE, LIB_CACHE];
+const ALL_CACHES = [SHELL_CACHE, ASSET_CACHE];
 
 const SHELL = ['/', '/index.html', '/calc.js'];
 const ASSETS = [
+  // Same-origin now, so they precache like anything else and the Map works on a
+  // first visit offline — which it never did while Leaflet came from unpkg.
+  '/vendor/chart.umd.js',
+  '/vendor/leaflet.js',
+  '/vendor/leaflet.css',
   '/manifest.webmanifest',
   '/icons/icon.svg',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/icon-maskable-512.png',
 ];
-
-const LIB_HOSTS = ['cdnjs.cloudflare.com', 'unpkg.com'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
@@ -94,30 +99,6 @@ async function cacheFirst(request, cacheName) {
   return res;
 }
 
-async function staleWhileRevalidate(request, cacheName) {
-  const cache = await caches.open(cacheName);
-  const hit = await cache.match(request);
-  const fetching = fetch(request).then((res) => {
-    // Opaque cross-origin responses still serve fine from cache; ok is false for
-    // them, so status 0 is treated as cacheable rather than discarded.
-    if (res && (res.ok || res.type === 'opaque')) cache.put(request, res.clone());
-    return res;
-  }).catch(() => null);
-
-  // A cached copy answers immediately and the refetch carries on behind it.
-  if (hit) return hit;
-
-  // Nothing cached, so the network is the only answer. `fetching` swallows its own
-  // rejection to keep the background refresh quiet, which means it resolves to null
-  // on failure — and returning that null to respondWith() fails the request with a
-  // TypeError instead of a network error. The page then sees a script or stylesheet
-  // that "loaded" as nothing, which is materially harder to diagnose than an
-  // ordinary offline error. Rethrow so the failure looks exactly as it would if
-  // this worker were not installed at all.
-  const res = await fetching;
-  if (res) return res;
-  throw new Error('Not cached and the network is unavailable: ' + request.url);
-}
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
@@ -140,8 +121,5 @@ self.addEventListener('fetch', (event) => {
   if (url.origin === self.location.origin) {
     event.respondWith(cacheFirst(request, ASSET_CACHE));
     return;
-  }
-  if (LIB_HOSTS.includes(url.hostname)) {
-    event.respondWith(staleWhileRevalidate(request, LIB_CACHE));
   }
 });
