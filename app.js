@@ -936,6 +936,37 @@ function flashReorderNotice(msg){
   flashReorderNotice._t=setTimeout(()=>{el.hidden=true;},4000);
 }
 
+/* Take the scaffolding back out of the markup.
+ *
+ * buildReorderControls injects a grip, a label and two arrow buttons into every panel,
+ * and for a long time nothing ever removed them again: leaving the mode only dropped
+ * the `reordering` class off the tab, on the assumption that the CSS hiding them was
+ * what made them appear. It is not. That CSS says
+ *
+ *   .reordering [data-panel] > *      { display: none }
+ *   .reordering [data-panel] > .reorder-grip, … { display: flex }
+ *
+ * — it hides the panel's real contents and shows the scaffolding. Take the class away
+ * and the first rule stops applying, so the panel's contents come back, but the three
+ * injected divs have no display rule of their own anywhere and simply render as the
+ * blocks they are. So pressing Done left a grip, a title and a pair of arrows sitting
+ * on top of every panel on the tab.
+ *
+ * Whole document rather than the tab being left, because they accumulated: rearrange
+ * Summary, then Charts, and Summary's leftovers were still there underneath — 126 of
+ * these in the page after a tour of the tabs. Removing the buttons takes their click
+ * listeners with them, which is the other half of what was leaking.
+ */
+function stripReorderControls(root){
+  (root||document).querySelectorAll('.reorder-grip,.reorder-name,.reorder-ctl')
+    .forEach(el=>{if(el.parentNode)el.parentNode.removeChild(el);});
+  // Same reasoning for the panel attributes: a panel left focusable and still
+  // announcing itself as "Reorderable panel" is a Tab stop and a lie once the mode is
+  // off, and these were only ever cleared on the one tab being left.
+  (root||document).querySelectorAll('[data-panel][aria-roledescription="Reorderable panel"]')
+    .forEach(p=>{p.removeAttribute('tabindex');p.removeAttribute('aria-roledescription');});
+}
+
 // `leaving` is set when the tab is changing underneath us: the charts are about to
 // be hidden and repainted by setTab anyway, and stealing focus back to the settings
 // button would take it off the tab the user just pressed.
@@ -950,6 +981,7 @@ function endReorder(leaving){
   const bar=document.getElementById('reorderBar');
   if(bar)bar.hidden=true;
   allPanels(tab).forEach(p=>{p.removeAttribute('tabindex');p.removeAttribute('aria-roledescription');});
+  stripReorderControls();
   announceReorder('Reorder mode off.');
   reorderTab=null;
   if(leaving)return;

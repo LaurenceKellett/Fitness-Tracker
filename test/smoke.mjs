@@ -1291,6 +1291,67 @@ async function main() {
       await page.waitForTimeout(300);
     });
 
+    /* Done has to mean done. The grip, the panel label and the two arrow buttons are
+     * injected into every panel on the way in, and leaving the mode used only to drop
+     * the `reordering` class — which is what hides the panel's real contents, not what
+     * shows the scaffolding. So the grips and arrows stayed on screen afterwards, and
+     * piled up: rearrange one tab, then another, and the first tab's set was still
+     * there underneath. Checked across every tab that can be rearranged, because the
+     * tabs that re-render themselves on the way out were accidentally clearing their
+     * own and hiding how general this was. */
+    await check('pressing Done removes the grips and arrows, on every tab', async () => {
+      const REORDERABLE = ['summary', 'charts', 'records', 'mex', 'social', 'gear'];
+      for (const t of REORDERABLE) {
+        await page.evaluate((x) => window.setTab(x), t);
+        await page.waitForTimeout(350);
+        // Bare identifiers on purpose: reorderOn is a top-level `let`, which makes a
+        // lexical binding and not a property of window, so window.reorderOn is undefined.
+        const on = await page.evaluate(() => { startReorder(); return reorderOn; });
+        assert(on, `${t} would not enter reorder mode`);
+        await page.waitForTimeout(350);
+        // It is meant to be there while the mode is on — otherwise this proves nothing.
+        const during = await page.evaluate(() => document.querySelectorAll('.reorder-grip').length);
+        assert(during > 0, `${t} showed no grips while reordering`);
+
+        await page.click('.reorder-done');
+        await page.waitForTimeout(700);
+        const after = await page.evaluate(() => {
+          const all = [...document.querySelectorAll('.reorder-grip,.reorder-name,.reorder-ctl')];
+          const visible = all.filter((e) => e.getClientRects().length > 0);
+          return {
+            inDom: all.length,
+            visible: visible.length,
+            what: visible.slice(0, 2).map((e) => e.className),
+            stillFocusable: document.querySelectorAll('[data-panel][aria-roledescription]').length,
+          };
+        });
+        assert(after.visible === 0,
+          `${t}: ${after.visible} grips/arrows still on screen after Done ${JSON.stringify(after.what)}`);
+        assert(after.inDom === 0, `${t}: ${after.inDom} left in the DOM after Done`);
+        assert(after.stillFocusable === 0,
+          `${t}: ${after.stillFocusable} panels still announce themselves as reorderable`);
+      }
+      await page.evaluate(() => window.setTab('charts'));
+      await page.waitForTimeout(300);
+    });
+
+    await check('and the mode still works on the way back in', async () => {
+      // Removing the scaffolding must not stop it being rebuilt — the controls carry
+      // their own click listeners, so they are rebuilt rather than re-shown.
+      await enterReorder();
+      const grips = await page.evaluate(() => document.querySelectorAll('#tab-charts .reorder-grip').length);
+      assert(grips > 0, 'no grips came back on a second run through');
+      const moved = await page.evaluate(() => {
+        const first = document.querySelector('#tab-charts [data-panel]');
+        const name = first.dataset.panel;
+        first.querySelector('.reorder-ctl .reorder-move[data-dir="1"]').click();
+        return { name, nowFirst: document.querySelector('#tab-charts [data-panel]').dataset.panel };
+      });
+      assert(moved.name !== moved.nowFirst, 'a rebuilt arrow button did nothing when pressed');
+      await page.click('.reorder-done');
+      await page.waitForTimeout(500);
+    });
+
     await check('any tab with more than one panel can be rearranged, not just Charts', async () => {
       // The tab element itself can be the zone, so it has to be in the list too.
       const panelsOn = (tab) => page.evaluate((t) => {
