@@ -314,7 +314,7 @@ a{color:inherit;text-decoration:none}
 .tab-content.enter-from-right{animation:enterFromRight .22s ease}
 .tab-content.enter-from-left{animation:enterFromLeft .22s ease}
 /* SUMMARY — the present-tense block that now leads the page */
-.sum-hero{border-top:1px solid var(--border);padding:22px 0 0;margin-bottom:22px}
+.sum-hero{padding:24px 26px;margin-bottom:14px}
 .sum-hero-row{display:flex;gap:34px;align-items:flex-start}
 .sum-hero-fig{width:250px;flex-shrink:0}
 .sum-hero-chart{flex:1;min-width:0}
@@ -325,8 +325,8 @@ a{color:inherit;text-decoration:none}
   font-size:12px;font-weight:500;color:var(--text-muted);border-radius:0}
 .sum-ratio strong{font-size:14px;font-weight:700;color:var(--text)}
 /* Quiet by design: B earns its place by what it says, not by its size. */
-.sum-band{background:transparent;border:0;border-top:1px solid var(--border);box-shadow:none;
-  padding:18px 0 4px;display:flex;align-items:flex-start;gap:14px;margin-bottom:22px}
+.sum-band{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);
+  padding:16px 22px;display:flex;align-items:flex-start;gap:14px;margin-bottom:22px}
 .sum-band:empty{display:none}
 .sum-band .ms{font-size:17px;color:var(--text-muted);vertical-align:0;flex-shrink:0;margin-top:1px}
 .sum-band-text{font-size:16px;font-weight:600;line-height:1.5}
@@ -334,12 +334,12 @@ a{color:inherit;text-decoration:none}
    borrows from: it sits inside a card that already carries a chart. */
 .sum-split{margin-top:18px;padding-top:16px;border-top:1px solid var(--border)}
 .sum-split-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
-.sum-split-t{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-light)}
+.sum-split-t{font-size:11px;font-weight:700;color:var(--text-light)}
 .sum-split-n{font-size:11.5px;color:var(--text-muted)}
 .sum-split .split-bar{height:14px;margin:9px 0 9px}
 .sum-split .split-key{gap:5px 16px}
 .sum-split-empty{font-size:12px;color:var(--text-muted);margin-top:9px}
-.sum-two{display:grid;grid-template-columns:1.6fr 1fr;gap:18px;margin-bottom:26px}
+.sum-two{display:grid;grid-template-columns:1fr;gap:18px;margin-bottom:26px}
 .sum-two .chart-wrap{height:172px}
 .sum-consistency{display:flex;flex-direction:column}
 .sum-cal{display:grid;grid-template-columns:repeat(14,1fr);gap:3px;margin-top:16px}
@@ -349,10 +349,10 @@ a{color:inherit;text-decoration:none}
   display:flex;justify-content:space-between}
 /* One row per sport rather than five cards: the eye reads down a column to compare,
    and each sport gets a shape (twelve weeks of hours) as well as its numbers. */
-.sum-sports{border-top:1px solid var(--border);padding-top:14px;margin-bottom:26px}
+.sum-sports{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);padding:16px 22px 4px;margin-bottom:26px}
 .sum-sport-note{flex:0 0 100%;margin-bottom:0;max-width:64ch}
 .sum-sport-cols,.sum-sport-tr{display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr 1fr 1fr 110px;gap:12px;align-items:center}
-.sum-sport-cols{padding-bottom:8px;font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-light)}
+.sum-sport-cols{padding-bottom:8px;font-size:10px;font-weight:600;color:var(--text-light)}
 .sum-sport-tr{padding:13px 0;border-top:1px solid var(--border);font-size:12.5px}
 .sum-sport-name{display:inline-flex;align-items:center;gap:8px;font-weight:600}
 .sum-sport-name i{display:inline-block;width:8px;height:8px;flex-shrink:0}
@@ -366,8 +366,8 @@ a{color:inherit;text-decoration:none}
    percentages, so the same layout code serves every width; a one-pixel border in
    the page colour is the gap between fills, so neighbours separate without a stroke. */
 .sum-field-tiles{position:relative;height:360px;margin-top:14px}
-.sum-field-tile{position:absolute;box-sizing:border-box;border:1px solid var(--bg);padding:16px 18px;overflow:hidden;display:flex;flex-direction:column}
-.sum-field-name{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.85}
+.sum-field-tile{position:absolute;box-sizing:border-box;border:1px solid var(--surface);padding:16px 18px;overflow:hidden;display:flex;flex-direction:column}
+.sum-field-name{font-size:11px;font-weight:700;opacity:.85}
 .sum-field-big{font-weight:300;line-height:1;margin-top:auto;letter-spacing:-.04em}
 .sum-field-big.xl{font-family:var(--f-fig);font-size:64px}
 .sum-field-big.lg{font-family:var(--f-fig);font-size:40px}
@@ -381,8 +381,8 @@ a{color:inherit;text-decoration:none}
 @media(max-width:640px){.sum-field-tiles{height:440px}.sum-field-tile{padding:12px 13px}}
 
 /* The trophies, demoted to one line. */
-.sum-career{background:transparent;border:0;border-top:1px solid var(--border);box-shadow:none;
-  padding:16px 0 0;display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:24px}
+.sum-career{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);
+  padding:14px 22px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:24px}
 .sum-career-fig{display:flex;align-items:baseline;gap:6px}
 .sum-career-fig b{font-size:13px;font-weight:700}
 .sum-career-fig span{font-size:11px;color:var(--text-muted)}
@@ -403,7 +403,7 @@ a{color:inherit;text-decoration:none}
 }
 /* STATS */
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:14px;margin-bottom:24px}
-.stat-card{background:transparent;border:0;border-top:1px solid var(--border);border-radius:0;padding:16px 0 0;box-shadow:none}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:18px 20px;box-shadow:var(--shadow)}
 .stat-card-link{cursor:pointer;transition:box-shadow .1s}
 .stat-card-link:hover{box-shadow:0 2px 4px rgba(15,23,42,.06),0 8px 20px rgba(15,23,42,.09)}
 .stat-label{font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:6px}
@@ -415,16 +415,17 @@ a{color:inherit;text-decoration:none}
 .stat-delta{font-size:12px;font-weight:600;margin-top:4px}
 .stat-delta.up{color:var(--success-fg)}.stat-delta.down{color:var(--danger)}
 /* CHARTS */
-.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+/* One chart per line. Two abreast halved every plot's width for no reason a reader
+   could name; a phone stacks them anyway. */
+.charts-grid{display:grid;grid-template-columns:1fr;gap:18px;margin-bottom:18px}
 .charts-grid.wide{grid-template-columns:1fr}
-/* ── INK & SIGNAL ──
-   Cards are no longer boxes. A panel is a hairline rule and the air beneath it, sitting
-   on the page's one tone; colour belongs to the data — chart lines, sport squares,
-   calendar cells — and to nothing else. Hierarchy comes from type and spacing, which
-   is why the section headings and the big figures carry more of the weight than they
-   used to. Where a fill still separates things (the modal, the settings sheet, the
-   map's legend) it stays, because those float over the page rather than sit in it. */
-.chart-card{background:transparent;border:0;border-top:1px solid var(--border);border-radius:0;padding:20px 0 0;box-shadow:none}
+/* ── INK & SIGNAL, IN BOXES ──
+   Every tile is a box: the surface colour, a hairline border and the slight shadow in
+   --shadow. It was briefly a bare hairline and the air beneath it, and a page of those
+   made one tile hard to tell from the next — so the box is back, and the rest of the
+   idea stays: colour belongs to the data — chart lines, sport squares, calendar cells,
+   the field — and never decorates the box. Active controls are marked in ink. */
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:20px 22px;box-shadow:var(--shadow)}
 .chart-title{font-size:13px;font-weight:600;margin-bottom:4px}
 .chart-sub{font-size:11px;color:var(--text-muted);margin-bottom:16px}
 .chart-wrap{position:relative;height:240px}.chart-wrap.tall{height:320px}
@@ -564,7 +565,7 @@ a{color:inherit;text-decoration:none}
    which is information. One toolbar now, sharing the map's border, grouped Go to /
    Replay / Fade. The legend moved onto the map, where legends belong and where it
    costs no layout height. */
-.map-object{border:1px solid var(--border);background:var(--surface);box-shadow:none}
+.map-object{border:1px solid var(--border);background:var(--surface);box-shadow:var(--shadow)}
 .map-toolbar{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--border);background:var(--bg)}
 .map-tgroup{display:flex;align-items:center;gap:8px;min-width:0}
 .map-tgroup-grow{flex:1;min-width:0}
@@ -658,7 +659,7 @@ a{color:inherit;text-decoration:none}
 .year-cal-dow-lbl{height:14px;font-size:9px;color:var(--text-light);line-height:14px}
 .year-cal-wrap{display:flex;margin-top:8px}
 /* HEATMAP */
-.heatmap-wrap{background:transparent;border:0;border-top:1px solid var(--border);border-radius:0;padding:20px 0 0;box-shadow:none}
+.heatmap-wrap{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:24px;box-shadow:var(--shadow)}
 .heatmap-title{font-size:14px;font-weight:600;margin-bottom:4px}
 .heatmap-sub{font-size:12px;color:var(--text-muted);margin-bottom:16px}
 .heatmap-year-nav{display:flex;align-items:center;gap:12px;margin-bottom:16px}
@@ -709,9 +710,9 @@ details:not([open])>*:not(summary){display:none}
 .rec-yr:hover{border-color:var(--border-strong);color:var(--text)}
 .rec-yr.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
 .rec-hero-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(216px,1fr));gap:14px;margin-bottom:30px}
-.rec-hero{background:transparent;border:0;border-top:2px solid var(--hc);
-  padding:14px 0 0;box-shadow:none;cursor:pointer;transition:opacity .15s}
-.rec-hero:hover{opacity:.8}
+.rec-hero{background:var(--surface);border:1px solid var(--border);border-top:2px solid var(--hc);
+  padding:16px 18px;box-shadow:var(--shadow);cursor:pointer;transition:border-color .15s}
+.rec-hero:hover{border-color:var(--border-strong);border-top-color:var(--hc)}
 .rec-hero-lbl{font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:7px}
 .rec-hero-val{font-family:var(--f-fig);font-size:30px;font-weight:var(--w-fig);letter-spacing:-1px;line-height:1}
 .rec-hero-val .u{font-size:14px;font-weight:400;color:var(--text-muted);letter-spacing:0;margin-left:3px}
@@ -720,7 +721,7 @@ details:not([open])>*:not(summary){display:none}
 .rec-sect{display:flex;align-items:baseline;gap:10px;margin:0 0 10px}
 .rec-sect h3{font-size:14px;font-weight:700}
 .rec-sect span{font-size:11px;color:var(--text-light)}
-.rec-tbl{background:transparent;border:0;border-top:1px solid var(--border);box-shadow:none;margin-bottom:8px}
+.rec-tbl{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);margin-bottom:8px}
 .rec-head,.rec-row{display:grid;grid-template-columns:180px 122px 1fr 96px 118px;gap:14px;align-items:center;padding:0 16px}
 .rec-head{height:32px;background:var(--bg);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;color:var(--text-light)}
 .rec-row{height:42px;border-bottom:1px solid var(--bg);font-size:12.5px;cursor:pointer;transition:background .12s}
@@ -746,7 +747,7 @@ details:not([open])>*:not(summary){display:none}
    the other, disagreeing: a stat row from Strava's participant count, and partner cards
    from a regex over activity titles. One definition leads now, and the named list is
    explicitly the subset written into titles. */
-.soc-lead{background:transparent;border:0;border-top:1px solid var(--border);box-shadow:none;padding:18px 0 0}
+.soc-lead{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);padding:20px 22px}
 .soc-lead-top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .soc-lead-n{font-family:var(--f-fig);font-size:30px;font-weight:var(--w-fig);letter-spacing:-1px;line-height:1}
 .soc-lead-t{font-size:13px;color:var(--text-muted);padding-bottom:2px}
@@ -759,7 +760,7 @@ details:not([open])>*:not(summary){display:none}
 .soc-caveat .ms{font-size:17px;color:var(--warn-icon);flex-shrink:0}
 .soc-caveat div{font-size:12px;color:var(--text-muted);line-height:1.6}
 .soc-caveat strong{color:var(--text);font-weight:700}
-.soc-tbl{background:transparent;border:0;border-top:1px solid var(--border);box-shadow:none}
+.soc-tbl{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow)}
 .soc-head,.soc-row{display:grid;grid-template-columns:34px minmax(0,2fr) minmax(92px,.8fr) minmax(100px,.8fr) minmax(104px,.9fr) 92px;gap:14px;align-items:center;padding:0 16px}
 .soc-head{height:32px;background:var(--bg);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;color:var(--text-light)}
 .soc-row{min-height:52px;border-bottom:1px solid var(--bg);font-size:12.5px;cursor:pointer;transition:background .12s}
@@ -884,7 +885,7 @@ details:not([open])>*:not(summary){display:none}
 .search-summary-value{font-size:18px;font-weight:700;letter-spacing:-.3px}
 .search-summary-unit{font-size:12px;font-weight:400;color:var(--text-muted);margin-left:2px}
 /* LOG TABLE */
-.log-table-wrap{background:transparent;border:0;border-top:1px solid var(--border);border-radius:0;overflow:hidden;box-shadow:none}
+.log-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:0;overflow:hidden;box-shadow:var(--shadow)}
 table{width:100%;border-collapse:collapse;font-size:13px}
 thead th{padding:11px 14px;text-align:left;font-size:12px;font-weight:600;color:var(--text-muted);background:var(--bg);border-bottom:1px solid var(--border);cursor:pointer;white-space:nowrap;user-select:none}
 thead th:hover{color:var(--text)}
@@ -915,8 +916,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .zwift-status-bar .type-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;font-size:12px;font-weight:500;color:var(--text-muted);border:none;background:transparent;border-radius:0;cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit}
 .zwift-status-bar .type-btn:hover:not(.active){color:var(--text)}
 .zwift-status-bar .type-btn.active{font-weight:600}
-.zwift-group{background:transparent;border:0;border-top:1px solid var(--border);border-radius:0;margin-bottom:12px;box-shadow:none;overflow:hidden}
-.zwift-group summary{padding:12px 0;font-weight:700;font-size:13px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center}
+.zwift-group{background:var(--surface);border:1px solid var(--border);border-radius:0;margin-bottom:12px;box-shadow:var(--shadow);overflow:hidden}
+.zwift-group summary{padding:12px 16px;font-weight:700;font-size:13px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center}
 .zwift-group summary::-webkit-details-marker{display:none}
 .zwift-group-count{font-size:11px;font-weight:500;color:var(--text-muted)}
 .zwift-summary-left{display:flex;align-items:center}
@@ -1058,14 +1059,14 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .section-header .badge{flex:0 0 100%;background:transparent;border:none;padding:0;border-radius:0;
   font-size:12px;font-weight:500;line-height:1.5;color:var(--text-light)}
 .section-header .badge:empty{display:none}
-.year-table-wrap{background:transparent;border:0;border-top:1px solid var(--border);border-radius:0;overflow:hidden;box-shadow:none;margin-bottom:24px}
-.dow-card{background:transparent;border:0;border-top:1px solid var(--border);border-radius:0;padding:16px 0 0;box-shadow:none}
+.year-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:0;overflow:hidden;box-shadow:var(--shadow);margin-bottom:24px}
+.dow-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:18px 20px;box-shadow:var(--shadow)}
 .dow-bars{display:flex;gap:8px;align-items:flex-end;height:90px}
 .dow-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end}
 .dow-bar-wrap{flex:1;display:flex;align-items:flex-end;width:100%}
 .dow-bar{width:100%;border-radius:0;min-height:3px;transition:height .3s}
 .dow-label{font-size:10px;color:var(--text-muted)}.dow-count{font-size:9px;color:var(--text-muted)}
-.two-col{display:grid;grid-template-columns:2fr 1fr;gap:18px;margin-bottom:24px}
+.two-col{display:grid;grid-template-columns:1fr;gap:18px;margin-bottom:24px}
 @media(max-width:700px){.two-col{grid-template-columns:1fr}}
 /* Summary only: let Most Active Days grow to the height of the Activity Breakdown cards
    beside it, instead of sitting at its natural height with a gap underneath. */
@@ -1079,15 +1080,16 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .early-years-toggle:hover{color:var(--text)}
 /* TYPE ROW */
 .type-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:12px;margin-bottom:24px}
-.type-card{background:transparent;border:0;border-top:1px solid var(--border);border-radius:0;padding:14px 0 0;box-shadow:none;display:flex;gap:14px;align-items:flex-start}
+.type-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:16px 18px;box-shadow:var(--shadow);display:flex;gap:14px;align-items:flex-start}
 .type-icon{width:40px;height:40px;border-radius:0;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
 .type-info .type-name{font-size:13px;font-weight:700;margin-bottom:2px}
 .type-info .type-count{font-size:12px;color:var(--text-muted)}
 .type-info .type-dist{font-size:18px;font-weight:700;letter-spacing:-.3px;margin-top:4px}
 .type-info .type-dist small{font-size:12px;font-weight:400;color:var(--text-muted)}
 /* RECENT */
-.recent-list{display:flex;flex-direction:column;gap:8px}
-.recent-item{background:transparent;border:0;border-top:1px solid var(--border);border-radius:0;padding:12px 0;display:flex;align-items:center;gap:12px;box-shadow:none}
+.recent-list{display:flex;flex-direction:column;gap:0;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow)}
+.recent-item{background:transparent;border:0;border-top:1px solid var(--border);border-radius:0;padding:12px 16px;display:flex;align-items:center;gap:12px;box-shadow:none}
+.recent-item:first-child{border-top:0}
 /* The sport colour is a square at the start of the row, as it is everywhere else. */
 .recent-sw{width:8px;height:8px;flex-shrink:0}
 .recent-info{flex:1;min-width:0}
@@ -1097,7 +1099,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .recent-dist{font-size:14px;font-weight:700}.recent-time{font-size:11px;color:var(--text-muted)}
 /* SOCIAL */
 .partner-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px;margin-bottom:20px}
-.partner-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:14px;box-shadow:none;text-align:center}
+.partner-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:14px;box-shadow:var(--shadow);text-align:center}
 .partner-avatar{width:38px;height:38px;border-radius:0;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:white;margin:0 auto 8px}
 .partner-name{font-size:13px;font-weight:700;margin-bottom:2px}
 .partner-count{font-size:12px;color:var(--text-muted)}.partner-dist{font-size:14px;font-weight:700;margin-top:4px}
@@ -1109,9 +1111,9 @@ tbody td{padding:10px 14px;vertical-align:middle}
    different rules. */
 .gear-card{--gear-pad-y:16px;--gear-pad-x:18px;
   background:var(--surface);border:1px solid var(--border);border-radius:0;
-  padding:var(--gear-pad-y) var(--gear-pad-x);box-shadow:none;cursor:pointer;
-  transition:transform .1s}
-.gear-card:hover{transform:translateY(-2px)}
+  padding:var(--gear-pad-y) var(--gear-pad-x);box-shadow:var(--shadow);cursor:pointer;
+  transition:transform .1s,box-shadow .1s}
+.gear-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-callout)}
 /* Flush to the top of the card and to both sides, under the sport-coloured rule.
    An <img> is a replaced element, so `width:auto` would resolve to its intrinsic
    width rather than stretching — the padding has to be added back explicitly. */
@@ -1129,7 +1131,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .gear-photo-hint{font-size:11px;color:var(--text-light);line-height:1.5;margin-top:5px}
 .gear-photo-hint.is-hidden{display:none}
 .gear-brand{color:var(--text-light);font-weight:500}
-.gear-retired-tag{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;background:var(--tag-soft);color:var(--tag-fg);padding:1px 5px;margin-left:4px;vertical-align:1px}
+.gear-retired-tag{display:inline-block;font-size:9px;font-weight:700;background:var(--tag-soft);color:var(--tag-fg);padding:1px 5px;margin-left:4px;vertical-align:1px}
 .gear-card.is-retired{opacity:.72}
 .gear-card.is-retired:hover{opacity:1}
 .gear-photo-hint code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;background:var(--bg);border:1px solid var(--border);padding:0 4px}
@@ -1144,13 +1146,13 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .gear-hero-value{font-family:var(--f-fig);font-size:24px;font-weight:var(--w-fig);letter-spacing:-.6px;margin-top:2px}
 .gear-hero-value em{font-size:13px;font-weight:600;color:var(--text-muted);font-style:normal}
 .gear-trio{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px;padding-top:11px;border-top:1px solid var(--border)}
-.gear-trio-label{font-size:9.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-light)}
+.gear-trio-label{font-size:9.5px;font-weight:700;color:var(--text-light)}
 .gear-trio-value{font-size:13px;font-weight:700;margin-top:2px;letter-spacing:-.2px}
 .gear-span{display:flex;justify-content:space-between;gap:10px;font-size:10.5px;color:var(--text-light);margin-top:11px;padding-top:9px;border-top:1px solid var(--border)}
 .gear-stat{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--bg)}
 .gear-stat-label{color:var(--text-muted)}.gear-stat-value{font-weight:600}
 .gear-forecast{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
-.gear-forecast-head{display:flex;justify-content:space-between;font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text-light);margin-bottom:5px}
+.gear-forecast-head{display:flex;justify-content:space-between;font-size:10px;font-weight:700;color:var(--text-light);margin-bottom:5px}
 .gear-forecast-bar{height:5px;background:var(--bg);border:1px solid var(--border);box-sizing:border-box}
 .gear-forecast-bar span{display:block;height:100%;transition:width .4s ease}
 .gear-forecast-sub{font-size:10px;color:var(--text-light);line-height:1.5;margin-top:6px}
@@ -1204,8 +1206,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
   .act-actions a,.act-actions button{min-height:44px;flex-basis:calc(50% - 4px)}
 }
 /* TOP GEAR in summary */
-.top-gear-list{background:transparent;border:0;border-top:1px solid var(--border);border-radius:0;overflow:hidden;box-shadow:none}
-.top-gear-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border);font-size:13px}
+.top-gear-list{background:var(--surface);border:1px solid var(--border);border-radius:0;overflow:hidden;box-shadow:var(--shadow)}
+.top-gear-row{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border);font-size:13px}
 .top-gear-row:last-child{border-bottom:none}
 .top-gear-rank{font-size:12px;font-weight:700;color:var(--text-muted);width:20px;flex-shrink:0}
 /* YEAR CAL VERTICAL */
@@ -1251,9 +1253,9 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .scope-sheet{display:none;position:fixed;left:0;right:0;bottom:0;z-index:201;background:var(--surface);border-top:1px solid var(--border-strong);box-shadow:0 -8px 24px rgba(15,23,42,.12);padding:16px 16px calc(20px + env(safe-area-inset-bottom))}
 .scope-sheet.open{display:block;animation:sheetUp .18s ease-out}
 @keyframes sheetUp{from{transform:translateY(16px);opacity:.5}to{transform:none;opacity:1}}
-.sheet-title{font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-muted)}
+.sheet-title{font-size:12px;font-weight:700;color:var(--text-muted)}
 .sheet-sec{margin-top:14px}
-.sheet-lbl{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-light);margin-bottom:7px}
+.sheet-lbl{font-size:10.5px;font-weight:700;color:var(--text-light);margin-bottom:7px}
 .sheet-chips{display:flex;gap:7px;flex-wrap:wrap}
 .sheet-chips button{display:flex;align-items:center;gap:6px;font-family:inherit;font-size:12px;font-weight:600;padding:8px 12px;border:1px solid var(--border);border-radius:0;background:var(--surface);color:var(--text-muted);cursor:pointer}
 .sheet-chips button.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
