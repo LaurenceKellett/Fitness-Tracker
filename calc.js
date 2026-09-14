@@ -735,132 +735,73 @@ function ratioBand(ratio){
 }
 
 /* ── YEAR-END PROJECTION ──
- * Two honest ways to guess where a year finishes, and a dial between them.
+ * Where the year lands if it carries on at some rate — and the dial is which rate.
  *
- * RECENT TREND: what you have done lately, times the days left. Responsive, and
- * completely blind to the fact that you always stop in November — ask it in August
- * and it will happily promise you a summer's worth of December.
+ * At the left, the rate of THIS YEAR SO FAR: every day since 1 January, averaged, run
+ * out to 31 December. It is the steadiest guess and the slowest to notice anything —
+ * ask it in September after two months off and it still remembers May.
  *
- * SEASONAL SHAPE: how far through a typical year of yours this date usually is. If
- * day 257 has historically been 70% of your year, then this year's total so far is
- * 70% of the answer. It knows about winter; it knows nothing about the fact that you
- * have been injured since July.
+ * At the right, JUST THE LAST SEVEN DAYS at their own rate. It notices everything,
+ * including a rest week, and will happily promise you fifty-two of whatever you did
+ * this week.
  *
- * Neither is right, and they fail in opposite directions, which is exactly why the
- * dial is the interesting part rather than a settings detail. (The idea is
- * VeloViewer's — its Summary chart blends previous years' trends against your last
- * 30 days on a slider. The arithmetic here is our own.)
+ * In between, the window shrinks from the one to the other. Geometrically, not
+ * linearly: halfway on day 257 is about six weeks, not four months, because "the
+ * last few weeks" is the question people actually have in the middle of the dial.
+ * No other year is consulted — the previous years are on the chart to be read
+ * against, not to shape the guess.
  *
- * `mix` runs 0 (pure seasonal) to 1 (pure recent). Sliding right both leans harder
- * on the recent window AND shortens it, because both mean the same thing — let the
- * recent past speak louder — and two controls for one intention is one too many.
+ * `mix` runs 0 (this year so far) to 1 (the last seven days).
  */
-const PROJ_WINDOW_MAX=30, PROJ_WINDOW_MIN=7;
+const PROJ_WINDOW_MIN=7;
 
-function projectionWindow(mix){
-  const m=Math.max(0,Math.min(1,mix||0));
-  if(m<=0.5)return PROJ_WINDOW_MAX;
-  const t=(m-0.5)/0.5;
-  return Math.max(PROJ_WINDOW_MIN,Math.round(PROJ_WINDOW_MAX-t*(PROJ_WINDOW_MAX-PROJ_WINDOW_MIN)));
+// How many days the dial is currently reading, for a year `doy` days in.
+function projectionWindow(mix,doy){
+  const m=Math.max(0,Math.min(1,mix==null?0.5:mix));
+  const whole=Math.max(PROJ_WINDOW_MIN,doy|0);
+  const w=Math.exp(Math.log(whole)+(Math.log(PROJ_WINDOW_MIN)-Math.log(whole))*m);
+  return Math.max(PROJ_WINDOW_MIN,Math.min(whole,Math.round(w)));
 }
 
 function daysInYear(y){return(+y%4===0&&(+y%100!==0||+y%400===0))?366:365;}
 
-/* Which previous years can teach you about seasons.
- *
- * The one to exclude is the year you joined Strava: it starts in June, so counting
- * it would claim day 257 is most of a normal year and halve every projection built
- * on it. The obvious guard — "must span at least eight months" — is wrong, because
- * it throws out exactly the people seasonality is for. Somebody who rides April to
- * September has a real, repeating shape and six months of data; telling them their
- * own history is unusable is the opposite of the point.
- *
- * So the test is for a partial year rather than a short one, and only the EARLIEST
- * year in the data can be partial in this sense: a late start every year is a
- * season, a late start once at the beginning is a sign-up date.
+/* daily: { '2026': Array(367) of per-day values, ... } — index 1 is 1 January.
+ * Returns the projection, the two ends of the dial, and the path to draw.
  */
-function yearTeachesSeason(daily,isEarliest){
-  if(!daily)return false;
-  let total=0,first=0;
-  for(let d=1;d<daily.length;d++){
-    const v=daily[d]||0;
-    if(v>0){total+=v;if(!first)first=d;}
-  }
-  if(total<=0)return false;
-  return !(isEarliest&&first>45);
-}
-
-/* daily: { '2025': Array(367) of per-day values, ... } — index 1 is 1 January.
- * Returns the projection, both of its ingredients, and the path to draw.
- */
-function yearEndProjection(daily,focus,doy,mix,opts){
-  const o=opts||{};
+function yearEndProjection(daily,focus,doy,mix){
   const len=daysInYear(focus);
   const day=Math.max(1,Math.min(doy|0,len));
   const cur=daily[focus]||[];
   let ytd=0;
   for(let d=1;d<=day;d++)ytd+=cur[d]||0;
+  const left=len-day;
 
-  // The average shape of a finished year: what share of its total was done by each
-  // day. Averaged across years rather than pooled, so a big year does not drown a
-  // small one — the question is about shape, not volume.
-  const known=Object.keys(daily).sort();
-  const earliest=known[0];
-  const teachers=known.filter(y=>y!==String(focus)&&yearTeachesSeason(daily[y],y===earliest));
-  let shape=null;
-  if(teachers.length){
-    shape=new Array(len+1).fill(0);
-    teachers.forEach(y=>{
-      const src=daily[y],n=daysInYear(y);
-      let run=0,total=0;
-      for(let d=1;d<=n;d++)total+=src[d]||0;
-      if(!total)return;
-      for(let d=1;d<=len;d++){
-        run+=src[Math.min(d,n)]||0;
-        shape[d]+=run/total;
-      }
-    });
-    for(let d=1;d<=len;d++)shape[d]/=teachers.length;
-  }
+  // The last `win` days at their own rate, carried to 31 December.
+  const carry=win=>{
+    let sum=0;
+    for(let d=Math.max(1,day-win+1);d<=day;d++)sum+=cur[d]||0;
+    return ytd+(sum/win)*left;
+  };
+  const win=projectionWindow(mix,day);
+  const projected=carry(win);
+  // The two ends of the dial, so the spread between them can be shown: that gap is
+  // the uncertainty, and it belongs on screen rather than in a caveat.
+  const yearRate=carry(day);
+  const weekRate=carry(Math.min(day,PROJ_WINDOW_MIN));
 
-  // Seasonal: today is typically `f` of the way through, so scale up by 1/f. Guarded
-  // against a tiny f early in January, where dividing by it projects a fantasy.
-  const f=shape?shape[day]:null;
-  const seasonal=(f!=null&&f>=0.05&&ytd>0)?ytd/f:null;
-
-  // Recent: the last `win` days at their own rate, carried to 31 December.
-  const win=projectionWindow(mix);
-  let recentSum=0;
-  for(let d=Math.max(1,day-win+1);d<=day;d++)recentSum+=cur[d]||0;
-  const recent=ytd+(recentSum/win)*(len-day);
-
-  const m=Math.max(0,Math.min(1,mix==null?0.5:mix));
-  // With no finished year to learn from there is nothing to blend, and pretending
-  // otherwise would quietly serve the recent number under a seasonal label.
-  const weight=seasonal==null?1:m;
-  const projected=seasonal==null?recent:(1-weight)*seasonal+weight*recent;
-
-  // The path from here to 31 December. It bends the way your years usually bend
-  // rather than running straight, which is the whole point of having a shape: a
-  // straight line to a seasonal total would draw a December you have never had.
+  // A straight line from today to the projection — a rate carried forward is a
+  // straight line, and drawing anything else would claim knowledge the dial has not got.
   const path=new Array(len+1).fill(null);
-  const spread=shape&&f!=null&&f<0.999;
-  for(let d=day;d<=len;d++){
-    const t=spread
-      ? Math.max(0,Math.min(1,(shape[d]-f)/(1-f)))
-      : (len===day?1:(d-day)/(len-day));
-    path[d]=+(ytd+(projected-ytd)*t).toFixed(2);
-  }
+  for(let d=day;d<=len;d++)path[d]=+(ytd+(projected-ytd)*(left?(d-day)/left:1)).toFixed(2);
 
   return{
     ytd:+ytd.toFixed(2),
     projected:+projected.toFixed(2),
-    seasonal:seasonal==null?null:+seasonal.toFixed(2),
-    recent:+recent.toFixed(2),
-    window:win,weight:+weight.toFixed(3),
-    fractionDone:f==null?null:+f.toFixed(4),
-    teachers:teachers.length,
-    daysLeft:len-day,
+    yearRate:+yearRate.toFixed(2),
+    weekRate:+weekRate.toFixed(2),
+    window:win,
+    wholeYear:win>=day,
+    daysLeft:left,
     path,
   };
 }
@@ -883,7 +824,7 @@ if (typeof module !== 'undefined' && module.exports) {
     calendarWeek,weekStartISO,isoOf,WEEK_BASE_WEEKS,weeklyTotals,
     calendarPeriod,periodTotals,periodStartISO,periodBackISO,periodLength,PERIOD_BASE,
     CHRONIC_DAYS,CHRONIC_WEIGHTS,weeklyLoadStats,MONOTONY_CAUTION,MONOTONY_CAP,
-    yearEndProjection,projectionWindow,daysInYear,PROJ_WINDOW_MIN,PROJ_WINDOW_MAX,
+    yearEndProjection,projectionWindow,daysInYear,PROJ_WINDOW_MIN,
     setScope(s){
       if(s.unit!==undefined)unit=s.unit;
       if(s.activeYear!==undefined)activeYear=s.activeYear;

@@ -481,8 +481,8 @@ async function main() {
     });
 
     await check('the dotted line has a dial, and the dial moves it', async () => {
-      // The fixture has no finished year, so the seasonal end has nothing to teach and
-      // the dial says so; sliding right must still shorten the recent window.
+      // The middle of the dial reads a window somewhere between the whole year and a
+      // week; sliding right must shorten it to seven days.
       await page.evaluate(() => window.setTab('charts'));
       await page.waitForTimeout(400);
       const before = await page.evaluate(() => ({
@@ -491,7 +491,7 @@ async function main() {
         chip: [...document.querySelectorAll('#cumChips .chart-chip')].map((c) => c.textContent).find((t) => /projected year end/.test(t)) || '',
       }));
       assert(before.shown, 'the dial is hidden while a projection is drawn');
-      assert(/30 days/.test(before.says), `the dial does not say what it mixes: "${before.says}"`);
+      assert(/last \d+ days/.test(before.says) && !/last 7 days/.test(before.says), `the dial does not say what it reads: "${before.says}"`);
       assert(before.chip, 'no "projected year end" chip');
       await page.evaluate(() => window.setProjMix(100));
       await page.waitForTimeout(400);
@@ -501,7 +501,7 @@ async function main() {
         sumSays: document.getElementById('sumCumMixSays').textContent,
         sumValue: +document.getElementById('sumCumMix').value,
       }));
-      assert(/7 days/.test(after.says), `sliding right did not shorten the window: "${after.says}"`);
+      assert(/last 7 days/.test(after.says), `sliding right did not shorten the window: "${after.says}"`);
       assert(after.value === 100, `the slider did not follow the setting: ${after.value}`);
       assert(after.sumSays === after.says && after.sumValue === 100, 'the Summary card reads a different dial');
 

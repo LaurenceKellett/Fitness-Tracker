@@ -601,10 +601,9 @@ a{color:inherit;text-decoration:none}
 .chart-key-item.is-off i{opacity:.3}
 @media(max-width:640px){.chart-key{justify-content:flex-start}}
 /* ── THE DIAL ──
-   The dotted line is a guess, and the dial is how much of the guess is which kind:
-   left, the shape your finished years usually take; right, just your last week.
-   Sliding right also shortens the recent window, 30 days down to 7. The thumb is
-   ink, like every other active control. */
+   The dotted line carries a rate forward, and the dial is which rate: left, this
+   year so far; right, just the last week; in between, a window that shrinks from the
+   one to the other. The thumb is ink, like every other active control. */
 .proj-mixer{margin:14px 0 4px}
 .proj-mix-label{display:block;font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:2px}
 .proj-slider{display:block;width:100%;margin:0;height:22px;background:transparent;-webkit-appearance:none;appearance:none;cursor:pointer}
@@ -1704,7 +1703,7 @@ body.is-loading .stats-grid *{visibility:hidden}
 <!-- calc.js carries a stamp of its own content (npm run stamp; the unit tests check it
      is current), so a freshly deployed page can never be paired with a cached older copy
      of the script — which is exactly how one deploy died on "daysInYear is not defined". -->
-<script src="calc.js?v=cc5ba70b"></script>
+<script src="calc.js?v=88deeeda"></script>
 <div id="dashTooltip" class="dash-tooltip"></div>
 <div class="main">
 
@@ -1822,7 +1821,7 @@ body.is-loading .stats-grid *{visibility:hidden}
       <div class="proj-mixer" id="sumCumMixer" hidden>
         <label class="proj-mix-label" for="sumCumMix">The dotted line is based on</label>
         <input type="range" id="sumCumMix" class="proj-slider" min="0" max="100" step="1" value="50" aria-describedby="sumCumMixSays" oninput="setProjMix(this.value)">
-        <div class="proj-mix-ends" aria-hidden="true"><span>How your years usually go</span><span>Just the last week</span></div>
+        <div class="proj-mix-ends" aria-hidden="true"><span>This year so far</span><span>Just the last week</span></div>
         <div class="proj-mix-says" id="sumCumMixSays" role="status"></div>
       </div>
       <div id="sumCumChips" class="chart-chips"></div>
@@ -1925,7 +1924,7 @@ body.is-loading .stats-grid *{visibility:hidden}
       <div class="proj-mixer" id="cumMixer" hidden>
         <label class="proj-mix-label" for="cumMix">The dotted line is based on</label>
         <input type="range" id="cumMix" class="proj-slider" min="0" max="100" step="1" value="50" aria-describedby="cumMixSays" oninput="setProjMix(this.value)">
-        <div class="proj-mix-ends" aria-hidden="true"><span>How your years usually go</span><span>Just the last week</span></div>
+        <div class="proj-mix-ends" aria-hidden="true"><span>This year so far</span><span>Just the last week</span></div>
         <div class="proj-mix-says" id="cumMixSays" role="status"></div>
       </div>
       <div id="cumChips" class="chart-chips"></div>
@@ -5885,12 +5884,13 @@ function setCumMeasure(m){
 }
 
 // ── THE DIAL ──
-// Two honest projections and a dial between them; the arithmetic is
-// yearEndProjection in calc.js. Ask the recent trend in August and it promises a
-// summer's worth of December; ask the seasonal shape while injured and it has no idea
-// you have stopped. Sliding between them is how you see how much of the dotted line
-// is assumption — a projection that cannot show you that is a number pretending to
-// be a fact. Remembered across visits; both cumulative cards read the same setting.
+// Which rate the dotted line carries forward; the arithmetic is yearEndProjection in
+// calc.js. Left, this year so far — every day since 1 January, averaged, the steadiest
+// guess and the slowest to notice you stopped in July. Right, just the last seven
+// days — it notices everything, including a rest week. In between, a window that
+// shrinks from the one to the other. Sliding it is how you see how much of the dotted
+// line is assumption. Remembered across visits; both cumulative cards read the same
+// setting.
 const PROJ_MIX_KEY='fitness_proj_mix_v1';
 let projMix=0.5,_projMixRaf=0;
 try{const x=parseFloat(localStorage.getItem(PROJ_MIX_KEY));if(isFinite(x)&&x>=0&&x<=1)projMix=x;}catch(e){}
@@ -5909,12 +5909,9 @@ function setProjMix(v){
 // What the dial is set to, in words. A number between 0 and 100 says nothing about
 // what it is mixing.
 function projMixWords(p){
-  const pct=Math.round(p.weight*100);
-  const yrs=`${p.teachers} previous year${p.teachers===1?'':'s'}`;
-  if(p.seasonal==null)return `Your last ${p.window} days, carried to 31 December. No finished year to compare against yet, so the seasonal end of this dial has nothing to work with.`;
-  if(pct>=99)return `Entirely your last ${p.window} days, carried to 31 December.`;
-  if(pct<=1)return `Entirely the shape of your ${yrs} — by this date you are usually ${Math.round(p.fractionDone*100)}% of the way through the year.`;
-  return `${100-pct}% the shape of your ${yrs}, ${pct}% your last ${p.window} days.`;
+  if(p.wholeYear)return `This year so far — every day since 1 January at its average rate, carried to 31 December.`;
+  if(p.window<=7)return `Just the last 7 days at their rate, carried to 31 December.`;
+  return `Your last ${p.window} days at their rate, carried to 31 December.`;
 }
 
 function renderCumulative(data,t=CUM_TARGET){
@@ -5960,22 +5957,17 @@ function renderCumulative(data,t=CUM_TARGET){
   });
 
   // ── Where the year lands ──
-  // Dotted, because it is the one series on this chart that has not happened. It
-  // used to be the year-to-date average run out to December in a straight line; now
-  // it is the blend the dial below the plot sets — the shape of your finished years
-  // against your last few weeks — and it bends the way your years usually bend.
+  // Dotted, because it is the one series on this chart that has not happened: a rate
+  // carried to 31 December, and the dial under the plot says which rate — this year
+  // so far at the left, just the last week at the right.
   const yearLen=daysInYear(focus);
   const hereNowForProj=(cum[focus]||[])[cutoff-1]||0;
   let projection=null,projEnd=null,proj=null;
   if(isCurrent&&hereNowForProj>0&&cutoff<yearLen){
-    // Every year in the filter, not only the five drawn: the seasonal shape is
-    // learned from finished years, and the more of them the steadier it is.
+    // Only the year in view is read; the years behind it are on the chart to be
+    // held against, not to shape the guess.
     const daily={};
-    ALL_DATA.forEach(a=>{
-      if(!typeMatches(a))return;
-      const y=a.date.slice(0,4);
-      (daily[y]=daily[y]||new Array(367).fill(0))[dayOfYear(a.date)]+=measure.pick(a)||0;
-    });
+    daily[focus]=byYear[focus]||new Array(367).fill(0);
     proj=yearEndProjection(daily,focus,cutoff,projMix);
     projEnd=proj.projected;
     projection=proj.path.slice(1);
@@ -6032,11 +6024,11 @@ function renderCumulative(data,t=CUM_TARGET){
   }
   if(isCurrent&&proj){
     chips.push({n:fmtD(proj.projected)+' '+measure.unit(),label:'projected year end',col:cssVar('--other','#94a3b8')});
-    // The spread between the two methods IS the uncertainty, so it is a figure
+    // The spread between the dial's two ends IS the uncertainty, so it is a figure
     // rather than a caveat buried in prose.
-    if(proj.seasonal!=null&&proj.seasonal!==proj.recent){
-      const lo=Math.min(proj.seasonal,proj.recent),hi=Math.max(proj.seasonal,proj.recent);
-      chips.push({n:`${fmtD(lo)} – ${fmtD(hi)} ${measure.unit()}`,label:'between the two methods',col:cssVar('--other','#94a3b8')});
+    if(proj.yearRate!==proj.weekRate){
+      const lo=Math.min(proj.yearRate,proj.weekRate),hi=Math.max(proj.yearRate,proj.weekRate);
+      chips.push({n:`${fmtD(lo)} – ${fmtD(hi)} ${measure.unit()}`,label:'between this year’s rate and the last week’s',col:cssVar('--other','#94a3b8')});
     }
   }
 
@@ -6050,13 +6042,12 @@ function renderCumulative(data,t=CUM_TARGET){
     if(says)says.textContent=proj?projMixWords(proj):'';
   }
   const projNote=(()=>{
-    if(!isCurrent||!proj)return '';
-    if(proj.seasonal==null)return ` The dotted line is your last ${proj.window} days carried to December in a straight line — nothing before ${focus} covers a full year to learn a shape from.`;
-    const gap=Math.round(Math.abs(proj.recent-proj.seasonal)/Math.max(proj.seasonal,1e-9)*100);
-    if(gap<5)return ` The two ways of projecting the year agree within ${gap}%, which is as much confidence as a dotted line can offer.`;
-    return proj.recent>proj.seasonal
-      ? ` Your recent form projects ${gap}% higher than your usual shape does — what a good patch looks like, or what August looks like if your years tail off.`
-      : ` Your recent form projects ${gap}% lower than your usual shape does, so either this is a quiet spell or the year genuinely is one.`;
+    if(!isCurrent||!proj||!(proj.yearRate>0))return '';
+    const gap=Math.round(Math.abs(proj.weekRate-proj.yearRate)/proj.yearRate*100);
+    if(gap<5)return ` The last week and the year so far point at the same finish, within ${gap}% — as much confidence as a dotted line can offer.`;
+    return proj.weekRate>proj.yearRate
+      ? ` The last week runs ${gap}% ahead of the year's own rate: a good patch, or a big week the dial will believe for exactly as long as you keep it up.`
+      : ` The last week runs ${gap}% behind the year's own rate, so either this is a quiet spell or the year has changed gear.`;
   })();
 
   chartSummary(t.chips,chips,(()=>{

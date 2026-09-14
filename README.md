@@ -1115,32 +1115,28 @@ Surfing, Kitesurf, Windsurf, Sail — go to `Other` with everything else.
 
 The dotted line runs from today to 31 December alongside the years that actually finished,
 which is the only way to see whether being ahead in September means finishing ahead. It is
-dotted because it is the one series on the chart that has not happened.
+dotted because it is the one series on the chart that has not happened: a rate carried
+forward, and the dial under the plot is *which* rate.
 
-It blends two honest projections that fail in opposite directions, and the dial under the
-plot is how much of each you trust:
+- **This year so far** (left): every day since 1 January, averaged. The steadiest guess and
+  the slowest to notice anything — ask it in September after two months off and it still
+  remembers May.
+- **Just the last week** (right): the last seven days at their own rate. It notices
+  everything, including a rest week, and will happily promise fifty-two of whatever you did
+  this week.
 
-- **The shape your years usually take** (left). If day 257 has historically been 77% of your
-  year, this year's total so far is 77% of the answer. It knows about winter; it knows nothing
-  about your having been injured since July.
-- **Your recent form** (right). What you have done lately, times the days left. Responsive,
-  and blind to the fact that you always stop in November.
+In between, the window shrinks from the one to the other — geometrically, so halfway on day
+257 reads about six weeks rather than four months, because "the last few weeks" is the
+question people actually have in the middle of the dial. A line under the slider says in
+words what it is reading, and a chip gives the range between the two ends, because that gap
+is the uncertainty and belongs on screen rather than in a caveat. The path is straight: a
+rate carried forward is a straight line, and drawing anything else would claim knowledge the
+dial has not got. No other year is consulted — the years behind the line are on the chart to
+be read against, not to shape the guess.
 
-Sliding right leans harder on the recent window *and* shortens it, from 30 days down to 7,
-because both mean "let the recent past speak louder" and two controls for one intention is one
-too many. The default is the middle. A line under the slider says in words what it is
-currently mixing, and a chip gives the range between the two methods, because that gap is the
-uncertainty and belongs on screen rather than in a caveat. The path bends along the average
-shape of your finished years rather than running straight, so a projection made in spring
-flattens through the autumn the way your years do.
-
-Only finished years teach the seasonal shape, and the year you joined Strava is excluded
-because it starts when you signed up rather than in January — counting it would claim day 257
-is most of a normal year and halve every projection. With no finished year at all the dial has
-nothing to blend and says so; the line is then the recent window carried straight to December.
-The arithmetic is `yearEndProjection()` in `calc.js`; the setting is kept in `localStorage`
-(`fitness_proj_mix_v1`) and both cumulative cards, Summary and Charts, read the same one. The
-idea is VeloViewer's; the arithmetic is ours.
+The arithmetic is `yearEndProjection()` and `projectionWindow()` in `calc.js`; the setting is
+kept in `localStorage` (`fitness_proj_mix_v1`) and both cumulative cards, Summary and
+Charts, read the same one.
 
 `dayOfYear()` is what makes the cumulative chart possible, and `typeMatches()` — one
 predicate for the header's sport filter, which had been written out by hand in three
