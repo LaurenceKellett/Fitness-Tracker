@@ -8824,7 +8824,7 @@ function renderZwiftDetail(r){
       <div class="zwift-edit-error" id="ze-error-${r.id}"></div>
     </div>
     <table class="zwift-detail-info">
-      <tr><td>Est. duration <span style="color:var(--text-light);font-weight:400">(published)</span></td><td>${r.est_duration||'—'}</td></tr>
+      <tr><td>Est. duration <span style="color:var(--text-light);font-weight:400">(in Notion)</span></td><td>${r.est_duration||'—'}</td></tr>
       ${(()=>{
         const f=zwiftFitCached();
         const p=zwiftPredictSec(f,r.distance_mi,r.elevation_ft);

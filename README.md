@@ -483,10 +483,13 @@ Within a shelf the order is **what you used last**, so whatever is in rotation l
 **"Retired" is Strava's own flag, not a guess.** `GET /gear/{id}` returns `retired: true`
 once you retire a thing in Strava, and the Worker copies it verbatim (`retired: !!data.retired`)
 into the cached gear record and out again in the envelope's `gearMeta`. Nothing here infers it
-from dates, mileage or how long something has sat unused. One consequence worth knowing:
-`fetchGearNames` only calls Strava for ids it has never seen (`gearIds.filter(id => !known[id])`),
-so a gear record already in KV is never refreshed — retire a pair in Strava today and this
-dashboard will not notice until that cache entry is cleared.
+from dates, mileage or how long something has sat unused. `fetchGearNames` re-checks
+every gear id that is **not already flagged retired** on each sync, and skips the ones that
+are. It used to skip any id it had ever seen (`gearIds.filter(id => !known[id])`), which meant
+the flag was frozen at whatever it had been the first time that item was looked up — retire a
+pair in Strava and the dashboard would never notice. Retirement is one-way in practice, so a
+retired record is settled and costs nothing to skip; everything else is one extra Strava call
+per sync, which against a few dozen items is nothing.
 
 **Retired gear is off the shelves by default.** Dimming a retired pair and sinking it to the
 end of its shelf still leaves it on the shelf, and a collection only accumulates: eventually
@@ -1521,9 +1524,21 @@ must not read like a fact. Open a route and the detail panel shows it next to th
 time, with how far the model was over or under — the one place it can be caught being
 wrong.
 
-**It does not touch Notion's `Est. Duration`.** That property already holds published
-round-number estimates (`05:00`, `02:30`, `00:20`) on 53 routes — reference data, not an
-empty field — and the app shows it unchanged, labelled *(published)*, beside its own.
+**The 27 outstanding routes have these estimates written into Notion's `Est. Duration`.**
+That property was not the empty field it was taken for: it held published round-number
+estimates (`05:00`, `02:30`, `00:20`) on 53 routes. The outstanding ones were overwritten on
+2026-09-15 with the fitted values, to the nearest minute in `HH:MM` — the column's own format,
+and seconds would be false precision against a ±6 minute typical error. **The 26 completed
+routes kept their published values**, since a route with a logged time has no use for a
+prediction.
+
+Every pre-overwrite value is in `notion/est-duration-backup-2026-09-15.json`, so any of them
+can be put back by hand.
+
+Two things follow from storing it. A written estimate is a **snapshot**: the fit moves every
+time a route is completed, and nothing rewrites Notion, so the stored numbers drift from the
+app's live ones. And the app shows whatever `Est. Duration` holds verbatim, labelled *(in
+Notion)* rather than *(published)*, because for most rows it is no longer a published figure.
 
 ---
 

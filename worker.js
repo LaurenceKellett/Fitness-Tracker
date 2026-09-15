@@ -1393,7 +1393,13 @@ async function saveGearNames(env, known) {
 // `known` maps id -> {name} for gear we have resolved, or {gone:true} for gear
 // Strava has deleted. Anything else is simply absent and worth asking about.
 async function fetchGearNames(gearIds, accessToken, gearMap, known) {
-  const toFetch = gearIds.filter(id => !known[id]);
+  // A record already in KV used to be skipped forever, which meant retiring a pair
+  // in Strava never reached the dashboard: the flag was whatever it had been the
+  // first time that id was ever looked up. Retirement is effectively one-way, so a
+  // record already flagged retired is settled and costs nothing to skip; everything
+  // else is re-checked on every sync. That is one extra call per active item per
+  // refresh, which against a few dozen items is nothing.
+  const toFetch = gearIds.filter(id => !known[id] || !known[id].retired);
   for (let i = 0; i < toFetch.length; i += GEAR_BATCH_SIZE) {
     const batch = toFetch.slice(i, i + GEAR_BATCH_SIZE);
     await Promise.all(batch.map(id => fetchGearName(id, accessToken, gearMap, known)));

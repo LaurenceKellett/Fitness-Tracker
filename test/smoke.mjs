@@ -1097,18 +1097,18 @@ async function main() {
       await page.waitForTimeout(300);
     });
 
-    await check('the estimate never overwrites the published one', async () => {
+    await check('the stored estimate and the fitted one are shown separately', async () => {
       const r = await page.evaluate(() => {
         window.toggleZwiftEdit('todo-a');
         const rows = [...document.querySelectorAll('#zwift-row-todo-a .zwift-detail-info tr')]
           .map((tr) => [...tr.children].map((td) => td.textContent.trim()));
         return {
-          published: (rows.find((x) => /published/i.test(x[0])) || [])[1],
+          published: (rows.find((x) => /in Notion/i.test(x[0])) || [])[1],
           mine: (rows.find((x) => /from your times/i.test(x[0])) || [])[1],
         };
       });
-      // Notion's own "Est. Duration" is reference data and is shown untouched.
-      assert(r.published === '00:30', `the published estimate reads "${r.published}"`);
+      // Whatever Est. Duration holds in Notion is shown verbatim, never recomputed.
+      assert(r.published === '00:30', `the stored estimate reads "${r.published}"`);
       assert(r.mine && r.mine.startsWith('~31:40'), `the fitted estimate reads "${r.mine}"`);
       await page.evaluate(() => { window.cancelZwiftEdit(); window.setZwiftStatusFilter('Not started'); });
       await page.waitForTimeout(200);

@@ -1,0 +1,273 @@
+{
+  "captured": "2026-09-15",
+  "why": "Every value in the Zwift Routes 'Est. Duration' property as it stood before the 27 outstanding routes were overwritten with model estimates. These are the published round-number estimates. Restoring one means pasting its value back into that route's Est. Duration.",
+  "property": "Est. Duration",
+  "data_source": "13b81faa-c3d2-4f94-83ca-bc782626f1e3",
+  "values": [
+    {
+      "route": "Accelerate to Elevate",
+      "est_duration": "01:45",
+      "status": "Complete"
+    },
+    {
+      "route": "Big Loop Reverse",
+      "est_duration": "01:30",
+      "status": "Complete"
+    },
+    {
+      "route": "Cliffside Epic Double",
+      "est_duration": "02:45",
+      "status": "Not started"
+    },
+    {
+      "route": "Cobbled Crown",
+      "est_duration": "00:45",
+      "status": "Complete"
+    },
+    {
+      "route": "Down Up Down",
+      "est_duration": "02:00",
+      "status": "Not started"
+    },
+    {
+      "route": "Dust In the Wind",
+      "est_duration": "01:30",
+      "status": "Complete"
+    },
+    {
+      "route": "Empire Elevation",
+      "est_duration": "00:50",
+      "status": "Complete"
+    },
+    {
+      "route": "Four Horsemen",
+      "est_duration": "04:00",
+      "status": "Not started"
+    },
+    {
+      "route": "France Classic Fondo",
+      "est_duration": "04:00",
+      "status": "Not started"
+    },
+    {
+      "route": "Fuhgeddaboudit",
+      "est_duration": "02:30",
+      "status": "Not started"
+    },
+    {
+      "route": "Gran Fondo",
+      "est_duration": "03:00",
+      "status": "Not started"
+    },
+    {
+      "route": "Gravel Mountain",
+      "est_duration": "00:20",
+      "status": "Blocked"
+    },
+    {
+      "route": "Handful of Gravel",
+      "est_duration": "00:20",
+      "status": "Complete"
+    },
+    {
+      "route": "Hilly Route Reverse",
+      "est_duration": "00:20",
+      "status": "Complete"
+    },
+    {
+      "route": "Hot Laps",
+      "est_duration": "00:40",
+      "status": "Complete"
+    },
+    {
+      "route": "Hudson Hustle",
+      "est_duration": "00:40",
+      "status": "Complete"
+    },
+    {
+      "route": "Innsbruck KOM After Party",
+      "est_duration": "01:15",
+      "status": "Complete"
+    },
+    {
+      "route": "InnsbruckConti",
+      "est_duration": "00:35",
+      "status": "Complete"
+    },
+    {
+      "route": "Jungle Circuit Reverse",
+      "est_duration": "00:25",
+      "status": "Complete"
+    },
+    {
+      "route": "Kaze Kicker",
+      "est_duration": "00:30",
+      "status": "Complete"
+    },
+    {
+      "route": "KOMonster, version 1",
+      "est_duration": "04:00",
+      "status": "Not started"
+    },
+    {
+      "route": "Leg Snapper KOM",
+      "est_duration": "00:10",
+      "status": "Complete"
+    },
+    {
+      "route": "Leith Hill After Party",
+      "est_duration": "01:15",
+      "status": "Complete"
+    },
+    {
+      "route": "London Classique",
+      "est_duration": "00:20",
+      "status": "Complete"
+    },
+    {
+      "route": "London Classique Reverse",
+      "est_duration": "00:20",
+      "status": "Complete"
+    },
+    {
+      "route": "Macaron",
+      "est_duration": "00:05",
+      "status": "Not started"
+    },
+    {
+      "route": "Makuru Pretzel",
+      "est_duration": "02:30",
+      "status": "Not started"
+    },
+    {
+      "route": "Medio Fondo",
+      "est_duration": "02:15",
+      "status": "Not started"
+    },
+    {
+      "route": "Neon Shore Loop",
+      "est_duration": "01:00",
+      "status": "Complete"
+    },
+    {
+      "route": "Park Perimeter Reverse",
+      "est_duration": "00:20",
+      "status": "Complete"
+    },
+    {
+      "route": "Peaky Pavé",
+      "est_duration": "01:00",
+      "status": "Complete"
+    },
+    {
+      "route": "Power to the Tower",
+      "est_duration": "02:30",
+      "status": "Not started"
+    },
+    {
+      "route": "Quatch Quest",
+      "est_duration": "02:30",
+      "status": "Not started"
+    },
+    {
+      "route": "Sacre Bleu",
+      "est_duration": "02:30",
+      "status": "Complete"
+    },
+    {
+      "route": "Surrey Hills",
+      "est_duration": "01:45",
+      "status": "Complete"
+    },
+    {
+      "route": "The Epiloch",
+      "est_duration": "00:20",
+      "status": "Complete"
+    },
+    {
+      "route": "The Full Makuri",
+      "est_duration": "02:30",
+      "status": "Not started"
+    },
+    {
+      "route": "The Full New York",
+      "est_duration": "01:45",
+      "status": "Not started"
+    },
+    {
+      "route": "The Full Watopia",
+      "est_duration": "06:00",
+      "status": "Not started"
+    },
+    {
+      "route": "The PRL Full",
+      "est_duration": "06:00",
+      "status": "Not started"
+    },
+    {
+      "route": "The PRL Half",
+      "est_duration": "02:30",
+      "status": "Not started"
+    },
+    {
+      "route": "The Snake",
+      "est_duration": "02:00",
+      "status": "Not started"
+    },
+    {
+      "route": "The Über Pretzel",
+      "est_duration": "05:00",
+      "status": "Not started"
+    },
+    {
+      "route": "Three Sisters Reverse",
+      "est_duration": "01:15",
+      "status": "Complete"
+    },
+    {
+      "route": "Three Step Sisters",
+      "est_duration": "01:15",
+      "status": "Complete"
+    },
+    {
+      "route": "Toutes les Routes",
+      "est_duration": "04:00",
+      "status": "Not started"
+    },
+    {
+      "route": "WBR Climbing Series",
+      "est_duration": "01:30",
+      "status": "Complete"
+    },
+    {
+      "route": "ZG25 Climb Champs",
+      "est_duration": "00:15",
+      "status": "Not started"
+    },
+    {
+      "route": "ZG25 Queen",
+      "est_duration": "01:30",
+      "status": "Complete"
+    },
+    {
+      "route": "Zwift Bambino Fondo",
+      "est_duration": "01:30",
+      "status": "Complete"
+    },
+    {
+      "route": "Zwift Games 2024 Epic",
+      "est_duration": "03:00",
+      "status": "Not started"
+    },
+    {
+      "route": "Zwift Gran Fondo 2022",
+      "est_duration": "03:30",
+      "status": "Not started"
+    },
+    {
+      "route": "Zwift Medio Fondo 2022",
+      "est_duration": "03:00",
+      "status": "Not started"
+    }
+  ]
+}
