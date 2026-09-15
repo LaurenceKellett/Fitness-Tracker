@@ -234,6 +234,7 @@ is the one the theme swaps; the cache is dropped whenever the theme changes.
 | Heatmap | GitHub-style activity calendar, coloured by the sport you spent most time on each day, with every prior year listed beneath |
 | Records | A hero row of records that stand clear, then per-sport tables with a Standing column, then all-time totals (see below) |
 | Mex | Mex score — the ladder of whole-unit distance buckets, the first gap, which gaps are worth most, and the distance distribution the ladder reduces to a yes/no (see below) |
+| Eddington | Eddington number — the curve the figure comes from, what each of the next five steps actually costs in qualifying days, each year counted on its own, and a per-sport breakdown. Switchable between counting by day and by activity (see below) |
 | Social | One count of who you train with, the named partners as a table, and the solo-vs-company chart (see below). Anyone you have not been out with in the last six weeks — Occasional and Lapsed alike — is folded into one collapsed group at the foot of the table, so the people you actually train with are not pushed off the screen by a long tail. The group opens by itself when nobody is current, and remembers its state across re-renders |
 | Gear | Bike and shoe mileage, shelved by kind, with a wear bar on shoes (see below) |
 | Activity Log | Searchable, sortable full activity table — including max heart rate, sortable, with readings above 200 bpm flagged so a bad strap reading can be found |
@@ -532,6 +533,62 @@ the card's top rule and type line already use — and it lifts to 30% on hover, 
 photograph is one pointer away. A photo that fails to load falls back to the icon tile as
 before and drops the wash with it: the tile already has a soft fill of that colour, and two
 would only muddy it.
+
+## Eddington number
+
+**E is the largest number for which you have E days of at least E units.** An E of 37 means
+37 separate days of 37 miles or more. It is governed by the *middle* of a history rather than
+its top: one enormous ride does nothing for it, and neither does a thousand short ones. Every
+step costs at least one more qualifying day than the last — going from 80 to 81 means another
+day at 81+, and you already needed 80 of them — which is why it flattens off and why it is
+worth chasing.
+
+**It is the opposite metric to Mex, which is why it has its own tab rather than being a figure
+on that one.** Mex is governed by the low end (one missing short bucket caps it however far
+you ride) and rewards *variety*. Eddington is governed by the middle and rewards *repeating
+long days*. A history can be strong in one and weak in the other.
+
+### By day or by activity
+
+The tab switches between the two and remembers the choice (`fitness_edd_basis_v1`).
+
+- **By day** sums everything you did that day. This is Eddington's own definition — he counted
+  days, not rides — and it is the default.
+- **By activity** counts each outing separately, which is how most people describe it out loud.
+
+**Neither basis is always the higher, which is not obvious.** Splitting a day across two rides
+lowers each distance but raises the *count* of qualifying entries, and E is capped by both. Two
+30s and a 50 give days of `[60, 50]` and an E of 2, but activities of `[50, 30, 30]` and an E of
+3. The tab shows whichever basis you asked for, not whichever flatters. `calc.test.js` pins this
+case so nobody "fixes" it back into a monotonic assumption later.
+
+### The curve
+
+The chart is the whole definition in one picture: a falling line (how many days clear each
+distance) and a rising straight one (what Eddington asks for at that distance). **Your E is the
+last point before they cross.** `eddingtonCurve` walks a single pointer down the sorted list
+rather than re-counting per threshold.
+
+**What the next steps cost** is the actionable panel, and it exists because "one more ride" is
+almost always wrong: reaching E+1 means having E+1 days of E+1 or more, so from an E of 37 the
+next rung can easily be five more qualifying days rather than one. The panel also lists the days
+that already clear the next rung (closest to the line first, since the biggest days say nothing
+about reachability) and the near misses, by how far they fell short.
+
+### Unit, filters and scope
+
+Like Mex, Eddington **follows the mi/km switch** and is a different number in each — the km
+figure is the larger, and cyclists usually quote the mile one. The year and sport filters narrow
+it, and **Eddington by year** counts each year in isolation, which a career figure cannot do: a
+career E only ever goes up, so it says nothing about current form.
+
+One implementation note: the Summary's Eddington figure and this tab both call
+`eddingtonOf(eddDistances(...))`, so the two cannot disagree. Before this tab existed the Summary
+carried its own inline loop that summed `dist_mi` directly, which meant that with the header
+switched to km it quietly reported a *miles* Eddington next to a Mex that had followed the
+switch. A smoke check now asserts the two surfaces agree in both units.
+
+---
 
 ## Gear photos
 

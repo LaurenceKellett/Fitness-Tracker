@@ -268,6 +268,67 @@ function mexBuckets(acts){
 
 function mexOf(buckets){let n=1;while(buckets.has(n))n++;return n-1;}
 
+/* ── EDDINGTON ──
+ *
+ * E is the largest number for which you have E days of at least E units. It is
+ * governed by the MIDDLE of a history rather than its top: one enormous ride does
+ * nothing for it, and neither does a thousand short ones. Every step costs at
+ * least one more qualifying day than the last, which is the whole appeal and also
+ * why it flattens off — going from 80 to 81 means another day at 81+, and you
+ * already need 80 of them.
+ *
+ * Counted by DAY by default, which is Eddington's own definition — he counted
+ * days, not rides. Per activity is offered alongside because it is how most people
+ * describe it out loud.
+ *
+ * Neither basis dominates the other, which is not obvious and is worth stating.
+ * Splitting a day across two rides lowers each distance but raises the COUNT of
+ * entries, and E is capped by both: two 30s and a 50 give days of [60,50] and an E
+ * of 2, but rides of [50,30,30] and an E of 3. Per day is usually the higher figure
+ * for a history of single-outing days; it is not a rule, and the tab shows whichever
+ * basis you asked for rather than the flattering one.
+ *
+ * Like Mex, this follows the mi/km switch and is a different number in each. Only
+ * the mile figure is comparable with what cyclists usually quote.
+ */
+function eddDistances(acts,basis){
+  if(basis==='ride')return acts.map(actDistIn).filter(d=>d>0).sort((a,b)=>b-a);
+  const byDay={};
+  acts.forEach(a=>{const d=actDistIn(a);if(d>0)byDay[a.date]=(byDay[a.date]||0)+d;});
+  return Object.values(byDay).sort((a,b)=>b-a);
+}
+
+// `sorted` descending. Once an entry falls below its own rank nothing after it can
+// recover — the entries only get smaller and the rank only gets bigger — so the
+// walk stops there rather than scanning a whole history.
+function eddingtonOf(sorted){
+  let e=0;
+  for(let i=0;i<sorted.length;i++){if(sorted[i]>=i+1)e=i+1;else break;}
+  return e;
+}
+
+// How many further qualifying days a target would take. The honest version of
+// "what do I do next": reaching E+1 is not one more ride, it is however many days
+// at E+1 or more you are still short of.
+function eddingtonNeed(sorted,target){
+  if(!(target>0))return 0;
+  let have=0;
+  while(have<sorted.length&&sorted[have]>=target)have++;
+  return Math.max(0,target-have);
+}
+
+// The curve behind the number: for every threshold, how many days clear it. Your
+// Eddington is where that falling count meets the rising threshold. Walks one
+// pointer down the sorted list rather than counting the list again per threshold.
+function eddingtonCurve(sorted,upTo){
+  const out=[];let i=sorted.length;
+  for(let n=1;n<=upTo;n++){
+    while(i>0&&sorted[i-1]<n)i--;
+    out.push({n,days:i});
+  }
+  return out;
+}
+
 function actDistIn(a){
   if(unit==='mi')return a.dist_mi||0;
   return a.dist_km!=null?a.dist_km:(a.dist_mi||0)*1.60934;
@@ -843,7 +904,7 @@ if (typeof module !== 'undefined' && module.exports) {
     fmtCal,fmtPRTime,fmtHours,chipNum,artFor,escapeAttr,escapeHtml,typeGroup,mapTypeGroup,
     typeMatches,isFootSport,isRace,dayOfYear,daysBetween,monthsBetween,fmtServiceSpan,monthLabel,haversineMi,
     decodePolylinePts,gearKey,gearSlug,socCanon,socInitials,extractPartners,formatUpdatedAt,
-    recLongestStreak,recCurrentStreak,mexBuckets,mexOf,actDistIn,distIn,
+    recLongestStreak,recCurrentStreak,mexBuckets,mexOf,eddDistances,eddingtonOf,eddingtonNeed,eddingtonCurve,actDistIn,distIn,
     ROLLING_PERIODS,ROLLING_ORDER,todayISO,isYearScope,isRollingScope,periodStart,
     scopeIncludes,periodLabel,periodPhrase,isValidScope,rollingWeekly,ratioBand,RATIO_BANDS,
     calendarWeek,weekStartISO,isoOf,WEEK_BASE_WEEKS,weeklyTotals,

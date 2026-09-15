@@ -209,7 +209,7 @@ function assert(cond, msg) {
   if (!cond) throw new Error(msg);
 }
 
-const TABS = ['summary', 'map', 'charts', 'heatmap', 'records', 'mex', 'social', 'gear', 'log', 'zwift'];
+const TABS = ['summary', 'map', 'charts', 'heatmap', 'records', 'mex', 'eddington', 'social', 'gear', 'log', 'zwift'];
 
 async function main() {
   const { server, port } = await serve();
@@ -993,6 +993,117 @@ async function main() {
       // A shoe wears out against 750; a bike gets a usage rate and no wear bar.
       assert(/750/.test(r.wear), `the wear bar reads "${r.wear}"`);
       assert(!r.bikeWear, `a bike was given a wear bar: "${r.bikeWear}"`);
+    });
+
+    await check('the Eddington tab computes, and its curve crosses at E', async () => {
+      await page.evaluate(() => window.setTab('eddington'));
+      await page.waitForTimeout(800);
+      const r = await page.evaluate(() => {
+        const cards = [...document.querySelectorAll('#tab-eddington .stat-card')];
+        const val = (i) => cards[i] ? cards[i].querySelector('.stat-value').childNodes[0].textContent.trim() : null;
+        // Recompute from the raw data the page holds, independently of the DOM.
+        const dists = eddDistances(getFiltered(), 'day');
+        const E = eddingtonOf(dists);
+        return {
+          cards: cards.length,
+          shown: val(0),
+          need: val(1),
+          E,
+          truthNeed: eddingtonNeed(dists, E + 1),
+          // The defining property, checked against the data rather than the label.
+          holds: dists.filter((d) => d >= E).length >= E,
+          overshoots: E > 0 && dists.filter((d) => d >= E + 1).length >= E + 1,
+          canvases: document.querySelectorAll('#tab-eddington canvas').length,
+          panels: [...document.querySelectorAll('#tab-eddington [data-panel]')].map((p) => p.dataset.panel),
+        };
+      });
+      assert(r.cards === 3, `${r.cards} stat cards on the Eddington tab`);
+      assert(r.shown === String(r.E), `the tab shows ${r.shown}, the data says ${r.E}`);
+      assert(r.need === String(r.truthNeed), `"to reach E+1" shows ${r.need}, the data says ${r.truthNeed}`);
+      assert(r.holds, `E=${r.E} but there are not ${r.E} days of ${r.E}+`);
+      assert(!r.overshoots, `E=${r.E} is understated — E+1 is already satisfied`);
+      assert(r.canvases === 2, `${r.canvases} canvases on the tab`);
+      assert(r.panels.length >= 4, `only ${r.panels.length} reorderable panels: ${r.panels}`);
+    });
+
+    await check('the Eddington basis switches, persists, and changes the number honestly', async () => {
+      const read = () => page.evaluate(() => ({
+        pressed: [...document.querySelectorAll('.edd-basis-ctl .chart-ctl-btn')]
+          .map((b) => `${b.textContent.trim()}:${b.getAttribute('aria-pressed')}`),
+        shown: document.querySelector('#tab-eddington .stat-value').childNodes[0].textContent.trim(),
+        byDay: eddingtonOf(eddDistances(getFiltered(), 'day')),
+        byRide: eddingtonOf(eddDistances(getFiltered(), 'ride')),
+        stored: (() => { try { return localStorage.getItem('fitness_edd_basis_v1'); } catch (e) { return null; } })(),
+      }));
+      const before = await read();
+      assert(before.pressed.includes('By day:true'), `basis buttons read ${before.pressed}`);
+      assert(before.shown === String(before.byDay), `by day shows ${before.shown}, data says ${before.byDay}`);
+
+      await page.click('.edd-basis-ctl .chart-ctl-btn:nth-child(2)');
+      await page.waitForTimeout(400);
+      const after = await read();
+      assert(after.pressed.includes('By ride:true'), `after switching, buttons read ${after.pressed}`);
+      assert(after.shown === String(after.byRide), `by ride shows ${after.shown}, data says ${after.byRide}`);
+      assert(after.stored === 'ride', `the basis stored as ${after.stored}`);
+
+      await page.click('.edd-basis-ctl .chart-ctl-btn:nth-child(1)');
+      await page.waitForTimeout(400);
+      const back = await read();
+      assert(back.shown === String(back.byDay), 'switching back did not restore the daily figure');
+      await page.evaluate(() => { try { localStorage.removeItem('fitness_edd_basis_v1'); } catch (e) {} });
+    });
+
+    await check('Eddington follows the unit switch, like Mex', async () => {
+      const read = () => page.evaluate(() => ({
+        shown: document.querySelector('#tab-eddington .stat-value').childNodes[0].textContent.trim(),
+        unit: document.querySelector('#tab-eddington .stat-unit').textContent.trim(),
+        truth: eddingtonOf(eddDistances(getFiltered(), 'day')),
+      }));
+      await page.evaluate(() => window.setUnit('mi'));
+      await page.waitForTimeout(400);
+      const mi = await read();
+      await page.evaluate(() => window.setUnit('km'));
+      await page.waitForTimeout(400);
+      const kmR = await read();
+      assert(mi.unit === 'mi' && kmR.unit === 'km', `units read ${mi.unit}/${kmR.unit}`);
+      assert(mi.shown === String(mi.truth) && kmR.shown === String(kmR.truth),
+        'the figure disagrees with the data in one of the units');
+      // A km Eddington must be the larger of the two — the same ride is more km than miles.
+      assert(+kmR.shown >= +mi.shown, `km E (${kmR.shown}) is below mi E (${mi.shown})`);
+      await page.evaluate(() => window.setUnit('mi'));
+      await page.waitForTimeout(300);
+    });
+
+    await check('the Summary and the Eddington tab report the same number', async () => {
+      // In BOTH units. The inline loop this replaced summed miles directly, so with
+      // the header on km the Summary reported a miles Eddington next to a Mex that
+      // had followed the switch — and only a km assertion catches that.
+      const readSummary = () => page.evaluate(() => {
+        const figs = [...document.querySelectorAll('.sum-career-fig')]
+          .map((f) => ({ n: f.querySelector('b').textContent.trim(), l: f.querySelector('span').textContent.trim() }));
+        return { edd: figs.find((f) => /Eddington/i.test(f.l)),
+                 truth: eddingtonOf(eddDistances(getFiltered(), 'day')) };
+      });
+      for (const u of ['mi', 'km']) {
+        await page.evaluate((x) => { window.setUnit(x); window.setTab('summary'); }, u);
+        await page.waitForTimeout(600);
+        const r = await readSummary();
+        assert(r.edd, `the Summary carries no Eddington figure in ${u}`);
+        assert(r.edd.n === String(r.truth),
+          `in ${u} the Summary says ${r.edd.n}, the shared calculation says ${r.truth}`);
+      }
+      // And the two surfaces must agree with each other, not merely each with itself.
+      await page.evaluate(() => window.setUnit('km'));
+      await page.evaluate(() => window.setTab('eddington'));
+      await page.waitForTimeout(600);
+      const tab = await page.evaluate(() =>
+        document.querySelector('#tab-eddington .stat-value').childNodes[0].textContent.trim());
+      await page.evaluate(() => window.setTab('summary'));
+      await page.waitForTimeout(600);
+      const sum = await readSummary();
+      assert(sum.edd.n === tab, `Summary says ${sum.edd.n} in km, the tab says ${tab}`);
+      await page.evaluate(() => window.setUnit('mi'));
+      await page.waitForTimeout(300);
     });
 
     await check('the span row says which date is which, and names the gap', async () => {

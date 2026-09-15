@@ -5,7 +5,7 @@ const {
   fmtDist, distUnit, fmtElv, fmtElevUnit, fmtElevVal, fmtTime, fmtSpeed, fmtPace, fmtDate,
   fmtNum, fmtCal, fmtPRTime, fmtHours, chipNum, artFor, escapeAttr, escapeHtml, typeGroup,
   mapTypeGroup, typeMatches, isFootSport, isRace, dayOfYear, daysBetween, monthsBetween,
-  fmtServiceSpan,
+  fmtServiceSpan, eddDistances, eddingtonOf, eddingtonNeed, eddingtonCurve,
   monthLabel, haversineMi, decodePolylinePts, gearKey, gearSlug, socCanon, socInitials,
   extractPartners, formatUpdatedAt, recLongestStreak, recCurrentStreak, mexBuckets, mexOf,
   actDistIn, distIn, ROLLING_ORDER, todayISO, isYearScope, isRollingScope, periodStart,
@@ -267,6 +267,80 @@ describe('fmtServiceSpan', () => {
     expect(fmtServiceSpan(null, '2024-01-01')).toBe('—');
     expect(fmtServiceSpan('2024-01-01', null)).toBe('—');
     expect(fmtServiceSpan('2024-06-01', '2024-01-01')).toBe('—');
+  });
+});
+
+describe('Eddington', () => {
+  const act = (date, mi) => ({ date, type: 'Ride', dist_mi: mi, dist_km: mi * 1.60934 });
+
+  it('is the largest E with E days of at least E', () => {
+    // 5,4,3,2,1 → E=3: three days of 3+ (5,4,3). Not 4: only 2 days of 4+.
+    expect(eddingtonOf([5, 4, 3, 2, 1])).toBe(3);
+    expect(eddingtonOf([])).toBe(0);
+    expect(eddingtonOf([0.5])).toBe(0);
+    expect(eddingtonOf([1])).toBe(1);
+    // Ten days at exactly 10 is a clean E=10.
+    expect(eddingtonOf(Array(10).fill(10))).toBe(10);
+    // One enormous day does nothing — that is the whole point of the metric.
+    expect(eddingtonOf([500, 2, 1])).toBe(2);
+  });
+
+  it('sums a day rather than counting each ride, unless asked', () => {
+    miles();
+    const acts = [act('2026-01-01', 30), act('2026-01-01', 30), act('2026-01-02', 50)];
+    expect(eddDistances(acts, 'day')).toEqual([60, 50]);
+    expect(eddDistances(acts, 'ride')).toEqual([50, 30, 30]);
+  });
+
+  it('does not order the two bases — splitting trades size for count', () => {
+    miles();
+    // Days of [60,50] cap at 2 for want of a third day; rides of [50,30,30] reach 3.
+    // Neither basis dominates, so the tab must show the one asked for rather than
+    // whichever happens to be larger.
+    const acts = [act('2026-01-01', 30), act('2026-01-01', 30), act('2026-01-02', 50)];
+    expect(eddingtonOf(eddDistances(acts, 'day'))).toBe(2);
+    expect(eddingtonOf(eddDistances(acts, 'ride'))).toBe(3);
+  });
+
+  it('follows the unit switch', () => {
+    const acts = [act('2026-01-01', 10), act('2026-01-02', 10)];
+    miles();
+    expect(eddDistances(acts, 'day')).toEqual([10, 10]);
+    km();
+    const [a, b] = eddDistances(acts, 'day');
+    expect(a).toBeCloseTo(16.0934, 3);
+    expect(b).toBeCloseTo(16.0934, 3);
+    miles();
+  });
+
+  it('drops days with no distance', () => {
+    miles();
+    expect(eddDistances([act('2026-01-01', 0), act('2026-01-02', 4)], 'day')).toEqual([4]);
+  });
+
+  it('counts how many more days a target would take', () => {
+    // 5,4,3,2,1 is E=3. E+1 = 4 needs four days of 4+; there are two.
+    expect(eddingtonNeed([5, 4, 3, 2, 1], 4)).toBe(2);
+    // Nothing clears 10, so reaching E=10 means ten new days, not nine.
+    expect(eddingtonNeed([5, 4, 3, 2, 1], 10)).toBe(10);
+    // Already met costs nothing.
+    expect(eddingtonNeed([5, 4, 3, 2, 1], 3)).toBe(0);
+    expect(eddingtonNeed([], 1)).toBe(1);
+    expect(eddingtonNeed([5], 0)).toBe(0);
+  });
+
+  it('draws a falling curve that crosses at E', () => {
+    const c = eddingtonCurve([5, 4, 3, 2, 1], 6);
+    expect(c.map((p) => p.days)).toEqual([5, 4, 3, 2, 1, 0]);
+    // The crossing — last n where days >= n — is the Eddington itself.
+    const cross = c.filter((p) => p.days >= p.n).map((p) => p.n).pop();
+    expect(cross).toBe(eddingtonOf([5, 4, 3, 2, 1]));
+  });
+
+  it('agrees with a slow count at every threshold', () => {
+    const vals = [42, 40, 40, 31, 22, 18, 9, 9, 3, 0.4];
+    const slow = (n) => vals.filter((v) => v >= n).length;
+    eddingtonCurve(vals, 45).forEach((p) => expect(p.days).toBe(slow(p.n)));
   });
 });
 

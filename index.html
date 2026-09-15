@@ -1071,6 +1071,29 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .scope-warn{display:inline-flex;align-items:center;gap:6px;background:var(--warn-soft);border:1px solid var(--warn-border);padding:4px 10px;font-size:12px;color:var(--warn)}
 .scope-warn .ms{font-size:14px}
 @media(max-width:640px){.scope-line{margin-bottom:14px}.scope-badge,.scope-warn{font-size:11px}}
+/* EDDINGTON */
+.edd-basis-wrap{display:flex;justify-content:flex-end;margin-bottom:12px}
+/* The next rungs, as a table of what each step actually costs. Deliberately the
+   same shape as the Mex plan rows, because it answers the same question. */
+.edd-step-row{display:flex;align-items:center;gap:14px;padding:11px 16px;border-bottom:1px solid var(--border)}
+.edd-step-row:last-child{border-bottom:none}
+.edd-step-row.is-next{background:var(--accent-soft)}
+.edd-step-e{width:46px;flex-shrink:0;font-family:var(--f-fig);font-size:19px;font-weight:var(--w-fig);letter-spacing:-.5px}
+.edd-step-main{flex:1;min-width:0}
+.edd-step-title{font-size:13px;font-weight:700}
+.edd-step-sub{font-size:11px;color:var(--text-muted);margin-top:2px}
+.edd-step-need{flex-shrink:0;text-align:right}
+.edd-step-need b{display:block;font-size:15px;font-weight:800}
+.edd-step-need span{font-size:10px;color:var(--text-muted)}
+/* A day that already clears the next rung is worth naming — it is evidence the
+   step is in range rather than a hypothetical. */
+.edd-near{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.edd-near-chip{font-size:11px;font-weight:600;padding:3px 8px;background:var(--bg);border:1px solid var(--border)}
+.edd-sports{display:flex;flex-wrap:wrap;gap:8px}
+.edd-sport-chip{display:flex;align-items:baseline;gap:6px;padding:5px 11px;font-size:11px;font-weight:600}
+.edd-sport-chip strong{font-size:13px;font-weight:700}
+.edd-note{font-size:11px;color:var(--text-muted);line-height:1.55}
+.edd-empty{text-align:center;padding:60px 20px;color:var(--text-muted);font-size:14px}
 /* MEX */
 .mex-ladder{display:flex;flex-direction:column;gap:6px}
 .mex-row{display:flex;align-items:flex-start;gap:12px}
@@ -1667,6 +1690,7 @@ body.is-loading .stats-grid *{visibility:hidden}
           <button class="tab-btn" role="tab" id="tabbtn-heatmap" aria-controls="tab-heatmap" aria-selected="false" tabindex="-1" onclick="setTab('heatmap')"><span class="ms">grid_view</span><span class="tab-label">Heatmap</span></button>
           <button class="tab-btn" role="tab" id="tabbtn-records" aria-controls="tab-records" aria-selected="false" tabindex="-1" onclick="setTab('records')"><span class="ms">emoji_events</span><span class="tab-label">Records</span></button>
           <button class="tab-btn" role="tab" id="tabbtn-mex" aria-controls="tab-mex" aria-selected="false" tabindex="-1" onclick="setTab('mex')"><span class="ms">stairs</span><span class="tab-label">Mex</span></button>
+          <button class="tab-btn" role="tab" id="tabbtn-eddington" aria-controls="tab-eddington" aria-selected="false" tabindex="-1" onclick="setTab('eddington')"><span class="ms">trending_up</span><span class="tab-label">Eddington</span></button>
           <button class="tab-btn" role="tab" id="tabbtn-social" aria-controls="tab-social" aria-selected="false" tabindex="-1" onclick="setTab('social')"><span class="ms">thumb_up</span><span class="tab-label">Social</span></button>
           <button class="tab-btn" role="tab" id="tabbtn-gear" aria-controls="tab-gear" aria-selected="false" tabindex="-1" onclick="setTab('gear')"><span class="ms">settings</span><span class="tab-label">Gear</span></button>
           <button class="tab-btn" role="tab" id="tabbtn-log" aria-controls="tab-log" aria-selected="false" tabindex="-1" onclick="setTab('log')"><span class="ms">format_list_bulleted</span><span class="tab-label">Activity Log</span></button>
@@ -1790,7 +1814,7 @@ body.is-loading .stats-grid *{visibility:hidden}
 <!-- calc.js carries a stamp of its own content (npm run stamp; the unit tests check it
      is current), so a freshly deployed page can never be paired with a cached older copy
      of the script — which is exactly how one deploy died on "daysInYear is not defined". -->
-<script src="calc.js?v=149b9600"></script>
+<script src="calc.js?v=653e2a4c"></script>
 <div id="dashTooltip" class="dash-tooltip"></div>
 <div class="main">
 
@@ -2205,6 +2229,9 @@ body.is-loading .stats-grid *{visibility:hidden}
 <!-- MEX -->
 <div id="tab-mex" class="tab-content" role="tabpanel" tabindex="0" aria-labelledby="tabbtn-mex" hidden></div>
 
+<!-- EDDINGTON — generated wholesale by renderEddington, like Mex. -->
+<div id="tab-eddington" class="tab-content" role="tabpanel" tabindex="0" aria-labelledby="tabbtn-eddington" hidden></div>
+
 <!-- SOCIAL -->
 <div id="tab-social" class="tab-content" role="tabpanel" tabindex="0" aria-labelledby="tabbtn-social" hidden data-zone="social">
   <div class="span-full" data-panel="soc-lead" data-panel-label="Who you train with">
@@ -2401,7 +2428,7 @@ let _dataGen=0;
 // view. They now live in the query string — which makes the back button work
 // and a view shareable — and fall back to the last one you used.
 const VIEW_KEY='ft-view-v1';
-const VALID_TABS=['summary','map','charts','heatmap','records','mex','social','gear','log','zwift'];
+const VALID_TABS=['summary','map','charts','heatmap','records','mex','eddington','social','gear','log','zwift'];
 // ── ON-DEMAND LIBRARIES ──
 // One promise per URL, cached, so concurrent callers share a single fetch and a
 // repeat call after it resolves is free.
@@ -3630,7 +3657,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&document.getElementById('scopeSheet').classList.contains('open'))closeScopeSheet();
 });
 
-const TAB_ORDER=['summary','map','charts','heatmap','records','mex','social','gear','log','zwift'];
+const TAB_ORDER=['summary','map','charts','heatmap','records','mex','eddington','social','gear','log','zwift'];
 function setTab(tab,dir,fromPop){
   // Leaving the charts ends the edit: the bar is fixed to the viewport and would
   // otherwise sit over the Heatmap offering to reorder something that isn't there.
@@ -3757,10 +3784,11 @@ function renderSummary(){
   const avgSpeed=speeds.length?speeds.reduce((s,v)=>s+v,0)/speeds.length:null;
   const hrs=data.filter(a=>a.hr>0).map(a=>a.hr);
   const avgHR=hrs.length?hrs.reduce((s,v)=>s+v,0)/hrs.length:null;
-  // Eddington: max E where ≥E days had ≥E miles
-  const datesDist={};data.forEach(a=>{datesDist[a.date]=(datesDist[a.date]||0)+(a.dist_mi||0);});
-  const distsSorted=Object.values(datesDist).sort((a,b)=>b-a);
-  let eddington=0;for(let i=0;i<distsSorted.length;i++){if(distsSorted[i]>=i+1)eddington=i+1;else break;}
+  // The same two functions the Eddington tab uses, over the same filtered set, so
+  // the two can never disagree. The inline loop this replaces summed `dist_mi`
+  // directly, which meant that with the header switched to km the Summary quietly
+  // went on reporting a miles Eddington beside a Mex that had followed the switch.
+  const eddington=eddingtonOf(eddDistances(data,eddBasis));
   const longestRide=data.filter(a=>typeGroup(a.type)==='Ride').reduce((b,a)=>(a.dist_mi||0)>(b?.dist_mi||0)?a:b,null);
   const longestRun=data.filter(a=>typeGroup(a.type)==='Run').reduce((b,a)=>(a.dist_mi||0)>(b?.dist_mi||0)?a:b,null);
 
@@ -3798,15 +3826,16 @@ function renderSummary(){
   // Two of the eleven are gone rather than moved. "Avg Speed" was a mean across
   // swims, dog walks and centuries, and "Avg Heart Rate" the same across every
   // sport: numbers that describe no activity you have ever done. The per-sport row
-  // above is what replaces them. Longest Ride, Longest Run and Eddington are not
-  // repeated here either — they are the Records tab's headline, and this page links
-  // there rather than restating it.
+  // above is what replaces them. Longest Ride and Longest Run are not repeated here
+  // either — they are the Records tab's headline, and this page links there rather
+  // than restating it. Eddington and Mex keep their place in the row because each
+  // now has a tab of its own to link to.
   const careerFigs=[
     [fmtDist(totalDist)+' '+distUnit(), activeYear==='All'?`logged over ${spanYears} year${spanYears===1?'':'s'}`:periodPhrase(activeYear)],
     [data.length.toLocaleString('en-GB'), 'activities'],
     [fmtNum(totalTime/3600)+' h', 'moving'],
     [fmtNum(fmtElevVal(totalElv))+fmtElevUnit(), 'climbed'],
-    [String(eddington), 'Eddington'],
+    [String(eddington), 'Eddington'+(eddBasis==='ride'?' (by ride)':'')],
     [summaryMex+' '+distUnit(), 'Mex'],
   ];
   document.getElementById('heroStats').outerHTML=`<div class="sum-career" id="heroStats">
@@ -3817,6 +3846,7 @@ function renderSummary(){
     <div style="margin-left:auto;display:flex;gap:14px">
       <a href="#" onclick="setTab('records');return false" style="font-size:11px;font-weight:600;color:var(--accent)">Records →</a>
       <a href="#" onclick="setTab('mex');return false" style="font-size:11px;font-weight:600;color:var(--accent)">Mex →</a>
+      <a href="#" onclick="setTab('eddington');return false" style="font-size:11px;font-weight:600;color:var(--accent)">Eddington →</a>
     </div>
   </div>`;
 
@@ -7078,6 +7108,253 @@ function renderMex(){
   renderDistHistogram(getFiltered(),ceiling);
 }
 
+// ── EDDINGTON ────────────────────────────────────────────────────────────────
+// The number Mex is not. Mex is governed by the LOW end — one missing short
+// bucket caps you however far you ride — and it rewards variety. Eddington is
+// governed by the middle and rewards repetition of long days. Between them they
+// describe a history from both ends, which is why they are separate tabs rather
+// than two figures in one.
+//
+// Basis is remembered like every other view preference. Default is by day, which
+// is Eddington's own definition; by ride is offered because it is how most people
+// say it out loud, and the two are genuinely different numbers.
+const EDD_BASIS_KEY='fitness_edd_basis_v1';
+const EDD_BASES={day:'By day',ride:'By ride'};
+let eddBasis='day';
+try{const v=localStorage.getItem(EDD_BASIS_KEY);if(EDD_BASES[v])eddBasis=v;}catch(e){}
+function setEddBasis(b){
+  if(!EDD_BASES[b]||b===eddBasis)return;
+  eddBasis=b;
+  try{localStorage.setItem(EDD_BASIS_KEY,b);}catch(e){}
+  renderEddington();
+}
+
+function renderEddington(){
+  const u=unit,el=document.getElementById('tab-eddington');
+  const data=getFiltered();
+  const basisNoun=eddBasis==='ride'?'activity':'day';
+  const basisPlural=eddBasis==='ride'?'activities':'days';
+  const dists=eddDistances(data,eddBasis);
+  if(!dists.length){
+    el.innerHTML='<div class="edd-empty"><span class="ms" style="font-size:36px;display:block;margin-bottom:8px">trending_up</span>Nothing with a distance matches this filter.</div>';
+    return;
+  }
+  const E=eddingtonOf(dists);
+  const longest=Math.max(...dists);
+  const atOrAbove=dists.filter(d=>d>=E).length;
+  // Far enough past the crossing to show the curve flattening, but never past the
+  // longest day — there is no curve out there, only a flat zero.
+  const ceiling=Math.max(10,Math.min(Math.ceil(longest),Math.ceil(Math.max(E*1.6,E+12))));
+  const curve=eddingtonCurve(dists,ceiling);
+
+  // What the next rungs actually cost. The gap between "one more ride" and the
+  // truth is the whole reason this table exists.
+  const steps=[];
+  for(let t=E+1;t<=E+5;t++)steps.push({e:t,need:eddingtonNeed(dists,t),have:dists.filter(d=>d>=t).length});
+  const nextNeed=steps.length?steps[0].need:0;
+
+  // Days already past the next rung are evidence the step is in range rather than
+  // hypothetical. The eight shown are the ones closest to the line — the biggest
+  // days say nothing about whether the next one is reachable.
+  const nearTarget=E+1;
+  const overNext=dists.filter(d=>d>=nearTarget);
+  const justOver=overNext.slice(-8);
+  // And the ones that came closest without making it — the almost-days.
+  const shortfall=dists.filter(d=>d<nearTarget&&d>=nearTarget-Math.max(2,nearTarget*0.08))
+    .slice(0,8).map(d=>+(nearTarget-d).toFixed(1));
+
+  const _t=_today();
+  const yearData=ALL_DATA.filter(a=>scopeIncludes(a.date,activeYear,_t));
+  const chips=[{g:'All',m:eddingtonOf(eddDistances(yearData,eddBasis)),col:'#ff385c',soft:'#ffeef1'}];
+  ['Ride','Virtual','Run','Walk','Swim','Other'].forEach(g=>{
+    const acts=yearData.filter(a=>typeGroup(a.type)===g);
+    if(acts.length)chips.push({g,m:eddingtonOf(eddDistances(acts,eddBasis)),col:groupColor(g),soft:groupSoft(g)});
+  });
+
+  const scope=periodLabel(activeYear)+' · '+(activeType==='All'?'all sports':activeType.toLowerCase())+' · '+u;
+
+  el.innerHTML=`
+  <div class="section-header"><h2>Eddington number</h2><span class="badge">${scope}</span></div>
+
+  <div class="edd-basis-wrap">
+    <div class="chart-ctl edd-basis-ctl" role="group" aria-label="Count Eddington by">
+      ${Object.entries(EDD_BASES).map(([k,label])=>
+        `<button type="button" class="chart-ctl-btn${k===eddBasis?' active':''}" aria-pressed="${k===eddBasis}" onclick="setEddBasis('${k}')">${label}</button>`).join('')}
+    </div>
+  </div>
+
+  <div data-zone="eddington">
+  <div class="span-full" data-panel="edd-stats" data-panel-label="Eddington, the next step and the count">
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Your Eddington</div>
+      <div class="stat-value">${E}<span class="stat-unit">${u}</span></div>
+      <div class="stat-sub">${E?`${E} ${basisPlural} of at least ${E} ${u}`:`No ${basisNoun} has reached 1 ${u} yet`}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">To reach ${E+1}</div>
+      <div class="stat-value">${nextNeed}<span class="stat-unit">more</span></div>
+      <div class="stat-sub">${nextNeed===1?`One more ${basisNoun}`:`${nextNeed} more ${basisPlural}`} of ${E+1}+ ${u}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">${basisPlural[0].toUpperCase()+basisPlural.slice(1)} at ${E}+</div>
+      <div class="stat-value">${atOrAbove.toLocaleString('en-GB')}</div>
+      <div class="stat-sub">Longest single ${basisNoun}: ${fmtDist(longest)} ${u}</div>
+    </div>
+  </div>
+  </div>
+
+  <div class="span-full" data-panel="edd-curve" data-panel-label="Where the number comes from">
+  <div class="chart-card" style="margin-bottom:18px">
+    <div class="chart-title">Where the number comes from</div>
+    <div class="chart-sub">For every distance, how many ${basisPlural} reached it. That count only falls as the distance rises, and the straight line only climbs — your Eddington is the last point before they cross.</div>
+    <div class="chart-wrap tall"><canvas id="chartEddCurve"></canvas></div>
+    <div id="eddCurveChips" class="chart-chips"></div>
+    <div id="eddCurveVerdict" class="chart-verdict"></div>
+  </div>
+  </div>
+
+  <div class="span-full" data-panel="edd-year" data-panel-label="Eddington by year">
+  <div class="chart-card" style="margin-bottom:18px">
+    <div class="chart-title">Eddington by year</div>
+    <div class="chart-sub" id="eddYearSub">Each year counted on its own, ignoring every other year</div>
+    <div class="chart-wrap"><canvas id="chartEddYear"></canvas></div>
+  </div>
+  </div>
+
+  <div class="span-full" data-panel="edd-steps" data-panel-label="What the next steps cost">
+  <div class="two-col">
+    <div class="log-table-wrap">
+      <div style="padding:18px 20px 12px">
+        <div class="chart-title">What the next steps cost</div>
+        <div class="chart-sub" style="margin-bottom:0">Not "one more ride". Reaching ${E+1} means having ${E+1} ${basisPlural} of ${E+1}+ ${u}, and every step asks for more than the last.</div>
+      </div>
+      <div style="border-top:1px solid var(--border)">${steps.map((st,i)=>`
+        <div class="edd-step-row${i?'':' is-next'}">
+          <div class="edd-step-e">${st.e}</div>
+          <div class="edd-step-main">
+            <div class="edd-step-title">${st.e} ${basisPlural} of ${st.e}+ ${u}</div>
+            <div class="edd-step-sub">You have ${st.have.toLocaleString('en-GB')} already</div>
+          </div>
+          <div class="edd-step-need"><b>${st.need ? '+'+st.need : 'done'}</b><span>${st.need?basisPlural:'reached'}</span></div>
+        </div>`).join('')}</div>
+      ${overNext.length?`<div style="padding:12px 16px 16px;border-top:1px solid var(--border)">
+        <div class="edd-note"><strong>${overNext.length.toLocaleString('en-GB')}</strong> ${overNext.length===1?basisNoun:basisPlural} already clear ${nearTarget} ${u}${nextNeed?`, and ${nearTarget} are needed`:' — enough'}. ${justOver.length?'The closest of them:':''}<span class="edd-near">${justOver.map(d=>`<span class="edd-near-chip">${fmtDist(d)}</span>`).join('')}</span></div>
+      </div>`:''}
+      ${shortfall.length?`<div style="padding:0 16px 16px">
+        <div class="edd-note">Closest misses, by how far they fell short of ${nearTarget} ${u}: <span class="edd-near">${shortfall.map(d=>`<span class="edd-near-chip">${d} short</span>`).join('')}</span></div>
+      </div>`:''}
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:18px">
+      <div class="chart-card">
+        <div class="chart-title">Eddington by sport</div>
+        <div class="chart-sub">Counted within each sport alone, so every one sits at or below the overall figure.</div>
+        <div class="edd-sports">${chips.map(c=>`<div class="edd-sport-chip" style="background:${c.soft};color:${c.col}">${c.g} <strong>${c.m}</strong></div>`).join('')}</div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">How it's counted</div>
+        <div style="display:flex;flex-direction:column;gap:9px;margin-top:10px">
+          <div class="edd-note">E is the largest number where you have <strong>E ${basisPlural} of at least E ${u}</strong>. One enormous day does nothing for it, and neither does a thousand short ones.</div>
+          <div class="edd-note"><strong>By day</strong> sums everything you did that day, which is Eddington's own definition. <strong>By ride</strong> counts each activity separately. Neither is always the higher: splitting a day lowers each distance but raises the count, and E is capped by both.</div>
+          <div class="edd-note">It follows the <strong>mi / km</strong> switch, so it is a different number in each. Cyclists usually quote the mile figure.</div>
+          <div class="edd-note">It can only ever go up. A year filter shows that year counted alone, which is why those figures are much smaller than the all-time one.</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Against your Mex</div>
+        <div class="edd-note">Mex is governed by the <strong>low</strong> end — one missing short bucket caps it however far you ride — and it rewards variety. Eddington is governed by the <strong>middle</strong> and rewards repeating long days. A history can be strong in one and weak in the other, which is the point of keeping both.</div>
+        <div style="margin-top:10px"><a href="#" onclick="setTab('mex');return false" style="font-size:11px;font-weight:600;color:var(--accent)">Mex →</a></div>
+      </div>
+    </div>
+  </div>
+  </div>
+  </div>`;
+
+  renderEddCurve(curve,E,ceiling,basisPlural);
+  renderEddYear(basisPlural);
+}
+
+// The curve and the y=x line it crosses. Two datasets on one pair of axes, which
+// is the whole explanation of the metric in one picture: a falling count, a rising
+// requirement, and the last point where the first is still above the second.
+function renderEddCurve(curve,E,ceiling,basisPlural){
+  const cv=document.getElementById('chartEddCurve');
+  if(!cv)return;
+  const accent=getAccentColor();
+  destroyChart('eddCurve');
+  charts.eddCurve=upsertChart('eddCurve',cv.getContext('2d'),{
+    type:'line',
+    data:{labels:curve.map(p=>p.n),datasets:[
+      {label:basisPlural[0].toUpperCase()+basisPlural.slice(1)+' at this distance or more',
+       data:curve.map(p=>p.days),borderColor:accent,backgroundColor:hexA(accent,.12),
+       fill:true,pointRadius:0,borderWidth:2,tension:.15},
+      {label:'What Eddington asks for',data:curve.map(p=>p.n),
+       borderColor:'#94a3b8',borderDash:[5,4],pointRadius:0,borderWidth:1.5,fill:false},
+    ]},
+    options:{
+      plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},
+        tooltip:{mode:'index',intersect:false,callbacks:{
+          title:c=>`${c[0].label} ${unit}`,
+          label:c=>c.datasetIndex===0
+            ?`${c.parsed.y.toLocaleString('en-GB')} ${basisPlural} at ${c.label}+ ${unit}`
+            :`needs ${c.parsed.y} to make E=${c.label}`}}},
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      scales:{
+        x:{grid:{display:false},title:{display:true,text:`Distance (${unit})`,font:{size:10}},
+           ticks:{font:{size:9},autoSkip:true,maxTicksLimit:20,maxRotation:0}},
+        y:{grid:{color:chartGrid()},beginAtZero:true,
+           title:{display:true,text:basisPlural[0].toUpperCase()+basisPlural.slice(1),font:{size:10}},
+           ticks:{font:{size:11},precision:0}}}}
+  });
+
+  const at=n=>{const p=curve.find(x=>x.n===n);return p?p.days:0;};
+  const stretch=Math.round(E*1.5);
+  const need=Math.max(0,(E+1)-at(E+1));
+  const one=basisPlural.slice(0,-1);
+  chartSummary('eddCurve',[
+    {n:String(E),label:'where the two lines cross',col:accent},
+    {n:at(E+1).toLocaleString('en-GB'),label:`${basisPlural} at ${E+1}+ ${unit}`,col:'#0ea5e9'},
+    {n:at(stretch).toLocaleString('en-GB'),label:`at ${stretch}+ ${unit}`,col:'#8b5cf6'},
+  ],
+  need===0
+    ?`You already have the ${basisPlural} for ${E+1} — nothing is standing in the way of the next step.`
+    :need===1
+      ?`One more ${one} of ${E+1}+ ${unit} moves it to ${E+1}. After that the next step asks for more again.`
+      :`${need} more ${basisPlural} of ${E+1}+ ${unit} move it to ${E+1}. The curve flattens as it climbs, so every step from here costs more than the last.`);
+}
+
+// Each year's own Eddington, counted in isolation. A career figure only ever goes
+// up and so says nothing about form; this says which years actually did the work.
+function renderEddYear(basisPlural){
+  const cv=document.getElementById('chartEddYear');
+  if(!cv)return;
+  const pool=activeType==='All'?ALL_DATA:ALL_DATA.filter(a=>typeMatches(a.type,activeType));
+  const years=[...new Set(pool.map(a=>a.date.slice(0,4)))].sort();
+  if(years.length<2){
+    setChartEmpty('chartEddYear','Two years of history are needed before a year-by-year comparison says anything.');
+    return;
+  }
+  setChartEmpty('chartEddYear');
+  const vals=years.map(y=>eddingtonOf(eddDistances(pool.filter(a=>a.date.slice(0,4)===y),eddBasis)));
+  const best=Math.max(...vals);
+  const accent=getAccentColor();
+  destroyChart('eddYear');
+  charts.eddYear=upsertChart('eddYear',cv.getContext('2d'),{
+    type:'bar',
+    data:{labels:years,datasets:[{data:vals,
+      backgroundColor:vals.map(v=>v===best?accent:hexA(accent,.35)),borderRadius:0}]},
+    options:{plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:c=>`E=${c.parsed.y} in ${c.label} · ${c.parsed.y} ${basisPlural} of ${c.parsed.y}+ ${unit}`}}},
+      responsive:true,maintainAspectRatio:false,
+      scales:{x:{grid:{display:false},ticks:{font:{size:10}}},
+        y:{grid:{color:chartGrid()},beginAtZero:true,ticks:{font:{size:11},precision:0}}}}
+  });
+  const sub=document.getElementById('eddYearSub');
+  if(sub)sub.textContent=`Each year counted on its own. Best single year: ${best} ${unit}, in ${years[vals.indexOf(best)]}.`;
+}
+
 // ── DISTANCE DISTRIBUTION ──
 // Everything else in the app is a sum or a maximum, and neither has anything to
 // say about shape. Two athletes with the same annual distance and the same longest
@@ -8666,6 +8943,7 @@ function renderAll(){
   else if(activeTab==='heatmap')renderHeatmap();
   else if(activeTab==='records')renderRecords();
   else if(activeTab==='mex')renderMex();
+  else if(activeTab==='eddington')renderEddington();
   else if(activeTab==='social')renderSocial();
   else if(activeTab==='gear')renderGear();
   else if(activeTab==='log')renderLog();
