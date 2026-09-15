@@ -94,6 +94,48 @@ const ENVELOPE = {
   },
 };
 
+// Zwift route catalogue. Completed routes follow an exact rule — 180 s a mile plus
+// 1 s a foot climbed — so the fitted estimate has a known right answer. One row is
+// the impossible kind the real database contains (a 19.8-mile route logged at 60
+// seconds) and must be refused a vote in the fit.
+const ZWIFT_FIXTURE = (() => {
+  const rows = [];
+  for (let i = 0; i < 14; i++) {
+    const d = +(2 + i * 1.5).toFixed(1), e = 50 + i * 40;
+    const t = Math.round(d * 180 + e);
+    const hh = String(Math.floor(t / 3600)).padStart(2, '0');
+    const mm = String(Math.floor((t % 3600) / 60)).padStart(2, '0');
+    const ss = String(t % 60).padStart(2, '0');
+    rows.push({
+      id: `done-${i}`, route: `Done Route ${i}`, maps: ['Watopia'],
+      distance_mi: d, elevation_ft: e, est_duration: null,
+      date_completed: '2026-01-0' + ((i % 9) + 1), time: `${hh}:${mm}:${ss}`, time_sec: t,
+      status: 'Complete', planned_ride: null, link_zi: null, link_strava: null,
+      link_zh: null, in_route_list: true, directions: null, last_edited: null,
+    });
+  }
+  rows.push({
+    id: 'impossible', route: 'Impossible Row', maps: ['Watopia'],
+    distance_mi: 19.8, elevation_ft: 810, est_duration: null,
+    date_completed: '2026-02-01', time: '00:01:00', time_sec: 60,
+    status: 'Complete', planned_ride: null, link_zi: null, link_strava: null,
+    link_zh: null, in_route_list: true, directions: null, last_edited: null,
+  });
+  // Outstanding: the ones that need an estimate. 10 mi + 100 ft = 1900 s = 31:40.
+  [['todo-a', 'Todo Route A', 10, 100, 'Not started'],
+   ['todo-b', 'Todo Route B', 25, 2000, 'Planned'],
+   ['todo-c', 'Todo Route C', 4, 0, 'Blocked']].forEach(([id, route, d, e, status]) => {
+    rows.push({
+      id, route, maps: ['Watopia'], distance_mi: d, elevation_ft: e,
+      est_duration: id === 'todo-a' ? '00:30' : null,
+      date_completed: null, time: null, time_sec: null, status,
+      planned_ride: null, link_zi: null, link_strava: null, link_zh: null,
+      in_route_list: true, directions: null, last_edited: null,
+    });
+  });
+  return rows;
+})();
+
 // ── Library stubs ─────────────────────────────────────────────────────────────
 // Only the surface the dashboard actually touches. `update()` and `destroy()` are
 // counted so the test can tell an in-place update from a rebuild.
@@ -209,6 +251,14 @@ function assert(cond, msg) {
   if (!cond) throw new Error(msg);
 }
 
+// The Worker's host is activities-api.lk-ff7.workers.dev, so a '**/activities**'
+// glob also matches https://activities-api.../zwift-routes — the '//' in the scheme
+// supplies the leading slash. Playwright prefers the most recently registered
+// handler, so every page.route('**/activities**') added after the Zwift stub
+// silently took the Zwift fetch as well and handed it the activities envelope.
+// Anchor on the path: /activities must be followed by a query string or nothing.
+const ACTIVITIES_ROUTE = /\/activities(\?|$)/;
+
 const TABS = ['summary', 'map', 'charts', 'heatmap', 'records', 'mex', 'eddington', 'social', 'gear', 'log', 'zwift'];
 
 async function main() {
@@ -260,12 +310,12 @@ async function main() {
         r.fulfill({ status: 200, contentType: 'text/css', body: '' }));
     }
 
-    await page.route('**/activities**', (r) => {
+    await page.route(ACTIVITIES_ROUTE, (r) => {
       if (offline) return r.abort('failed');
       return r.fulfill({ status: apiStatus, contentType: 'application/json', body: JSON.stringify(apiBody) });
     });
     await page.route('**/zwift-routes**', (r) =>
-      r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], updatedAt: new Date().toISOString() }) })
+      r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: ZWIFT_FIXTURE, updatedAt: new Date().toISOString() }) })
     );
     // The panel order syncs through the Worker. Left unstubbed this is a real
     // request to a real Worker from every test in the file: slow, and it would make
@@ -562,7 +612,7 @@ async function main() {
       // a slow answer from /activities, and a status that says page 3 of about 10 with
       // the last pull having taken forty seconds.
       await page.unroute('**/refresh-status**');
-      await page.unroute('**/activities**');
+      await page.unroute(ACTIVITIES_ROUTE);
       const running = (r) => r.fulfill({ status: 200, contentType: 'application/json',
         body: JSON.stringify({ state: 'running', source: 'request', startedAt: new Date().toISOString(),
           stage: 'activities', page: 3, fetched: 600, expectedPages: 10, expectedTotal: 2000, lastDurationMs: 40000 }) });
@@ -570,9 +620,9 @@ async function main() {
         await new Promise((res) => setTimeout(res, 1600));
         await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ENVELOPE) });
       };
-      // '**/activities**' also matches every other route on this host (activities-api…)
+      // ACTIVITIES_ROUTE also matches every other route on this host (activities-api…)
       // and the last route registered wins, so the status route goes on after it.
-      await page.route('**/activities**', slow);
+      await page.route(ACTIVITIES_ROUTE, slow);
       await page.route('**/refresh-status**', running);
       const done = page.evaluate(() => window.refreshData());
       await page.waitForTimeout(900);
@@ -595,8 +645,8 @@ async function main() {
       assert(!after.shown, 'the progress line stayed after the refresh finished');
       assert(/^Updated/.test(after.text), `the header did not go back to the updated time: "${after.text}"`);
       await page.unroute('**/refresh-status**', running);
-      await page.unroute('**/activities**', slow);
-      await page.route('**/activities**', (r) =>
+      await page.unroute(ACTIVITIES_ROUTE, slow);
+      await page.route(ACTIVITIES_ROUTE, (r) =>
         r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ENVELOPE) }));
       await page.route('**/refresh-status**', (r) =>
         r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ state: 'idle' }) }));
@@ -993,6 +1043,75 @@ async function main() {
       // A shoe wears out against 750; a bike gets a usage rate and no wear bar.
       assert(/750/.test(r.wear), `the wear bar reads "${r.wear}"`);
       assert(!r.bikeWear, `a bike was given a wear bar: "${r.bikeWear}"`);
+    });
+
+    await check('an outstanding Zwift route is given an estimate from your own times', async () => {
+      await page.evaluate(() => window.setTab('zwift'));
+      // The catalogue is fetched, not bundled — wait for it rather than guessing.
+      // Bare names, not window.*: these are top-level `let`s, which are script-scoped
+      // bindings rather than properties of window.
+      await page.waitForFunction(() => zwiftLoaded && ZWIFT_DATA.length > 0, null,
+        { timeout: 15000 });
+      // The tab opens filtered to "Not started"; every status has to be on screen.
+      await page.evaluate(() => { window.setZwiftStatusFilter('All'); window.toggleAllZwiftGroups(true); });
+      await page.waitForTimeout(400);
+      const r = await page.evaluate(() => {
+        const fit = zwiftFit(ZWIFT_DATA);
+        const est = (id) => {
+          const row = document.getElementById('zwift-row-' + id);
+          const el = row && row.querySelector('.zwift-est');
+          // lastChild, not textContent: the leading <span class="ms"> carries the
+          // icon's ligature name ("schedule") as its text.
+          return el ? el.lastChild.textContent.trim() : null;
+        };
+        return {
+          fitN: fit && fit.n, mph: fit && fit.mph, b: fit && fit.b,
+          todoA: est('todo-a'), todoB: est('todo-b'), todoC: est('todo-c'),
+          done0: est('done-0'), impossible: est('impossible'),
+          predA: zwiftPredictSec(fit, 10, 100),
+        };
+      });
+      // The impossible row is in the catalogue but must not be in the fit.
+      assert(r.fitN === 14, `the fit used ${r.fitN} routes, expected 14`);
+      assert(Math.abs(r.mph - 20) < 0.01, `fitted flat speed ${r.mph}, expected 20`);
+      assert(Math.abs(r.b - 1) < 0.01, `fitted climb cost ${r.b}, expected 1 s/ft`);
+      assert(Math.abs(r.predA - 1900) < 1, `predicted ${r.predA}s for 10mi/100ft, expected 1900`);
+      assert(r.todoA === '~31:40', `Todo A reads "${r.todoA}", expected ~31:40`);
+      assert(r.todoB && r.todoC, 'an outstanding route is missing its estimate');
+      // A route you have done states what it took; it is not given a guess.
+      assert(r.done0 === null, `a completed route carries an estimate: "${r.done0}"`);
+      assert(r.impossible === null, 'the impossible row was given an estimate');
+    });
+
+    await check('the Zwift estimate survives the sideways-scroll and phone checks', async () => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.waitForTimeout(400);
+      const r = await page.evaluate(() => ({
+        doc: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        wrapped: [...document.querySelectorAll('.zwift-est')]
+          .map((e) => Math.round(e.getBoundingClientRect().height)).filter((h) => h > 22),
+      }));
+      assert(r.doc <= 0, `the Zwift tab scrolls sideways by ${r.doc}px on a phone`);
+      assert(!r.wrapped.length, `an estimate wrapped to ${r.wrapped.join(', ')}px`);
+      await page.setViewportSize({ width: 1400, height: 900 });
+      await page.waitForTimeout(300);
+    });
+
+    await check('the estimate never overwrites the published one', async () => {
+      const r = await page.evaluate(() => {
+        window.toggleZwiftEdit('todo-a');
+        const rows = [...document.querySelectorAll('#zwift-row-todo-a .zwift-detail-info tr')]
+          .map((tr) => [...tr.children].map((td) => td.textContent.trim()));
+        return {
+          published: (rows.find((x) => /published/i.test(x[0])) || [])[1],
+          mine: (rows.find((x) => /from your times/i.test(x[0])) || [])[1],
+        };
+      });
+      // Notion's own "Est. Duration" is reference data and is shown untouched.
+      assert(r.published === '00:30', `the published estimate reads "${r.published}"`);
+      assert(r.mine && r.mine.startsWith('~31:40'), `the fitted estimate reads "${r.mine}"`);
+      await page.evaluate(() => { window.cancelZwiftEdit(); window.setZwiftStatusFilter('Not started'); });
+      await page.waitForTimeout(200);
     });
 
     await check('the Eddington tab computes, and its curve crosses at E', async () => {
@@ -1826,7 +1945,7 @@ async function main() {
     await page.route(/nominatim\.openstreetmap\.org/, (r) => r.abort());
 
     let fail = false;
-    await page.route('**/activities**', (r) =>
+    await page.route(ACTIVITIES_ROUTE, (r) =>
       fail ? r.abort('failed')
            : r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ENVELOPE) })
     );
@@ -1857,8 +1976,8 @@ async function main() {
         data: [...ENVELOPE.data, { ...ENVELOPE.data[0], id: 999999, name: 'Brand new ride' }],
         updatedAt: new Date(Date.now() + 60000).toISOString(),
       };
-      await page.unroute('**/activities**');
-      await page.route('**/activities**', (r) =>
+      await page.unroute(ACTIVITIES_ROUTE);
+      await page.route(ACTIVITIES_ROUTE, (r) =>
         fail ? r.abort('failed')
              : r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(later) }));
       await page.reload({ waitUntil: 'domcontentloaded' });

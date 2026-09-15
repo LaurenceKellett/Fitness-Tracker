@@ -6,6 +6,7 @@ const {
   fmtNum, fmtCal, fmtPRTime, fmtHours, chipNum, artFor, escapeAttr, escapeHtml, typeGroup,
   mapTypeGroup, typeMatches, isFootSport, isRace, dayOfYear, daysBetween, monthsBetween,
   fmtServiceSpan, eddDistances, eddingtonOf, eddingtonNeed, eddingtonCurve,
+  zwiftFitRows, zwiftFit, zwiftPredictSec, fmtEstTime, ZW_MIN_FIT,
   monthLabel, haversineMi, decodePolylinePts, gearKey, gearSlug, socCanon, socInitials,
   extractPartners, formatUpdatedAt, recLongestStreak, recCurrentStreak, mexBuckets, mexOf,
   actDistIn, distIn, ROLLING_ORDER, todayISO, isYearScope, isRollingScope, periodStart,
@@ -341,6 +342,87 @@ describe('Eddington', () => {
     const vals = [42, 40, 40, 31, 22, 18, 9, 9, 3, 0.4];
     const slow = (n) => vals.filter((v) => v >= n).length;
     eddingtonCurve(vals, 45).forEach((p) => expect(p.days).toBe(slow(p.n)));
+  });
+});
+
+describe('Zwift route time estimate', () => {
+  // A rider who does exactly 20 mph flat and loses exactly 1 s per foot climbed.
+  const synth = (n) => Array.from({ length: n }, (_, i) => {
+    const d = 2 + i * 1.5, e = 50 + i * 40;
+    return { distance_mi: d, elevation_ft: e, time_sec: d * 180 + e * 1 };
+  });
+
+  it('recovers the coefficients it was built from', () => {
+    const f = zwiftFit(synth(20));
+    expect(f.a).toBeCloseTo(180, 4);
+    expect(f.b).toBeCloseTo(1, 4);
+    expect(f.mph).toBeCloseTo(20, 4);
+    expect(f.r2).toBeGreaterThan(0.999);
+    expect(zwiftPredictSec(f, 10, 100)).toBeCloseTo(1900, 3);
+  });
+
+  it('refuses to fit on too little history', () => {
+    expect(zwiftFit(synth(ZW_MIN_FIT - 1))).toBeNull();
+    expect(zwiftFit([])).toBeNull();
+    expect(zwiftFit(synth(ZW_MIN_FIT))).not.toBeNull();
+  });
+
+  it('throws out times nobody could have ridden', () => {
+    // The real database has a 19.8-mile route logged at 60 seconds.
+    const rows = [...synth(20), { distance_mi: 19.8, elevation_ft: 810, time_sec: 60 }];
+    expect(zwiftFitRows(rows)).toHaveLength(20);
+    // And the fit is therefore unmoved by it.
+    expect(zwiftFit(rows).a).toBeCloseTo(180, 4);
+  });
+
+  it('ignores rows missing any of the three numbers', () => {
+    const bad = [
+      { distance_mi: null, elevation_ft: 100, time_sec: 600 },
+      { distance_mi: 5, elevation_ft: 100, time_sec: 0 },
+      { distance_mi: 5, elevation_ft: null, time_sec: 600 },
+      { distance_mi: 5, elevation_ft: 100, time_sec: null },
+    ];
+    expect(zwiftFitRows(bad)).toHaveLength(0);
+  });
+
+  it('falls back to distance alone rather than paying you to climb', () => {
+    // Times that fall as climbing rises would fit a negative b. A model that says
+    // hills make you faster is worse than one that ignores them.
+    const perverse = Array.from({ length: 20 }, (_, i) => {
+      const d = 10, e = 100 + i * 100;
+      return { distance_mi: d, elevation_ft: e, time_sec: 3600 - i * 60 };
+    });
+    const f = zwiftFit(perverse);
+    expect(f.b).toBe(0);
+    expect(f.a).toBeGreaterThan(0);
+  });
+
+  it('survives every route climbing at the same rate', () => {
+    // Perfectly collinear columns: the split between distance and climbing is
+    // arbitrary, so it must not produce a wild pair of coefficients.
+    const flatRatio = Array.from({ length: 20 }, (_, i) => {
+      const d = 1 + i, e = d * 100;
+      return { distance_mi: d, elevation_ft: e, time_sec: d * 300 };
+    });
+    const f = zwiftFit(flatRatio);
+    expect(f).not.toBeNull();
+    expect(f.a).toBeGreaterThan(0);
+    expect(zwiftPredictSec(f, 10, 1000)).toBeCloseTo(3000, 0);
+  });
+
+  it('formats an estimate the way the logged times read', () => {
+    expect(fmtEstTime(0)).toBe('0:00');
+    expect(fmtEstTime(59)).toBe('0:59');
+    expect(fmtEstTime(600)).toBe('10:00');
+    expect(fmtEstTime(3600)).toBe('1:00:00');
+    expect(fmtEstTime(5415)).toBe('1:30:15');
+    expect(fmtEstTime(null)).toBe('—');
+    expect(fmtEstTime(-5)).toBe('—');
+  });
+
+  it('predicts nothing without a fit or a distance', () => {
+    expect(zwiftPredictSec(null, 10, 100)).toBeNull();
+    expect(zwiftPredictSec(zwiftFit(synth(20)), 0, 100)).toBeNull();
   });
 });
 

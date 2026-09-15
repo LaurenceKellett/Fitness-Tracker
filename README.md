@@ -1483,6 +1483,48 @@ Matched routes get a "Ridden N×" chip, and any route matched but not marked
 Complete in Notion is listed in a callout above the groups. The join is
 read-only: it never writes a status back.
 
+### Estimated time for outstanding routes
+
+Every completed route carries the time it actually took, so the outstanding ones do not
+need a guess from first principles — they need this rider's own history fitted and
+extrapolated. `zwiftFit` does ordinary least squares on
+
+```
+seconds = a x distance_mi + b x elevation_ft
+```
+
+**No intercept**, because a route of no length takes no time; letting the line float
+produced a meaningless positive constant that made every short segment look slow. Both
+coefficients are interpretable on purpose: `3600/a` is a flat speed you can sanity-check
+and `b` is the seconds each foot of climbing adds. On the current catalogue that reads
+**24.8 mph flat and 7.3 minutes per 1000 ft**, R² 0.984, typical miss under six minutes
+against a mean route of 35.
+
+**The times are hand-entered and some are impossible.** A 19.8-mile route logged at 60
+seconds, a 6.5-mile one at 44, a 0.2-mile KOM at 7. Those three rows alone dragged the
+fitted flat speed from 24.8 to 25.1 mph and the climbing cost with it. Anything implying
+an average outside **4–40 mph** is refused a vote in the fit — it is not a real ride time.
+Dropping them took RMSE from 6.7 to 5.9 minutes.
+
+The fit is over the **whole catalogue**, never the filtered view: how fast you ride is a
+fact about you, so narrowing to one map changes which rows are listed, not what a route is
+predicted to take. It is cached per data load rather than recomputed on every keystroke.
+
+Guards worth knowing: fewer than eight usable rows and it returns `null` and the app shows
+nothing, rather than a confident number built on four rides. If the two columns are
+collinear (every route climbing at the same rate) or the fit comes back saying climbing
+makes you *faster*, it falls back to distance alone — worse, but never absurd.
+
+**Where it shows.** A `~31:40` against any route that is not Complete and has no logged
+time, lighter than the real stats beside it and always with its tilde, because an estimate
+must not read like a fact. Open a route and the detail panel shows it next to the actual
+time, with how far the model was over or under — the one place it can be caught being
+wrong.
+
+**It does not touch Notion's `Est. Duration`.** That property already holds published
+round-number estimates (`05:00`, `02:30`, `00:20`) on 53 routes — reference data, not an
+empty field — and the app shows it unchanged, labelled *(published)*, beside its own.
+
 ---
 
 ## Ideas not built

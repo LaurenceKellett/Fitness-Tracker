@@ -1071,6 +1071,10 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .scope-warn{display:inline-flex;align-items:center;gap:6px;background:var(--warn-soft);border:1px solid var(--warn-border);padding:4px 10px;font-size:12px;color:var(--warn)}
 .scope-warn .ms{font-size:14px}
 @media(max-width:640px){.scope-line{margin-bottom:14px}.scope-badge,.scope-warn{font-size:11px}}
+/* An estimate must not read like a logged fact, so it is lighter than the stats
+   beside it and always carries its tilde. */
+.zwift-est{display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--text-light);white-space:nowrap}
+.zwift-est .ms{font-size:12px}
 /* EDDINGTON */
 .edd-basis-wrap{display:flex;justify-content:flex-end;margin-bottom:12px}
 /* The next rungs, as a table of what each step actually costs. Deliberately the
@@ -1814,7 +1818,7 @@ body.is-loading .stats-grid *{visibility:hidden}
 <!-- calc.js carries a stamp of its own content (npm run stamp; the unit tests check it
      is current), so a freshly deployed page can never be paired with a cached older copy
      of the script — which is exactly how one deploy died on "daysInYear is not defined". -->
-<script src="calc.js?v=653e2a4c"></script>
+<script src="calc.js?v=03a49217"></script>
 <div id="dashTooltip" class="dash-tooltip"></div>
 <div class="main">
 
@@ -8460,7 +8464,7 @@ async function loadZwiftRoutes(forceRefresh=false){
       const cached=localStorage.getItem(ZWIFT_CACHE_KEY);
       if(cached){
         const parsed=JSON.parse(cached);
-        ZWIFT_DATA=parsed.data||[];_zwiftRiddenIndex=null;
+        ZWIFT_DATA=parsed.data||[];_zwiftRiddenIndex=null;_zwiftFit=null;_zwiftFitFor=null;
         zwiftLoaded=true;
         buildZwiftStatusFilters();
         renderZwiftTable();
@@ -8475,7 +8479,7 @@ async function loadZwiftRoutes(forceRefresh=false){
     if(!res.ok||json.error){
       throw new Error(json.message||'Failed to load Zwift routes');
     }
-    ZWIFT_DATA=json.data;_zwiftRiddenIndex=null;
+    ZWIFT_DATA=json.data;_zwiftRiddenIndex=null;_zwiftFit=null;_zwiftFitFor=null;
     zwiftLoaded=true;
     localStorage.setItem(ZWIFT_CACHE_KEY,JSON.stringify({data:json.data,updatedAt:json.updatedAt}));
     buildZwiftStatusFilters();
@@ -8572,6 +8576,18 @@ function renderZwiftRiddenCallout(){
     <span class="callout-note">Matched by route name against your virtual rides, across every status — open a route to set it. Some may be hidden by the filter above.</span></div>`;
 }
 
+/* The fit is over the WHOLE catalogue, not the filtered view: how fast you ride is
+ * a fact about you, and narrowing to one map should change which rows are listed,
+ * never what a route is predicted to take. Cached per data load — refitting 300
+ * rows on every keystroke in the search box is work for nothing. */
+let _zwiftFit=null,_zwiftFitFor=null;
+function zwiftFitCached(){
+  if(_zwiftFitFor===ZWIFT_DATA)return _zwiftFit;
+  _zwiftFit=zwiftFit(ZWIFT_DATA);
+  _zwiftFitFor=ZWIFT_DATA;
+  return _zwiftFit;
+}
+
 function renderZwiftTable(){
   const scrollY=window.scrollY;
   const groups=getZwiftGroups();
@@ -8589,6 +8605,10 @@ function renderZwiftTable(){
     const complete=g.routes.filter(r=>r.status==='Complete').length;
     const rowsHtml=g.routes.map(r=>{
       const open=zwiftEditingId===r.id;
+      // An estimate is only worth showing where there is no real time to show
+      // instead. A completed route states what it actually took.
+      const est=r.status!=='Complete'&&!r.time_sec
+        ?zwiftPredictSec(zwiftFitCached(),r.distance_mi,r.elevation_ft):null;
       const stats=[r.distance_mi!=null?fmtDist(r.distance_mi)+' '+distUnit():null,r.elevation_ft!=null?fmtElv(r.elevation_ft):null].filter(Boolean).join(' · ');
       const catBadges=(r.maps||[]).filter(m=>ZWIFT_CATEGORY_TAGS.includes(m)&&m!==g.name).map(m=>
         `<span class="zwift-cat-badge" style="background:${mapDotColor(m)}1a;color:${mapDotColor(m)}">${ZWIFT_CATEGORY_LABEL[m]}</span>`
@@ -8601,6 +8621,7 @@ function renderZwiftTable(){
             ${catBadges}
             ${riddenIdx[r.id]?`<span class="zwift-ridden" title="Matched ${riddenIdx[r.id].count} virtual ride${riddenIdx[r.id].count===1?'':'s'} by name · last ${fmtDate(riddenIdx[r.id].last)}"><span class="ms">check</span>Ridden ${riddenIdx[r.id].count}×</span>`:''}
             <span class="zwift-row-stats">${stats}</span>
+            ${est!=null?`<span class="zwift-est" title="Estimated from your own completed routes: ${Math.round(zwiftFitCached().mph*10)/10} mph on the flat plus ${Math.round(zwiftFitCached().minPer1000ft*10)/10} min per 1000 ft climbed"><span class="ms">schedule</span>~${fmtEstTime(est)}</span>`:''}
           </div>
           <div class="zwift-row-right">
             <span class="zwift-row-status" style="color:${zwiftStatusColor(r.status)}">${r.status}</span>
@@ -8803,7 +8824,17 @@ function renderZwiftDetail(r){
       <div class="zwift-edit-error" id="ze-error-${r.id}"></div>
     </div>
     <table class="zwift-detail-info">
-      <tr><td>Est. duration</td><td>${r.est_duration||'—'}</td></tr>
+      <tr><td>Est. duration <span style="color:var(--text-light);font-weight:400">(published)</span></td><td>${r.est_duration||'—'}</td></tr>
+      ${(()=>{
+        const f=zwiftFitCached();
+        const p=zwiftPredictSec(f,r.distance_mi,r.elevation_ft);
+        if(p==null)return '';
+        // On a route you have done, the estimate is only interesting next to what it
+        // actually took — that is the one place the model can be caught being wrong.
+        const diff=r.time_sec?p-r.time_sec:null;
+        const off=diff==null?'':` <span style="color:var(--text-light);font-weight:400">· ${diff>0?'over':'under'} by ${fmtEstTime(Math.abs(diff))}</span>`;
+        return `<tr><td>Est. from your times</td><td>~${fmtEstTime(p)}${off}</td></tr>`;
+      })()}
       <tr><td>Planned ride</td><td>${fmtDate(r.planned_ride)}</td></tr>
       <tr><td>In route list?</td><td>${r.in_route_list?'Yes':'No'}</td></tr>
       <tr><td>Links</td><td>${links||'—'}</td></tr>
