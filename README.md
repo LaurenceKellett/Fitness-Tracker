@@ -1563,6 +1563,83 @@ two charts, which rank your whole history and have no business carrying an estim
 row are both label-left, value-right one-liners, and a third of those fits underneath without
 touching the card's hierarchy.
 
+### Another chaseable score
+
+**The risk here is not running out of ideas, it is metric inflation.** Mex and Eddington
+work *together* because they contradict each other: Mex is governed by the low end and
+rewards variety, Eddington by the middle and rewards repeating long days. A third score has
+to measure an axis neither touches, or it dilutes both. Four tests an idea has to pass
+before it earns a tab:
+
+1. **Hard to move.** If it shifts every week it is a total, not a score.
+2. **It says what to do next.** Mex's gap list is why that tab is worth opening.
+3. **Not a running total in a costume.** "Everest multiples" is cumulative elevation in a
+   hat.
+4. **It can stall or fall.** The shared weakness of both current metrics is that they only
+   ever go up, which is why Eddington-by-year exists.
+
+#### Max Square — the one worth building
+
+Score the largest *solid square* of map tiles ever ridden through: a 12×12 is 144 contiguous
+tiles with no holes. The only idea here on a genuinely different axis — **space, not
+distance** — and the infrastructure is already in place: `cellsOf()` on the Map tab drops
+every route point into a fixed ~330 m grid and **Ground covered** already counts distinct
+cells. What is missing is the square, a largest-all-ones-square scan over the occupied set.
+
+It passes all four tests, and passes the fourth in the most interesting way: growing from 11
+to 12 can require one specific lane on the far side of town, because a single missing tile
+ruins the square. That is Mex's "one gap caps you" logic applied to geography.
+
+**Two problems to solve first.** The GPS privacy trimming removes points within ¼ mile of
+home, which punches holes in exactly the tiles ridden most — right where a square wants to be
+centred. And at 330 m the tiles are finer than the ~1 km most tools use, so the number will
+not be comparable with anyone else's unless a coarser grid is kept alongside.
+
+#### The 366
+
+How many distinct days of the calendar year have ever been trained on, out of 366. A lifetime
+collection, and the 29th of February is the hardest tile in it. Cheapest of these to build:
+dates alone, `dayOfYear` already exists, and the visual is a 366-cell grid in a styling
+language the heatmap already speaks. The appeal is Mex's — once you are in the 300s the
+remaining days are a short, very specific list.
+
+**Weakness:** it saturates. At 360/366 it stalls permanently, and the last six are whatever
+dates you are reliably away or ill.
+
+#### Weekly Eddington
+
+W weeks of at least W units. Same maths, different bucket, and it would reuse `eddingtonOf`
+unchanged — but it inverts what daily Eddington rewards: unreachable with heroic days, only
+with never taking a week off.
+
+**Weakness:** derivative. The good kind, in that it contradicts the original rather than
+echoing it, but it is still Eddington with the bucket changed — better as a second figure on
+the Eddington tab than as a tab of its own.
+
+#### The 24
+
+Has an activity ever been started in every hour of the clock? `time` is on every activity and
+nothing scores it.
+
+**Score the longest unbroken run of hours, not the raw count.** The 1–5am cells are not an
+achievement, they are a sleep-deprivation goal, and a metric that rewards them is a bad
+metric. As a run it asks "how wide is your training day", which is a fair question.
+
+#### Grit index
+
+Share of distance done below 5 °C or above 25 °C. `temp` currently feeds one chart in Habits
+and nothing else.
+
+**Weakness:** you cannot choose the weather, so it fails test 2 outright. Better as a badge on
+a cold ride than a score on a tab.
+
+#### Rejected, and why
+
+- **Everest multiples** — cumulative elevation in a costume. Fails test 3.
+- **Kudos score** — measures your followers, not your training.
+- **Longest streak** — already exists, and it punishes sensible rest.
+- **PB density** — needs the per-second streams the Worker does not fetch.
+
 ---
 
 ## Troubleshooting
