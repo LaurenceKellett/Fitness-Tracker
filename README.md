@@ -553,7 +553,10 @@ long days*. A history can be strong in one and weak in the other.
 
 ### By day or by activity
 
-The tab switches between the two and remembers the choice (`fitness_edd_basis_v1`).
+The tab switches between the two and remembers the choice (`fitness_edd_basis_v1`). The switch
+rides on the title's own line rather than a row beneath it — `.section-header.has-ctl` turns the
+header into a grid, title and subtitle in the left column and the control spanning both rows on
+the right, which is about 35px of height back for free on every visit.
 
 - **By day** sums everything you did that day. This is Eddington's own definition — he counted
   days, not rides — and it is the default.
@@ -571,6 +574,17 @@ The chart is the whole definition in one picture: a falling line (how many days 
 distance) and a rising straight one (what Eddington asks for at that distance). **Your E is the
 last point before they cross.** `eddingtonCurve` walks a single pointer down the sorted list
 rather than re-counting per threshold.
+
+**The crossing is marked, because it was the one thing on the chart you could not see.** On an
+axis that runs to thousands of days, an E in the seventies puts both lines a pixel off the floor
+and they meet somewhere the eye has no reason to look. A rule the full height of the plot now
+stands at your distance, labelled with the number at the top because the key is a long way from
+it, and a ring sits on the curve at the point itself. Both are drawn in ink rather than colour:
+this marks a place on the chart, not a third series, and the two colours here are spoken for.
+The ring is a dataset (so it earns a line in the key, a readout, and the key's own show/hide);
+the rule is a small chart-local plugin that reads that dataset back. It reads it rather than
+capturing E, because `upsertChart` reuses a live chart and assigns fresh datasets onto it — a
+captured E would go stale on the first basis or filter switch and point at the wrong distance.
 
 **What the next steps cost** is the actionable panel, and it exists because "one more ride" is
 almost always wrong: reaching E+1 means having E+1 days of E+1 or more, so from an E of 37 the

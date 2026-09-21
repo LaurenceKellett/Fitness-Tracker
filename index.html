@@ -1076,7 +1076,6 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .zwift-est{display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--text-light);white-space:nowrap}
 .zwift-est .ms{font-size:12px}
 /* EDDINGTON */
-.edd-basis-wrap{display:flex;justify-content:flex-end;margin-bottom:12px}
 /* The next rungs, as a table of what each step actually costs. Deliberately the
    same shape as the Mex plan rows, because it answers the same question. */
 .edd-step-row{display:flex;align-items:center;gap:14px;padding:11px 16px;border-bottom:1px solid var(--border)}
@@ -1179,6 +1178,18 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .section-header .badge{flex:0 0 100%;background:transparent;border:none;padding:0;border-radius:0;
   font-size:12px;font-weight:500;line-height:1.5;color:var(--text-light)}
 .section-header .badge:empty{display:none}
+/* ── A HEADER THAT CARRIES ITS OWN CONTROL ──
+   Eddington's basis switch sat on a row of its own underneath, which spent a whole
+   line of the page saying two words and pushed the first figure that much further
+   down. With a control the header becomes a grid instead of a wrapping flex row:
+   title and subtitle keep the left column, the control takes the right and spans
+   both rows, so it is free — it fits in height the title had already claimed.
+   Grid ignores the flex-basis above, which is what let the title hold a whole row. */
+.section-header.has-ctl{display:grid;grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;column-gap:12px;row-gap:3px}
+.section-header.has-ctl h2{grid-column:1;grid-row:1}
+.section-header.has-ctl .badge{grid-column:1;grid-row:2}
+.section-header.has-ctl .chart-ctl{grid-column:2;grid-row:1/3;justify-self:end}
 .year-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:0;overflow:hidden;box-shadow:var(--shadow);margin-bottom:24px}
 .dow-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:18px 20px;box-shadow:var(--shadow)}
 .dow-bars{display:flex;gap:8px;align-items:flex-end;height:90px}
@@ -7178,9 +7189,8 @@ function renderEddington(){
   const scope=periodLabel(activeYear)+' · '+(activeType==='All'?'all sports':activeType.toLowerCase())+' · '+u;
 
   el.innerHTML=`
-  <div class="section-header"><h2>Eddington number</h2><span class="badge">${scope}</span></div>
-
-  <div class="edd-basis-wrap">
+  <div class="section-header has-ctl">
+    <h2>Eddington number</h2><span class="badge">${scope}</span>
     <div class="chart-ctl edd-basis-ctl" role="group" aria-label="Count Eddington by">
       ${Object.entries(EDD_BASES).map(([k,label])=>
         `<button type="button" class="chart-ctl-btn${k===eddBasis?' active':''}" aria-pressed="${k===eddBasis}" onclick="setEddBasis('${k}')">${label}</button>`).join('')}
@@ -7279,6 +7289,50 @@ function renderEddington(){
   renderEddYear(basisPlural);
 }
 
+// ── WHERE YOU ARE ON THE CURVE ──
+// The crossing is the whole point of this chart and it is the one thing you cannot
+// see. At E=74 on an axis that runs to 2,700 both lines are a pixel off the floor,
+// and they meet somewhere the eye has no reason to look. So: a rule the full height
+// of the plot at your distance, carrying its own number at the top because the key
+// is a long way from it, and a ring on the curve at the point itself.
+//
+// Ink rather than colour. This marks a place on the chart, not a third series, and
+// the two colours here are already spoken for. The rule is drawn under the lines so
+// it never sits on top of the data it is pointing at.
+//
+// It reads the dataset rather than closing over E, because upsertChart reuses a live
+// chart and assigns fresh datasets onto it — a captured E would go stale on the
+// first basis or filter switch, and point at the wrong distance.
+const EDD_MARK_PLUGIN={
+  id:'eddMark',
+  beforeDatasetsDraw(chart){
+    const sets=chart.data.datasets||[];
+    const i=sets.findIndex(d=>d&&d.isEddMark);
+    if(i<0||!chart.isDatasetVisible(i))return;   // hidden from the key, hidden here
+    // Located from the dataset's own data — the one distance it is not null at —
+    // rather than from the point element's `skip`, which is Chart.js's business.
+    const k=(sets[i].data||[]).findIndex(v=>v!=null);
+    if(k<0)return;
+    const pt=(chart.getDatasetMeta(i).data||[])[k];
+    if(!pt||!Number.isFinite(pt.x))return;
+    const {ctx,chartArea:a}=chart,ink=sets[i].borderColor||'#222222';
+    ctx.save();
+    ctx.beginPath();ctx.moveTo(pt.x,a.top);ctx.lineTo(pt.x,a.bottom);
+    ctx.lineWidth=1;ctx.strokeStyle=ink;ctx.stroke();
+    const label=sets[i].markLabel;
+    if(label){
+      ctx.font='600 10px '+((window.Chart&&Chart.defaults.font&&Chart.defaults.font.family)||'sans-serif');
+      const w=ctx.measureText(label).width;
+      // Flips to the left of the rule rather than running off the end of the plot.
+      const x=pt.x+7+w>a.right?pt.x-7-w:pt.x+7;
+      ctx.fillStyle=cssVar('--surface','#ffffff');
+      ctx.fillRect(x-3,a.top+1,w+6,14);
+      ctx.fillStyle=ink;ctx.textBaseline='top';ctx.fillText(label,x,a.top+4);
+    }
+    ctx.restore();
+  }
+};
+
 // The curve and the y=x line it crosses. Two datasets on one pair of axes, which
 // is the whole explanation of the metric in one picture: a falling count, a rising
 // requirement, and the last point where the first is still above the second.
@@ -7286,6 +7340,7 @@ function renderEddCurve(curve,E,ceiling,basisPlural){
   const cv=document.getElementById('chartEddCurve');
   if(!cv)return;
   const accent=getAccentColor();
+  const ink=cssVar('--text','#222222');
   destroyChart('eddCurve');
   charts.eddCurve=upsertChart('eddCurve',cv.getContext('2d'),{
     type:'line',
@@ -7295,14 +7350,29 @@ function renderEddCurve(curve,E,ceiling,basisPlural){
        fill:true,pointRadius:0,borderWidth:2,tension:.15},
       {label:'What Eddington asks for',data:curve.map(p=>p.n),
        borderColor:'#94a3b8',borderDash:[5,4],pointRadius:0,borderWidth:1.5,fill:false},
+      // Your own number. One point, on the curve, at E — the ring; the rule at that
+      // distance is EDD_MARK_PLUGIN reading this dataset back. It is a dataset and not
+      // just a drawing so it earns a line in the key, a tooltip, and the key's toggle.
+      {label:`Your Eddington: ${E}`,isEddMark:true,markLabel:E?`E = ${E}`:'',
+       data:curve.map(p=>p.n===E?p.days:null),showLine:false,fill:false,
+       borderColor:ink,pointBorderColor:ink,pointBorderWidth:2.5,
+       pointBackgroundColor:cssVar('--surface','#ffffff'),
+       pointRadius:curve.map(p=>p.n===E?5:0),pointHoverRadius:curve.map(p=>p.n===E?7:0)},
     ]},
+    plugins:[EDD_MARK_PLUGIN],
     options:{
       plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},
-        tooltip:{mode:'index',intersect:false,callbacks:{
+        tooltip:{mode:'index',intersect:false,
+          // The marker is null at every distance but one; without this the readout
+          // carries an empty third line everywhere else.
+          filter:it=>it.parsed&&it.parsed.y!=null,
+          callbacks:{
           title:c=>`${c[0].label} ${unit}`,
-          label:c=>c.datasetIndex===0
-            ?`${c.parsed.y.toLocaleString('en-GB')} ${basisPlural} at ${c.label}+ ${unit}`
-            :`needs ${c.parsed.y} to make E=${c.label}`}}},
+          label:c=>c.datasetIndex===2
+            ?`your Eddington — ${E} ${basisPlural} of ${E}+ ${unit}`
+            :c.datasetIndex===0
+              ?`${c.parsed.y.toLocaleString('en-GB')} ${basisPlural} at ${c.label}+ ${unit}`
+              :`needs ${c.parsed.y} to make E=${c.label}`}}},
       responsive:true,maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
       scales:{
@@ -7318,7 +7388,7 @@ function renderEddCurve(curve,E,ceiling,basisPlural){
   const need=Math.max(0,(E+1)-at(E+1));
   const one=basisPlural.slice(0,-1);
   chartSummary('eddCurve',[
-    {n:String(E),label:'where the two lines cross',col:accent},
+    {n:String(E),label:'where the two lines cross',col:ink},
     {n:at(E+1).toLocaleString('en-GB'),label:`${basisPlural} at ${E+1}+ ${unit}`,col:'#0ea5e9'},
     {n:at(stretch).toLocaleString('en-GB'),label:`at ${stretch}+ ${unit}`,col:'#8b5cf6'},
   ],

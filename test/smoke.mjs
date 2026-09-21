@@ -1172,6 +1172,73 @@ async function main() {
       await page.evaluate(() => { try { localStorage.removeItem('fitness_edd_basis_v1'); } catch (e) {} });
     });
 
+    await check('the basis switch rides on the title, and the curve is marked at E', async () => {
+      await page.evaluate(() => window.setTab('eddington'));
+      await page.waitForTimeout(900);
+
+      // The switch used to own a row under the header. It should now sit beside the
+      // title — overlapping it vertically, and starting past its right edge.
+      const geo = await page.evaluate(() => {
+        const box = (s) => {
+          const el = document.querySelector(s);
+          if (!el) return null;
+          const r = el.getBoundingClientRect();
+          return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, h: r.height };
+        };
+        return {
+          h2: box('#tab-eddington .section-header h2'),
+          ctl: box('#tab-eddington .edd-basis-ctl'),
+          header: box('#tab-eddington .section-header'),
+          inHeader: !!document.querySelector('#tab-eddington .section-header .edd-basis-ctl'),
+          oldWrap: document.querySelectorAll('.edd-basis-wrap').length,
+        };
+      });
+      assert(geo.ctl, 'the Eddington basis switch is not on the page');
+      assert(geo.inHeader, 'the basis switch is not inside the section header');
+      assert(!geo.oldWrap, `${geo.oldWrap} .edd-basis-wrap rows are still being drawn`);
+      assert(geo.ctl.top < geo.h2.bottom && geo.ctl.bottom > geo.h2.top,
+        `the switch (${Math.round(geo.ctl.top)}-${Math.round(geo.ctl.bottom)}) misses the title's line (${Math.round(geo.h2.top)}-${Math.round(geo.h2.bottom)})`);
+      assert(geo.ctl.left >= geo.h2.right,
+        `the switch starts at ${Math.round(geo.ctl.left)}, left of the title's right edge ${Math.round(geo.h2.right)}`);
+      // Title, subtitle and the control inside one header — not three stacked rows.
+      assert(geo.header.h < geo.h2.h + geo.ctl.h + 24,
+        `the header is ${Math.round(geo.header.h)}px tall, which is a row too many`);
+
+      // The crossing sits a pixel off the floor on an axis that runs to thousands,
+      // so the mark is the only way to see it. Chart.js is a stub here and paints
+      // nothing, so what is checkable is what the page asked for: one point, on the
+      // curve, at E — and the plugin that turns it into a rule the height of the plot.
+      const r = await page.evaluate(() => {
+        const ch = charts.eddCurve;
+        if (!ch) return { none: true };
+        const E = eddingtonOf(eddDistances(getFiltered(), 'day'));
+        const sets = ch.data.datasets;
+        const mi = sets.findIndex((d) => d && d.isEddMark);
+        const curve = sets[0] ? sets[0].data : [];
+        return {
+          E,
+          sets: sets.length,
+          // Distances the mark has a value at, 1-based like the axis.
+          marked: mi < 0 ? [] : sets[mi].data
+            .map((v, i) => (v == null ? null : i + 1)).filter((n) => n !== null),
+          onCurve: mi < 0 ? null : sets[mi].data[E - 1] === curve[E - 1],
+          label: mi < 0 ? null : sets[mi].label,
+          mark: mi < 0 ? null : sets[mi].markLabel,
+          hollow: mi < 0 ? null : (sets[mi].pointBackgroundColor !== sets[mi].pointBorderColor),
+          plugins: (ch.config.plugins || []).map((p) => p.id),
+        };
+      });
+      assert(!r.none, 'the Eddington curve never built a chart');
+      assert(r.sets === 3, `${r.sets} datasets on the curve — the mark is missing`);
+      assert(r.marked.length === 1 && r.marked[0] === r.E,
+        `the mark sits at ${r.marked.join(',') || 'nothing'}, E is ${r.E}`);
+      assert(r.onCurve, 'the mark is not sitting on the curve it is marking');
+      assert(String(r.label).includes(String(r.E)), `the key reads "${r.label}" for E=${r.E}`);
+      assert(String(r.mark).includes(String(r.E)), `the rule is labelled "${r.mark}" for E=${r.E}`);
+      assert(r.hollow, 'the mark is a filled dot rather than a ring, so the curve reads through it');
+      assert(r.plugins.includes('eddMark'), `the curve's plugins are ${r.plugins.join(',') || 'none'}`);
+    });
+
     await check('Eddington follows the unit switch, like Mex', async () => {
       const read = () => page.evaluate(() => ({
         shown: document.querySelector('#tab-eddington .stat-value').childNodes[0].textContent.trim(),
