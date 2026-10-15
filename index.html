@@ -1527,7 +1527,10 @@ tbody td{padding:10px 14px;vertical-align:middle}
      difference and pushed the whole document sideways. */
   .tab-strip-wrap{order:3;flex-basis:100%;width:100%;margin:0 calc(-1 * var(--page-pad));border-top:1px solid var(--border)}
   .tab-strip-wrap::after{content:'';position:absolute;right:0;top:0;bottom:0;width:32px;background:linear-gradient(90deg,var(--surface-fade),var(--surface) 70%);pointer-events:none}
-  .tab-strip{padding:2px var(--page-pad) 0}
+  /* translateZ gives the strip its own compositing layer. Without it iOS Safari
+     sometimes leaves this sideways scroller, inside the sticky header, painted
+     blank after the page beneath re-renders: the row keeps its height, but no tabs. */
+  .tab-strip{padding:2px var(--page-pad) 0;transform:translateZ(0);-webkit-transform:translateZ(0)}
   .tab-strip .tab-btn{flex-direction:column;gap:3px;padding:6px 10px 7px;font-size:10px;line-height:1.2}
   .tab-strip .tab-btn .ms{font-size:20px}
   /* No block behind the active tab on a phone. Stacked icon-over-label, the tab is
