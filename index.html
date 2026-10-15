@@ -1027,6 +1027,16 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .zwift-chevron{color:var(--text-light);display:inline-flex;transition:transform .15s}
 .zwift-chevron.open{transform:rotate(180deg)}
 .zwift-row-saved{background:var(--success-soft)!important;transition:background 1s}
+/* On a phone the stats, estimate and badges don't shrink, so the name was the
+   only thing that could, and it got cut to a few letters (or to nothing beside
+   a badge). Give the name its own full-width line and wrap it instead. */
+@media(max-width:640px){
+  .zwift-list-row{align-items:flex-start}
+  .zwift-row-main{flex-wrap:wrap;row-gap:4px;align-items:center}
+  .zwift-row-name{flex-basis:100%;white-space:normal;overflow:visible;line-height:1.3}
+  .zwift-row-right{padding-top:1px}
+  .zwift-list-row>.zwift-dot{margin-top:5px}
+}
 .zwift-cal{background:var(--surface);border:1px solid var(--border);border-radius:0;box-shadow:var(--shadow);padding:14px 16px;margin-bottom:14px}
 .zwift-cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .zwift-cal-title{font-size:13px;font-weight:700}
