@@ -1114,6 +1114,60 @@ async function main() {
       await page.waitForTimeout(200);
     });
 
+    await check('the Planned tab is flagged with a dot while it has routes and is not open', async () => {
+      await page.evaluate(() => window.setZwiftStatusFilter('Not started'));
+      const dotWhenOther = await page.evaluate(() =>
+        !!document.querySelector('#zwiftStatusFilters .zwift-tab-dot'));
+      await page.evaluate(() => window.setZwiftStatusFilter('Planned'));
+      const dotWhenOpen = await page.evaluate(() =>
+        !!document.querySelector('#zwiftStatusFilters .zwift-tab-dot'));
+      assert(dotWhenOther, 'no dot on Planned while a Planned route exists');
+      assert(!dotWhenOpen, 'the dot stays on Planned while Planned is the open tab');
+    });
+
+    await check('saving a time suggests completing, and completing counts down before the row leaves', async () => {
+      // The list stub answers every /zwift-routes request with the whole catalogue;
+      // a save needs the one route back, as the Worker returns it.
+      const patchRoute = /\/zwift-routes\/[^/?]+$/;
+      await page.route(patchRoute, (r) => {
+        const id = decodeURIComponent(r.request().url().split('/').pop());
+        const body = JSON.parse(r.request().postData() || '{}');
+        const row = { ...ZWIFT_FIXTURE.find((x) => x.id === id), ...body };
+        if (row.time) {
+          const [h, m, s] = row.time.split(':').map(Number);
+          row.time_sec = h * 3600 + m * 60 + s;
+        }
+        r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: row }) });
+      });
+      try {
+        await page.evaluate(() => { window.setZwiftStatusFilter('Planned'); window.toggleAllZwiftGroups(true); });
+        await page.evaluate(() => window.toggleZwiftEdit('todo-b'));
+        await page.fill('#ze-time-todo-b', '01:02:03');
+        await page.click('#ze-save-todo-b');
+        await page.waitForSelector('#zs-complete-todo-b', { timeout: 5000 });
+        await page.click('#zs-complete-todo-b');
+        await page.waitForSelector('#zwift-row-todo-b .zwift-move-count', { timeout: 5000 });
+        const during = await page.evaluate(() => ({
+          shown: !!document.getElementById('zwift-row-todo-b'),
+          count: Number(document.querySelector('#zwift-row-todo-b .zwift-move-count').textContent),
+          status: ZWIFT_DATA.find((r) => r.id === 'todo-b').status,
+        }));
+        assert(during.status === 'Complete', `the route saved as ${during.status}`);
+        assert(during.shown, 'the completed route left the Planned list immediately');
+        assert(during.count >= 4 && during.count <= 5, `the countdown read ${during.count}`);
+        await page.waitForFunction(() => !document.getElementById('zwift-row-todo-b'), null, { timeout: 7000 });
+      } finally {
+        await page.unroute(patchRoute);
+        // Put the fixture route back as it was for anything after this.
+        await page.evaluate(() => {
+          const r = ZWIFT_DATA.find((x) => x.id === 'todo-b');
+          Object.assign(r, { status: 'Planned', time: null, time_sec: null, date_completed: null });
+          zwiftSuggestCompleteId = null; zwiftMoving = {};
+          window.setZwiftStatusFilter('All');
+        });
+      }
+    });
+
     await check('the Eddington tab computes, and its curve crosses at E', async () => {
       await page.evaluate(() => window.setTab('eddington'));
       await page.waitForTimeout(800);

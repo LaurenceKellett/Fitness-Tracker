@@ -1009,6 +1009,12 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .zwift-status-bar .type-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;font-size:12px;font-weight:500;color:var(--text-muted);border:none;background:transparent;border-radius:0;cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit}
 .zwift-status-bar .type-btn:hover:not(.active){color:var(--text)}
 .zwift-status-bar .type-btn.active{font-weight:600}
+.zwift-status-bar .type-btn{position:relative}
+.zwift-tab-dot{position:absolute;top:2px;left:50%;transform:translateX(-50%);width:6px;height:6px;border-radius:50%}
+.zwift-row-notice{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;padding:10px 16px 12px 37px;font-size:12px;color:var(--text-muted);background:var(--bg)}
+.zwift-row-notice strong{color:var(--text)}
+.zwift-row-notice .page-btn{padding:4px 10px;font-size:12px}
+.zwift-move-count{font-variant-numeric:tabular-nums}
 .zwift-group{background:var(--surface);border:1px solid var(--border);border-radius:0;margin-bottom:12px;box-shadow:var(--shadow);overflow:hidden}
 .zwift-group summary{padding:12px 16px;font-weight:700;font-size:13px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center}
 .zwift-group summary::-webkit-details-marker{display:none}
@@ -2616,6 +2622,12 @@ let logSort={col:'date',dir:-1};let logSearch='';let charts={};
 
 let ZWIFT_DATA=[];let zwiftLoaded=false;let zwiftSearch='';let zwiftStatusFilter='Not started';
 let zwiftEditingId=null;let zwiftSaving=false;let zwiftGroupOpen={};
+// A route saved with a time but not marked complete gets a one-tap nudge to finish it.
+let zwiftSuggestCompleteId=null;
+// Routes just marked complete stay in the list they were in for a few seconds, with a
+// countdown, instead of vanishing the instant the filter stops matching them.
+const ZWIFT_MOVE_DELAY_S=5;
+let zwiftMoving={};let zwiftMoveTimer=null;
 const ZWIFT_CACHE_KEY='zwift_routes_v1';
 const ZWIFT_CHECKLIST_KEY='zwift_checklist_v1';
 let zwiftChecklists={};
@@ -8582,7 +8594,11 @@ function buildZwiftStatusFilters(){
     const active=s===zwiftStatusFilter;
     const color=s==='All'?'#ff385c':zwiftStatusColor(s);
     const style=active?` style="color:${color};background:${color}1a"`:'';
-    return`<button class="type-btn${active?' active':''}"${style} onclick="setZwiftStatusFilter('${s}')">${s}</button>`;
+    // Planned is what gets ridden next, so flag it from the other tabs when it has anything in it.
+    const plannedCount=s==='Planned'&&!active?ZWIFT_DATA.filter(r=>r.status==='Planned').length:0;
+    const dot=plannedCount?`<span class="zwift-tab-dot" style="background:${color}" aria-hidden="true"></span>`:'';
+    const label=plannedCount?` aria-label="Planned, ${plannedCount} route${plannedCount===1?'':'s'}" title="${plannedCount} planned"`:'';
+    return`<button class="type-btn${active?' active':''}"${style}${label} onclick="setZwiftStatusFilter('${s}')">${dot}${s}</button>`;
   }).join('');
 }
 function setZwiftStatusFilter(s){zwiftStatusFilter=s;buildZwiftStatusFilters();renderZwiftTable();}
@@ -8590,7 +8606,7 @@ function filterZwiftRoutes(){zwiftSearch=document.getElementById('zwiftSearch').
 
 function getZwiftGroups(){
   let rows=ZWIFT_DATA;
-  if(zwiftStatusFilter!=='All')rows=rows.filter(r=>r.status===zwiftStatusFilter);
+  if(zwiftStatusFilter!=='All')rows=rows.filter(r=>r.status===zwiftStatusFilter||zwiftMoving[r.id]);
   if(zwiftSearch)rows=rows.filter(r=>r.route.toLowerCase().includes(zwiftSearch)||(r.maps||[]).some(m=>m.toLowerCase().includes(zwiftSearch)));
 
   const groups=[];
@@ -8708,6 +8724,7 @@ function renderZwiftTable(){
             <span class="zwift-chevron${open?' open':''}">${ZWIFT_CHEVRON_SVG}</span>
           </div>
         </div>
+        ${renderZwiftRowNotice(r)}
         ${open?renderZwiftDetail(r):''}
       </div>`;
     }).join('');
@@ -8954,29 +8971,113 @@ async function saveZwiftEdit(id){
   const saveBtn=document.getElementById('ze-save-'+id);
   if(saveBtn){saveBtn.disabled=true;saveBtn.textContent='Saving…';}
 
+  const prevStatus=(ZWIFT_DATA.find(r=>r.id===id)||{}).status;
   try{
-    const res=await fetch(`${ZWIFT_WORKER_BASE}/zwift-routes/${id}`,{
-      method:'PATCH',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({status,date_completed:dateVal||null,time:timeVal||null}),
-    });
-    const json=await res.json();
-    if(!res.ok||json.error){
-      throw new Error(json.message||'Save failed');
-    }
-    const idx=ZWIFT_DATA.findIndex(r=>r.id===id);
-    if(idx!==-1)ZWIFT_DATA[idx]=json.data;
-    localStorage.setItem(ZWIFT_CACHE_KEY,JSON.stringify({data:ZWIFT_DATA,updatedAt:new Date().toISOString()}));
+    const saved=await patchZwiftRoute(id,{status,date_completed:dateVal||null,time:timeVal||null});
     zwiftEditingId=null;
-    renderZwiftTable();
-    const row=document.getElementById('zwift-row-'+id);
-    if(row){row.classList.add('zwift-row-saved');setTimeout(()=>row.classList.remove('zwift-row-saved'),1000);}
+    afterZwiftSave(saved,prevStatus);
   }catch(e){
     errorEl.textContent=e.message||'Could not save — try again.';
     if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='Save';}
   }finally{
     zwiftSaving=false;
   }
+}
+
+async function patchZwiftRoute(id,body){
+  const res=await fetch(`${ZWIFT_WORKER_BASE}/zwift-routes/${id}`,{
+    method:'PATCH',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body),
+  });
+  const json=await res.json();
+  if(!res.ok||json.error)throw new Error(json.message||'Save failed');
+  const idx=ZWIFT_DATA.findIndex(r=>r.id===id);
+  if(idx!==-1)ZWIFT_DATA[idx]=json.data;
+  // Edited in place, so the identity-keyed caches would not notice a new time.
+  _zwiftFit=null;_zwiftFitFor=null;
+  try{localStorage.setItem(ZWIFT_CACHE_KEY,JSON.stringify({data:ZWIFT_DATA,updatedAt:new Date().toISOString()}));}catch(e){}
+  return json.data;
+}
+
+// One place decides what follows a save: a fresh completion counts down out of the
+// list; a time saved without completing gets a nudge to finish the job.
+function afterZwiftSave(saved,prevStatus){
+  const id=saved.id;
+  if(zwiftSuggestCompleteId===id)zwiftSuggestCompleteId=null;
+  if(saved.status==='Complete'&&prevStatus!=='Complete'){
+    startZwiftMoveCountdown(id);
+  }else if(saved.status!=='Complete'&&saved.time){
+    zwiftSuggestCompleteId=id;
+  }
+  buildZwiftStatusFilters();
+  renderZwiftTable();
+  const row=document.getElementById('zwift-row-'+id);
+  if(row){row.classList.add('zwift-row-saved');setTimeout(()=>row.classList.remove('zwift-row-saved'),1000);}
+}
+
+function renderZwiftRowNotice(r){
+  const moving=zwiftMoving[r.id];
+  if(moving){
+    const left=Math.max(1,Math.ceil((moving-Date.now())/1000));
+    return`<div class="zwift-row-notice" onclick="event.stopPropagation()" role="status">
+      <span><strong>Complete.</strong> Moving to Complete in <span class="zwift-move-count" data-id="${escapeAttr(r.id)}">${left}</span>s</span>
+      <button class="page-btn" type="button" onclick="finishZwiftMove('${r.id}')">Move now</button>
+    </div>`;
+  }
+  if(zwiftSuggestCompleteId===r.id&&r.status!=='Complete'){
+    return`<div class="zwift-row-notice" onclick="event.stopPropagation()">
+      <span>Time saved (${escapeHtml(r.time)}). Mark this route as complete?</span>
+      <button class="page-btn" type="button" id="zs-complete-${escapeAttr(r.id)}" onclick="markZwiftComplete('${r.id}')">Mark complete</button>
+      <button class="page-btn" type="button" onclick="dismissZwiftSuggest()">Not yet</button>
+      <span class="zwift-edit-error" id="zs-error-${escapeAttr(r.id)}"></span>
+    </div>`;
+  }
+  return'';
+}
+
+async function markZwiftComplete(id){
+  if(zwiftSaving)return;
+  const r=ZWIFT_DATA.find(x=>x.id===id);
+  if(!r)return;
+  const btn=document.getElementById('zs-complete-'+id);
+  const err=document.getElementById('zs-error-'+id);
+  if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  zwiftSaving=true;
+  try{
+    // Time is left untouched: it was saved a moment ago and is what prompted this.
+    const saved=await patchZwiftRoute(id,{status:'Complete',date_completed:r.date_completed||todayLocalISO()});
+    afterZwiftSave(saved,r.status);
+  }catch(e){
+    if(err)err.textContent=e.message||'Could not save — try again.';
+    if(btn){btn.disabled=false;btn.textContent='Mark complete';}
+  }finally{
+    zwiftSaving=false;
+  }
+}
+function dismissZwiftSuggest(){zwiftSuggestCompleteId=null;renderZwiftTable();}
+
+function startZwiftMoveCountdown(id){
+  // Only worth holding it back if the current tab is about to drop it.
+  if(zwiftStatusFilter==='All'||zwiftStatusFilter==='Complete')return;
+  zwiftMoving[id]=Date.now()+ZWIFT_MOVE_DELAY_S*1000;
+  if(!zwiftMoveTimer)zwiftMoveTimer=setInterval(tickZwiftMoves,250);
+}
+function tickZwiftMoves(){
+  const now=Date.now();
+  let expired=false;
+  Object.keys(zwiftMoving).forEach(id=>{
+    const left=zwiftMoving[id]-now;
+    if(left<=0){delete zwiftMoving[id];expired=true;return;}
+    document.querySelectorAll(`.zwift-move-count[data-id="${CSS.escape(id)}"]`).forEach(el=>{el.textContent=Math.ceil(left/1000);});
+  });
+  if(!Object.keys(zwiftMoving).length){clearInterval(zwiftMoveTimer);zwiftMoveTimer=null;}
+  if(expired)renderZwiftTable();
+}
+function finishZwiftMove(id){
+  delete zwiftMoving[id];
+  if(!Object.keys(zwiftMoving).length&&zwiftMoveTimer){clearInterval(zwiftMoveTimer);zwiftMoveTimer=null;}
+  renderZwiftTable();
 }
 
 function showDashTooltip(event,date){
