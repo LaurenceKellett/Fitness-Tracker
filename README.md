@@ -244,13 +244,22 @@ is the one the theme swaps; the cache is dropped whenever the theme changes.
 
 ## GPS privacy
 
-Activities starting within **¼ mile of any configured home location** are handled server-side in the Worker:
+Handled server-side in the Worker, around any configured home location. **Two radii, because they protect different things:**
 
-- **Polylines** — the first and last GPS points within the exclusion radius are trimmed from the route before it reaches the browser. Routes appear to begin and end on a public road.
-- **Start dots** — the start coordinate is snapped to the home zone centre at 3 decimal places (~100 m precision) rather than your exact door.
-- The `near_home: true` flag is set on those activities so the frontend knows to exclude them from the location pills.
+| | radius | what it does |
+|---|---|---|
+| **draw** | `HOME_EXCLUSION_M`, default **250 m** | Every GPS point inside it is dropped from the polyline — start, end, or a mid-route pass-through — and the route splits into separate segments where needed. This is the gap you actually see at each end of a drawn line. |
+| **snap** | fixed **¼ mile** | The start coordinate is reported from the home zone centre at 3 decimal places (~100 m) rather than your exact door, and `near_home: true` is set so the frontend keeps that activity out of the location pills. |
 
-Home coordinates are stored as **Cloudflare Worker secrets** and never committed to GitHub.
+They were one radius of ¼ mile until October 2026, which is **402 m off each end of every route**. That is invisible on a long run and ruinous on a short walk: a dog walk that loops a few hundred metres from the door had every one of its points inside the zone, so the whole thing was dropped and the day drew no line at all. The draw radius came down to 250 m; the snap radius stayed where it was, because it hides one coarse coordinate and costs nothing to keep generous.
+
+`HOME_EXCLUSION_M` is clamped to 50–5000 m and anything unreadable falls back to 250. A typo parsing as 0 would put the line back on the doorstep; a huge one would quietly delete every route.
+
+**Changing it only takes effect on the next full sync.** `fetchAllActivities` re-reads every activity from Strava and rewrites the whole KV envelope, so a refresh reprocesses the back catalogue with the new radius — old walks are redrawn too, not just new ones.
+
+**Strava's own privacy zones are upstream of all of this.** If a zone is set in Strava, Strava truncates `summary_polyline` before this Worker ever sees it, and no setting here can recover those points. If walks still look over-trimmed after a resync, that is where to look.
+
+Home coordinates are stored as **Cloudflare Worker secrets** and never committed to GitHub. `tests/home-privacy.test.js` covers both radii, the clamping, and which radius each call site asks for.
 
 ---
 
@@ -270,6 +279,7 @@ Set these in the Cloudflare dashboard under **Workers & Pages → activities-api
 | `HOME_LAT_2` | Latitude of home location 2 (optional) |
 | `HOME_LNG_2` | Longitude of home location 2 (optional) |
 | `HOME_LAT_3` … `HOME_LAT_5` | Additional home locations (optional) |
+| `HOME_EXCLUSION_M` | How much of a route to cut away near home, in metres. A plain variable, not a secret. Optional; 250 by default, clamped to 50–5000 |
 | `HOME_LNG_3` … `HOME_LNG_5` | Corresponding longitudes |
 | `NOTION_API_KEY` | Internal integration secret from a Notion integration (`notion.so/my-integrations`). Needs **Read**, **Update** *and* **Insert** content capabilities — Insert is what lets the Training Log sync create rows, and without it every sync fails with a permission error. Share it with **both** the "Zwift Routes" **and** the "Training Log" databases via each one's `•••` → Connections menu |
 

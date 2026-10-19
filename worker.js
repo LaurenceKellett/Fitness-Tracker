@@ -1604,7 +1604,7 @@ function transformActivity(a, zones = []) {
   // Privacy: snap start point to nearest home zone centre (3dp ≈ 100m) if within exclusion radius
   const rawLat = a.start_latlng?.[0] ?? null;
   const rawLng = a.start_latlng?.[1] ?? null;
-  const isHome = !!(zones.length && rawLat && rawLng && nearHome(rawLat, rawLng, zones));
+  const isHome = !!(zones.length && rawLat && rawLng && nearHome(rawLat, rawLng, zones, "snap"));
   let lat = rawLat, lng = rawLng;
   if (isHome) {
     const z = nearestZone(rawLat, rawLng, zones);
@@ -1693,21 +1693,49 @@ function round(val, dp) {
 // =============================================================================
 // HOME PRIVACY HELPERS
 // Reads HOME_LAT_1/HOME_LNG_1 … HOME_LAT_5/HOME_LNG_5 from Cloudflare secrets.
-// Activities starting within EXCLUSION_MILES of any zone have their start point
-// snapped to the zone centre (3 dp ≈ 100 m). Any point of the route — start,
-// end, or a mid-route pass-through — within that radius of any zone is
-// dropped, splitting the route into separate segments where needed.
+//
+// TWO radii, because they protect two different things and want different
+// sizes:
+//
+//   snap — the published start point. An activity starting inside this is
+//          reported from the zone centre, rounded to 3 dp (~100 m), instead
+//          of from its real start. This is a single coarse coordinate, it
+//          costs nothing to keep generous, so it stays at a quarter mile.
+//
+//   draw — how much of the ROUTE is cut away. Any point inside this, at the
+//          start, at the end, or passing through mid-route, is dropped and
+//          the route splits into separate segments. This is the one you see:
+//          it is the gap at each end of every drawn line.
+//
+// They used to be the same quarter mile, which is 402 m off each end of a
+// route. On a long run that is unnoticeable. On a sub-mile dog walk that
+// starts and finishes at the door it removed most of the walk, and what was
+// left drew as a stub or as nothing at all. HOME_EXCLUSION_M (metres) sets
+// the draw radius; 250 m is enough that no line reaches the door.
 // =============================================================================
 
-const EXCLUSION_MILES = 0.25;
+const SNAP_MILES = 0.25;
+const DEFAULT_DRAW_M = 250;
+const METRES_PER_MILE = 1609.344;
+
+// Clamped rather than trusted: this is read from a project variable, and a
+// typo that parsed as 0 would put the line back on the doorstep, while a
+// huge one would quietly delete every route. Anything unreadable falls back
+// to the default.
+function drawMiles(env) {
+  const m = parseFloat((env && env.HOME_EXCLUSION_M) ?? "");
+  const metres = Number.isFinite(m) && m >= 50 && m <= 5000 ? m : DEFAULT_DRAW_M;
+  return metres / METRES_PER_MILE;
+}
 
 function homeZones(env) {
   if (!env) return [];
+  const draw = drawMiles(env);
   const zones = [];
   for (let i = 1; i <= 5; i++) {
     const lat = parseFloat(env[`HOME_LAT_${i}`]);
     const lng = parseFloat(env[`HOME_LNG_${i}`]);
-    if (!isNaN(lat) && !isNaN(lng)) zones.push({ lat, lng });
+    if (!isNaN(lat) && !isNaN(lng)) zones.push({ lat, lng, snap: SNAP_MILES, draw });
   }
   return zones;
 }
@@ -1722,8 +1750,11 @@ function geoDistMiles(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function nearHome(lat, lng, zones) {
-  return zones.some(z => geoDistMiles(lat, lng, z.lat, z.lng) < EXCLUSION_MILES);
+// which is "snap" or "draw" — see the two radii above. Named rather than
+// defaulted, so a new caller has to say which of the two it means instead
+// of silently getting whichever one happened to be the default.
+function nearHome(lat, lng, zones, which) {
+  return zones.some(z => geoDistMiles(lat, lng, z.lat, z.lng) < z[which]);
 }
 
 function nearestZone(lat, lng, zones) {
@@ -1768,13 +1799,18 @@ function encodePolyline(pts) {
 // contiguous run at the start/end — so a route that merely passes through
 // (a commute, a through-road) never draws a line near home either. What's
 // left is split into one or more disconnected segments.
+//
+// Uses the "draw" radius, not "snap": this is the one that decides how much
+// of the line disappears, and a short walk from the door has very little to
+// spare. A segment of fewer than two points is dropped, so the smaller this
+// radius is, the fewer times a walk gets cut into pieces too short to keep.
 function splitPolylineExcludingZones(str, zones) {
   if (!str || !zones.length) return [str];
   const pts = decodePolyline(str);
   const segments = [];
   let current = [];
   for (const [lat, lng] of pts) {
-    if (nearHome(lat, lng, zones)) {
+    if (nearHome(lat, lng, zones, "draw")) {
       if (current.length >= 2) segments.push(current);
       current = [];
     } else {
