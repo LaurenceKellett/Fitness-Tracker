@@ -50,9 +50,9 @@ const kept = (pts, zones) =>
     .reduce((n, s) => n + P.decodePolyline(s).length, 0);
 
 describe('the two radii', () => {
-  it('cuts 200 m of route by default, not 402', () => {
+  it('cuts 100 m of route by default, not 402', () => {
     const z = P.homeZones(envWith())[0];
-    expect(Math.round(z.draw * P.METRES_PER_MILE)).toBe(200);
+    expect(Math.round(z.draw * P.METRES_PER_MILE)).toBe(100);
   });
 
   it('still hides the published start point at a quarter mile', () => {
@@ -69,9 +69,11 @@ describe('the two radii', () => {
     expect(P.nearHome(lat, lng, zones, 'snap')).toBe(true);
   });
 
+  // A value that is not the default, so this proves the setting is read
+  // rather than passing because it happens to match.
   it('reads the radius from the project setting', () => {
-    const z = P.homeZones(envWith({ HOME_EXCLUSION_M: '200' }))[0];
-    expect(Math.round(z.draw * P.METRES_PER_MILE)).toBe(200);
+    const z = P.homeZones(envWith({ HOME_EXCLUSION_M: '350' }))[0];
+    expect(Math.round(z.draw * P.METRES_PER_MILE)).toBe(350);
   });
 
   // A typo that parsed as zero would put the line back on the doorstep; a
@@ -79,7 +81,7 @@ describe('the two radii', () => {
   it.each([['0', 'zero'], ['', 'empty'], ['abc', 'not a number'], ['999999', 'absurdly large'], [undefined, 'unset']])
     ('ignores a radius of %s (%s) and uses the default', value => {
       const z = P.homeZones(envWith({ HOME_EXCLUSION_M: value }))[0];
-      expect(Math.round(z.draw * P.METRES_PER_MILE)).toBe(200);
+      expect(Math.round(z.draw * P.METRES_PER_MILE)).toBe(100);
     });
 });
 
@@ -117,7 +119,7 @@ describe('the house itself is never on the line', () => {
       for (const [lat, lng] of P.decodePolyline(seg)) {
         const m = P.geoDistMiles(lat, lng, HOME.lat, HOME.lng) * P.METRES_PER_MILE;
         // A metre of slack for the polyline's own 1e5 rounding.
-        expect(m).toBeGreaterThan(199);
+        expect(m).toBeGreaterThan(99);
       }
     }
   });

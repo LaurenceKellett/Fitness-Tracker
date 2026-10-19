@@ -1711,11 +1711,11 @@ function round(val, dp) {
 // route. On a long run that is unnoticeable. On a sub-mile dog walk that
 // starts and finishes at the door it removed most of the walk, and what was
 // left drew as a stub or as nothing at all. HOME_EXCLUSION_M (metres) sets
-// the draw radius; 200 m is enough that no line reaches the door.
+// the draw radius; 100 m keeps the line off the door and little more.
 // =============================================================================
 
 const SNAP_MILES = 0.25;
-const DEFAULT_DRAW_M = 200;
+const DEFAULT_DRAW_M = 100;
 const METRES_PER_MILE = 1609.344;
 
 // Clamped rather than trusted: this is read from a project variable, and a
