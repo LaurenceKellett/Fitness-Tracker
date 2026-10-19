@@ -296,6 +296,14 @@ Also in Worker → Settings → Bindings:
 
 The Worker caches all activity data under the key `activities_v3` with a 24-hour TTL. Force a fresh pull at any time with `?refresh=true`.
 
+**`?refresh=recent` is for "I have just uploaded a run".** A full pull pages the whole history, looks up gear and can take a minute, which is a lot to do to learn about one activity and a good way to meet Strava's rate limit. `?refresh=recent` asks for the last week (`after=` a cut-off, usually one request) and **merges** it into the cached history: everything before the window stays exactly as it was, everything inside it is dropped and put back from Strava, so an activity edited there is replaced and one deleted there disappears. It never replaces the history — with nothing cached to merge into it runs the full pull instead, because a week written over the top of everything is the worst thing this Worker could do.
+
+- **The window is cut in local dates with a day of margin**, because an activity's `date` is its local date and Strava filters on UTC start. The `after=` goes back a further 14 hours (UTC+14 is as far ahead as a clock gets), so a local date at the edge cannot be missed. In practice that is 8½ to 9½ days of Strava for `days=7` — still one request.
+- **Heart-rate zones are recomputed for the whole merged history**, not just the new activities: the athlete's max heart rate is the 99th percentile of every peak, so a few hard efforts this week move every older activity's zones too.
+- **An error is an error.** The full pull treats any non-list reply from Strava as the end of the activities and carries on with what it has, so a rate limit mid-pull writes a truncated history as the "last good" copy. The week-only pull throws instead and the Worker serves the last good copy, marked `X-Cache: STALE`.
+- **It does not touch the refresh-progress record** (`refresh_last_v1`). That records a full pull's duration and count so the dashboard can say "about 40 seconds left" for the next one; a one-second pull of three activities written there would make that estimate nonsense.
+- `tests/recent-refresh.test.js` drives the real handler against a stubbed Strava and a fake KV, because the property that matters is a property of the whole path: what is read, what is asked and what is written back.
+
 **The cron keeps it warm.** Each scheduled run refreshes that cache after the Notion
 sync, so the dashboard is current when you open it rather than serving up-to-24-hour-old
 data — and you never land on the slow first visit that pays a full Strava pull because the
@@ -329,6 +337,7 @@ Dashboard settings — the panel order set by **Rearrange this tab** — live un
 |-------|-------------|
 | `GET /activities` | Returns the cached activity envelope `{ data, aiSummary, updatedAt }` |
 | `GET /activities?refresh=true` | Bypasses cache, re-fetches from Strava, regenerates AI summary |
+| `GET /activities?refresh=recent[&days=7]` | Bypasses cache and asks Strava for **only the last few days**, merged into the cached history. A handful of requests instead of a couple of dozen. `days` is 1–14 and anything else means 7. Carries the AI summary forward. Answers `X-Refresh: recent`, or `full` if there was no cached history to merge into |
 | `GET /auth` | Redirects to Strava OAuth — run once to get a refresh token |
 | `GET /callback` | Exchanges the OAuth code, stores the refresh token in KV, and shows it for the secret |
 | `GET /debug` | Strava connection diagnostic — reports whether the token refresh worked and returns five activities. Never echoes the token response itself: this route has no auth |

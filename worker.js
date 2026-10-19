@@ -6,6 +6,9 @@
 //   GET /callback    → exchanges code, shows you your refresh token to copy
 //   GET /activities  → returns data & AI summary in cached envelope
 //   GET /activities?refresh=true → forces a fresh pull & completely regenerates AI
+//   GET /activities?refresh=recent[&days=7] → asks Strava only for the last few days
+//                             and merges them into the cached history (see RECENT
+//                             REFRESH). A few requests instead of a couple of dozen
 //   GET /zwift-routes → returns all Zwift routes from Notion in a cached envelope
 //   GET /zwift-routes?refresh=true → forces a fresh pull from Notion
 //   PATCH /zwift-routes/{pageId} → updates Status/Date completed/Time on one route
@@ -224,7 +227,11 @@ async function handleCallback(request, env) {
 
 async function handleActivities(request, env) {
   const url          = new URL(request.url);
-  const forceRefresh = url.searchParams.get('refresh') === 'true';
+  // `recent` is a refresh too: it has to skip the cache, or asking for it
+  // would be answered by the very copy it was asked to update.
+  const refreshParam = url.searchParams.get('refresh');
+  const recent       = refreshParam === 'recent' ? recentDaysFrom(url.searchParams.get('days')) : 0;
+  const forceRefresh = refreshParam === 'true' || recent > 0;
 
   // Serve from KV cache if available and not forcing a refresh
   if (!forceRefresh && env.CACHE) {
@@ -240,9 +247,14 @@ async function handleActivities(request, env) {
     }
   }
 
-  let envelope, cacheState = 'MISS';
+  let envelope, cacheState = 'MISS', how = 'full';
   try {
-    envelope = await refreshActivitiesCache(env);
+    // The week-only pull answers null when there is no history to merge it into,
+    // and only then does this fall through to the full pull. Merging a week onto
+    // nothing would write an envelope holding a week, over the top of everything.
+    const merged = recent ? await pullRecentActivities(env, recent) : null;
+    if (merged) { envelope = merged; how = 'recent'; }
+    else        { envelope = await refreshActivitiesCache(env); }
   } catch (err) {
     // Strava is down, rate-limiting, or the token has died. Serving the last good
     // envelope is strictly better than an error: the dashboard can say how old the
@@ -260,6 +272,9 @@ async function handleActivities(request, env) {
       ...CORS,
       'Content-Type': 'application/json',
       'X-Cache':       cacheState,
+      // Which pull answered: 'recent' for the week-only merge, 'full' for a whole
+      // history. A caller that asked for one and got the other can say so.
+      'X-Refresh':     cacheState === 'STALE' ? 'none' : how,
     },
   });
 }
@@ -342,6 +357,145 @@ async function pullActivities(env, { regenerateAi = true, backfillPrs = false } 
     ]);
   }
 
+  return envelope;
+}
+
+// =============================================================================
+// RECENT REFRESH — the last few days from Strava, merged into what is cached
+// =============================================================================
+// A full pull pages the whole history, looks up gear, and takes up to a minute.
+// For "I have just uploaded a run" that is a lot of work to learn about one
+// activity, and a good way to meet Strava's rate limit. This asks for the last
+// few days only — usually one request — and merges them in.
+//
+// It merges, it never replaces. The cached envelope is the whole history; the
+// week is spliced into it. So with nothing cached it does nothing and says so
+// (the caller then runs the full pull), because a week written over the top of
+// the history would be the worst thing this worker could do.
+//
+// What it does NOT touch: the AI summary (carried forward, as the cron does),
+// and the refresh-progress record, whose duration and total are how the
+// dashboard estimates the NEXT full pull — a one-second pull of three
+// activities written there would make that estimate nonsense.
+const RECENT_DEFAULT_DAYS = 7;
+const RECENT_MAX_DAYS     = 14;
+const RECENT_MAX_PAGES    = 3;   // 600 activities in a fortnight is not a real day
+
+// Clamped rather than trusted: a typo must not turn "the last week" into the
+// whole history, and 0 or a negative number must not mean "nothing".
+function recentDaysFrom(raw) {
+  const n = parseInt(raw ?? '', 10);
+  return Number.isFinite(n) && n >= 1 && n <= RECENT_MAX_DAYS ? n : RECENT_DEFAULT_DAYS;
+}
+
+// Two numbers. `fromDate` is the first LOCAL date that gets replaced; an
+// activity's `date` is its local date, so the comparison is made in local dates
+// with a day of margin either side. `afterEpoch` is what Strava is asked for,
+// and Strava filters on the UTC start: a local date of fromDate can start as
+// early as 14 hours before fromDate's midnight UTC (UTC+14 is as far ahead as a
+// clock gets), so asking from there cannot miss one.
+function recentWindow(nowMs, days) {
+  const from = new Date(nowMs - days * 86400000);
+  from.setUTCDate(from.getUTCDate() - 1);
+  const fromDate = from.toISOString().slice(0, 10);
+  const afterEpoch = Math.floor(Date.parse(fromDate + 'T00:00:00Z') / 1000) - 14 * 3600;
+  return { fromDate, afterEpoch };
+}
+
+// Everything cached before the window stays exactly as it was. Everything inside
+// it is dropped, then whatever Strava returned is put back — so an activity
+// edited in Strava is replaced and one deleted there disappears. By id, so the
+// few fetched from just before the window (the margin above) replace their
+// cached copies instead of sitting beside them.
+function mergeRecent(existing, fetched, fromDate) {
+  const byId = new Map();
+  for (const a of existing) if (a && a.date < fromDate) byId.set(String(a.id), a);
+  for (const a of fetched) byId.set(String(a.id), a);
+  return [...byId.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+async function pullRecentActivities(env, days) {
+  if (!env.CACHE) return null;
+  // The fallback copy, not the serving one: the serving copy expires after a day
+  // and the fallback never does, and both are written together.
+  let prev = null;
+  try {
+    const raw = (await env.CACHE.get(LAST_GOOD_KEY)) || (await env.CACHE.get(CACHE_KEY));
+    prev = raw ? JSON.parse(raw) : null;
+  } catch {
+    prev = null;
+  }
+  if (!prev || !Array.isArray(prev.data) || prev.data.length === 0) return null;
+
+  const accessToken = await getAccessToken(env);
+  const { fromDate, afterEpoch } = recentWindow(Date.now(), days);
+  const zones = homeZones(env);
+
+  const fetched = [];
+  for (let page = 1; page <= RECENT_MAX_PAGES; page++) {
+    const res = await fetch(
+      `https://www.strava.com/api/v3/athlete/activities?after=${afterEpoch}&per_page=200&page=${page}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const batch = await res.json();
+    // An error is not "no more activities". The full pull treats a rate-limit
+    // reply as the end of the list and carries on with what it has; here that
+    // would report a successful fetch that found nothing, which is the one
+    // answer this button must not give when Strava never answered.
+    if (!res.ok || !Array.isArray(batch)) {
+      throw new Error(`Strava answered ${res.status}${batch && batch.message ? ': ' + batch.message : ''}`);
+    }
+    for (const a of batch) fetched.push(transformActivity(a, zones));
+    if (batch.length < 200) break;
+  }
+
+  // Gear for what came back, resolved the way the full pull does it. The
+  // gear metadata for everything older is already in the cached envelope.
+  const gearIds = [...new Set(fetched.map(a => a._gear_id).filter(Boolean))];
+  const gearMap = {};
+  const knownGear = await loadGearNames(env);
+  await fetchGearNames(gearIds, accessToken, gearMap, knownGear);
+  await saveGearNames(env, knownGear);
+  _gearMeta = { ...(prev.gearMeta || {}) };
+  for (const id of gearIds) {
+    const rec = knownGear[id];
+    if (rec && rec.name) {
+      _gearMeta[rec.name] = {
+        brand: rec.brand || null, model: rec.model || null, retired: !!rec.retired,
+        kind: rec.kind || (id[0] === 'b' ? 'bike' : id[0] === 'g' ? 'shoe' : null),
+      };
+    }
+  }
+  for (const a of fetched) {
+    a.gear = a._gear_id ? (gearMap[a._gear_id] || null) : null;
+    delete a._gear_id;
+  }
+
+  const merged = mergeRecent(prev.data, fetched, fromDate);
+
+  // Zones are worked out for the whole merged history, not just the new ones: the
+  // athlete's max heart rate is derived from all of it, and one hard effort this
+  // week can move every older activity's zones. Cheap — no request per activity.
+  const hrZones = await fetchAthleteZones(accessToken);
+  const athleteMaxHr = deriveAthleteMaxHr(merged);
+  _hrZoneMeta = { athleteMaxHr, source: (hrZones && hrZones.length >= 5) ? 'strava' : 'derived' };
+  for (const a of merged) {
+    const z = estimateZones(a.hr, a.max_hr, a.mt, hrZones, athleteMaxHr);
+    a.z1 = z.z1; a.z2 = z.z2; a.z3 = z.z3; a.z4 = z.z4; a.z5 = z.z5;
+  }
+  applyBestEfforts(merged, await loadBestEfforts(env));
+
+  const envelope = JSON.stringify({
+    data: merged,
+    aiSummary: prev.aiSummary ?? 'No AI summary generated.',
+    updatedAt: new Date().toISOString(),
+    hrZones: _hrZoneMeta,
+    gearMeta: _gearMeta,
+  });
+  await Promise.all([
+    env.CACHE.put(CACHE_KEY, envelope, { expirationTtl: CACHE_TTL }),
+    env.CACHE.put(LAST_GOOD_KEY, envelope),
+  ]);
   return envelope;
 }
 
