@@ -1602,6 +1602,19 @@ not started for five days after it was completed on the phone.
 
 - **A dot on the Planned filter** while it has routes and is not the open filter, since
   Planned is usually what gets ridden next.
+- **A planned date saves when its picker closes** (the tick on iOS, a click elsewhere on
+  desktop), not on change: iOS fills an empty date field with today and fires change the
+  moment it opens. Picking a day for a Not started route makes it Planned. Notion holds
+  some planned rides with a start time; they are read as the local day they fall on, and
+  Save only sends a planned day that changed so the time is not wiped.
+- **The Planned filter shows a calendar** of planned days. Saving a new one moves it to
+  that month, and the month arrows carry a dot when routes not yet complete are planned
+  before or after the month in view.
+- **The Complete filter shows routes completed by year**, by the date completed in
+  Notion, with this year's pace (from day 30) drawn as a paler cap on its bar and a
+  Routes/Distance switch. Completed routes with no date are counted in the total but not
+  placed in a year, and the subtitle says how many. The arithmetic is `zwiftYearStats`
+  and `zwiftYearVerdict` in `calc.js`.
 - **Saving a time on a route that is not Complete offers "Mark complete"**, which saves
   it as Complete with today's date (or the one already entered) and leaves the time alone.
 - **A route just marked complete stays put for five seconds**, counting down with a

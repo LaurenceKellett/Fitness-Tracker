@@ -15,6 +15,7 @@ const {
   calendarPeriod, periodTotals, periodStartISO, periodLength, PERIOD_BASE,
   CHRONIC_DAYS, CHRONIC_WEIGHTS, weeklyLoadStats, MONOTONY_CAP,
   yearEndProjection, projectionWindow, daysInYear, PROJ_WINDOW_MIN,
+  zwiftYearStats, zwiftYearVerdict, ZW_PACE_MIN_DAYS,
   setScope,
 } = calc;
 
@@ -1477,5 +1478,71 @@ describe('periodTotals', () => {
   it('ignores anything dated after today', () => {
     const t = periodTotals([{ date: '2026-09-20', dist_mi: 7 }], miles, { today: '2026-09-14', unit: 'month' });
     expect(t[23].value).toBe(0);
+  });
+});
+
+// ── ZWIFT ROUTES BY YEAR ─────────────────────────────────────────────────────
+describe('zwiftYearStats', () => {
+  const done = (date, mi = 10) => ({ status: 'Complete', date_completed: date, distance_mi: mi });
+  const todo = () => ({ status: 'Not started', date_completed: null, distance_mi: 5 });
+
+  it('counts completions by year and fills a quiet year with zero', () => {
+    const st = zwiftYearStats([done('2023-03-01'), done('2023-07-09'), done('2025-01-02', 20), todo()], '2025-06-01');
+    expect(st.years.map((y) => [y.year, y.count])).toEqual([[2023, 2], [2024, 0], [2025, 1]]);
+    expect(st.years[2].mi).toBe(20);
+    expect(st.complete).toBe(3);
+    expect(st.total).toBe(4);
+  });
+
+  it('runs the axis through the current year even with nothing done yet', () => {
+    const st = zwiftYearStats([done('2024-05-05')], '2026-03-01');
+    expect(st.years.map((y) => y.year)).toEqual([2024, 2025, 2026]);
+    expect(st.years[2].count).toBe(0);
+  });
+
+  it('counts a completed route with no date but does not place it', () => {
+    const st = zwiftYearStats([done('2025-02-02'), done(null), done('')], '2025-06-01');
+    expect(st.complete).toBe(3);
+    expect(st.undated).toBe(2);
+    expect(st.years[0].count).toBe(1);
+  });
+
+  it('projects the current year from the share of it gone, and not too early', () => {
+    const rows = Array.from({ length: 10 }, (_, i) => done(`2026-01-0${(i % 9) + 1}`));
+    // 2 July 2026 is day 183 of 365: ten routes so far comes to about twenty.
+    expect(zwiftYearStats(rows, '2026-07-02').pace.count).toBe(20);
+    expect(zwiftYearStats(rows, '2026-01-20').pace).toBeNull();
+    expect(ZW_PACE_MIN_DAYS).toBe(30);
+  });
+});
+
+describe('zwiftYearVerdict', () => {
+  // The real catalogue on 20 October 2026: 318 of 361 done.
+  const real = () => {
+    const per = { 2021: 24, 2022: 41, 2023: 52, 2024: 60, 2025: 98, 2026: 43 };
+    const rows = [];
+    Object.entries(per).forEach(([y, n]) => {
+      for (let i = 0; i < n; i++) rows.push({ status: 'Complete', date_completed: `${y}-01-15`, distance_mi: 10 });
+    });
+    for (let i = 0; i < 43; i++) rows.push({ status: 'Not started', date_completed: null, distance_mi: 10 });
+    return rows;
+  };
+
+  it('says where this year is heading and what is left', () => {
+    const st = zwiftYearStats(real(), '2026-10-20');
+    expect(st.pace.count).toBe(54);
+    expect(zwiftYearVerdict(st)).toBe('On pace for about 54 this year, behind 2024 and 2025. '
+      + '43 routes are left, so at this rate the catalogue is done in about 10 months, unless Zwift adds more first.');
+  });
+
+  it('calls a pace above every earlier year the best yet', () => {
+    const rows = [{ status: 'Complete', date_completed: '2025-03-03' },
+      ...Array.from({ length: 5 }, () => ({ status: 'Complete', date_completed: '2026-02-02' }))];
+    expect(zwiftYearVerdict(zwiftYearStats(rows, '2026-07-02'))).toMatch(/^On pace for about 10 this year, which would be your best year yet\./);
+  });
+
+  it('names the best year when there is no pace yet', () => {
+    const rows = [{ status: 'Complete', date_completed: '2025-03-03' }, { status: 'Complete', date_completed: '2025-04-03' }];
+    expect(zwiftYearVerdict(zwiftYearStats(rows, '2026-01-10'))).toBe('2025 is your best year so far, with 2 routes.');
   });
 });

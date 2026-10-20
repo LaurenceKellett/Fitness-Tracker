@@ -941,6 +941,66 @@ function projectionWindow(mix,doy){
 
 function daysInYear(y){return(+y%4===0&&(+y%100!==0||+y%400===0))?366:365;}
 
+/* ── ZWIFT ROUTES BY YEAR ──
+ * Completed routes counted by the year of their completion date, every year from
+ * the first through the current one (a quiet year is a zero, not a gap). Routes
+ * marked Complete with no date are counted, not placed: they cannot be put in a
+ * year, and dropping them silently would make the total disagree with the tab.
+ *
+ * The current year also gets a pace: what it comes to if the rest of the year
+ * goes like the part already done. Before ZW_PACE_MIN_DAYS that is three or four
+ * routes multiplied by a hundred and would say nothing, so there is none.
+ */
+const ZW_PACE_MIN_DAYS=30;
+function zwiftYearStats(routes,todayIso){
+  const done=(routes||[]).filter(r=>r.status==='Complete');
+  const dated=done.filter(r=>/^\d{4}-\d{2}-\d{2}/.test(r.date_completed||''));
+  const thisYear=+todayIso.slice(0,4);
+  const byYear={};
+  dated.forEach(r=>{
+    const y=+r.date_completed.slice(0,4);
+    const b=byYear[y]||(byYear[y]={count:0,mi:0});
+    b.count++;b.mi+=r.distance_mi||0;
+  });
+  const keys=Object.keys(byYear).map(Number);
+  const years=[];
+  if(keys.length){
+    for(let y=Math.min(...keys);y<=Math.max(thisYear,...keys);y++){
+      const b=byYear[y]||{count:0,mi:0};
+      years.push({year:y,count:b.count,mi:b.mi});
+    }
+  }
+  let pace=null;
+  const doy=dayOfYear(todayIso.slice(0,10));
+  const cur=years.find(y=>y.year===thisYear);
+  if(cur&&doy>=ZW_PACE_MIN_DAYS){
+    const k=daysInYear(thisYear)/doy;
+    pace={year:thisYear,count:Math.round(cur.count*k),mi:cur.mi*k};
+  }
+  return{years,pace,complete:done.length,undated:done.length-dated.length,total:(routes||[]).length};
+}
+
+/* One sentence on where this year stands, in routes. */
+function zwiftYearVerdict(st){
+  if(!st||!st.years.length)return'';
+  const left=st.total-st.complete;
+  if(!st.pace){
+    const best=st.years.reduce((b,y)=>y.count>b.count?y:b,st.years[0]);
+    return`${best.year} is your best year so far, with ${best.count} route${best.count===1?'':'s'}.`;
+  }
+  const p=st.pace.count;
+  const ahead=st.years.filter(y=>y.year!==st.pace.year&&y.count>p).map(y=>y.year);
+  let s=`On pace for about ${p} this year, `;
+  if(!ahead.length)s+='which would be your best year yet.';
+  else if(ahead.length<=2)s+=`behind ${ahead.join(' and ')}.`;
+  else s+=`behind ${ahead.length} earlier years.`;
+  if(left>0&&p>0){
+    const months=Math.max(1,Math.round(left/(p/12)));
+    s+=` ${left} route${left===1?' is':'s are'} left, so at this rate the catalogue is done in about ${months} month${months===1?'':'s'}, unless Zwift adds more first.`;
+  }else if(left===0)s+=' Every route in the catalogue is done.';
+  return s;
+}
+
 /* daily: { '2026': Array(367) of per-day values, ... } — index 1 is 1 January.
  * Returns the projection, the two ends of the dial, and the path to draw.
  */
@@ -1002,6 +1062,7 @@ if (typeof module !== 'undefined' && module.exports) {
     calendarPeriod,periodTotals,periodStartISO,periodBackISO,periodLength,PERIOD_BASE,
     CHRONIC_DAYS,CHRONIC_WEIGHTS,weeklyLoadStats,MONOTONY_CAUTION,MONOTONY_CAP,
     yearEndProjection,projectionWindow,daysInYear,PROJ_WINDOW_MIN,
+    zwiftYearStats,zwiftYearVerdict,ZW_PACE_MIN_DAYS,
     setScope(s){
       if(s.unit!==undefined)unit=s.unit;
       if(s.activeYear!==undefined)activeYear=s.activeYear;

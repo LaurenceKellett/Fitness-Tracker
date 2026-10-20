@@ -1061,6 +1061,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
   .zwift-row-right{padding-top:1px}
   .zwift-list-row>.zwift-dot{margin-top:5px}
 }
+.zwift-year{margin-bottom:14px}
 .zwift-cal{background:var(--surface);border:1px solid var(--border);border-radius:0;box-shadow:var(--shadow);padding:14px 16px;margin-bottom:14px}
 .zwift-cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .zwift-cal-title{font-size:13px;font-weight:700}
@@ -1921,7 +1922,7 @@ body.is-loading .stats-grid *{visibility:hidden}
 <!-- calc.js carries a stamp of its own content (npm run stamp; the unit tests check it
      is current), so a freshly deployed page can never be paired with a cached older copy
      of the script — which is exactly how one deploy died on "daysInYear is not defined". -->
-<script src="calc.js?v=03a49217"></script>
+<script src="calc.js?v=75a5f542"></script>
 <div id="dashTooltip" class="dash-tooltip"></div>
 <div class="main">
 
@@ -2456,6 +2457,21 @@ body.is-loading .stats-grid *{visibility:hidden}
     <button class="page-btn" onclick="toggleAllZwiftGroups(false)">Collapse<span class="zwift-all"> all</span></button>
   </div>
   <div id="zwiftCalendar" style="display:none"></div>
+  <div id="zwiftYearCard" class="chart-card zwift-year" style="display:none">
+    <div class="chart-head">
+      <div class="chart-head-text">
+        <div class="chart-title">Routes completed by year</div>
+        <div class="chart-sub" id="zwiftYearSub">By the date completed in Notion</div>
+      </div>
+      <div class="chart-ctl" role="group" aria-label="Count by">
+        <button type="button" class="chart-ctl-btn" data-measure="count" onclick="setZwiftYearMeasure('count')">Routes</button>
+        <button type="button" class="chart-ctl-btn" data-measure="dist" onclick="setZwiftYearMeasure('dist')">Distance</button>
+      </div>
+    </div>
+    <div class="chart-wrap"><canvas id="chartZwiftYear"></canvas></div>
+    <div id="zwiftYearChips" class="chart-chips"></div>
+    <div id="zwiftYearVerdict" class="chart-verdict"></div>
+  </div>
   <div id="zwiftRiddenCallout" class="callout" style="display:none"></div>
   <div id="zwiftGroups"></div>
   <div id="zwiftEmpty" style="display:none;text-align:center;padding:60px 20px;color:var(--text-muted);font-size:14px">
@@ -8903,6 +8919,7 @@ function renderZwiftTable(){
   }).join('');
 
   renderZwiftCalendar();
+  renderZwiftYearChart();
   window.scrollTo(0,scrollY);
 }
 
@@ -8958,6 +8975,103 @@ function goToZwiftRoute(id){
   renderZwiftTable();
   const el=document.getElementById('zwift-row-'+id);
   if(el)el.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+// ── ROUTES COMPLETED BY YEAR ──
+// On the Complete tab, as the calendar is on Planned: the chart sits with the
+// routes it counts and keeps the other tabs' lists at the top of the page. The
+// arithmetic (and the sentence under it) is zwiftYearStats in calc.js.
+let zwiftYearMeasure='count';
+function setZwiftYearMeasure(m){zwiftYearMeasure=m;renderZwiftYearChart();}
+
+// Each bar's figure above it; with only a handful of years, reading them off the
+// axis is the harder way round. This year's reads "43 → 54" where there is room.
+const zwiftYearLabels={
+  id:'zwiftYearLabels',
+  afterDatasetsDraw(chart,args,opts){
+    const {ctx}=chart,meta0=chart.getDatasetMeta(0),meta1=chart.getDatasetMeta(1);
+    const roomy=chart.chartArea.width/(meta0.data.length||1)>=90;
+    ctx.save();
+    ctx.textAlign='center';ctx.textBaseline='bottom';
+    meta0.data.forEach((bar,i)=>{
+      const v=chart.data.datasets[0].data[i];
+      const extra=chart.data.datasets[1].data[i];
+      const topBar=extra&&meta1.data[i]?meta1.data[i]:bar;
+      const main=opts.fmt(v);
+      ctx.font='700 11px '+opts.font;ctx.fillStyle=opts.text;
+      if(extra&&roomy){
+        const rest=' → '+opts.fmt(v+extra);
+        ctx.font='700 11px '+opts.font;const w1=ctx.measureText(main).width;
+        ctx.font='500 11px '+opts.font;const w2=ctx.measureText(rest).width;
+        const x0=topBar.x-(w1+w2)/2;
+        ctx.textAlign='left';
+        ctx.font='700 11px '+opts.font;ctx.fillStyle=opts.text;ctx.fillText(main,x0,topBar.y-5);
+        ctx.font='500 11px '+opts.font;ctx.fillStyle=opts.muted;ctx.fillText(rest,x0+w1,topBar.y-5);
+        ctx.textAlign='center';
+      }else{
+        ctx.fillText(main,topBar.x,topBar.y-5);
+      }
+    });
+    ctx.restore();
+  }
+};
+
+function renderZwiftYearChart(){
+  const card=document.getElementById('zwiftYearCard');
+  if(!card)return;
+  const st=zwiftYearStats(ZWIFT_DATA,todayLocalISO());
+  if(zwiftStatusFilter!=='Complete'||!st.years.length){card.style.display='none';destroyChart('zwiftYear');return;}
+  card.style.display='block';
+  card.querySelectorAll('.chart-ctl-btn').forEach(b=>b.classList.toggle('active',b.dataset.measure===zwiftYearMeasure));
+
+  const byDist=zwiftYearMeasure==='dist';
+  const conv=mi=>unit==='km'?mi*1.60934:mi;
+  const val=y=>byDist?Math.round(conv(y.mi)):y.count;
+  const fmt=v=>Math.round(v).toLocaleString('en-GB')+(byDist?' '+distUnit():'');
+  const years=st.years;
+  const done=years.map(val);
+  const ahead=years.map(y=>st.pace&&y.year===st.pace.year?Math.max(0,(byDist?Math.round(conv(st.pace.mi)):st.pace.count)-val(y)):null);
+
+  const sub=document.getElementById('zwiftYearSub');
+  if(sub)sub.textContent=(byDist?`${distUnit()==='km'?'Kilometres':'Miles'} of route completed each year`:'Routes completed each year')
+    +', by the date completed in Notion'
+    +(st.undated?` · ${st.undated} without a date ${st.undated===1?'is':'are'} not shown`:'');
+
+  // The pace is the year's own colour, faded: the lilac --virtual-soft disappears
+  // against a white card.
+  const virtual=cssVar('--virtual','#b180fc');
+  const paceCol=/^#[0-9a-f]{6}$/i.test(virtual)?virtual+'59':virtual;
+  const best=years.reduce((b,y)=>val(y)>val(b)?y:b,years[0]);
+  const chips=[
+    {n:st.complete.toLocaleString('en-GB'),label:`completed of ${st.total.toLocaleString('en-GB')}`,col:virtual},
+    {n:fmt(val(best)),label:`best year, ${best.year}`,col:virtual},
+  ];
+  if(st.pace)chips.push({n:'~'+fmt(byDist?conv(st.pace.mi):st.pace.count),label:`on pace for ${st.pace.year}`,col:paceCol});
+  chartSummary('zwiftYear',chips,zwiftYearVerdict(st));
+
+  ensureCharts().then(()=>{
+    const cv=document.getElementById('chartZwiftYear');
+    if(!cv||card.style.display==='none')return;
+    destroyChart('zwiftYear');
+    charts.zwiftYear=upsertChart('zwiftYear',cv.getContext('2d'),{
+      type:'bar',
+      data:{labels:years.map(y=>String(y.year)),datasets:[
+        {label:byDist?'Distance':'Routes',data:done,backgroundColor:virtual,borderRadius:0,stack:'y'},
+        {label:'On pace',data:ahead,backgroundColor:paceCol,borderColor:virtual,borderWidth:1.5,borderRadius:0,stack:'y'},
+      ]},
+      plugins:[zwiftYearLabels],
+      options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:18}},
+        plugins:{legend:{display:false},
+          zwiftYearLabels:{fmt:v=>Math.round(v).toLocaleString('en-GB'),text:cssVar('--text','#111'),muted:cssVar('--text-muted','#666'),font:getComputedStyle(document.body).fontFamily},
+          tooltip:{callbacks:{label:c=>c.datasetIndex===0?fmt(c.parsed.y):`on pace for ~${fmt(c.parsed.y+done[c.dataIndex])}`}}},
+        scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:11},color:chartTick(),maxRotation:0,autoSkip:false,
+            // "so far" on this year only where a slot has room for it. Asked at every
+            // layout, so turning the phone round adds or drops it; untilted, because
+            // a label Chart.js finds too wide is otherwise tilted, not shortened.
+            callback:function(v,i){const y=years[i].year;return st.pace&&y===st.pace.year&&this.chart.width/years.length>=90?y+' so far':String(y);}}},
+          y:{stacked:true,beginAtZero:true,grid:{color:chartGrid()},ticks:{font:{size:11},color:chartTick(),precision:0,maxTicksLimit:6}}}}
+    });
+  });
 }
 
 function renderZwiftCalendar(){

@@ -1247,6 +1247,25 @@ async function main() {
       }
     });
 
+    await check('routes completed by year shows on Complete only, with its figures', async () => {
+      const read = () => page.evaluate(() => ({
+        shown: document.getElementById('zwiftYearCard').style.display !== 'none',
+        chips: document.getElementById('zwiftYearChips').textContent,
+        verdict: document.getElementById('zwiftYearVerdict').textContent,
+      }));
+      await page.evaluate(() => window.setZwiftStatusFilter('Complete'));
+      const on = await read();
+      const done = await page.evaluate(() => ZWIFT_DATA.filter((r) => r.status === 'Complete').length);
+      assert(on.shown, 'the chart card is hidden on the Complete tab');
+      assert(on.chips.includes(`${done} completed of`), `the chips read "${on.chips}"`);
+      assert(on.verdict.length > 20, `the verdict reads "${on.verdict}"`);
+      for (const tab of ['All', 'Planned', 'Not started']) {
+        await page.evaluate((t) => window.setZwiftStatusFilter(t), tab);
+        assert(!(await read()).shown, `the chart card shows on the ${tab} tab`);
+      }
+      await page.evaluate(() => window.setZwiftStatusFilter('All'));
+    });
+
     await check('the Zwift tab says when it could not reach Notion, and recovers on refresh', async () => {
       await page.evaluate(() => window.setTab('zwift'));
       await page.waitForFunction(() => zwiftLoaded && !zwiftFetching, null, { timeout: 10000 });
