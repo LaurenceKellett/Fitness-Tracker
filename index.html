@@ -8719,6 +8719,36 @@ function maybeRefetchZwift(){
   loadZwiftRoutes();
 }
 document.addEventListener('visibilitychange',maybeRefetchZwift);
+
+// iOS Safari sometimes leaves the phone tab strip, a sideways scroller inside the
+// sticky header, painted blank once the page beneath it redraws: the row keeps its
+// height but shows no tabs. Its own compositing layer (see .tab-strip) was not
+// enough. Dropping that layer and putting it straight back makes WebKit rebuild
+// it, so that happens, at most once a frame, after anything below the header
+// changes, when a scroll settles, and when the page comes back into view.
+let tabStripNudgeQueued=false;
+function nudgeTabStrip(){
+  if(tabStripNudgeQueued||window.innerWidth>640)return;
+  tabStripNudgeQueued=true;
+  requestAnimationFrame(()=>{
+    tabStripNudgeQueued=false;
+    const strip=document.querySelector('.tab-strip');
+    if(!strip)return;
+    strip.style.transform='none';
+    void strip.offsetWidth;
+    strip.style.transform='';
+  });
+}
+(()=>{
+  const header=document.querySelector('.header');
+  new MutationObserver(list=>{
+    if(list.some(m=>!header||!header.contains(m.target)))nudgeTabStrip();
+  }).observe(document.body,{childList:true,subtree:true});
+  let scrollTimer=null;
+  window.addEventListener('scroll',()=>{clearTimeout(scrollTimer);scrollTimer=setTimeout(nudgeTabStrip,120);},{passive:true});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)nudgeTabStrip();});
+  window.addEventListener('pageshow',nudgeTabStrip);
+})();
 window.addEventListener('focus',maybeRefetchZwift);
 window.addEventListener('pageshow',e=>{if(e.persisted)maybeRefetchZwift();});
 
