@@ -1004,7 +1004,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .log-pagination{display:flex;align-items:center;gap:8px;padding:14px 16px;border-top:1px solid var(--border);font-size:13px;color:var(--text-muted)}
 .page-btn{padding:5px 10px;border:1px solid var(--border);border-radius:0;cursor:pointer;font-size:12px;background:var(--surface);transition:all .15s}
 .page-btn:hover:not(:disabled){background:var(--bg)}.page-btn:disabled{opacity:.4;cursor:default}
-.zwift-controls{display:flex;gap:10px;margin-bottom:6px;align-items:center;flex-wrap:wrap}
+.zwift-controls{display:flex;gap:10px;margin-bottom:6px;align-items:stretch;flex-wrap:wrap}
 .zwift-status-bar{display:flex;gap:2px;flex-wrap:wrap;margin-bottom:10px}
 .zwift-status-bar .type-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;font-size:12px;font-weight:500;color:var(--text-muted);border:none;background:transparent;border-radius:0;cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit}
 .zwift-status-bar .type-btn:hover:not(.active){color:var(--text)}
@@ -1593,6 +1593,10 @@ tbody td{padding:10px 14px;vertical-align:middle}
   .loc-pill,.hm-nav-btn,.page-btn,.zwift-status-bar .type-btn,.partner-log-btn{
     display:inline-flex;align-items:center;justify-content:center}
   .log-search{height:44px}
+  /* Search on its own line, the two buttons sharing the next one, rather than one
+     button stranded on a third line. */
+  .zwift-controls .log-search{flex-basis:100%}
+  .zwift-controls .page-btn{flex:1}
   .unit-opt,.icon-btn{min-height:var(--ctl-h)}
   .header-toolbar{height:auto}
   /* Full-width bottom sheet below 640px, matching the scope panel exactly. */
@@ -8622,9 +8626,10 @@ function renderZwiftSync(){
   else if(zwiftSyncState==='error'){
     stale=true;
     text=ago?`Couldn't reach Notion. Showing this device's copy from ${ago}.`:"Couldn't reach Notion.";
-  }else text=ago?`Up to date with Notion · checked ${ago}`:'';
+  }else text=ago?`Up to date · checked ${ago}`:'';
   el.classList.toggle('stale',stale);
-  el.innerHTML=text?`<span>${text}</span><button class="zwift-sync-btn" type="button" onclick="loadZwiftRoutes(true)"${zwiftSyncState==='loading'?' disabled':''}>${stale?'Try again':'Refresh'}</button>`:'';
+  const source='<span>From Notion · the year and sport filters do not apply here</span><span aria-hidden="true">·</span>';
+  el.innerHTML=text?`${source}<span>${text}</span><button class="zwift-sync-btn" type="button" onclick="loadZwiftRoutes(true)"${zwiftSyncState==='loading'?' disabled':''}>${stale?'Try again':'Refresh'}</button>`:'';
 }
 
 // Coming back to the window is when another device is most likely to have changed
@@ -9186,6 +9191,9 @@ function scopeFor(tab){
 }
 function renderScope(){
   const el=document.getElementById('scopeLine');if(!el)return;
+  // Zwift says where its data comes from on its own sync line, beside when it was
+  // last checked, rather than on a second line saying much the same thing.
+  if(activeTab==='zwift'){el.innerHTML='';el.style.display='none';return;}
   const s=scopeFor(activeTab);
   // The header's scope band already states the year and the sport, and it is
   // the live control rather than an echo of it. This line only earns its 24px
