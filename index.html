@@ -1008,6 +1008,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .zwift-controls .log-search{flex:0 1 260px;min-width:150px}
 .zwift-counts{margin-left:auto;align-self:center;font-size:13px;color:var(--text-muted);white-space:nowrap}
 .zwift-counts b{color:var(--text);font-weight:600}
+.zwift-pct{white-space:nowrap}.zwift-pct>i{font-style:normal}
 .zwift-status-bar{display:flex;gap:2px;flex-wrap:wrap;margin-bottom:10px}
 .zwift-status-bar .type-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;font-size:12px;font-weight:500;color:var(--text-muted);border:none;background:transparent;border-radius:0;cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit}
 .zwift-status-bar .type-btn:hover:not(.active){color:var(--text)}
@@ -1077,8 +1078,18 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .zwift-cal-detail-item:hover{color:var(--accent)}
 .zwift-detail{padding:14px 16px;background:var(--bg);border-top:1px solid var(--border)}
 .zwift-edit-form{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
-.zwift-edit-form label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--text-muted);font-weight:600}
-.zwift-edit-form select,.zwift-edit-form input{padding:6px 8px;border:1px solid var(--border);border-radius:0;font-size:13px;font-family:inherit;background:var(--surface)}
+.zwift-edit-form label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--text-muted);font-weight:600}
+.zwift-edit-form select,.zwift-edit-form input{height:34px;padding:0 10px;border:1px solid var(--border);border-radius:0;font-size:13px;font-family:inherit;color:var(--text);background:var(--surface);width:100%;min-width:0;-webkit-appearance:none;appearance:none}
+/* appearance:none drops the native arrow, which iOS drew in its own style and size;
+   this one matches the chevrons in the route rows. */
+.zwift-edit-form select{padding-right:30px;background:var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238a8a8a' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 11px center}
+/* An empty date input on iOS collapses to its content, which is nothing. */
+.zwift-edit-form input[type=date]{display:block;line-height:32px}
+.zwift-edit-form input[type=date]::-webkit-date-and-time-value{text-align:left}
+.zwift-edit-form .page-btn{height:34px;padding:0 14px}
+.zwift-edit-form label:nth-of-type(1){width:150px}
+.zwift-edit-form label:nth-of-type(2){width:160px}
+.zwift-edit-form label:nth-of-type(3){width:130px}
 .zwift-edit-error{color:var(--danger);font-size:12px;margin-top:6px;width:100%}
 .zwift-detail-info{font-size:12px}
 .zwift-detail-info tr td{padding:4px 0;color:var(--text-muted)}
@@ -1611,8 +1622,42 @@ tbody td{padding:10px 14px;vertical-align:middle}
   /* Row one: search and the Notion badge. Row two: the counts, then the buttons. */
   .zwift-controls .log-search{flex:1 1 120px;min-width:0}
   .zwift-sync-btn{width:44px}
-  .zwift-counts{order:3;flex-basis:100%;margin:0}
-  .zwift-controls .page-btn{order:4;flex:1}
+  /* Row two: the counts, with Expand and Collapse as small buttons at the end of
+     the same line rather than two full-width slabs. */
+  .zwift-counts{order:3;flex:1 1 0;margin:0;min-width:0}
+  .zwift-controls .page-btn{order:4}
+  /* A zero-height line break after the badge, so the counts start row two instead
+     of squeezing onto row one; the negative margin cancels the extra row gap. */
+  .zwift-controls::after{content:'';order:2;flex-basis:100%;height:0;margin-top:-10px}
+  .zwift-all{display:none}
+  /* 16px search so iOS does not zoom on focus. The badge, counts and buttons all
+     at 13, and the counts may take two lines before a button is pushed off the row. */
+  .zwift-controls .log-search{font-size:16px}
+  .zwift-sync-pill,.zwift-controls .page-btn{font-size:13px}
+  .zwift-controls .page-btn{padding:0 11px}
+  .zwift-counts{white-space:normal;line-height:1.35}
+  /* On two lines the dot would start the second one; it only separates on one. */
+  .zwift-pct{display:block}
+  .zwift-pct>i{display:none}
+
+  /* One type scale for the tab: 15 for route names, 13 for everything that
+     describes them, 12 for labels. It had drifted to five sizes between 11 and 16. */
+  .zwift-row-name{font-size:15px}
+  .zwift-row-stats,.zwift-row-status,.zwift-est,.zwift-counts,.zwift-detail-info,
+  .zwift-group-count{font-size:13px}
+  .zwift-est .ms{font-size:14px}
+  .zwift-group summary{font-size:14px}
+  .zwift-cat-badge{font-size:11px}
+
+  /* Edit form as a grid: Status and Date share a row, then Time with Save and
+     Cancel. Every control is 44px, and 16px text so iOS does not zoom on focus. */
+  .zwift-edit-form{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 10px;align-items:end}
+  .zwift-edit-form label:nth-of-type(n){width:auto;grid-column:span 2}
+  .zwift-edit-form select,.zwift-edit-form input,.zwift-edit-form .page-btn{height:44px;font-size:16px}
+  .zwift-edit-form input[type=date]{line-height:42px}
+  .zwift-edit-form .page-btn{padding:0;font-size:14px}
+  .zwift-edit-error:empty{display:none}
+  .zwift-edit-error{grid-column:1/-1;margin-top:0}
   .unit-opt,.icon-btn{min-height:var(--ctl-h)}
   .header-toolbar{height:auto}
   /* Full-width bottom sheet below 640px, matching the scope panel exactly. */
@@ -2403,8 +2448,8 @@ body.is-loading .stats-grid *{visibility:hidden}
     <input type="search" class="log-search" id="zwiftSearch" placeholder="Search routes…" aria-label="Search routes" oninput="filterZwiftRoutes()">
     <div class="zwift-sync" id="zwiftSync" aria-live="polite"></div>
     <span class="zwift-counts" id="zwiftCounts"></span>
-    <button class="page-btn" onclick="toggleAllZwiftGroups(true)">Expand all</button>
-    <button class="page-btn" onclick="toggleAllZwiftGroups(false)">Collapse all</button>
+    <button class="page-btn" onclick="toggleAllZwiftGroups(true)">Expand<span class="zwift-all"> all</span></button>
+    <button class="page-btn" onclick="toggleAllZwiftGroups(false)">Collapse<span class="zwift-all"> all</span></button>
   </div>
   <div id="zwiftCalendar" style="display:none"></div>
   <div id="zwiftRiddenCallout" class="callout" style="display:none"></div>
@@ -8781,7 +8826,7 @@ function renderZwiftTable(){
   // The counts used to be the search box's placeholder: small, grey, and gone the
   // moment you typed, which is when "shown" matters. They lead the sync line now.
   const countsEl=document.getElementById('zwiftCounts');
-  if(countsEl)countsEl.innerHTML=`<b>${totalShown.toLocaleString('en-GB')}</b> shown of ${ZWIFT_DATA.length.toLocaleString('en-GB')} · <b>${pct}%</b> complete`;
+  if(countsEl)countsEl.innerHTML=`<b>${totalShown.toLocaleString('en-GB')}</b> shown of ${ZWIFT_DATA.length.toLocaleString('en-GB')} <span class="zwift-pct"><i>· </i><b>${pct}%</b> complete</span>`;
 
   document.getElementById('zwiftEmpty').style.display=ZWIFT_DATA.length?'none':(zwiftLoaded?'block':'none');
 
