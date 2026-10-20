@@ -1172,7 +1172,7 @@ async function main() {
       await page.evaluate(() => window.setTab('zwift'));
       await page.waitForFunction(() => zwiftLoaded && !zwiftFetching, null, { timeout: 10000 });
       const ok = await page.evaluate(() => document.getElementById('zwiftSync').textContent);
-      assert(/shown.*from Notion, checked/.test(ok), `after a good load the sync line reads "${ok}"`);
+      assert(/Up to date/.test(ok), `after a good load the sync line reads "${ok}"`);
       const fail = (r) => r.fulfill({ status: 500, contentType: 'application/json', body: '{"error":true,"message":"down"}' });
       await page.route('**/zwift-routes**', fail);
       try {
@@ -1182,7 +1182,7 @@ async function main() {
           stale: document.getElementById('zwiftSync').classList.contains('stale'),
           rows: ZWIFT_DATA.length,
         }));
-        assert(bad.stale && /Couldn't reach Notion/.test(bad.text), `a failed fetch reads "${bad.text}"`);
+        assert(bad.stale && /Not synced/.test(bad.text), `a failed fetch reads "${bad.text}"`);
         assert(bad.rows > 0, 'a failed fetch threw away the saved copy');
       } finally {
         await page.unroute('**/zwift-routes**', fail);

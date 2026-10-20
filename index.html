@@ -1004,17 +1004,29 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .log-pagination{display:flex;align-items:center;gap:8px;padding:14px 16px;border-top:1px solid var(--border);font-size:13px;color:var(--text-muted)}
 .page-btn{padding:5px 10px;border:1px solid var(--border);border-radius:0;cursor:pointer;font-size:12px;background:var(--surface);transition:all .15s}
 .page-btn:hover:not(:disabled){background:var(--bg)}.page-btn:disabled{opacity:.4;cursor:default}
-.zwift-controls{display:flex;gap:10px;margin-bottom:6px;align-items:stretch;flex-wrap:wrap}
+.zwift-controls{display:flex;gap:10px;margin-bottom:14px;align-items:stretch;flex-wrap:wrap}
+.zwift-controls .log-search{flex:0 1 260px;min-width:150px}
+.zwift-counts{margin-left:auto;align-self:center;font-size:13px;color:var(--text-muted);white-space:nowrap}
+.zwift-counts b{color:var(--text);font-weight:600}
 .zwift-status-bar{display:flex;gap:2px;flex-wrap:wrap;margin-bottom:10px}
 .zwift-status-bar .type-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;font-size:12px;font-weight:500;color:var(--text-muted);border:none;background:transparent;border-radius:0;cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit}
 .zwift-status-bar .type-btn:hover:not(.active){color:var(--text)}
 .zwift-status-bar .type-btn.active{font-weight:600}
 .zwift-status-bar .type-btn{position:relative}
-.zwift-sync{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;font-size:13px;color:var(--text-muted);margin:0 0 12px}
-.zwift-sync-counts{color:var(--text);font-weight:500}
-.zwift-sync.stale{color:var(--warn)}
-.zwift-sync-btn{border:none;background:none;padding:0;font:inherit;font-weight:600;color:var(--accent);cursor:pointer}
-.zwift-sync-btn:disabled{color:var(--text-light);cursor:default}
+/* Notion status: a badge saying whether this device is current, and a refresh. */
+.zwift-sync{display:flex;align-items:stretch;gap:0}
+.zwift-sync-pill{display:inline-flex;align-items:center;gap:7px;padding:0 11px;border:1px solid var(--border);border-right:none;background:var(--surface);font-size:12px;font-weight:600;color:var(--text);white-space:nowrap}
+.zwift-sync-pill i{width:7px;height:7px;border-radius:50%;background:#16a34a;flex-shrink:0}
+.zwift-sync.loading .zwift-sync-pill i{background:var(--text-light);animation:zwiftPulse 1s ease-in-out infinite}
+.zwift-sync.stale .zwift-sync-pill{background:var(--warn-soft);border-color:var(--warn-border);color:var(--warn)}
+.zwift-sync.stale .zwift-sync-pill i{background:var(--warn-icon)}
+.zwift-sync-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);cursor:pointer;padding:0}
+.zwift-sync-btn svg{display:block}
+.zwift-sync-btn:hover:not(:disabled){color:var(--text)}
+.zwift-sync-btn:disabled{cursor:default;opacity:.5}
+.zwift-sync.stale .zwift-sync-btn{border-color:var(--warn-border);color:var(--warn)}
+@keyframes zwiftPulse{50%{opacity:.3}}
+@media(prefers-reduced-motion:reduce){.zwift-sync.loading .zwift-sync-pill i{animation:none}}
 .zwift-tab-dot{position:absolute;top:3px;right:2px;width:6px;height:6px;border-radius:50%}
 .zwift-row-notice{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;padding:10px 16px 12px 37px;font-size:12px;color:var(--text-muted);background:var(--bg)}
 .zwift-row-notice strong{color:var(--text)}
@@ -1596,8 +1608,11 @@ tbody td{padding:10px 14px;vertical-align:middle}
   .log-search{height:44px}
   /* Search on its own line, the two buttons sharing the next one, rather than one
      button stranded on a third line. */
-  .zwift-controls .log-search{flex-basis:100%}
-  .zwift-controls .page-btn{flex:1}
+  /* Row one: search and the Notion badge. Row two: the counts, then the buttons. */
+  .zwift-controls .log-search{flex:1 1 120px;min-width:0}
+  .zwift-sync-btn{width:44px}
+  .zwift-counts{order:3;flex-basis:100%;margin:0}
+  .zwift-controls .page-btn{order:4;flex:1}
   .unit-opt,.icon-btn{min-height:var(--ctl-h)}
   .header-toolbar{height:auto}
   /* Full-width bottom sheet below 640px, matching the scope panel exactly. */
@@ -2385,11 +2400,12 @@ body.is-loading .stats-grid *{visibility:hidden}
 <div id="tab-zwift" class="tab-content" role="tabpanel" tabindex="0" aria-labelledby="tabbtn-zwift" hidden>
   <div class="zwift-status-bar" id="zwiftStatusFilters"></div>
   <div class="zwift-controls">
-    <input type="text" class="log-search" id="zwiftSearch" placeholder="Search routes…" oninput="filterZwiftRoutes()">
+    <input type="search" class="log-search" id="zwiftSearch" placeholder="Search routes…" aria-label="Search routes" oninput="filterZwiftRoutes()">
+    <div class="zwift-sync" id="zwiftSync" aria-live="polite"></div>
+    <span class="zwift-counts" id="zwiftCounts"></span>
     <button class="page-btn" onclick="toggleAllZwiftGroups(true)">Expand all</button>
     <button class="page-btn" onclick="toggleAllZwiftGroups(false)">Collapse all</button>
   </div>
-  <div class="zwift-sync" id="zwiftSync" aria-live="polite"></div>
   <div id="zwiftCalendar" style="display:none"></div>
   <div id="zwiftRiddenCallout" class="callout" style="display:none"></div>
   <div id="zwiftGroups"></div>
@@ -2644,7 +2660,7 @@ let zwiftMoving={};let zwiftMoveTimer=null;
 // When this device last heard from Notion, and whether the latest attempt worked.
 // A failed fetch used to fall back to the saved copy silently, so a desktop could
 // show a route as not started for days after it was completed on the phone.
-let zwiftCountsText='';let zwiftSyncedAt=null;let zwiftSyncState='idle';let zwiftFetching=false;
+let zwiftSyncedAt=null;let zwiftSyncState='idle';let zwiftFetching=false;
 const ZWIFT_CACHE_KEY='zwift_routes_v1';
 const ZWIFT_CHECKLIST_KEY='zwift_checklist_v1';
 let zwiftChecklists={};
@@ -8618,21 +8634,29 @@ function zwiftAgo(iso){
   const d=Math.round(h/24);return d+(d===1?' day ago':' days ago');
 }
 
+// Drawn rather than taken from the icon font: if the font is slow or blocked, a
+// ligature shows its name, and "refresh" spelled out overflows a 36px button.
+const ZWIFT_REFRESH_SVG='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>';
+function zwiftAgeShort(iso){
+  const s=Math.max(0,(Date.now()-new Date(iso).getTime())/1000);
+  if(s<3600)return Math.max(1,Math.round(s/60))+'m';
+  if(s<86400)return Math.round(s/3600)+'h';
+  return Math.round(s/86400)+'d';
+}
 function renderZwiftSync(){
   const el=document.getElementById('zwiftSync');
   if(!el)return;
   const ago=zwiftAgo(zwiftSyncedAt);
-  let text,stale=false;
-  if(zwiftSyncState==='loading')text='checking Notion…';
-  else if(zwiftSyncState==='error'){
-    stale=true;
-    text=ago?`Couldn't reach Notion. Showing this device's copy from ${ago}.`:"Couldn't reach Notion.";
-  }else text=ago?`from Notion, checked ${ago}`:'from Notion';
-  el.classList.toggle('stale',stale);
-  const counts=zwiftCountsText?`<span class="zwift-sync-counts">${zwiftCountsText}</span><span aria-hidden="true">·</span>`:'';
-  // The header's year and sport filters still show on this tab; the title says why they do nothing here.
-  el.title='Routes come from Notion. The year and sport filters above do not apply here.';
-  el.innerHTML=text?`${counts}<span>${text}</span><button class="zwift-sync-btn" type="button" onclick="loadZwiftRoutes(true)"${zwiftSyncState==='loading'?' disabled':''}>${stale?'Try again':'Refresh'}</button>`:'';
+  const loading=zwiftSyncState==='loading',stale=zwiftSyncState==='error';
+  let label,detail;
+  if(loading){label='Checking…';detail='Checking Notion for changes.';}
+  else if(stale){
+    label=zwiftSyncedAt?`Not synced · ${zwiftAgeShort(zwiftSyncedAt)} old`:'Not synced';
+    detail=`Couldn't reach Notion.${ago?` Showing this device's copy from ${ago}.`:''}`;
+  }else{label='Up to date';detail=ago?`Checked with Notion ${ago}.`:'From Notion.';}
+  el.classList.toggle('stale',stale);el.classList.toggle('loading',loading);
+  el.title=`${detail} Routes come from Notion; the year and sport filters above do not apply here.`;
+  el.innerHTML=`<span class="zwift-sync-pill"><i aria-hidden="true"></i>${label}</span><button class="zwift-sync-btn" type="button" onclick="loadZwiftRoutes(true)" aria-label="${stale?'Try again':'Refresh from Notion'}"${loading?' disabled':''}>${ZWIFT_REFRESH_SVG}</button>`;
 }
 
 // Coming back to the window is when another device is most likely to have changed
@@ -8756,8 +8780,8 @@ function renderZwiftTable(){
   const pct=ZWIFT_DATA.length?Math.round(totalComplete/ZWIFT_DATA.length*100):0;
   // The counts used to be the search box's placeholder: small, grey, and gone the
   // moment you typed, which is when "shown" matters. They lead the sync line now.
-  zwiftCountsText=`${totalShown.toLocaleString('en-GB')} shown · ${ZWIFT_DATA.length.toLocaleString('en-GB')} routes · ${totalComplete} complete (${pct}%)`;
-  renderZwiftSync();
+  const countsEl=document.getElementById('zwiftCounts');
+  if(countsEl)countsEl.innerHTML=`<b>${totalShown.toLocaleString('en-GB')}</b> shown of ${ZWIFT_DATA.length.toLocaleString('en-GB')} · <b>${pct}%</b> complete`;
 
   document.getElementById('zwiftEmpty').style.display=ZWIFT_DATA.length?'none':(zwiftLoaded?'block':'none');
 
