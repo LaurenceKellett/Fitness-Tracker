@@ -1168,7 +1168,7 @@ async function main() {
       }
     });
 
-    await check('a planned date saves, and moves a Not started route to Planned', async () => {
+    await check('a planned date saves, moves a Not started route to Planned, and dots its day on the calendar', async () => {
       const patchRoute = /\/zwift-routes\/[^/?]+$/;
       let sent = null;
       await page.route(patchRoute, (r) => {
@@ -1187,6 +1187,13 @@ async function main() {
         await page.waitForFunction(() => ZWIFT_DATA.find((r) => r.id === 'todo-a').planned_ride === '2026-11-03', null, { timeout: 5000 });
         assert(sent && sent.planned_ride === '2026-11-03' && sent.status === 'Planned',
           `the save sent ${JSON.stringify(sent)}`);
+        await page.evaluate(() => window.setZwiftStatusFilter('Planned'));
+        const cal = await page.evaluate(() => ({
+          month: document.querySelector('.zwift-cal-title')?.textContent,
+          dots: document.querySelectorAll('.zwift-cal-dot').length,
+        }));
+        assert(cal.month === 'November 2026' && cal.dots === 1,
+          `the calendar opened on ${cal.month} with ${cal.dots} dot(s), not on the planned day`);
       } finally {
         await page.unroute(patchRoute);
         await page.evaluate(() => {

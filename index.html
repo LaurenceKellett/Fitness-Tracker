@@ -1065,6 +1065,9 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .zwift-cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .zwift-cal-title{font-size:13px;font-weight:700}
 .zwift-cal-nav{display:flex;gap:4px}
+/* A dot on an arrow: there are planned rides that way, out of this month's view. */
+.zwift-cal-nav .page-btn{position:relative}
+.zwift-cal-nav .page-btn.has-more::after{content:'';position:absolute;top:3px;right:3px;width:5px;height:5px;background:var(--ride)}
 .zwift-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
 .zwift-cal-dow{font-size:10px;color:var(--text-muted);font-weight:600;padding-bottom:4px}
 .zwift-cal-day{position:relative;padding:6px 0;font-size:12px;border-radius:0;cursor:default;color:var(--text)}
@@ -8920,6 +8923,10 @@ function renderZwiftCalendar(){
   const firstDow=new Date(year,month,1).getDay();
   const daysInMonth=new Date(year,month+1,0).getDate();
   const monthLabel=zwiftCalDate.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+  const monthKey=`${year}-${String(month+1).padStart(2,'0')}`;
+  const dates=Object.keys(planned);
+  const earlier=dates.some(d=>d.slice(0,7)<monthKey);
+  const later=dates.some(d=>d.slice(0,7)>monthKey);
 
   const dowRow=['S','M','T','W','T','F','S'].map(d=>`<div class="zwift-cal-dow">${d}</div>`).join('');
   const blanks=Array.from({length:firstDow},()=>`<div class="zwift-cal-day empty"></div>`).join('');
@@ -8944,8 +8951,8 @@ function renderZwiftCalendar(){
     <div class="zwift-cal-head">
       <span class="zwift-cal-title">${monthLabel}</span>
       <div class="zwift-cal-nav">
-        <button class="page-btn" onclick="stepZwiftCalMonth(-1)">‹</button>
-        <button class="page-btn" onclick="stepZwiftCalMonth(1)">›</button>
+        <button class="page-btn${earlier?' has-more':''}" onclick="stepZwiftCalMonth(-1)" aria-label="Previous month${earlier?', has planned rides':''}">‹</button>
+        <button class="page-btn${later?' has-more':''}" onclick="stepZwiftCalMonth(1)" aria-label="Next month${later?', has planned rides':''}">›</button>
       </div>
     </div>
     <div class="zwift-cal-grid">${dowRow}${blanks}${days}</div>
@@ -9115,10 +9122,17 @@ async function saveZwiftEdit(id){
   const saveBtn=document.getElementById('ze-save-'+id);
   if(saveBtn){saveBtn.disabled=true;saveBtn.textContent='Saving…';}
 
-  const prevStatus=(ZWIFT_DATA.find(r=>r.id===id)||{}).status;
+  const prev=ZWIFT_DATA.find(r=>r.id===id)||{};
+  const prevStatus=prev.status;
   try{
     const saved=await patchZwiftRoute(id,{status,planned_ride:planVal||null,date_completed:dateVal||null,time:timeVal||null});
     zwiftEditingId=null;
+    // A newly planned day should be on screen the next time the calendar is, not
+    // two months along with nothing to say it is there.
+    if(saved.planned_ride&&saved.planned_ride!==prev.planned_ride){
+      const [y,m]=saved.planned_ride.split('-').map(Number);
+      zwiftCalDate=new Date(y,m-1,1);zwiftCalSelected=null;
+    }
     afterZwiftSave(saved,prevStatus);
   }catch(e){
     errorEl.textContent=e.message||'Could not save — try again.';
