@@ -65,7 +65,9 @@ const BEST_EFFORT_FIELDS = {
 
 const ZWIFT_DATA_SOURCE_ID = '13b81faa-c3d2-4f94-83ca-bc782626f1e3';
 const ZWIFT_CACHE_KEY      = 'zwift_routes_v1';
-const ZWIFT_CACHE_TTL      = 120; // 2 minutes — writes invalidate this immediately anyway
+const ZWIFT_CACHE_TTL      = 600; // 10 minutes. Saves from the app clear it at once, and the
+                                   // tab's Refresh skips it; each refill costs one of the
+                                   // free plan's 1,000 KV writes a day.
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
@@ -352,8 +354,8 @@ async function pullActivities(env, { regenerateAi = true, backfillPrs = false } 
     // Both copies, every time, so the fallback is never older than the last
     // successful pull. The serving copy expires; the fallback never does.
     await Promise.all([
-      env.CACHE.put(CACHE_KEY, envelope, { expirationTtl: CACHE_TTL }),
-      env.CACHE.put(LAST_GOOD_KEY, envelope),
+      kvBestEffort(env.CACHE.put(CACHE_KEY, envelope, { expirationTtl: CACHE_TTL }), 'activities cache put'),
+      kvBestEffort(env.CACHE.put(LAST_GOOD_KEY, envelope), 'activities last-good put'),
     ]);
   }
 
@@ -493,8 +495,8 @@ async function pullRecentActivities(env, days) {
     gearMeta: _gearMeta,
   });
   await Promise.all([
-    env.CACHE.put(CACHE_KEY, envelope, { expirationTtl: CACHE_TTL }),
-    env.CACHE.put(LAST_GOOD_KEY, envelope),
+    kvBestEffort(env.CACHE.put(CACHE_KEY, envelope, { expirationTtl: CACHE_TTL }), 'activities cache put'),
+    kvBestEffort(env.CACHE.put(LAST_GOOD_KEY, envelope), 'activities last-good put'),
   ]);
   return envelope;
 }
@@ -768,6 +770,19 @@ async function handlePrefs(request, env) {
   return new Response('Method not allowed', { status: 405, headers: CORS });
 }
 
+// The cache is an optimisation, never the answer. On the free plan KV allows
+// 1,000 writes a day; once they're spent every put() and delete() throws until the
+// daily reset. A throw there used to turn a successful Notion read or write into an
+// error, so the page fell back to a days-old copy while Notion was fine. Cache
+// writes on a request path go through this: logged, then ignored.
+async function kvBestEffort(op, label) {
+  try {
+    await op;
+  } catch (err) {
+    console.error(`KV ${label} failed (cache only, request continues):`, err.message);
+  }
+}
+
 async function handleZwiftRoutes(request, env) {
   if (!env.NOTION_API_KEY) {
     return new Response(JSON.stringify({ error: true, message: 'NOTION_API_KEY not configured' }), {
@@ -793,7 +808,7 @@ async function handleZwiftRoutes(request, env) {
     const envelope = JSON.stringify({ data, updatedAt: new Date().toISOString() });
 
     if (env.CACHE) {
-      await env.CACHE.put(ZWIFT_CACHE_KEY, envelope, { expirationTtl: ZWIFT_CACHE_TTL });
+      await kvBestEffort(env.CACHE.put(ZWIFT_CACHE_KEY, envelope, { expirationTtl: ZWIFT_CACHE_TTL }), 'zwift cache put');
     }
 
     return new Response(envelope, {
@@ -876,7 +891,7 @@ async function handleZwiftRouteUpdate(request, env, pageId) {
     });
 
     if (env.CACHE) {
-      await env.CACHE.delete(ZWIFT_CACHE_KEY);
+      await kvBestEffort(env.CACHE.delete(ZWIFT_CACHE_KEY), 'zwift cache delete');
     }
 
     return new Response(JSON.stringify({ data: transformNotionRoute(page) }), {

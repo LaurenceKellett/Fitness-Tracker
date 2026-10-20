@@ -325,7 +325,7 @@ renders it, so regenerating three times a day would be paying Workers AI for out
 reads; the existing summary is carried forward rather than overwritten with the
 placeholder, so a `?refresh=true` from the ↻ button is still the thing that renews it.
 
-Zwift route data is cached under `zwift_routes_v1` with a short 2-minute TTL (Notion is the source of truth, so this cache only absorbs repeated tab opens — it's deleted immediately on every successful edit).
+Zwift route data is cached under `zwift_routes_v1` with a 10-minute TTL (Notion is the source of truth, so this cache only absorbs repeated tab opens — it's deleted immediately on every successful edit, and the tab's Refresh button bypasses it). Every refill is a KV write, and the free plan allows 1,000 a day, so the TTL is kept long. All cache writes on a request path are best-effort (`kvBestEffort`): once the day's writes are spent, KV throws, and that used to turn a good Notion read into an error and leave the page on a stale copy.
 
 Dashboard settings — the panel order set by **Rearrange this tab** — live under `prefs_v1` with **no TTL**. They are not a cache of anything, and a preference that quietly expired would be worse than one that never synced.
 
