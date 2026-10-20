@@ -1010,7 +1010,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .zwift-status-bar .type-btn:hover:not(.active){color:var(--text)}
 .zwift-status-bar .type-btn.active{font-weight:600}
 .zwift-status-bar .type-btn{position:relative}
-.zwift-sync{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;font-size:12px;color:var(--text-muted);margin:-2px 0 12px}
+.zwift-sync{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;font-size:13px;color:var(--text-muted);margin:0 0 12px}
+.zwift-sync-counts{color:var(--text);font-weight:500}
 .zwift-sync.stale{color:var(--warn)}
 .zwift-sync-btn{border:none;background:none;padding:0;font:inherit;font-weight:600;color:var(--accent);cursor:pointer}
 .zwift-sync-btn:disabled{color:var(--text-light);cursor:default}
@@ -2643,7 +2644,7 @@ let zwiftMoving={};let zwiftMoveTimer=null;
 // When this device last heard from Notion, and whether the latest attempt worked.
 // A failed fetch used to fall back to the saved copy silently, so a desktop could
 // show a route as not started for days after it was completed on the phone.
-let zwiftSyncedAt=null;let zwiftSyncState='idle';let zwiftFetching=false;
+let zwiftCountsText='';let zwiftSyncedAt=null;let zwiftSyncState='idle';let zwiftFetching=false;
 const ZWIFT_CACHE_KEY='zwift_routes_v1';
 const ZWIFT_CHECKLIST_KEY='zwift_checklist_v1';
 let zwiftChecklists={};
@@ -8622,14 +8623,16 @@ function renderZwiftSync(){
   if(!el)return;
   const ago=zwiftAgo(zwiftSyncedAt);
   let text,stale=false;
-  if(zwiftSyncState==='loading')text='Checking Notion for changes…';
+  if(zwiftSyncState==='loading')text='checking Notion…';
   else if(zwiftSyncState==='error'){
     stale=true;
     text=ago?`Couldn't reach Notion. Showing this device's copy from ${ago}.`:"Couldn't reach Notion.";
-  }else text=ago?`Up to date · checked ${ago}`:'';
+  }else text=ago?`from Notion, checked ${ago}`:'from Notion';
   el.classList.toggle('stale',stale);
-  const source='<span>From Notion · the year and sport filters do not apply here</span><span aria-hidden="true">·</span>';
-  el.innerHTML=text?`${source}<span>${text}</span><button class="zwift-sync-btn" type="button" onclick="loadZwiftRoutes(true)"${zwiftSyncState==='loading'?' disabled':''}>${stale?'Try again':'Refresh'}</button>`:'';
+  const counts=zwiftCountsText?`<span class="zwift-sync-counts">${zwiftCountsText}</span><span aria-hidden="true">·</span>`:'';
+  // The header's year and sport filters still show on this tab; the title says why they do nothing here.
+  el.title='Routes come from Notion. The year and sport filters above do not apply here.';
+  el.innerHTML=text?`${counts}<span>${text}</span><button class="zwift-sync-btn" type="button" onclick="loadZwiftRoutes(true)"${zwiftSyncState==='loading'?' disabled':''}>${stale?'Try again':'Refresh'}</button>`:'';
 }
 
 // Coming back to the window is when another device is most likely to have changed
@@ -8751,8 +8754,10 @@ function renderZwiftTable(){
   const totalShown=groups.reduce((n,g)=>n+g.routes.length,0);
   const totalComplete=ZWIFT_DATA.filter(r=>r.status==='Complete').length;
   const pct=ZWIFT_DATA.length?Math.round(totalComplete/ZWIFT_DATA.length*100):0;
-  const searchEl=document.getElementById('zwiftSearch');
-  if(searchEl)searchEl.placeholder=`${totalShown.toLocaleString('en-GB')} shown · ${ZWIFT_DATA.length.toLocaleString('en-GB')} routes · ${totalComplete} complete (${pct}%)`;
+  // The counts used to be the search box's placeholder: small, grey, and gone the
+  // moment you typed, which is when "shown" matters. They lead the sync line now.
+  zwiftCountsText=`${totalShown.toLocaleString('en-GB')} shown · ${ZWIFT_DATA.length.toLocaleString('en-GB')} routes · ${totalComplete} complete (${pct}%)`;
+  renderZwiftSync();
 
   document.getElementById('zwiftEmpty').style.display=ZWIFT_DATA.length?'none':(zwiftLoaded?'block':'none');
 

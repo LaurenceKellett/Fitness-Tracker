@@ -1172,7 +1172,7 @@ async function main() {
       await page.evaluate(() => window.setTab('zwift'));
       await page.waitForFunction(() => zwiftLoaded && !zwiftFetching, null, { timeout: 10000 });
       const ok = await page.evaluate(() => document.getElementById('zwiftSync').textContent);
-      assert(/From Notion.*Up to date/.test(ok), `after a good load the sync line reads "${ok}"`);
+      assert(/shown.*from Notion, checked/.test(ok), `after a good load the sync line reads "${ok}"`);
       const fail = (r) => r.fulfill({ status: 500, contentType: 'application/json', body: '{"error":true,"message":"down"}' });
       await page.route('**/zwift-routes**', fail);
       try {
