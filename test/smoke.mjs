@@ -1168,6 +1168,34 @@ async function main() {
       }
     });
 
+    await check('a planned date saves, and moves a Not started route to Planned', async () => {
+      const patchRoute = /\/zwift-routes\/[^/?]+$/;
+      let sent = null;
+      await page.route(patchRoute, (r) => {
+        const id = decodeURIComponent(r.request().url().split('/').pop());
+        sent = JSON.parse(r.request().postData() || '{}');
+        r.fulfill({ status: 200, contentType: 'application/json',
+          body: JSON.stringify({ data: { ...ZWIFT_FIXTURE.find((x) => x.id === id), ...sent } }) });
+      });
+      try {
+        await page.evaluate(() => { window.setZwiftStatusFilter('All'); window.toggleAllZwiftGroups(true); window.toggleZwiftEdit('todo-a'); });
+        await page.fill('#ze-plan-todo-a', '2026-11-03');
+        await page.dispatchEvent('#ze-plan-todo-a', 'change');
+        const shown = await page.$eval('#ze-status-todo-a', (el) => el.value);
+        assert(shown === 'Planned', `picking a date left the status at ${shown}`);
+        await page.click('#ze-save-todo-a');
+        await page.waitForFunction(() => ZWIFT_DATA.find((r) => r.id === 'todo-a').planned_ride === '2026-11-03', null, { timeout: 5000 });
+        assert(sent && sent.planned_ride === '2026-11-03' && sent.status === 'Planned',
+          `the save sent ${JSON.stringify(sent)}`);
+      } finally {
+        await page.unroute(patchRoute);
+        await page.evaluate(() => {
+          Object.assign(ZWIFT_DATA.find((x) => x.id === 'todo-a'), { status: 'Not started', planned_ride: null });
+          window.setZwiftStatusFilter('All');
+        });
+      }
+    });
+
     await check('the Zwift tab says when it could not reach Notion, and recovers on refresh', async () => {
       await page.evaluate(() => window.setTab('zwift'));
       await page.waitForFunction(() => zwiftLoaded && !zwiftFetching, null, { timeout: 10000 });

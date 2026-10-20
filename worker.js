@@ -11,7 +11,7 @@
 //                             REFRESH). A few requests instead of a couple of dozen
 //   GET /zwift-routes → returns all Zwift routes from Notion in a cached envelope
 //   GET /zwift-routes?refresh=true → forces a fresh pull from Notion
-//   PATCH /zwift-routes/{pageId} → updates Status/Date completed/Time on one route
+//   PATCH /zwift-routes/{pageId} → updates Status/Planned Ride/Date completed/Time on one route
 //   GET /sync-training-log → pulls recent Strava activities into the Notion
 //                             Training Log database (also runs on a schedule —
 //                             see the `crons` entry in wrangler.toml)
@@ -856,7 +856,7 @@ async function handleZwiftRouteUpdate(request, env, pageId) {
     });
   }
 
-  const { status, date_completed, time } = body;
+  const { status, date_completed, planned_ride, time } = body;
   const properties = {};
 
   if (status !== undefined) {
@@ -877,6 +877,16 @@ async function handleZwiftRouteUpdate(request, env, pageId) {
       });
     }
     properties['Date completed'] = date_completed ? { date: { start: date_completed } } : { date: null };
+  }
+
+  if (planned_ride !== undefined) {
+    if (planned_ride !== null && !/^\d{4}-\d{2}-\d{2}$/.test(planned_ride)) {
+      return new Response(JSON.stringify({ error: true, code: 'validation', message: 'planned_ride must be YYYY-MM-DD or null' }), {
+        status: 400,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
+    properties['Planned Ride'] = planned_ride ? { date: { start: planned_ride } } : { date: null };
   }
 
   if (time !== undefined) {

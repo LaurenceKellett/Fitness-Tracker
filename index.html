@@ -1087,9 +1087,9 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .zwift-edit-form input[type=date]{display:block;line-height:32px}
 .zwift-edit-form input[type=date]::-webkit-date-and-time-value{text-align:left}
 .zwift-edit-form .page-btn{height:34px;padding:0 14px}
+.zwift-edit-form label{width:160px}
 .zwift-edit-form label:nth-of-type(1){width:150px}
-.zwift-edit-form label:nth-of-type(2){width:160px}
-.zwift-edit-form label:nth-of-type(3){width:130px}
+.zwift-edit-form label:last-of-type{width:130px}
 .zwift-edit-error{color:var(--danger);font-size:12px;margin-top:6px;width:100%}
 .zwift-detail-info{font-size:12px}
 .zwift-detail-info tr td{padding:4px 0;color:var(--text-muted)}
@@ -1649,13 +1649,14 @@ tbody td{padding:10px 14px;vertical-align:middle}
   .zwift-group summary{font-size:14px}
   .zwift-cat-badge{font-size:11px}
 
-  /* Edit form as a grid: Status and Date share a row, then Time with Save and
-     Cancel. Every control is 44px, and 16px text so iOS does not zoom on focus. */
+  /* Edit form as a grid: Status and Planned ride, then Date completed and Time,
+     then Save and Cancel. Every control is 44px, and 16px text so iOS does not
+     zoom on focus. */
   .zwift-edit-form{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 10px;align-items:end}
   .zwift-edit-form label:nth-of-type(n){width:auto;grid-column:span 2}
   .zwift-edit-form select,.zwift-edit-form input,.zwift-edit-form .page-btn{height:44px;font-size:16px}
   .zwift-edit-form input[type=date]{line-height:42px}
-  .zwift-edit-form .page-btn{padding:0;font-size:14px}
+  .zwift-edit-form .page-btn{padding:0;font-size:14px;grid-column:span 2}
   .zwift-edit-error:empty{display:none}
   .zwift-edit-error{grid-column:1/-1;margin-top:0}
   .unit-opt,.icon-btn{min-height:var(--ctl-h)}
@@ -9047,6 +9048,7 @@ function renderZwiftDetail(r){
       <label>Status<select id="ze-status-${r.id}" onchange="handleZwiftStatusChange('${r.id}','${r.status}')">
         ${ZWIFT_STATUS_ORDER.map(s=>`<option value="${escapeAttr(s)}"${s===r.status?' selected':''}>${escapeHtml(s)}</option>`).join('')}
       </select></label>
+      <label>Planned ride<input type="date" id="ze-plan-${escapeAttr(r.id)}" value="${escapeAttr(r.planned_ride||'')}" onchange="handleZwiftPlanChange('${r.id}')"></label>
       <label>Date completed<input type="date" id="ze-date-${escapeAttr(r.id)}" value="${escapeAttr(r.date_completed||'')}"></label>
       <label>Time (HH:MM:SS)<input type="text" id="ze-time-${escapeAttr(r.id)}" placeholder="00:00:00" value="${escapeAttr(r.time||'')}"></label>
       <button class="page-btn" onclick="saveZwiftEdit('${r.id}')" id="ze-save-${r.id}">Save</button>
@@ -9065,7 +9067,6 @@ function renderZwiftDetail(r){
         const off=diff==null?'':` <span style="color:var(--text-light);font-weight:400">· ${diff>0?'over':'under'} by ${fmtEstTime(Math.abs(diff))}</span>`;
         return `<tr><td>Est. from your times</td><td>~${fmtEstTime(p)}${off}</td></tr>`;
       })()}
-      <tr><td>Planned ride</td><td>${fmtDate(r.planned_ride)}</td></tr>
       <tr><td>In route list?</td><td>${r.in_route_list?'Yes':'No'}</td></tr>
       <tr><td>Links</td><td>${links||'—'}</td></tr>
     </table>
@@ -9086,6 +9087,15 @@ function handleZwiftStatusChange(id,originalStatus){
   }
 }
 
+// Picking a day for a route nobody has started yet is what planning it means, so
+// the status follows; anything further along is left as it is. Still only a
+// suggestion in the form until Save.
+function handleZwiftPlanChange(id){
+  const plan=document.getElementById('ze-plan-'+id);
+  const sel=document.getElementById('ze-status-'+id);
+  if(plan&&plan.value&&sel&&sel.value==='Not started')sel.value='Planned';
+}
+
 async function saveZwiftEdit(id){
   if(zwiftSaving)return;
   const errorEl=document.getElementById('ze-error-'+id);
@@ -9093,6 +9103,7 @@ async function saveZwiftEdit(id){
 
   const status=document.getElementById('ze-status-'+id).value;
   const dateVal=document.getElementById('ze-date-'+id).value;
+  const planVal=document.getElementById('ze-plan-'+id).value;
   const timeVal=document.getElementById('ze-time-'+id).value.trim();
 
   if(timeVal&&!/^\d{2}:\d{2}:\d{2}$/.test(timeVal)){
@@ -9106,7 +9117,7 @@ async function saveZwiftEdit(id){
 
   const prevStatus=(ZWIFT_DATA.find(r=>r.id===id)||{}).status;
   try{
-    const saved=await patchZwiftRoute(id,{status,date_completed:dateVal||null,time:timeVal||null});
+    const saved=await patchZwiftRoute(id,{status,planned_ride:planVal||null,date_completed:dateVal||null,time:timeVal||null});
     zwiftEditingId=null;
     afterZwiftSave(saved,prevStatus);
   }catch(e){

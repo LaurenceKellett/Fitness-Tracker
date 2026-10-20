@@ -349,7 +349,7 @@ Dashboard settings — the panel order set by **Rearrange this tab** — live un
 | `GET /backfill-prs` | Collects one slice (40) of segment PBs from Strava's best-efforts and refreshes the cache. Returns `{ checked, found, remaining }`. Also runs automatically on the cron — see **Segment PBs** below. The envelope it republishes carries `hrZones`; without that, running this route stripped the zone chart's provenance and dropped it silently to a derived max |
 | `GET /zwift-routes` | Returns the cached Zwift routes envelope `{ data, updatedAt }`, proxied live from Notion |
 | `GET /zwift-routes?refresh=true` | Bypasses cache, re-fetches all routes from Notion |
-| `PATCH /zwift-routes/{pageId}` | Updates `status`/`date_completed`/`time` on one route, writes straight to Notion |
+| `PATCH /zwift-routes/{pageId}` | Updates `status`/`planned_ride`/`date_completed`/`time` on one route, writes straight to Notion |
 | `GET /refresh-status` | What the current or last pull from Strava is doing: `{ state, stage, page, fetched, expectedPages, expectedTotal, lastDurationMs, startedAt, updatedAt }`, `state` one of `idle`, `running`, `done`, `failed`. Written by the refresh as it goes, one KV write every 1.2 s at most; `Cache-Control: no-store` |
 | `GET /prefs` | The dashboard's own settings — today the panel order per zone — as `{ prefs, updatedAt }`. `updatedAt` is 0 when nothing has ever been saved |
 | `PUT /prefs` | Stores `{ prefs, updatedAt }`. The newer stamp wins: a record older than the one held is not written, and the held one comes back with `X-Prefs: stale`. No auth, like the rest of the Worker — it holds nothing that would matter if a stranger read or shuffled it, and Reset undoes a shuffle |
