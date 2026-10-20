@@ -1202,6 +1202,11 @@ async function main() {
         }));
         assert(cal.month === 'November 2026' && cal.dots === 1,
           `the calendar opened on ${cal.month} with ${cal.dots} dot(s), not on the planned day`);
+        // done-0 is Complete with a January planned day; that is history, not a
+        // reason to flag the back arrow.
+        const backFlag = await page.evaluate(() =>
+          document.querySelector('.zwift-cal-nav .page-btn').classList.contains('has-more'));
+        assert(!backFlag, 'the back arrow is flagged for a completed route\'s old planned day');
       } finally {
         await page.unroute(patchRoute);
         await page.evaluate(() => {

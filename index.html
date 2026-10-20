@@ -8972,7 +8972,10 @@ function renderZwiftCalendar(){
   const daysInMonth=new Date(year,month+1,0).getDate();
   const monthLabel=zwiftCalDate.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
   const monthKey=`${year}-${String(month+1).padStart(2,'0')}`;
-  const dates=Object.keys(planned);
+  // Arrows only point at rides still to do. Completed routes keep their old
+  // planned days, which flagged every month back to January as if something
+  // were waiting there.
+  const dates=Object.entries(planned).filter(([,rs])=>rs.some(r=>r.status!=='Complete')).map(([d])=>d);
   const earlier=dates.some(d=>d.slice(0,7)<monthKey);
   const later=dates.some(d=>d.slice(0,7)>monthKey);
 
@@ -8999,8 +9002,8 @@ function renderZwiftCalendar(){
     <div class="zwift-cal-head">
       <span class="zwift-cal-title">${monthLabel}</span>
       <div class="zwift-cal-nav">
-        <button class="page-btn${earlier?' has-more':''}" onclick="stepZwiftCalMonth(-1)" aria-label="Previous month${earlier?', has planned rides':''}">‹</button>
-        <button class="page-btn${later?' has-more':''}" onclick="stepZwiftCalMonth(1)" aria-label="Next month${later?', has planned rides':''}">›</button>
+        <button class="page-btn${earlier?' has-more':''}" onclick="stepZwiftCalMonth(-1)" aria-label="Previous month${earlier?', has planned rides':''}"${earlier?' title="Planned rides in an earlier month"':''}>‹</button>
+        <button class="page-btn${later?' has-more':''}" onclick="stepZwiftCalMonth(1)" aria-label="Next month${later?', has planned rides':''}"${later?' title="Planned rides in a later month"':''}>›</button>
       </div>
     </div>
     <div class="zwift-cal-grid">${dowRow}${blanks}${days}</div>
