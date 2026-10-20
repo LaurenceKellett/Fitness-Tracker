@@ -1922,7 +1922,7 @@ body.is-loading .stats-grid *{visibility:hidden}
 <!-- calc.js carries a stamp of its own content (npm run stamp; the unit tests check it
      is current), so a freshly deployed page can never be paired with a cached older copy
      of the script — which is exactly how one deploy died on "daysInYear is not defined". -->
-<script src="calc.js?v=75a5f542"></script>
+<script src="calc.js?v=27d65f63"></script>
 <div id="dashTooltip" class="dash-tooltip"></div>
 <div class="main">
 
@@ -8989,29 +8989,26 @@ function setZwiftYearMeasure(m){zwiftYearMeasure=m;renderZwiftYearChart();}
 const zwiftYearLabels={
   id:'zwiftYearLabels',
   afterDatasetsDraw(chart,args,opts){
-    const {ctx}=chart,meta0=chart.getDatasetMeta(0),meta1=chart.getDatasetMeta(1);
-    const roomy=chart.chartArea.width/(meta0.data.length||1)>=90;
-    ctx.save();
-    ctx.textAlign='center';ctx.textBaseline='bottom';
-    meta0.data.forEach((bar,i)=>{
-      const v=chart.data.datasets[0].data[i];
-      const extra=chart.data.datasets[1].data[i];
-      const topBar=extra&&meta1.data[i]?meta1.data[i]:bar;
-      const main=opts.fmt(v);
-      ctx.font='700 11px '+opts.font;ctx.fillStyle=opts.text;
-      if(extra&&roomy){
-        const rest=' → '+opts.fmt(v+extra);
-        ctx.font='700 11px '+opts.font;const w1=ctx.measureText(main).width;
-        ctx.font='500 11px '+opts.font;const w2=ctx.measureText(rest).width;
-        const x0=topBar.x-(w1+w2)/2;
-        ctx.textAlign='left';
-        ctx.font='700 11px '+opts.font;ctx.fillStyle=opts.text;ctx.fillText(main,x0,topBar.y-5);
-        ctx.font='500 11px '+opts.font;ctx.fillStyle=opts.muted;ctx.fillText(rest,x0+w1,topBar.y-5);
-        ctx.textAlign='center';
-      }else{
-        ctx.fillText(main,topBar.x,topBar.y-5);
-      }
-    });
+    const {ctx}=chart,ds=chart.data.datasets,n=ds[0].data.length;
+    const roomy=chart.chartArea.width/(n||1)>=90;
+    ctx.save();ctx.textBaseline='bottom';
+    for(let i=0;i<n;i++){
+      const done=ds[0].data[i]||0,plan=ds[1].data[i]||0,cap=ds[2].data[i]||0;
+      // The label sits over the tallest segment drawn for the year.
+      let top=null;
+      for(let d=2;d>=0;d--){const el=chart.getDatasetMeta(d).data[i];if(ds[d].data[i]){top=el;break;}}
+      top=top||chart.getDatasetMeta(0).data[i];
+      const parts=[];
+      if(done||!plan)parts.push([opts.fmt(done),'700',opts.text]);
+      if(plan&&(roomy||!done))parts.push([(done?' + ':'')+opts.fmt(plan)+(done||!roomy?'':' planned'),'600',opts.planned]);
+      if(cap&&roomy)parts.push([' → '+opts.fmt(done+plan+cap),'500',opts.muted]);
+      const w=parts.map(([t,wt])=>{ctx.font=wt+' 11px '+opts.font;return ctx.measureText(t).width;});
+      const total=w.reduce((a,b)=>a+b,0);
+      // Centred over the bar, but never past either edge of the plot.
+      let x=Math.min(Math.max(top.x-total/2,chart.chartArea.left),chart.chartArea.right-total);
+      ctx.textAlign='left';
+      parts.forEach(([t,wt,col],k)=>{ctx.font=wt+' 11px '+opts.font;ctx.fillStyle=col;ctx.fillText(t,x,top.y-5);x+=w[k];});
+    }
     ctx.restore();
   }
 };
@@ -9030,7 +9027,13 @@ function renderZwiftYearChart(){
   const fmt=v=>Math.round(v).toLocaleString('en-GB')+(byDist?' '+distUnit():'');
   const years=st.years;
   const done=years.map(val);
-  const ahead=years.map(y=>st.pace&&y.year===st.pace.year?Math.max(0,(byDist?Math.round(conv(st.pace.mi)):st.pace.count)-val(y)):null);
+  const planVal=y=>byDist?Math.round(conv(y.plannedMi)):y.planned;
+  const planned=years.map(y=>planVal(y)||null);
+  // The pace cap only shows what pace adds beyond done and planned together, so
+  // no route is drawn twice.
+  const ahead=years.map(y=>st.pace&&y.year===st.pace.year?Math.max(0,(byDist?Math.round(conv(st.pace.mi)):st.pace.count)-val(y)-planVal(y))||null:null);
+  const plannedCol=zwiftStatusColor('Planned');
+  const plannedTotal=years.reduce((n,y)=>n+y.planned,0);
 
   const sub=document.getElementById('zwiftYearSub');
   if(sub)sub.textContent=(byDist?`${distUnit()==='km'?'Kilometres':'Miles'} of route completed each year`:'Routes completed each year')
@@ -9046,6 +9049,7 @@ function renderZwiftYearChart(){
     {n:st.complete.toLocaleString('en-GB'),label:`completed of ${st.total.toLocaleString('en-GB')}`,col:virtual},
     {n:fmt(val(best)),label:`best year, ${best.year}`,col:virtual},
   ];
+  if(plannedTotal)chips.push({n:String(plannedTotal),label:'planned',col:plannedCol});
   if(st.pace)chips.push({n:'~'+fmt(byDist?conv(st.pace.mi):st.pace.count),label:`on pace for ${st.pace.year}`,col:paceCol});
   chartSummary('zwiftYear',chips,zwiftYearVerdict(st));
 
@@ -9057,13 +9061,16 @@ function renderZwiftYearChart(){
       type:'bar',
       data:{labels:years.map(y=>String(y.year)),datasets:[
         {label:byDist?'Distance':'Routes',data:done,backgroundColor:virtual,borderRadius:0,stack:'y'},
+        {label:'Planned',data:planned,backgroundColor:plannedCol,borderRadius:0,stack:'y'},
         {label:'On pace',data:ahead,backgroundColor:paceCol,borderColor:virtual,borderWidth:1.5,borderRadius:0,stack:'y'},
       ]},
       plugins:[zwiftYearLabels],
       options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:18}},
         plugins:{legend:{display:false},
-          zwiftYearLabels:{fmt:v=>Math.round(v).toLocaleString('en-GB'),text:cssVar('--text','#111'),muted:cssVar('--text-muted','#666'),font:getComputedStyle(document.body).fontFamily},
-          tooltip:{callbacks:{label:c=>c.datasetIndex===0?fmt(c.parsed.y):`on pace for ~${fmt(c.parsed.y+done[c.dataIndex])}`}}},
+          zwiftYearLabels:{fmt:v=>Math.round(v).toLocaleString('en-GB'),planned:plannedCol,text:cssVar('--text','#111'),muted:cssVar('--text-muted','#666'),font:getComputedStyle(document.body).fontFamily},
+          tooltip:{callbacks:{label:c=>c.datasetIndex===0?`${fmt(c.parsed.y)} completed`
+            :c.datasetIndex===1?`${fmt(c.parsed.y)} planned`
+            :`on pace for ~${fmt(c.parsed.y+done[c.dataIndex]+(planned[c.dataIndex]||0))}`}}},
         scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:11},color:chartTick(),maxRotation:0,autoSkip:false,
             // "so far" on this year only where a slot has room for it. Asked at every
             // layout, so turning the phone round adds or drops it; untilted, because

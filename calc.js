@@ -947,6 +947,10 @@ function daysInYear(y){return(+y%4===0&&(+y%100!==0||+y%400===0))?366:365;}
  * marked Complete with no date are counted, not placed: they cannot be put in a
  * year, and dropping them silently would make the total disagree with the tab.
  *
+ * Planned routes sit on top of the year they are planned for. One planned for a
+ * day already gone, or with no day yet, is still to do, so it counts towards this
+ * year rather than swelling a finished one; only a date in a later year moves it.
+ *
  * The current year also gets a pace: what it comes to if the rest of the year
  * goes like the part already done. Before ZW_PACE_MIN_DAYS that is three or four
  * routes multiplied by a hundred and would say nothing, so there is none.
@@ -963,11 +967,19 @@ function zwiftYearStats(routes,todayIso){
     b.count++;b.mi+=r.distance_mi||0;
   });
   const keys=Object.keys(byYear).map(Number);
+  const plan={};
+  (routes||[]).filter(r=>r.status==='Planned').forEach(r=>{
+    const py=/^\d{4}/.test(r.planned_ride||'')?+r.planned_ride.slice(0,4):thisYear;
+    const y=Math.max(py,thisYear);
+    const b=plan[y]||(plan[y]={n:0,mi:0});
+    b.n++;b.mi+=r.distance_mi||0;
+  });
+  const planKeys=Object.keys(plan).map(Number);
   const years=[];
   if(keys.length){
-    for(let y=Math.min(...keys);y<=Math.max(thisYear,...keys);y++){
-      const b=byYear[y]||{count:0,mi:0};
-      years.push({year:y,count:b.count,mi:b.mi});
+    for(let y=Math.min(...keys);y<=Math.max(thisYear,...keys,...planKeys);y++){
+      const b=byYear[y]||{count:0,mi:0},p=plan[y]||{n:0,mi:0};
+      years.push({year:y,count:b.count,mi:b.mi,planned:p.n,plannedMi:p.mi});
     }
   }
   let pace=null;
@@ -998,6 +1010,8 @@ function zwiftYearVerdict(st){
     const months=Math.max(1,Math.round(left/(p/12)));
     s+=` ${left} route${left===1?' is':'s are'} left, so at this rate the catalogue is done in about ${months} month${months===1?'':'s'}, unless Zwift adds more first.`;
   }else if(left===0)s+=' Every route in the catalogue is done.';
+  const cur=st.years.find(y=>y.year===st.pace.year);
+  if(cur&&cur.planned)s+=` ${cur.planned} more ${cur.planned===1?'is':'are'} planned.`;
   return s;
 }
 

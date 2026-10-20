@@ -1611,8 +1611,10 @@ not started for five days after it was completed on the phone.
   that month, and the month arrows carry a dot when routes not yet complete are planned
   before or after the month in view.
 - **The Complete filter shows routes completed by year**, by the date completed in
-  Notion, with this year's pace (from day 30) drawn as a paler cap on its bar and a
-  Routes/Distance switch. Completed routes with no date are counted in the total but not
+  Notion, with a Routes/Distance switch. Planned routes stack on top in the Planned blue,
+  on the year they are planned for; one with no day yet, or a day already gone, counts
+  towards this year, so a finished year never grows. This year's pace (from day 30) is a
+  paler cap above done and planned together, drawn only where it adds to them. Completed routes with no date are counted in the total but not
   placed in a year, and the subtitle says how many. The arithmetic is `zwiftYearStats`
   and `zwiftYearVerdict` in `calc.js`.
 - **Saving a time on a route that is not Complete offers "Mark complete"**, which saves

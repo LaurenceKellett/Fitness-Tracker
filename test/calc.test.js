@@ -1516,6 +1516,25 @@ describe('zwiftYearStats', () => {
   });
 });
 
+describe('zwiftYearStats: planned routes', () => {
+  const planned = (day, mi = 5) => ({ status: 'Planned', planned_ride: day, distance_mi: mi });
+  const done = (date) => ({ status: 'Complete', date_completed: date, distance_mi: 10 });
+
+  it('puts a planned route on the year it is planned for, and an undated or overdue one on this year', () => {
+    const st = zwiftYearStats([done('2025-05-05'), planned('2026-11-03'), planned(null), planned('2025-12-01'),
+      planned('2027-02-02T17:05:00.000+00:00')], '2026-10-20');
+    const by = Object.fromEntries(st.years.map((y) => [y.year, y.planned]));
+    expect(by).toEqual({ 2025: 0, 2026: 3, 2027: 1 });
+    expect(st.years.find((y) => y.year === 2026).plannedMi).toBe(15);
+  });
+
+  it('does not count a planned route as complete', () => {
+    const st = zwiftYearStats([done('2026-01-05'), planned(null)], '2026-10-20');
+    expect(st.complete).toBe(1);
+    expect(st.years.find((y) => y.year === 2026).count).toBe(1);
+  });
+});
+
 describe('zwiftYearVerdict', () => {
   // The real catalogue on 20 October 2026: 318 of 361 done.
   const real = () => {
@@ -1524,7 +1543,8 @@ describe('zwiftYearVerdict', () => {
     Object.entries(per).forEach(([y, n]) => {
       for (let i = 0; i < n; i++) rows.push({ status: 'Complete', date_completed: `${y}-01-15`, distance_mi: 10 });
     });
-    for (let i = 0; i < 43; i++) rows.push({ status: 'Not started', date_completed: null, distance_mi: 10 });
+    for (let i = 0; i < 40; i++) rows.push({ status: 'Not started', date_completed: null, distance_mi: 10 });
+    for (let i = 0; i < 3; i++) rows.push({ status: 'Planned', date_completed: null, planned_ride: null, distance_mi: 10 });
     return rows;
   };
 
@@ -1532,7 +1552,8 @@ describe('zwiftYearVerdict', () => {
     const st = zwiftYearStats(real(), '2026-10-20');
     expect(st.pace.count).toBe(54);
     expect(zwiftYearVerdict(st)).toBe('On pace for about 54 this year, behind 2024 and 2025. '
-      + '43 routes are left, so at this rate the catalogue is done in about 10 months, unless Zwift adds more first.');
+      + '43 routes are left, so at this rate the catalogue is done in about 10 months, unless Zwift adds more first. '
+      + '3 more are planned.');
   });
 
   it('calls a pace above every earlier year the best yet', () => {
