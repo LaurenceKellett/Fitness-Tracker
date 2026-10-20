@@ -64,6 +64,9 @@ const BEST_EFFORT_FIELDS = {
 };
 
 const ZWIFT_DATA_SOURCE_ID = '13b81faa-c3d2-4f94-83ca-bc782626f1e3';
+// The cron runs every three hours (wrangler.toml). These are the runs that do a
+// full pull; the others merge the last week. See scheduled().
+const FULL_PULL_HOURS_UTC = [9, 15, 21];
 const ZWIFT_CACHE_KEY      = 'zwift_routes_v1';
 const ZWIFT_CACHE_TTL      = 600; // 10 minutes. Saves from the app clear it at once, and the
                                    // tab's Refresh skips it; each refill costs one of the
@@ -119,9 +122,18 @@ export default {
         console.error('Scheduled Notion sync failed:', err.message);
       }
       try {
-        // backfillPrs: the cron is the only place that spends Strava requests on
-        // segment PBs, a slice at a time, so it never delays a page load.
-        await refreshActivitiesCache(env, { regenerateAi: false, backfillPrs: true, source: 'cron' });
+        // Every three hours, but only three of those runs pay for the whole
+        // history (pages of activities, gear lookups and a slice of segment PBs).
+        // The rest ask Strava for the last week, usually one request, and merge
+        // it in. That keeps the cache, and the CV that reads it, at most three
+        // hours behind without spending Strava's daily allowance eight times over.
+        const hour = new Date(event.scheduledTime).getUTCHours();
+        const merged = FULL_PULL_HOURS_UTC.includes(hour) ? null : await pullRecentActivities(env, 7);
+        if (!merged) {
+          // backfillPrs: the cron is the only place that spends Strava requests on
+          // segment PBs, a slice at a time, so it never delays a page load.
+          await refreshActivitiesCache(env, { regenerateAi: false, backfillPrs: true, source: 'cron' });
+        }
       } catch (err) {
         // The previous cache entry stays put, so a failed refresh serves stale
         // data rather than none.

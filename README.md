@@ -302,13 +302,17 @@ The Worker caches all activity data under the key `activities_v3` with a 24-hour
 - **Heart-rate zones are recomputed for the whole merged history**, not just the new activities: the athlete's max heart rate is the 99th percentile of every peak, so a few hard efforts this week move every older activity's zones too.
 - **An error is an error.** The full pull treats any non-list reply from Strava as the end of the activities and carries on with what it has, so a rate limit mid-pull writes a truncated history as the "last good" copy. The week-only pull throws instead and the Worker serves the last good copy, marked `X-Cache: STALE`.
 - **It does not touch the refresh-progress record** (`refresh_last_v1`). That records a full pull's duration and count so the dashboard can say "about 40 seconds left" for the next one; a one-second pull of three activities written there would make that estimate nonsense.
-- `tests/recent-refresh.test.js` drives the real handler against a stubbed Strava and a fake KV, because the property that matters is a property of the whole path: what is read, what is asked and what is written back.
+- `test/recent-refresh.test.js` drives the real handler against a stubbed Strava and a fake KV, because the property that matters is a property of the whole path: what is read, what is asked and what is written back.
 
-**The cron keeps it warm.** Each scheduled run refreshes that cache after the Notion
-sync, so the dashboard is current when you open it rather than serving up-to-24-hour-old
-data — and you never land on the slow first visit that pays a full Strava pull because the
-TTL lapsed. Fires run at most 9 hours apart against a 24-hour TTL, so in normal operation
-the entry never actually expires; the TTL is the safety net, not the refresh mechanism.
+**The cron keeps it warm.** The cron fires every three hours (`0 */3 * * *`) and each run
+refreshes that cache after the Notion sync, so the dashboard — and the CV repo's daily
+snapshot, which reads `/activities` — is never more than three hours behind Strava. Only
+the **09:00, 15:00 and 21:00 UTC** runs pay for a full pull (whole history, gear lookups,
+a slice of segment PBs); the other five use the week-only merge above, usually one Strava
+request. The hours are `FULL_PULL_HOURS_UTC` in `worker.js`, and `test/cron.test.js`
+checks which pull each hour makes. With nothing cached to merge into, a light run falls
+back to a full pull. Against a 24-hour TTL the entry never actually expires; the TTL is
+the safety net, not the refresh mechanism.
 
 **And a second copy that never expires.** Every successful refresh writes the same
 envelope twice: to `activities_v3`, which is meant to go stale because that is what makes
@@ -321,7 +325,7 @@ carries `X-Cache: STALE` rather than `HIT` or `MISS`. Only a Worker that has nev
 completed a single refresh can now fail the request.
 
 The scheduled refresh does **not** regenerate the AI summary. The dashboard no longer
-renders it, so regenerating three times a day would be paying Workers AI for output nobody
+renders it, so regenerating it on every scheduled run would be paying Workers AI for output nobody
 reads; the existing summary is carried forward rather than overwritten with the
 placeholder, so a `?refresh=true` from the ↻ button is still the thing that renews it.
 
@@ -354,8 +358,8 @@ Dashboard settings — the panel order set by **Rearrange this tab** — live un
 
 ## Training Log sync
 
-Strava activities are written into the **Training Log** Notion database three
-times a day (`[triggers] crons` in `wrangler.toml`, plus `GET /sync-training-log`
+Strava activities are written into the **Training Log** Notion database every
+three hours (`[triggers] crons` in `wrangler.toml`, plus `GET /sync-training-log`
 to run it on demand). This replaced a Zapier automation that stopped firing.
 
 The same cron then warms the activities cache (see **KV namespace** above). The two run
@@ -459,8 +463,8 @@ So they are collected gradually:
   meaning *asked, this activity has none*. It has **no TTL** — re-deriving an
   entry costs a Strava request.
 - Each cron run takes the `BEST_EFFORTS_BUDGET` (40) newest runs not yet in the
-  store, four at a time. Three crons a day is ~120 requests — well inside the
-  limit. A few hundred runs are covered within a week.
+  store, four at a time. Only the three full-pull runs a day (09:00, 15:00,
+  21:00 UTC) do this, so it is ~120 requests a day — well inside the limit. A few hundred runs are covered within a week.
 - Only `Run`, `TrailRun` and `VirtualRun` are asked about. A ride has no best
   efforts, so asking would waste a request.
 - A 404 (deleted or no longer readable) is recorded as `null` so it is never
@@ -1572,6 +1576,41 @@ Two things follow from storing it. A written estimate is a **snapshot**: the fit
 time a route is completed, and nothing rewrites Notion, so the stored numbers drift from the
 app's live ones. And the app shows whatever `Est. Duration` holds verbatim, labelled *(in
 Notion)* rather than *(published)*, because for most rows it is no longer a published figure.
+
+### Staying in step with Notion
+
+The tab shows this device's saved copy (`zwift_routes_v1` in localStorage) at once,
+then asks the Worker. Two things used to let a device sit on a days-old copy without
+saying so: it only asked when the tab was opened, and a failed request fell back to the
+saved copy with nothing but a console error. A desktop left on the tab showed a route as
+not started for five days after it was completed on the phone.
+
+- **It asks again when you come back.** On `focus`, `visibilitychange` and a
+  back-forward-cache `pageshow`, at most every 20 seconds, and never while a route is
+  open for editing or counting down to its move, since redrawing would discard what you
+  were typing.
+- **A badge beside the search says where it stands**: green **Up to date**, amber
+  **Not synced · 5d old** when the Worker could not be reached, or **Checking…**. The
+  refresh button beside it calls `/zwift-routes?refresh=true`, which skips the Worker's
+  cache. The badge's tooltip says when Notion was last checked and that the year and
+  sport filters do not apply to this tab; that used to be a line of its own.
+- The counts (`60 shown of 361 · 88% complete`) sit at the right of the same row. They
+  were the search box's placeholder, which was small and grey and vanished as soon as you
+  typed.
+
+### Planning and completing a route
+
+- **A dot on the Planned filter** while it has routes and is not the open filter, since
+  Planned is usually what gets ridden next.
+- **Saving a time on a route that is not Complete offers "Mark complete"**, which saves
+  it as Complete with today's date (or the one already entered) and leaves the time alone.
+- **A route just marked complete stays put for five seconds**, counting down with a
+  **Move now** button, instead of vanishing from the Planned or Not started list the
+  instant its status stops matching. On the All and Complete filters, where it would not
+  leave, there is no countdown. `test/smoke.mjs` drives save → suggest → countdown → gone.
+- On a phone each route's name takes its own line and wraps. The stats, estimate and
+  badges never shrink, so the name used to be the only thing that could, and it was cut to
+  a few letters (or to nothing beside a Rebel badge).
 
 ---
 
