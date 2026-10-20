@@ -110,7 +110,8 @@ const ZWIFT_FIXTURE = (() => {
       id: `done-${i}`, route: `Done Route ${i}`, maps: ['Watopia'],
       distance_mi: d, elevation_ft: e, est_duration: null,
       date_completed: '2026-01-0' + ((i % 9) + 1), time: `${hh}:${mm}:${ss}`, time_sec: t,
-      status: 'Complete', planned_ride: null, link_zi: null, link_strava: null,
+      status: 'Complete', planned_ride: i === 0 ? '2026-01-31T17:05:00.000+00:00' : null,
+      link_zi: null, link_strava: null,
       link_zh: null, in_route_list: true, directions: null, last_edited: null,
     });
   }
@@ -1170,23 +1171,30 @@ async function main() {
 
     await check('a planned date saves, moves a Not started route to Planned, and dots its day on the calendar', async () => {
       const patchRoute = /\/zwift-routes\/[^/?]+$/;
-      let sent = null;
+      let sent = null, patches = 0;
       await page.route(patchRoute, (r) => {
         const id = decodeURIComponent(r.request().url().split('/').pop());
+        patches++;
         sent = JSON.parse(r.request().postData() || '{}');
         r.fulfill({ status: 200, contentType: 'application/json',
           body: JSON.stringify({ data: { ...ZWIFT_FIXTURE.find((x) => x.id === id), ...sent } }) });
       });
       try {
         await page.evaluate(() => { window.setZwiftStatusFilter('All'); window.toggleAllZwiftGroups(true); window.toggleZwiftEdit('todo-a'); });
+        // No Save: picking the day is the save, and it must survive opening another route.
         await page.fill('#ze-plan-todo-a', '2026-11-03');
         await page.dispatchEvent('#ze-plan-todo-a', 'change');
-        const shown = await page.$eval('#ze-status-todo-a', (el) => el.value);
-        assert(shown === 'Planned', `picking a date left the status at ${shown}`);
-        await page.click('#ze-save-todo-a');
+        await page.dispatchEvent('#ze-plan-todo-a', 'blur');
         await page.waitForFunction(() => ZWIFT_DATA.find((r) => r.id === 'todo-a').planned_ride === '2026-11-03', null, { timeout: 5000 });
         assert(sent && sent.planned_ride === '2026-11-03' && sent.status === 'Planned',
-          `the save sent ${JSON.stringify(sent)}`);
+          `picking the day sent ${JSON.stringify(sent)}`);
+        assert(patches === 1, `one pick sent ${patches} saves`);
+        const still = await page.evaluate(() => ({
+          open: zwiftEditingId, status: document.getElementById('ze-status-todo-a')?.value,
+        }));
+        assert(still.open === 'todo-a' && still.status === 'Planned',
+          `after the save the form was ${JSON.stringify(still)}`);
+        await page.evaluate(() => window.toggleZwiftEdit('todo-b'));
         await page.evaluate(() => window.setZwiftStatusFilter('Planned'));
         const cal = await page.evaluate(() => ({
           month: document.querySelector('.zwift-cal-title')?.textContent,
@@ -1200,6 +1208,33 @@ async function main() {
           Object.assign(ZWIFT_DATA.find((x) => x.id === 'todo-a'), { status: 'Not started', planned_ride: null });
           window.setZwiftStatusFilter('All');
         });
+      }
+    });
+
+    await check('a planned ride with a start time lands on its day, and a save leaves the time alone', async () => {
+      const patchRoute = /\/zwift-routes\/[^/?]+$/;
+      let sent = null;
+      await page.route(patchRoute, (r) => {
+        const id = decodeURIComponent(r.request().url().split('/').pop());
+        sent = JSON.parse(r.request().postData() || '{}');
+        r.fulfill({ status: 200, contentType: 'application/json',
+          body: JSON.stringify({ data: { ...ZWIFT_FIXTURE.find((x) => x.id === id), ...sent } }) });
+      });
+      try {
+        const days = await page.evaluate(() => {
+          const m = getZwiftPlannedByDate();
+          return Object.fromEntries(Object.entries(m).map(([d, rs]) => [d, rs.map((r) => r.id)]));
+        });
+        assert((days['2026-01-31'] || []).includes('done-0'), `the 17:05 ride on 31 January filed under ${JSON.stringify(days)}`);
+        await page.evaluate(() => { window.setZwiftStatusFilter('All'); window.toggleAllZwiftGroups(true); window.toggleZwiftEdit('done-0'); });
+        const shown = await page.$eval('#ze-plan-done-0', (el) => el.value);
+        assert(shown === '2026-01-31', `the date field showed "${shown}"`);
+        await page.click('#ze-save-done-0');
+        await page.waitForFunction(() => zwiftEditingId === null, null, { timeout: 5000 });
+        assert(sent && !('planned_ride' in sent), `an unchanged day was sent back: ${JSON.stringify(sent)}`);
+      } finally {
+        await page.unroute(patchRoute);
+        await page.evaluate(() => { zwiftMoving = {}; zwiftSuggestCompleteId = null; window.setZwiftStatusFilter('All'); });
       }
     });
 

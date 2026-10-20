@@ -8741,7 +8741,7 @@ function filterZwiftRoutes(){zwiftSearch=document.getElementById('zwiftSearch').
 
 function getZwiftGroups(){
   let rows=ZWIFT_DATA;
-  if(zwiftStatusFilter!=='All')rows=rows.filter(r=>r.status===zwiftStatusFilter||zwiftMoving[r.id]);
+  if(zwiftStatusFilter!=='All')rows=rows.filter(r=>r.status===zwiftStatusFilter||zwiftMoving[r.id]||r.id===zwiftEditingId);
   if(zwiftSearch)rows=rows.filter(r=>r.route.toLowerCase().includes(zwiftSearch)||(r.maps||[]).some(m=>m.toLowerCase().includes(zwiftSearch)));
 
   const groups=[];
@@ -8885,11 +8885,29 @@ function toggleAllZwiftGroups(open){
   document.querySelectorAll('.zwift-group').forEach(d=>d.open=open);
 }
 
+// Planned Ride in Notion is sometimes a bare day and sometimes a day with a start
+// time ("2026-01-31T17:05:00.000+00:00"). Everything here works in days, so a
+// timed one is read as the local day it falls on; keying on the raw string never
+// matched a calendar cell.
+function zwiftPlanDay(v){
+  if(!v)return '';
+  if(v.length===10)return v;
+  const d=new Date(v);
+  if(isNaN(d))return v.slice(0,10);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function zwiftPlanTime(v){
+  if(!v||v.length===10)return '';
+  const d=new Date(v);
+  return isNaN(d)?'':d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+}
+
 function getZwiftPlannedByDate(){
   const map={};
   ZWIFT_DATA.forEach(r=>{
-    if(!r.planned_ride)return;
-    (map[r.planned_ride]=map[r.planned_ride]||[]).push(r);
+    const day=zwiftPlanDay(r.planned_ride);
+    if(!day)return;
+    (map[day]=map[day]||[]).push(r);
   });
   return map;
 }
@@ -8943,7 +8961,7 @@ function renderZwiftCalendar(){
   const detail=zwiftCalSelected?`<div class="zwift-cal-detail">
     <div style="font-weight:600;margin-bottom:4px">${fmtDate(zwiftCalSelected)}</div>
     ${selRoutes.map(r=>`<div class="zwift-cal-detail-item" onclick="goToZwiftRoute('${r.id}')">
-      <span>${r.route}</span><span style="color:var(--text-muted)">${(r.maps||[]).join(', ')}</span>
+      <span>${r.route}</span><span style="color:var(--text-muted)">${[zwiftPlanTime(r.planned_ride),...(r.maps||[])].filter(Boolean).join(' · ')}</span>
     </div>`).join('')}
   </div>`:'';
 
@@ -9055,7 +9073,7 @@ function renderZwiftDetail(r){
       <label>Status<select id="ze-status-${r.id}" onchange="handleZwiftStatusChange('${r.id}','${r.status}')">
         ${ZWIFT_STATUS_ORDER.map(s=>`<option value="${escapeAttr(s)}"${s===r.status?' selected':''}>${escapeHtml(s)}</option>`).join('')}
       </select></label>
-      <label>Planned ride<input type="date" id="ze-plan-${escapeAttr(r.id)}" value="${escapeAttr(r.planned_ride||'')}" onchange="handleZwiftPlanChange('${r.id}')"></label>
+      <label>Planned ride<input type="date" id="ze-plan-${escapeAttr(r.id)}" value="${escapeAttr(zwiftPlanDay(r.planned_ride))}" onchange="handleZwiftPlanChange('${r.id}',this.value)" onblur="handleZwiftPlanChange('${r.id}',this.value)"></label>
       <label>Date completed<input type="date" id="ze-date-${escapeAttr(r.id)}" value="${escapeAttr(r.date_completed||'')}"></label>
       <label>Time (HH:MM:SS)<input type="text" id="ze-time-${escapeAttr(r.id)}" placeholder="00:00:00" value="${escapeAttr(r.time||'')}"></label>
       <button class="page-btn" onclick="saveZwiftEdit('${r.id}')" id="ze-save-${r.id}">Save</button>
@@ -9097,10 +9115,51 @@ function handleZwiftStatusChange(id,originalStatus){
 // Picking a day for a route nobody has started yet is what planning it means, so
 // the status follows; anything further along is left as it is. Still only a
 // suggestion in the form until Save.
-function handleZwiftPlanChange(id){
-  const plan=document.getElementById('ze-plan-'+id);
-  const sel=document.getElementById('ze-status-'+id);
-  if(plan&&plan.value&&sel&&sel.value==='Not started')sel.value='Planned';
+// The planned day saves the moment it is picked, not on Save: a date chosen and
+// then left by opening another route was being thrown away with the form. Picking
+// a day for a route nobody has started also makes it Planned, since that is what
+// planning it means; anything further along keeps its status.
+const zwiftPlanInFlight={};
+async function handleZwiftPlanChange(id,day){
+  const prev=ZWIFT_DATA.find(r=>r.id===id);
+  if(!prev)return;
+  day=day||'';
+  // change and blur both land here for one pick; only the first one saves.
+  if(day===zwiftPlanDay(prev.planned_ride)||zwiftPlanInFlight[id]===day)return;
+  zwiftPlanInFlight[id]=day;
+  const body={planned_ride:day||null};
+  if(day&&prev.status==='Not started')body.status='Planned';
+  const errorEl=document.getElementById('ze-error-'+id);
+  if(errorEl)errorEl.textContent='';
+  try{
+    const saved=await patchZwiftRoute(id,body);
+    if(day){
+      const [y,m]=day.split('-').map(Number);
+      zwiftCalDate=new Date(y,m-1,1);zwiftCalSelected=null;
+    }
+    buildZwiftStatusFilters();
+    renderZwiftTableKeepingForm(id,body.status?{status:saved.status}:{});
+    const row=document.getElementById('zwift-row-'+id);
+    if(row){row.classList.add('zwift-row-saved');setTimeout(()=>row.classList.remove('zwift-row-saved'),1000);}
+  }catch(e){
+    const el=document.getElementById('ze-error-'+id);
+    if(el)el.textContent='Planned date not saved: '+(e.message||'try again.');
+    if(document.getElementById('ze-plan-'+id))document.getElementById('ze-plan-'+id).value=zwiftPlanDay(prev.planned_ride);
+  }finally{
+    delete zwiftPlanInFlight[id];
+  }
+}
+
+// Redraws the list without losing what is half-typed in the open form.
+function renderZwiftTableKeepingForm(id,override){
+  const keep={};
+  if(zwiftEditingId===id){
+    ['status','date','time'].forEach(k=>{const el=document.getElementById(`ze-${k}-${id}`);if(el)keep[k]=el.value;});
+  }
+  renderZwiftTable();
+  if(zwiftEditingId!==id)return;
+  Object.assign(keep,override||{});
+  Object.entries(keep).forEach(([k,v])=>{const el=document.getElementById(`ze-${k}-${id}`);if(el)el.value=v;});
 }
 
 async function saveZwiftEdit(id){
@@ -9125,12 +9184,16 @@ async function saveZwiftEdit(id){
   const prev=ZWIFT_DATA.find(r=>r.id===id)||{};
   const prevStatus=prev.status;
   try{
-    const saved=await patchZwiftRoute(id,{status,planned_ride:planVal||null,date_completed:dateVal||null,time:timeVal||null});
+    const body={status,date_completed:dateVal||null,time:timeVal||null};
+    // Only send the planned day when it changed: sending it back unchanged would
+    // strip the start time Notion holds on a timed one.
+    if(planVal!==zwiftPlanDay(prev.planned_ride))body.planned_ride=planVal||null;
+    const saved=await patchZwiftRoute(id,body);
     zwiftEditingId=null;
     // A newly planned day should be on screen the next time the calendar is, not
     // two months along with nothing to say it is there.
     if(saved.planned_ride&&saved.planned_ride!==prev.planned_ride){
-      const [y,m]=saved.planned_ride.split('-').map(Number);
+      const [y,m]=zwiftPlanDay(saved.planned_ride).split('-').map(Number);
       zwiftCalDate=new Date(y,m-1,1);zwiftCalSelected=null;
     }
     afterZwiftSave(saved,prevStatus);
