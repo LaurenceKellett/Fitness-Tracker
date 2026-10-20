@@ -1010,6 +1010,10 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .zwift-status-bar .type-btn:hover:not(.active){color:var(--text)}
 .zwift-status-bar .type-btn.active{font-weight:600}
 .zwift-status-bar .type-btn{position:relative}
+.zwift-sync{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;font-size:12px;color:var(--text-muted);margin:-2px 0 12px}
+.zwift-sync.stale{color:var(--warn)}
+.zwift-sync-btn{border:none;background:none;padding:0;font:inherit;font-weight:600;color:var(--accent);cursor:pointer}
+.zwift-sync-btn:disabled{color:var(--text-light);cursor:default}
 .zwift-tab-dot{position:absolute;top:3px;right:2px;width:6px;height:6px;border-radius:50%}
 .zwift-row-notice{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;padding:10px 16px 12px 37px;font-size:12px;color:var(--text-muted);background:var(--bg)}
 .zwift-row-notice strong{color:var(--text)}
@@ -2380,6 +2384,7 @@ body.is-loading .stats-grid *{visibility:hidden}
     <button class="page-btn" onclick="toggleAllZwiftGroups(true)">Expand all</button>
     <button class="page-btn" onclick="toggleAllZwiftGroups(false)">Collapse all</button>
   </div>
+  <div class="zwift-sync" id="zwiftSync" aria-live="polite"></div>
   <div id="zwiftCalendar" style="display:none"></div>
   <div id="zwiftRiddenCallout" class="callout" style="display:none"></div>
   <div id="zwiftGroups"></div>
@@ -2631,6 +2636,10 @@ let zwiftSuggestCompleteId=null;
 // countdown, instead of vanishing the instant the filter stops matching them.
 const ZWIFT_MOVE_DELAY_S=5;
 let zwiftMoving={};let zwiftMoveTimer=null;
+// When this device last heard from Notion, and whether the latest attempt worked.
+// A failed fetch used to fall back to the saved copy silently, so a desktop could
+// show a route as not started for days after it was completed on the phone.
+let zwiftSyncedAt=null;let zwiftSyncState='idle';let zwiftFetching=false;
 const ZWIFT_CACHE_KEY='zwift_routes_v1';
 const ZWIFT_CHECKLIST_KEY='zwift_checklist_v1';
 let zwiftChecklists={};
@@ -8554,41 +8563,83 @@ function renderLog(){
 // ── ZWIFT ROUTES ──
 
 async function loadZwiftRoutes(forceRefresh=false){
-  if(!forceRefresh){
+  if(!forceRefresh&&!zwiftLoaded){
     try{
       const cached=localStorage.getItem(ZWIFT_CACHE_KEY);
       if(cached){
         const parsed=JSON.parse(cached);
         ZWIFT_DATA=parsed.data||[];_zwiftRiddenIndex=null;_zwiftFit=null;_zwiftFitFor=null;
+        zwiftSyncedAt=parsed.syncedAt||parsed.updatedAt||null;
         zwiftLoaded=true;
         buildZwiftStatusFilters();
         renderZwiftTable();
       }
     }catch(e){ /* bad cache, ignore */ }
   }
+  if(zwiftFetching)return;
+  zwiftFetching=true;zwiftSyncState='loading';renderZwiftSync();
 
   const url=ZWIFT_WORKER_BASE+'/zwift-routes'+(forceRefresh?'?refresh=true':'');
   try{
-    const res=await fetch(url);
+    const res=await fetch(url,{cache:'no-store'});
     const json=await res.json();
     if(!res.ok||json.error){
       throw new Error(json.message||'Failed to load Zwift routes');
     }
     ZWIFT_DATA=json.data;_zwiftRiddenIndex=null;_zwiftFit=null;_zwiftFitFor=null;
-    zwiftLoaded=true;
-    localStorage.setItem(ZWIFT_CACHE_KEY,JSON.stringify({data:json.data,updatedAt:json.updatedAt}));
+    zwiftLoaded=true;zwiftSyncedAt=new Date().toISOString();zwiftSyncState='ok';
+    try{localStorage.setItem(ZWIFT_CACHE_KEY,JSON.stringify({data:json.data,updatedAt:json.updatedAt,syncedAt:zwiftSyncedAt}));}catch(e){}
     buildZwiftStatusFilters();
     renderZwiftTable();
   }catch(e){
     console.error('Could not load Zwift routes from Notion:',e);
-    if(ZWIFT_DATA.length){
-      console.warn('Zwift routes: showing cached data (offline)');
-    }else{
+    zwiftSyncState='error';
+    if(!ZWIFT_DATA.length){
       document.getElementById('zwiftEmpty').style.display='block';
       document.getElementById('zwiftGroups').innerHTML='';
     }
+  }finally{
+    zwiftFetching=false;
+    renderZwiftSync();
   }
 }
+
+function zwiftAgo(iso){
+  if(!iso)return null;
+  const s=Math.max(0,(Date.now()-new Date(iso).getTime())/1000);
+  if(s<60)return 'just now';
+  const m=Math.round(s/60);if(m<60)return m+' min ago';
+  const h=Math.round(m/60);if(h<24)return h+(h===1?' hour ago':' hours ago');
+  const d=Math.round(h/24);return d+(d===1?' day ago':' days ago');
+}
+
+function renderZwiftSync(){
+  const el=document.getElementById('zwiftSync');
+  if(!el)return;
+  const ago=zwiftAgo(zwiftSyncedAt);
+  let text,stale=false;
+  if(zwiftSyncState==='loading')text='Checking Notion for changes…';
+  else if(zwiftSyncState==='error'){
+    stale=true;
+    text=ago?`Couldn't reach Notion. Showing this device's copy from ${ago}.`:"Couldn't reach Notion.";
+  }else text=ago?`Up to date with Notion · checked ${ago}`:'';
+  el.classList.toggle('stale',stale);
+  el.innerHTML=text?`<span>${text}</span><button class="zwift-sync-btn" type="button" onclick="loadZwiftRoutes(true)"${zwiftSyncState==='loading'?' disabled':''}>${stale?'Try again':'Refresh'}</button>`:'';
+}
+
+// Coming back to the window is when another device is most likely to have changed
+// something. Refetch then, unless a route is open for editing or about to move:
+// redrawing would throw away what is being typed or cut a countdown short.
+const ZWIFT_REFETCH_AFTER_MS=20000;
+function maybeRefetchZwift(){
+  if(document.visibilityState!=='visible'||activeTab!=='zwift'||!zwiftLoaded)return;
+  if(zwiftEditingId||zwiftSaving||Object.keys(zwiftMoving).length)return;
+  if(zwiftSyncedAt&&Date.now()-new Date(zwiftSyncedAt).getTime()<ZWIFT_REFETCH_AFTER_MS){renderZwiftSync();return;}
+  loadZwiftRoutes();
+}
+document.addEventListener('visibilitychange',maybeRefetchZwift);
+window.addEventListener('focus',maybeRefetchZwift);
+window.addEventListener('pageshow',e=>{if(e.persisted)maybeRefetchZwift();});
 
 function buildZwiftStatusFilters(){
   const el=document.getElementById('zwiftStatusFilters');

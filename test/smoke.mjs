@@ -1168,6 +1168,30 @@ async function main() {
       }
     });
 
+    await check('the Zwift tab says when it could not reach Notion, and recovers on refresh', async () => {
+      await page.evaluate(() => window.setTab('zwift'));
+      await page.waitForFunction(() => zwiftLoaded && !zwiftFetching, null, { timeout: 10000 });
+      const ok = await page.evaluate(() => document.getElementById('zwiftSync').textContent);
+      assert(/Up to date with Notion/.test(ok), `after a good load the sync line reads "${ok}"`);
+      const fail = (r) => r.fulfill({ status: 500, contentType: 'application/json', body: '{"error":true,"message":"down"}' });
+      await page.route('**/zwift-routes**', fail);
+      try {
+        await page.evaluate(() => loadZwiftRoutes(true));
+        const bad = await page.evaluate(() => ({
+          text: document.getElementById('zwiftSync').textContent,
+          stale: document.getElementById('zwiftSync').classList.contains('stale'),
+          rows: ZWIFT_DATA.length,
+        }));
+        assert(bad.stale && /Couldn't reach Notion/.test(bad.text), `a failed fetch reads "${bad.text}"`);
+        assert(bad.rows > 0, 'a failed fetch threw away the saved copy');
+      } finally {
+        await page.unroute('**/zwift-routes**', fail);
+      }
+      await page.evaluate(() => loadZwiftRoutes(true));
+      const back = await page.evaluate(() => document.getElementById('zwiftSync').classList.contains('stale'));
+      assert(!back, 'still marked stale after a successful refresh');
+    });
+
     await check('the Eddington tab computes, and its curve crosses at E', async () => {
       await page.evaluate(() => window.setTab('eddington'));
       await page.waitForTimeout(800);
