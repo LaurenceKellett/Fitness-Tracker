@@ -9106,7 +9106,7 @@ function renderZwiftDetail(r){
       <label>Status<select id="ze-status-${r.id}" onchange="handleZwiftStatusChange('${r.id}','${r.status}')">
         ${ZWIFT_STATUS_ORDER.map(s=>`<option value="${escapeAttr(s)}"${s===r.status?' selected':''}>${escapeHtml(s)}</option>`).join('')}
       </select></label>
-      <label>Planned ride<input type="date" id="ze-plan-${escapeAttr(r.id)}" value="${escapeAttr(zwiftPlanDay(r.planned_ride))}" onchange="handleZwiftPlanChange('${r.id}',this.value)" onblur="handleZwiftPlanChange('${r.id}',this.value)"></label>
+      <label>Planned ride<input type="date" id="ze-plan-${escapeAttr(r.id)}" value="${escapeAttr(zwiftPlanDay(r.planned_ride))}" onblur="handleZwiftPlanChange('${r.id}',this.value)"></label>
       <label>Date completed<input type="date" id="ze-date-${escapeAttr(r.id)}" value="${escapeAttr(r.date_completed||'')}"></label>
       <label>Time (HH:MM:SS)<input type="text" id="ze-time-${escapeAttr(r.id)}" placeholder="00:00:00" value="${escapeAttr(r.time||'')}"></label>
       <button class="page-btn" onclick="saveZwiftEdit('${r.id}')" id="ze-save-${r.id}">Save</button>
@@ -9148,8 +9148,11 @@ function handleZwiftStatusChange(id,originalStatus){
 // Picking a day for a route nobody has started yet is what planning it means, so
 // the status follows; anything further along is left as it is. Still only a
 // suggestion in the form until Save.
-// The planned day saves the moment it is picked, not on Save: a date chosen and
-// then left by opening another route was being thrown away with the form. Picking
+// The planned day saves when the field is let go of, not on Save: a date chosen
+// and then left by opening another route was being thrown away with the form. Not
+// on change either: iOS fills an empty date field with today the moment it opens
+// and reports that as a change, so saving there stored today before a day had been
+// picked. Blur is the picker's tick on iOS and a click elsewhere on desktop. Picking
 // a day for a route nobody has started also makes it Planned, since that is what
 // planning it means; anything further along keeps its status.
 const zwiftPlanInFlight={};
@@ -9157,7 +9160,7 @@ async function handleZwiftPlanChange(id,day){
   const prev=ZWIFT_DATA.find(r=>r.id===id);
   if(!prev)return;
   day=day||'';
-  // change and blur both land here for one pick; only the first one saves.
+  // A second blur while the first save is out would send it twice.
   if(day===zwiftPlanDay(prev.planned_ride)||zwiftPlanInFlight[id]===day)return;
   zwiftPlanInFlight[id]=day;
   const body={planned_ride:day||null};

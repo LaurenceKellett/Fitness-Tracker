@@ -1181,9 +1181,13 @@ async function main() {
       });
       try {
         await page.evaluate(() => { window.setZwiftStatusFilter('All'); window.toggleAllZwiftGroups(true); window.toggleZwiftEdit('todo-a'); });
-        // No Save: picking the day is the save, and it must survive opening another route.
+        // No Save button: letting go of the field is the save. A change alone must
+        // not save, because iOS fires one with today the moment the picker opens.
         await page.fill('#ze-plan-todo-a', '2026-11-03');
         await page.dispatchEvent('#ze-plan-todo-a', 'change');
+        await page.waitForTimeout(300);
+        assert(patches === 0, `a change saved before the picker was closed (${JSON.stringify(sent)})`);
+        await page.dispatchEvent('#ze-plan-todo-a', 'blur');
         await page.dispatchEvent('#ze-plan-todo-a', 'blur');
         await page.waitForFunction(() => ZWIFT_DATA.find((r) => r.id === 'todo-a').planned_ride === '2026-11-03', null, { timeout: 5000 });
         assert(sent && sent.planned_ride === '2026-11-03' && sent.status === 'Planned',
