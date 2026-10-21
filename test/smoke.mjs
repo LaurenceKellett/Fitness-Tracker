@@ -2007,17 +2007,37 @@ async function main() {
       // Still in reorder mode from the check above. The push runs a second behind
       // the last move, so the request is awaited rather than looked for.
       const before = await flatOrder();
+      // The Worker only takes a layout from the key holder, and the page keeps the key
+      // once it has been opened with #admin=<key> on the address.
+      await page.evaluate(() => localStorage.setItem('fitness_admin_key', 'test-key'));
       const put = page.waitForRequest((r) => r.method() === 'PUT' && /\/prefs\b/.test(r.url()), { timeout: 5000 });
       await page.evaluate((k) => document.querySelector(
         `#tab-charts .chart-card[data-panel="${k}"]`).focus(), before[0]);
       await page.keyboard.press('ArrowDown');
-      const body = (await put).postDataJSON();
+      const sent = await put;
+      assert(sent.headers()['x-admin-key'] === 'test-key', 'the layout went up without the admin key');
+      const body = sent.postDataJSON();
       assert(body && body.prefs && body.prefs.layout && typeof body.prefs.layout === 'object',
         `PUT body was ${JSON.stringify(body).slice(0, 120)}`);
       assert(Number(body.updatedAt) > 0,
         'the record carries no stamp, so the Worker could not tell which device is newer');
       assert(Object.values(body.prefs.layout).some((z) => Array.isArray(z) && z.includes(before[0])),
         'the chart that was just moved is not in the layout that went up');
+    });
+
+    await check('with no admin key the layout is not sent at all, rather than sent to be refused', async () => {
+      await page.evaluate(() => localStorage.removeItem('fitness_admin_key'));
+      let puts = 0;
+      const count = (r) => { if (r.method() === 'PUT' && /\/prefs\b/.test(r.url())) puts++; };
+      page.on('request', count);
+      const now = await flatOrder();
+      await page.evaluate((k) => document.querySelector(
+        `#tab-charts .chart-card[data-panel="${k}"]`).focus(), now[1]);
+      await page.keyboard.press('ArrowUp');
+      await page.waitForTimeout(2500);
+      page.off('request', count);
+      assert(puts === 0, puts + ' PUT(s) went to /prefs with no key');
+      await page.evaluate(() => localStorage.setItem('fitness_admin_key', 'test-key'));
     });
 
     await check('a chart the current filter hides can still be placed', async () => {
@@ -2175,6 +2195,51 @@ async function main() {
     await check('a dead network with no cache shows an error rather than a blank page', async () => {
       await page.waitForSelector('#appError.show', { timeout: 15000 });
       assert(!(await page.locator('body.is-loading').count()), 'skeleton left shimmering');
+    });
+    await ctx.close();
+  }
+
+  // ── 4b. The admin key ───────────────────────────────────────────────────────
+  // Refreshing, editing a Zwift route and syncing the layout need the Worker's key.
+  // The page keeps it once it has been opened with #admin=<key>, and a plain
+  // read must not carry it (a custom header on every read would add a preflight).
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+    const page = await ctx.newPage();
+    await page.route(/tile\.openstreetmap\.org/, (r) => r.abort());
+    await page.route(/fonts\.g(oogleapis|static)\.com/, (r) => r.abort());
+    await page.route(/nominatim\.openstreetmap\.org/, (r) => r.abort());
+    const seen = [];
+    await page.route(ACTIVITIES_ROUTE, (r) => {
+      seen.push({ url: r.request().url(), key: r.request().headers()['x-admin-key'] || null });
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ENVELOPE) });
+    });
+    await page.route('**/zwift-routes**', (r) => {
+      seen.push({ url: r.request().url(), key: r.request().headers()['x-admin-key'] || null });
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) });
+    });
+    await page.goto(base + '/index.html#admin=s3cret%2Fkey', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => !document.body.classList.contains('is-loading'), null, { timeout: 20000 });
+
+    await check('the key in the address is kept and then removed from it', async () => {
+      assert(await page.evaluate(() => localStorage.getItem('fitness_admin_key')) === 's3cret/key', 'the key was not stored');
+      assert(!(await page.evaluate(() => location.hash)), 'the key is still in the address bar');
+    });
+    await check('an ordinary load sends no key', async () => {
+      const reads = seen.filter((x) => /\/activities$|\/zwift-routes$/.test(x.url));
+      assert(reads.length > 0 && reads.every((x) => x.key === null), JSON.stringify(reads));
+    });
+    await check('a refresh from Strava sends it', async () => {
+      seen.length = 0;
+      await page.evaluate(() => loadData(true));
+      const r = seen.find((x) => /refresh=true/.test(x.url) && /\/activities/.test(x.url));
+      assert(r && r.key === 's3cret/key', JSON.stringify(seen));
+    });
+    await check('so does refreshing the Zwift routes', async () => {
+      seen.length = 0;
+      await page.evaluate(() => loadZwiftRoutes(true));
+      const r = seen.find((x) => /zwift-routes\?refresh=true/.test(x.url));
+      assert(r && r.key === 's3cret/key', JSON.stringify(seen));
     });
     await ctx.close();
   }

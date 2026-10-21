@@ -2731,6 +2731,23 @@ const ZWIFT_CHECKLIST_KEY='zwift_checklist_v1';
 let zwiftChecklists={};
 try{zwiftChecklists=JSON.parse(localStorage.getItem(ZWIFT_CHECKLIST_KEY)||'{}');}catch(e){zwiftChecklists={};}
 const ZWIFT_WORKER_BASE='https://activities-api.lk-ff7.workers.dev';
+// Refreshing from Strava, editing Zwift routes and syncing the layout need the Worker's
+// admin key. It is kept in this browser once the dashboard has been opened with
+// #admin=<key> on the end of its address; a fragment is never sent to a server or a log.
+const ADMIN_KEY_STORE='fitness_admin_key';
+(function captureAdminKey(){
+  try{
+    var m=/[#&]admin=([^&]+)/.exec(location.hash);
+    if(m){ localStorage.setItem(ADMIN_KEY_STORE,decodeURIComponent(m[1])); history.replaceState(null,'',location.pathname+location.search); }
+  }catch(e){}
+})();
+function hasAdminKey(){ try{ return !!localStorage.getItem(ADMIN_KEY_STORE); }catch(e){ return false; } }
+function adminHeaders(extra){
+  var h=Object.assign({},extra||{});
+  try{ var k=localStorage.getItem(ADMIN_KEY_STORE); if(k)h['X-Admin-Key']=k; }catch(e){}
+  return h;
+}
+const LOCKED_HINT=' Open this page once with #admin=<key> on the end of the address to unlock it.';
 const MAP_ORDER=['Watopia','Makuri Island','Jarvis Island','Scotland','London','Yorkshire','Richmond','France','New York','Innsbruck','Bologna','Gravel Mountain','Crit City','KOM','Rebel Routes','Event Only'];
 const MAP_COLOR={'Watopia':'#d9730d','Makuri Island':'#d9730d','Jarvis Island':'#d9730d','Scotland':'#cb912f','London':'#cb912f','Yorkshire':'#cb912f','Richmond':'#cb912f','France':'#cb912f','New York':'#cb912f','Innsbruck':'#cb912f','Bologna':'#9f6b53','Gravel Mountain':'#9f6b53','Crit City':'#9f6b53','KOM':'#c14c8a','Rebel Routes':'#c14c8a','Event Only':'#9b9a97'};
 function mapDotColor(name){return MAP_COLOR[name]||'#9b9a97';}
@@ -3396,10 +3413,11 @@ function queuePrefsPush(){
 // readLayout()||{} rather than a bail-out on empty: an order that has been reset
 // away is still a change, and has to be sent as one.
 function pushPrefs(){
+  if(!hasAdminKey())return;   // the Worker only takes a layout from the key holder
   try{
     fetch(prefsUrl(),{
       method:'PUT',
-      headers:{'Content-Type':'application/json'},
+      headers:adminHeaders({'Content-Type':'application/json'}),
       body:JSON.stringify({updatedAt:layoutStamp(),prefs:{layout:readLayout()||{}}}),
     }).catch(()=>{});
   }catch(e){}
@@ -8667,7 +8685,7 @@ async function loadZwiftRoutes(forceRefresh=false){
 
   const url=ZWIFT_WORKER_BASE+'/zwift-routes'+(forceRefresh?'?refresh=true':'');
   try{
-    const res=await fetch(url,{cache:'no-store'});
+    const res=await fetch(url,forceRefresh?{cache:'no-store',headers:adminHeaders()}:{cache:'no-store'});
     const json=await res.json();
     if(!res.ok||json.error){
       throw new Error(json.message||'Failed to load Zwift routes');
@@ -9365,10 +9383,11 @@ async function saveZwiftEdit(id){
 async function patchZwiftRoute(id,body){
   const res=await fetch(`${ZWIFT_WORKER_BASE}/zwift-routes/${id}`,{
     method:'PATCH',
-    headers:{'Content-Type':'application/json'},
+    headers:adminHeaders({'Content-Type':'application/json'}),
     body:JSON.stringify(body),
   });
   const json=await res.json();
+  if(res.status===401)throw new Error((json.message||'Locked.')+LOCKED_HINT);
   if(!res.ok||json.error)throw new Error(json.message||'Save failed');
   const idx=ZWIFT_DATA.findIndex(r=>r.id===id);
   if(idx!==-1)ZWIFT_DATA[idx]=json.data;
@@ -9841,8 +9860,8 @@ async function loadData(forceRefresh = false) {
   let updatedAt;
   try {
     syncStart(forceRefresh ? 'Refreshing from Strava…' : null);
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`The activities service answered ${res.status} ${res.statusText||''}`.trim() + '.');
+    const res = await fetch(url, forceRefresh ? { headers: adminHeaders() } : undefined);
+    if (!res.ok) throw new Error(`The activities service answered ${res.status} ${res.statusText||''}`.trim() + '.' + (res.status===401||res.status===503 ? LOCKED_HINT : ''));
 
     let json;
     try { json = await res.json(); }

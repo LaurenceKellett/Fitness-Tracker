@@ -281,6 +281,8 @@ Set these in the Cloudflare dashboard under **Workers & Pages → activities-api
 | `HOME_LAT_3` … `HOME_LAT_5` | Additional home locations (optional) |
 | `HOME_EXCLUSION_M` | How much of a route to cut away near home, in metres. A plain variable, not a secret. Optional; 100 by default, clamped to 50–5000 |
 | `HOME_LNG_3` … `HOME_LNG_5` | Corresponding longitudes |
+| `ADMIN_KEY` | A long random string (32+ characters). The Worker is public and so is this repository, so every route that writes, spends Strava's rate limit or shows raw Strava data wants this in an `X-Admin-Key` header; see **Who may do what**. With it unset those routes answer 503 rather than open |
+| `ALLOWED_ORIGINS` | Optional plain variable: comma-separated web addresses allowed to read from the Worker in a browser. Defaults to `https://activities.laurencekellett.co.uk`, which is where the dashboard lives |
 | `NOTION_API_KEY` | Internal integration secret from a Notion integration (`notion.so/my-integrations`). Needs **Read**, **Update** *and* **Insert** content capabilities — Insert is what lets the Training Log sync create rows, and without it every sync fails with a permission error. Share it with **both** the "Zwift Routes" **and** the "Training Log" databases via each one's `•••` → Connections menu |
 
 ### Worker bindings
@@ -337,22 +339,31 @@ Dashboard settings — the panel order set by **Rearrange this tab** — live un
 
 ## Worker API routes
 
+### Who may do what
+
+This repository is public, so the Worker's address is public, and until this was added every route answered anyone. Now **reading is open** (the dashboard is public: `GET /activities`, `/zwift-routes`, `/prefs`, `/refresh-status`) and **everything that writes, spends Strava's rate limit or shows raw Strava data needs the admin key**, sent as an `X-Admin-Key` header. The routes are marked in the table below. The key is the `ADMIN_KEY` Worker secret; with none set those routes answer **503**, never open.
+
+- **Unlocking the dashboard.** Open it once with the key on the end of the address: `https://activities.laurencekellett.co.uk/#admin=<key>`. The page keeps it in that browser and removes it from the address bar (a fragment is never sent to a server or logged). Until then the page still reads and draws everything, but Refresh, editing a Zwift route and syncing the layout say they are locked. With no key the page does not even try to send its layout.
+- **A read that finds the cache empty** serves the last good copy instead of starting a whole-history Strava pull for whoever asked. Only the key holder, or a Worker that has never had a copy, pulls.
+- **Browsers.** Only the dashboard's own address (or `ALLOWED_ORIGINS`) may read the Worker from a web page, and `Access-Control-Allow-Origin` is never `*`. That keeps another site's page from driving it; it is the key, not this, that keeps a command-line caller out.
+- Callers: the Tools site sends the key as `FITNESS_API_KEY` for its Fetch from Strava button. The CV repository's daily snapshot only reads `/activities`, which needs none. `test/lockdown.test.js` holds every route above to this, including that nothing is fetched or written before the refusal.
+
 | Route | What it does |
 |-------|-------------|
 | `GET /activities` | Returns the cached activity envelope `{ data, aiSummary, updatedAt }` |
-| `GET /activities?refresh=true` | Bypasses cache, re-fetches from Strava, regenerates AI summary |
-| `GET /activities?refresh=recent[&days=7]` | Bypasses cache and asks Strava for **only the last few days**, merged into the cached history. A handful of requests instead of a couple of dozen. `days` is 1–14 and anything else means 7. Carries the AI summary forward. Answers `X-Refresh: recent`, or `full` if there was no cached history to merge into |
+| `GET /activities?refresh=true` | **Needs the admin key.** Bypasses cache, re-fetches from Strava, regenerates AI summary |
+| `GET /activities?refresh=recent[&days=7]` | **Needs the admin key.** Bypasses cache and asks Strava for **only the last few days**, merged into the cached history. A handful of requests instead of a couple of dozen. `days` is 1–14 and anything else means 7. Carries the AI summary forward. Answers `X-Refresh: recent`, or `full` if there was no cached history to merge into |
 | `GET /auth` | Redirects to Strava OAuth — run once to get a refresh token |
-| `GET /callback` | Exchanges the OAuth code, stores the refresh token in KV, and shows it for the secret |
-| `GET /debug` | Strava connection diagnostic — reports whether the token refresh worked and returns five activities. Never echoes the token response itself: this route has no auth |
-| `GET /sync-training-log` | Runs the Strava → Notion Training Log sync now, and returns `{ checked, created, skipped, relinked, failed, errors }`. Also runs automatically on the cron |
-| `GET /backfill-prs` | Collects one slice (40) of segment PBs from Strava's best-efforts and refreshes the cache. Returns `{ checked, found, remaining }`. Also runs automatically on the cron — see **Segment PBs** below. The envelope it republishes carries `hrZones`; without that, running this route stripped the zone chart's provenance and dropped it silently to a derived max |
+| `GET /callback` | Exchanges the OAuth code, stores the refresh token in KV, and shows it for the secret. Refuses a sign-in that did not start at `/auth` in the same browser (a `state` kept in an HttpOnly cookie), so nobody can finish OAuth with their own Strava account and swap their token in for yours |
+| `GET /debug` | **Needs the admin key.** Strava connection diagnostic — reports whether the token refresh worked and lists five activities by id, name, type, date and distance. It does not return where they started or their routes, and never echoes the token response |
+| `GET /sync-training-log` | **Needs the admin key.** Runs the Strava → Notion Training Log sync now, and returns `{ checked, created, skipped, relinked, failed, errors }`. Also runs automatically on the cron |
+| `GET /backfill-prs` | **Needs the admin key.** Collects one slice (40) of segment PBs from Strava's best-efforts and refreshes the cache. Returns `{ checked, found, remaining }`. Also runs automatically on the cron — see **Segment PBs** below. The envelope it republishes carries `hrZones`; without that, running this route stripped the zone chart's provenance and dropped it silently to a derived max |
 | `GET /zwift-routes` | Returns the cached Zwift routes envelope `{ data, updatedAt }`, proxied live from Notion |
-| `GET /zwift-routes?refresh=true` | Bypasses cache, re-fetches all routes from Notion |
-| `PATCH /zwift-routes/{pageId}` | Updates `status`/`planned_ride`/`date_completed`/`time` on one route, writes straight to Notion |
+| `GET /zwift-routes?refresh=true` | **Needs the admin key.** Bypasses cache, re-fetches all routes from Notion |
+| `PATCH /zwift-routes/{pageId}` | **Needs the admin key.** Updates `status`/`planned_ride`/`date_completed`/`time` on one route, writes straight to Notion |
 | `GET /refresh-status` | What the current or last pull from Strava is doing: `{ state, stage, page, fetched, expectedPages, expectedTotal, lastDurationMs, startedAt, updatedAt }`, `state` one of `idle`, `running`, `done`, `failed`. Written by the refresh as it goes, one KV write every 1.2 s at most; `Cache-Control: no-store` |
 | `GET /prefs` | The dashboard's own settings — today the panel order per zone — as `{ prefs, updatedAt }`. `updatedAt` is 0 when nothing has ever been saved |
-| `PUT /prefs` | Stores `{ prefs, updatedAt }`. The newer stamp wins: a record older than the one held is not written, and the held one comes back with `X-Prefs: stale`. No auth, like the rest of the Worker — it holds nothing that would matter if a stranger read or shuffled it, and Reset undoes a shuffle |
+| `PUT /prefs` | **Needs the admin key.** Stores `{ prefs, updatedAt }`. The newer stamp wins: a record older than the one held is not written, and the held one comes back with `X-Prefs: stale`. No auth, like the rest of the Worker — it holds nothing that would matter if a stranger read or shuffled it, and Reset undoes a shuffle |
 
 ---
 

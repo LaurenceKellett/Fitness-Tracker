@@ -82,31 +82,78 @@ const CORS = {
 // MAIN HANDLER
 // =============================================================================
 
+// =============================================================================
+// WHO MAY DO WHAT
+// =============================================================================
+// Reading the dashboard's data is open: the dashboard is public and so is its
+// repository, so there is nothing to hide about how it is read. Everything that
+// WRITES, spends Strava's rate limit or shows raw Strava data needs the admin key,
+// sent as an X-Admin-Key header:
+//
+//   GET /activities?refresh=…, GET /zwift-routes?refresh=true   (a refresh costs
+//        Strava requests, Notion reads, Workers AI and one of the day's 1,000 KV writes)
+//   GET /sync-training-log, GET /backfill-prs, GET /debug
+//   PATCH /zwift-routes/<id>, PUT /prefs                         (writes)
+//
+// ADMIN_KEY is a Worker secret. With none set these routes answer 503 rather than
+// open: a missing secret must never mean "no lock". The dashboard keeps the key in
+// the browser once you have opened it with #admin=<key> on the end of its address
+// (a fragment never reaches a server or a log).
+const ADMIN_HEADER = 'X-Admin-Key';
+
+// Compared by digest, so the time taken says nothing about how many leading
+// characters were right.
+async function sameSecret(given, expected) {
+  const enc = new TextEncoder();
+  const [a, b] = await Promise.all([
+    crypto.subtle.digest('SHA-256', enc.encode(given)),
+    crypto.subtle.digest('SHA-256', enc.encode(expected)),
+  ]);
+  const x = new Uint8Array(a), y = new Uint8Array(b);
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
+  return diff === 0;
+}
+
+// null when the request may go ahead, otherwise the answer to send instead.
+async function requireAdmin(request, env) {
+  const json = (status, message) => new Response(JSON.stringify({ error: true, message }), {
+    status, headers: { ...CORS, 'Content-Type': 'application/json' },
+  });
+  if (!env.ADMIN_KEY) return json(503, 'ADMIN_KEY is not set on the Worker, so this is switched off.');
+  const given = request.headers.get(ADMIN_HEADER) || '';
+  if (!given || !(await sameSecret(given, env.ADMIN_KEY))) {
+    return json(401, 'This needs the admin key (X-Admin-Key).');
+  }
+  return null;
+}
+
+// Browsers only: a page on another site cannot read these answers or send these
+// writes. It is not what keeps a command-line caller out; the key does that.
+const DEFAULT_ORIGINS = ['https://activities.laurencekellett.co.uk'];
+function allowedOrigins(env) {
+  const set = String((env && env.ALLOWED_ORIGINS) || '').split(',').map(x => x.trim()).filter(Boolean);
+  return set.length ? set : DEFAULT_ORIGINS;
+}
+function withCors(response, request, env) {
+  const out = new Response(response.body, response);
+  const origin = request.headers.get('Origin');
+  out.headers.delete('Access-Control-Allow-Origin');
+  if (origin && allowedOrigins(env).includes(origin)) {
+    out.headers.set('Access-Control-Allow-Origin', origin);
+    out.headers.set('Access-Control-Allow-Methods', 'GET, PUT, PATCH, OPTIONS');
+    out.headers.set('Access-Control-Allow-Headers', 'Content-Type, ' + ADMIN_HEADER);
+    out.headers.append('Vary', 'Origin');
+  }
+  return out;
+}
+
 export default {
   async fetch(request, env) {
-    const url = new URL(request.url);
-
     if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: CORS });
+      return withCors(new Response(null, { status: 204 }), request, env);
     }
-
-    switch (url.pathname) {
-      case '/auth':               return handleAuth(env);
-      case '/callback':           return handleCallback(request, env);
-      case '/activities':         return handleActivities(request, env);
-      case '/debug':              return handleDebug(env);
-      case '/prefs':              return handlePrefs(request, env);
-      case '/refresh-status':     return handleRefreshStatus(env);
-      case '/zwift-routes':       return handleZwiftRoutes(request, env);
-      case '/sync-training-log':  return handleSyncTrainingLog(env);
-      case '/backfill-prs':       return handleBackfillPrs(env);
-      default:
-        if (url.pathname.startsWith('/zwift-routes/') && request.method === 'PATCH') {
-          const pageId = url.pathname.slice('/zwift-routes/'.length);
-          return handleZwiftRouteUpdate(request, env, pageId);
-        }
-        return new Response('Not found', { status: 404 });
-    }
+    return withCors(await route(request, env), request, env);
   },
 
   // Fires on the schedule configured in wrangler.toml's `[triggers] crons`.
@@ -143,12 +190,50 @@ export default {
   },
 };
 
+async function route(request, env) {
+  const url = new URL(request.url);
+  const admin = () => requireAdmin(request, env);
+
+  switch (url.pathname) {
+    case '/auth':               return handleAuth(env);
+    case '/callback':           return handleCallback(request, env);
+    // A plain read is open; asking for a refresh is checked inside the handler.
+    case '/activities':         return handleActivities(request, env);
+    case '/debug':              return (await admin()) || handleDebug(env);
+    case '/prefs':
+      if (request.method === 'PUT') { const no = await admin(); if (no) return no; }
+      return handlePrefs(request, env);
+    case '/refresh-status':     return handleRefreshStatus(env);
+    case '/zwift-routes':
+      if (url.searchParams.get('refresh') === 'true') { const no = await admin(); if (no) return no; }
+      return handleZwiftRoutes(request, env);
+    case '/sync-training-log':  return (await admin()) || handleSyncTrainingLog(env);
+    case '/backfill-prs':       return (await admin()) || handleBackfillPrs(env);
+    default:
+      if (url.pathname.startsWith('/zwift-routes/') && request.method === 'PATCH') {
+        const no = await admin();
+        if (no) return no;
+        const pageId = url.pathname.slice('/zwift-routes/'.length);
+        return handleZwiftRouteUpdate(request, env, pageId);
+      }
+      return new Response('Not found', { status: 404 });
+  }
+}
+
 // =============================================================================
 // AUTH — step 1 of one-time OAuth setup
 // =============================================================================
 
+// The state ties a callback to the /auth visit that started it. Without it anyone
+// could finish OAuth with THEIR Strava account and have this Worker store their
+// token in place of yours. It travels in an HttpOnly cookie and in Strava's
+// `state` parameter, and the two must match.
+const OAUTH_STATE_COOKIE = 'strava_oauth_state';
+
 function handleAuth(env) {
+  const state = crypto.randomUUID();
   const params = new URLSearchParams({
+    state,
     client_id:       env.STRAVA_CLIENT_ID,
     redirect_uri:    `${WORKER_URL}/callback`,
     response_type:   'code',
@@ -159,10 +244,22 @@ function handleAuth(env) {
     // takes effect if you re-run /auth, which is optional.
     scope:           'activity:read_all,profile:read_all',
   });
-  return Response.redirect(
-    `https://www.strava.com/oauth/authorize?${params}`,
-    302
-  );
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: `https://www.strava.com/oauth/authorize?${params}`,
+      'Set-Cookie': `${OAUTH_STATE_COOKIE}=${state}; Path=/; Max-Age=600; HttpOnly; Secure; SameSite=Lax`,
+    },
+  });
+}
+
+function readCookie(request, name) {
+  const raw = request.headers.get('Cookie') || '';
+  for (const part of raw.split(';')) {
+    const i = part.indexOf('=');
+    if (i > 0 && part.slice(0, i).trim() === name) return part.slice(i + 1).trim();
+  }
+  return '';
 }
 
 // =============================================================================
@@ -175,6 +272,11 @@ async function handleCallback(request, env) {
 
   if (!code) {
     return new Response('Missing code parameter', { status: 400 });
+  }
+  const given = url.searchParams.get('state') || '';
+  const expected = readCookie(request, OAUTH_STATE_COOKIE);
+  if (!given || !expected || !(await sameSecret(given, expected))) {
+    return new Response('This sign-in did not start here, so it was not used. Open /auth again.', { status: 400 });
   }
 
   const res  = await fetch('https://www.strava.com/oauth/token', {
@@ -244,6 +346,13 @@ async function handleActivities(request, env) {
   // `recent` is a refresh too: it has to skip the cache, or asking for it
   // would be answered by the very copy it was asked to update.
   const refreshParam = url.searchParams.get('refresh');
+  // Any refresh spends Strava's rate limit, Workers AI and a KV write, so it is the
+  // key holder's to ask for. A plain read stays open.
+  if (refreshParam === 'true' || refreshParam === 'recent') {
+    const no = await requireAdmin(request, env);
+    if (no) return no;
+  }
+  const isAdmin = !!env.ADMIN_KEY && await sameSecret(request.headers.get(ADMIN_HEADER) || '', env.ADMIN_KEY);
   const recent       = refreshParam === 'recent' ? recentDaysFrom(url.searchParams.get('days')) : 0;
   const forceRefresh = refreshParam === 'true' || recent > 0;
 
@@ -257,6 +366,18 @@ async function handleActivities(request, env) {
           'Content-Type': 'application/json',
           'X-Cache':       'HIT',
         },
+      });
+    }
+  }
+
+  // An open read that finds the cache empty must not start a whole-history pull on
+  // a stranger's say-so: the cron refills it, and the last good copy answers until
+  // it has. Only when there is never has been one does it fall through to the pull.
+  if (!forceRefresh && !isAdmin && env.CACHE) {
+    const lastGood = await env.CACHE.get(LAST_GOOD_KEY);
+    if (lastGood) {
+      return new Response(lastGood, {
+        headers: { ...CORS, 'Content-Type': 'application/json', 'X-Cache': 'STALE', 'X-Refresh': 'none' },
       });
     }
   }
@@ -677,7 +798,13 @@ async function handleDebug(env) {
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
   out.activities_status = actRes.status;
-  out.activities_response = await actRes.json();
+  // Strava's raw answer carries where each activity started and its full-precision
+  // route: both are what the home privacy trimming exists to hide. A diagnostic only
+  // needs to know the call worked.
+  const raw = await actRes.json();
+  out.activities_response = Array.isArray(raw)
+    ? raw.map(a => ({ id: a.id, name: a.name, type: a.type, start_date: a.start_date, distance: a.distance }))
+    : raw;
 
   return new Response(JSON.stringify(out, null, 2), {
     headers: { ...CORS, 'Content-Type': 'application/json' },
@@ -708,10 +835,10 @@ const ZWIFT_STATUS_VALUES = ['Not started', 'Blocked', 'Planned', 'Complete'];
  * ordering, and two devices disagreeing about it means the most recent arrangement
  * is the one that was meant — so the stamp decides, not arrival order.
  *
- * There is no auth on this Worker and none is invented here. What this holds is
- * the order somebody likes their charts in; the worst a stranger who found the URL
- * could do is shuffle them, and Reset puts them back. Nothing belongs in here that
- * would matter if it were read or written by someone else.
+ * Reading it is open. Writing it needs the admin key (see WHO MAY DO WHAT): what
+ * it holds is only the order somebody likes their charts in, but a write is a write,
+ * the Worker's address is public, and an unauthenticated PUT is also a way to spend
+ * the day's KV writes. Nothing belongs in here that would matter if it were read.
  *
  * No expirationTtl: a preference that quietly expired after a day would be worse
  * than not syncing at all.
