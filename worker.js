@@ -135,6 +135,22 @@ function parseKeys(raw) {
   }).filter(Boolean);
 }
 
+// Every key configured for a level, from two places: the list in ADMIN_KEY / VIEW_KEY,
+// and any secret named ADMIN_KEY_<LABEL> / VIEW_KEY_<LABEL> holding one key, which
+// is the easier way to run a key per device: revoking one is deleting one secret,
+// where editing a comma list means retyping the others (a saved secret cannot be read
+// back). The label is whatever follows the underscore.
+function keysFor(env, level) {
+  const name = level === 'admin' ? 'ADMIN_KEY' : 'VIEW_KEY';
+  const out = parseKeys(env[name]);
+  for (const prop of Object.keys(env || {})) {
+    if (!prop.startsWith(name + '_') || prop.length === name.length + 1) continue;
+    const v = typeof env[prop] === 'string' ? env[prop].trim() : '';
+    if (v) out.push({ label: prop.slice(name.length + 1).slice(0, 24), key: v });
+  }
+  return out;
+}
+
 // Which level of key this request carries: 'admin', 'view' or null, and the label of
 // the key that matched. Every configured key is compared, never stopping at the
 // first, so the time does not say which entry matched.
@@ -142,8 +158,8 @@ async function keyLevel(request, env) {
   const given = request.headers.get(ADMIN_HEADER) || '';
   if (!given) return { level: null, label: null };
   let found = { level: null, label: null };
-  for (const [level, raw] of [['admin', env.ADMIN_KEY], ['view', env.VIEW_KEY]]) {
-    for (const k of parseKeys(raw)) {
+  for (const level of ['admin', 'view']) {
+    for (const k of keysFor(env, level)) {
       if (await sameSecret(given, k.key) && found.level !== 'admin') found = { level, label: k.label };
     }
   }
@@ -156,7 +172,7 @@ const keyAnswer = (status, message) => new Response(JSON.stringify({ error: true
 
 // null when the request may go ahead, otherwise the answer to send instead.
 async function requireAdmin(request, env) {
-  if (!parseKeys(env.ADMIN_KEY).length) return keyAnswer(503, 'ADMIN_KEY is not set on the Worker, so this is switched off.');
+  if (!keysFor(env, 'admin').length) return keyAnswer(503, 'No admin key is set on the Worker (ADMIN_KEY, or ADMIN_KEY_<name>), so this is switched off.');
   const { level, label } = await keyLevel(request, env);
   if (level === 'admin') {
     // Which device did it, never the key itself.
@@ -169,8 +185,8 @@ async function requireAdmin(request, env) {
 
 // For the routes that only read what is private: either kind of key will do.
 async function requireViewer(request, env) {
-  if (!parseKeys(env.ADMIN_KEY).length && !parseKeys(env.VIEW_KEY).length) {
-    return keyAnswer(503, 'No ADMIN_KEY or VIEW_KEY is set on the Worker, so this is switched off.');
+  if (!keysFor(env, 'admin').length && !keysFor(env, 'view').length) {
+    return keyAnswer(503, 'No admin or view key is set on the Worker, so this is switched off.');
   }
   const { level } = await keyLevel(request, env);
   return level ? null : keyAnswer(401, 'These routes are private. This needs a key (X-Admin-Key).');

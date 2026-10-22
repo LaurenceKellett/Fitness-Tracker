@@ -346,3 +346,67 @@ describe('the Zwift routes are private', () => {
     expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull();
   });
 });
+
+
+// ---- One secret per device --------------------------------------------------------
+// ADMIN_KEY_<LABEL> and VIEW_KEY_<LABEL> each hold a single key. Deleting the secret
+// revokes the device, with no list to retype.
+describe('a secret of its own for each device', () => {
+  const sep = (extra = {}) => {
+    const env = envOf({ ADMIN_KEY: undefined, ...extra });
+    env.CACHE.m.set('zwift_routes_v1', ROUTES);
+    return env;
+  };
+  it('each ADMIN_KEY_<name> is an admin key, and the name is its label', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const env = sep({ ADMIN_KEY_PHONE: 'aaaa1111', ADMIN_KEY_LAPTOP: 'bbbb2222' });
+    for (const key of ['aaaa1111', 'bbbb2222']) {
+      stub();
+      const res = await send(env, 'PUT', '/prefs', { key, body: { prefs: {}, updatedAt: 1 } });
+      expect([401, 403, 503]).not.toContain(res.status);
+    }
+    const said = log.mock.calls.map(c => c.join(' ')).join('\n');
+    expect(said).toContain('admin PHONE ');
+    expect(said).toContain('admin LAPTOP ');
+    expect(said).not.toContain('aaaa1111');
+  });
+  it('each VIEW_KEY_<name> may look and not change', async () => {
+    stub();
+    const env = sep({ ADMIN_KEY_PHONE: 'aaaa1111', VIEW_KEY_TABLET: 'cccc3333' });
+    expect((await send(env, 'GET', '/zwift-routes', { key: 'cccc3333' })).status).toBe(200);
+    expect((await send(env, 'GET', '/sync-training-log', { key: 'cccc3333' })).status).toBe(403);
+  });
+  it('deleting one secret revokes that device and only that device', async () => {
+    stub();
+    const before = sep({ ADMIN_KEY_PHONE: 'aaaa1111', ADMIN_KEY_LAPTOP: 'bbbb2222' });
+    expect((await send(before, 'GET', '/zwift-routes', { key: 'aaaa1111' })).status).toBe(200);
+    const after = sep({ ADMIN_KEY_LAPTOP: 'bbbb2222' });
+    expect((await send(after, 'GET', '/zwift-routes', { key: 'aaaa1111' })).status).toBe(401);
+    expect((await send(after, 'GET', '/zwift-routes', { key: 'bbbb2222' })).status).toBe(200);
+  });
+  it('the list form and the separate form work together', async () => {
+    stub();
+    const env = sep({ ADMIN_KEY: 'old:dddd4444', ADMIN_KEY_PHONE: 'aaaa1111' });
+    expect((await send(env, 'GET', '/zwift-routes', { key: 'dddd4444' })).status).toBe(200);
+    expect((await send(env, 'GET', '/zwift-routes', { key: 'aaaa1111' })).status).toBe(200);
+  });
+  it('an empty one is not a key, and a bare prefix is not a name', async () => {
+    stub();
+    const env = sep({ ADMIN_KEY_PHONE: '   ', ADMIN_KEY_: 'eeee5555', VIEW_KEY_X: '' });
+    expect((await send(env, 'GET', '/zwift-routes', { key: '' })).status).toBe(503);
+    expect((await send(env, 'GET', '/zwift-routes', { key: 'eeee5555' })).status).toBe(503);
+  });
+  it('only those exact prefixes count: a look-alike name opens nothing', async () => {
+    stub();
+    const env = sep({ MY_ADMIN_KEY_PHONE: 'ffff6666', ADMIN_KEYS: 'ffff6666', ADMIN_KEYPHONE: 'ffff6666', FIT_SECURITY_STRING_PHONE: 'ffff6666' });
+    expect((await send(env, 'GET', '/zwift-routes', { key: 'ffff6666' })).status).toBe(503);
+  });
+  it('a non-text binding with a matching name is ignored rather than breaking the check', async () => {
+    stub();
+    const env = sep({ ADMIN_KEY_STORE: { get() {} }, ADMIN_KEY_PHONE: 'aaaa1111' });
+    expect((await send(env, 'GET', '/zwift-routes', { key: 'aaaa1111' })).status).toBe(200);
+    // And it is not turned into text and accepted as a key: its string form is not a password.
+    const only = sep({ ADMIN_KEY_STORE: { get() {} } });
+    expect((await send(only, 'GET', '/zwift-routes', { key: '[object Object]' })).status).toBe(503);
+  });
+});
