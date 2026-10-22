@@ -86,28 +86,28 @@ const CORS = {
 // WHO MAY DO WHAT
 // =============================================================================
 // The dashboard is public and so is its repository, so the Worker's address is
-// known to anyone. Two things are therefore kept behind keys, each sent as an
-// X-Admin-Key header:
+// known to anyone. Reading is open: the cached, home-trimmed activity feed, the
+// Zwift routes as a read-only list, the dashboard's layout and the refresh progress.
+// Everything that CHANGES something or SPENDS something needs an admin key, sent as an
+// X-Admin-Key header: a refresh (GET /activities?refresh=…, /zwift-routes?refresh=true),
+// the Notion and PB syncs, /debug, PATCH /zwift-routes/<id> and PUT /prefs.
 //
-//   VIEW   reading the Zwift routes (GET /zwift-routes), which come from a private
-//          Notion database. A view key is for a device that may look.
-//   ADMIN  everything that changes something or spends something: a refresh
-//          (GET /activities?refresh=…, /zwift-routes?refresh=true), the Notion
-//          and PB syncs, /debug, PATCH /zwift-routes/<id>, PUT /prefs. An admin key
-//          may also do everything a view key can.
+// An answer to /zwift-routes says which kind of caller it was talking to
+// (X-Key-Level: admin or none), so the dashboard shows editing controls only to a
+// device whose key is good, and a revoked key falls back to the read-only list on its
+// own rather than offering edits that would be refused.
 //
-// Open to anyone: GET /activities (the cached, home-trimmed feed the public
-// dashboard draws), /prefs and /refresh-status.
-//
-// The keys are Worker secrets, ADMIN_KEY and VIEW_KEY. Each holds one key or several,
-// separated by commas, and a key may be labelled, `phone:3f9c…,laptop:b27a…`, so
-// every device has a key of its own and one lost phone is revoked by deleting one
-// entry. Keys are hex (`openssl rand -hex 24`): no commas or colons in them. With
-// nothing configured for a level the routes that need it answer 503 and stay
-// shut: a missing secret must never mean "no lock". The dashboard keeps its key in
-// the browser once opened with #admin=<key> on the end of its address (a fragment
-// never reaches a server or a log).
+// Keys are Worker secrets, one per device: ADMIN_KEY_PHONE, ADMIN_KEY_LAPTOP,
+// ADMIN_KEY_TOOLS … Each holds one key and what follows the underscore is the
+// device's label, so a lost phone is revoked by deleting one secret. (ADMIN_KEY on its
+// own may hold several, comma-separated and labelled, `phone:3f9c…,laptop:b27a…`; a
+// saved secret cannot be read back, so that form means retyping the others to remove
+// one.) Keys are hex (`openssl rand -hex 24`): no commas or colons in them. With none
+// configured the routes that need one answer 503 and stay shut: a missing secret must
+// never mean "no lock". The dashboard keeps its key in the browser once opened with
+// #admin=<key> on the end of its address (a fragment never reaches a server or a log).
 const ADMIN_HEADER = 'X-Admin-Key';
+const LEVEL_HEADER = 'X-Key-Level';
 
 // Compared by digest, so the time taken says nothing about how many leading
 // characters were right.
@@ -135,33 +135,26 @@ function parseKeys(raw) {
   }).filter(Boolean);
 }
 
-// Every key configured for a level, from two places: the list in ADMIN_KEY / VIEW_KEY,
-// and any secret named ADMIN_KEY_<LABEL> / VIEW_KEY_<LABEL> holding one key, which
-// is the easier way to run a key per device: revoking one is deleting one secret,
-// where editing a comma list means retyping the others (a saved secret cannot be read
-// back). The label is whatever follows the underscore.
-function keysFor(env, level) {
-  const name = level === 'admin' ? 'ADMIN_KEY' : 'VIEW_KEY';
-  const out = parseKeys(env[name]);
+// Every admin key configured, from the list in ADMIN_KEY and from any secret named
+// ADMIN_KEY_<LABEL> holding one key.
+function adminKeys(env) {
+  const out = parseKeys(env.ADMIN_KEY);
   for (const prop of Object.keys(env || {})) {
-    if (!prop.startsWith(name + '_') || prop.length === name.length + 1) continue;
+    if (!prop.startsWith('ADMIN_KEY_') || prop.length === 'ADMIN_KEY_'.length) continue;
     const v = typeof env[prop] === 'string' ? env[prop].trim() : '';
-    if (v) out.push({ label: prop.slice(name.length + 1).slice(0, 24), key: v });
+    if (v) out.push({ label: prop.slice('ADMIN_KEY_'.length).slice(0, 24), key: v });
   }
   return out;
 }
 
-// Which level of key this request carries: 'admin', 'view' or null, and the label of
-// the key that matched. Every configured key is compared, never stopping at the
-// first, so the time does not say which entry matched.
-async function keyLevel(request, env) {
+// The label of the admin key this request carries, or null. Every configured key is
+// compared, never stopping at the first, so the time does not say which one matched.
+async function adminLabel(request, env) {
   const given = request.headers.get(ADMIN_HEADER) || '';
-  if (!given) return { level: null, label: null };
-  let found = { level: null, label: null };
-  for (const level of ['admin', 'view']) {
-    for (const k of keysFor(env, level)) {
-      if (await sameSecret(given, k.key) && found.level !== 'admin') found = { level, label: k.label };
-    }
+  if (!given) return null;
+  let found = null;
+  for (const k of adminKeys(env)) {
+    if (await sameSecret(given, k.key) && !found) found = k.label;
   }
   return found;
 }
@@ -172,24 +165,14 @@ const keyAnswer = (status, message) => new Response(JSON.stringify({ error: true
 
 // null when the request may go ahead, otherwise the answer to send instead.
 async function requireAdmin(request, env) {
-  if (!keysFor(env, 'admin').length) return keyAnswer(503, 'No admin key is set on the Worker (ADMIN_KEY, or ADMIN_KEY_<name>), so this is switched off.');
-  const { level, label } = await keyLevel(request, env);
-  if (level === 'admin') {
+  if (!adminKeys(env).length) return keyAnswer(503, 'No admin key is set on the Worker (ADMIN_KEY, or ADMIN_KEY_<name>), so this is switched off.');
+  const label = await adminLabel(request, env);
+  if (label) {
     // Which device did it, never the key itself.
     console.log('admin', label, request.method, new URL(request.url).pathname);
     return null;
   }
-  if (level === 'view') return keyAnswer(403, 'This device may look but not change anything.');
   return keyAnswer(401, 'This needs the admin key (X-Admin-Key).');
-}
-
-// For the routes that only read what is private: either kind of key will do.
-async function requireViewer(request, env) {
-  if (!keysFor(env, 'admin').length && !keysFor(env, 'view').length) {
-    return keyAnswer(503, 'No admin or view key is set on the Worker, so this is switched off.');
-  }
-  const { level } = await keyLevel(request, env);
-  return level ? null : keyAnswer(401, 'These routes are private. This needs a key (X-Admin-Key).');
 }
 
 // Browsers only: a page on another site cannot read these answers or send these
@@ -207,6 +190,7 @@ function withCors(response, request, env) {
     out.headers.set('Access-Control-Allow-Origin', origin);
     out.headers.set('Access-Control-Allow-Methods', 'GET, PUT, PATCH, OPTIONS');
     out.headers.set('Access-Control-Allow-Headers', 'Content-Type, ' + ADMIN_HEADER);
+    out.headers.set('Access-Control-Expose-Headers', LEVEL_HEADER);
     out.headers.append('Vary', 'Origin');
   }
   return out;
@@ -268,12 +252,14 @@ async function route(request, env) {
       if (request.method === 'PUT') { const no = await admin(); if (no) return no; }
       return handlePrefs(request, env);
     case '/refresh-status':     return handleRefreshStatus(env);
-    // Private: they come from a Notion database. Looking needs any key; a refresh,
-    // which re-reads Notion and spends a KV write, needs the admin one.
+    // Anyone may read the list; a refresh, which re-reads Notion and spends a KV write,
+    // needs an admin key. The answer says which kind of caller it was.
     case '/zwift-routes': {
-      const no = url.searchParams.get('refresh') === 'true' ? await admin() : await requireViewer(request, env);
-      if (no) return no;
-      return handleZwiftRoutes(request, env);
+      if (url.searchParams.get('refresh') === 'true') { const no = await admin(); if (no) return no; }
+      const res = await handleZwiftRoutes(request, env);
+      const out = new Response(res.body, res);
+      out.headers.set(LEVEL_HEADER, (await adminLabel(request, env)) ? 'admin' : 'none');
+      return out;
     }
     case '/sync-training-log':  return (await admin()) || handleSyncTrainingLog(env);
     case '/backfill-prs':       return (await admin()) || handleBackfillPrs(env);
@@ -420,7 +406,7 @@ async function handleActivities(request, env) {
     const no = await requireAdmin(request, env);
     if (no) return no;
   }
-  const isAdmin = (await keyLevel(request, env)).level === 'admin';
+  const isAdmin = !!(await adminLabel(request, env));
   const recent       = refreshParam === 'recent' ? recentDaysFrom(url.searchParams.get('days')) : 0;
   const forceRefresh = refreshParam === 'true' || recent > 0;
 

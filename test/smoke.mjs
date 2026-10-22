@@ -319,7 +319,9 @@ async function main() {
       return r.fulfill({ status: apiStatus, contentType: 'application/json', body: JSON.stringify(apiBody) });
     });
     await page.route('**/zwift-routes**', (r) =>
-      r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: ZWIFT_FIXTURE, updatedAt: new Date().toISOString() }) })
+      // The Worker says what kind of caller it saw; these scenarios are about the Zwift tab
+      // as the owner uses it, so the stub answers as it does for an admin key.
+      r.fulfill({ status: 200, contentType: 'application/json', headers: { 'X-Key-Level': 'admin', 'Access-Control-Expose-Headers': 'X-Key-Level' }, body: JSON.stringify({ data: ZWIFT_FIXTURE, updatedAt: new Date().toISOString() }) })
     );
     // The panel order syncs through the Worker. Left unstubbed this is a real
     // request to a real Worker from every test in the file: slow, and it would make
@@ -2253,62 +2255,88 @@ async function main() {
     await ctx.close();
   }
 
-  // ── 4c. The Zwift routes are private ────────────────────────────────────────
-  // A device with no key asks for nothing, shows nothing and keeps nothing; a device
-  // whose key the Worker refuses is treated the same way, so taking a key away stops
-  // the routes appearing on that device, not only at the Worker.
+  // ── 4c. The Zwift routes: anyone reads, only an admin key edits ─────────────
+  // A device with no key (or whose key the Worker did not recognise) sees the same
+  // list as plain results, with an "Empty" where a field has nothing, and none of the
+  // controls that would change it. A device the Worker recognises as an admin gets the
+  // form. What the Worker says (X-Key-Level) decides, so a revoked key falls back to
+  // read-only on its own.
   {
-    const open = async (key, status) => {
+    const open = async (key, level) => {
       const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 } });
-      await ctx.addInitScript(([k]) => {
-        try {
-          if (k) localStorage.setItem('fitness_admin_key', k);
-          // A copy left from before the routes were private.
-          localStorage.setItem('zwift_routes_v1', JSON.stringify({ data: [{ id: 'old', route: 'Leftover Route', status: 'Planned', maps: ['Watopia'], distance_mi: 5, elevation_ft: 0 }], syncedAt: new Date().toISOString() }));
-        } catch (e) {}
-      }, [key]);
+      await ctx.addInitScript(([k]) => { try { if (k) localStorage.setItem('fitness_admin_key', k); } catch (e) {} }, [key]);
       const page = await ctx.newPage();
       await page.route(/tile\.openstreetmap\.org/, (r) => r.abort());
       await page.route(/fonts\.g(oogleapis|static)\.com/, (r) => r.abort());
       await page.route(/nominatim\.openstreetmap\.org/, (r) => r.abort());
-      let asked = 0;
       await page.route(ACTIVITIES_ROUTE, (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ENVELOPE) }));
+      const asked = [];
       await page.route('**/zwift-routes**', (r) => {
-        asked++;
-        return status === 200
-          ? r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: ZWIFT_FIXTURE }) })
-          : r.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: true, message: 'no' }) });
+        asked.push({ url: r.request().url(), key: r.request().headers()['x-admin-key'] || null });
+        r.fulfill({ status: 200, contentType: 'application/json',
+          headers: { 'X-Key-Level': level, 'Access-Control-Expose-Headers': 'X-Key-Level' },
+          body: JSON.stringify({ data: ZWIFT_FIXTURE }) });
       });
       await page.goto(base + '/index.html', { waitUntil: 'domcontentloaded' });
       await page.waitForFunction(() => !document.body.classList.contains('is-loading'), null, { timeout: 20000 });
       await page.evaluate(() => window.setTab('zwift'));
-      await page.waitForTimeout(800);
-      const text = await page.evaluate(() => document.getElementById('tab-zwift').innerText);
-      const stored = await page.evaluate(() => localStorage.getItem('zwift_routes_v1'));
-      const held = await page.evaluate(() => ZWIFT_DATA.length);
-      return { ctx, page, asked, text, stored, held };
+      await page.waitForFunction(() => zwiftLoaded && ZWIFT_DATA.length > 0, null, { timeout: 15000 });
+      await page.evaluate(() => { window.setZwiftStatusFilter('All'); window.toggleAllZwiftGroups(true); });
+      await page.evaluate(() => window.toggleZwiftEdit('todo-a'));
+      await page.waitForTimeout(300);
+      const detail = await page.evaluate(() => {
+        const d = document.querySelector('#zwift-row-todo-a .zwift-detail');
+        return d ? { text: d.innerText, selects: d.querySelectorAll('select').length, inputs: d.querySelectorAll('input:not([type=checkbox])').length,
+          buttons: [...d.querySelectorAll('button')].map((b) => b.textContent.trim()).filter((t) => /Save|Cancel/.test(t)).length } : null;
+      });
+      return { ctx, page, asked, detail };
     };
 
-    await check('a device with no key asks for nothing, shows nothing and keeps nothing', async () => {
-      const d = await open(null, 200);
-      assert(d.asked === 0, d.asked + ' request(s) went to /zwift-routes with no key');
-      assert(d.held === 0, d.held + ' route(s) held in memory on a device with no key');
-      assert(!/Leftover Route/.test(d.text), 'a route showed on a device with no key');
-      assert(d.stored === null, 'the old copy is still on the device');
-      assert(/private/i.test(d.text), 'it does not say why: ' + d.text.slice(0, 120));
+    await check('a device with no key sees the routes, and sends no key to ask', async () => {
+      const d = await open(null, 'none');
+      assert(d.detail, 'the route did not open');
+      assert(d.asked.length > 0 && d.asked.every((x) => x.key === null), JSON.stringify(d.asked));
       await d.ctx.close();
     });
-    await check('a device whose key is refused hides the routes and drops its copy', async () => {
-      const d = await open('revoked', 401);
-      assert(d.held === 0, d.held + ' route(s) still held');
-      assert(!/Leftover Route/.test(d.text), 'the cached route still showed');
-      assert(d.stored === null, 'the old copy is still on the device');
-      assert(/not accepted/i.test(d.text), 'it does not say the key was refused: ' + d.text.slice(0, 120));
+    await check('read-only: the fields are results, not dropdowns, boxes or buttons', async () => {
+      const d = await open(null, 'none');
+      assert(d.detail.selects === 0 && d.detail.inputs === 0 && d.detail.buttons === 0,
+        `still has ${d.detail.selects} dropdown(s), ${d.detail.inputs} input(s), ${d.detail.buttons} button(s)`);
+      assert(/Status\s+Not started/.test(d.detail.text), 'the status does not read as a result: ' + d.detail.text.slice(0, 160));
       await d.ctx.close();
     });
-    await check('a device with a good key shows the routes', async () => {
-      const d = await open('good', 200);
-      assert(d.held > 0, 'the routes did not load: ' + d.text.slice(0, 120));
+    await check('read-only: a blank date or time says Empty', async () => {
+      const d = await open(null, 'none');
+      assert(/Planned ride\s+Empty/.test(d.detail.text) && /Date completed\s+Empty/.test(d.detail.text) && /Time\s+Empty/.test(d.detail.text), d.detail.text.slice(0, 200));
+      await d.ctx.close();
+    });
+    await check('read-only: a planned day shows as a date', async () => {
+      const d = await open(null, 'none');
+      await d.page.evaluate(() => {
+        const r = ZWIFT_DATA.find((x) => x.id === 'todo-a'); r.planned_ride = '2026-03-14'; r.date_completed = '2026-02-01'; r.time = '01:02:03';
+        window.renderZwiftTable();
+      });
+      const text = await d.page.evaluate(() => document.querySelector('#zwift-row-todo-a .zwift-detail').innerText);
+      assert(/Planned ride\s+14\/03\/2026/.test(text), JSON.stringify(text.slice(0, 300)));
+      assert(/Date completed\s+01\/02\/2026/.test(text) && /Time\s+01:02:03/.test(text), JSON.stringify(text.slice(0, 300)));
+      await d.ctx.close();
+    });
+    await check('a key the Worker does not recognise falls back to read-only by itself', async () => {
+      const d = await open('revoked', 'none');
+      assert(d.detail.selects === 0 && d.detail.inputs === 0 && d.detail.buttons === 0, JSON.stringify(d.detail));
+      assert(d.asked.some((x) => x.key === 'revoked'), 'it should still have offered its key');
+      await d.ctx.close();
+    });
+    await check('read-only: the refresh button reads again and does not ask Notion to be re-read', async () => {
+      const d = await open(null, 'none');
+      d.asked.length = 0;
+      await d.page.evaluate(() => loadZwiftRoutes(true));
+      assert(d.asked.length > 0 && d.asked.every((x) => !/refresh=true/.test(x.url)), JSON.stringify(d.asked));
+      await d.ctx.close();
+    });
+    await check('an admin key gets the form: a dropdown, the two dates, the time, Save and Cancel', async () => {
+      const d = await open('good', 'admin');
+      assert(d.detail.selects === 1 && d.detail.inputs >= 3 && d.detail.buttons === 2, JSON.stringify(d.detail));
       await d.ctx.close();
     });
   }

@@ -1095,6 +1095,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .zwift-edit-form label:nth-of-type(1){width:150px}
 .zwift-edit-form label:last-of-type{width:130px}
 .zwift-edit-error{color:var(--danger);font-size:12px;margin-top:6px;width:100%}
+.zwift-ro-empty{color:var(--text-light);font-style:italic;font-weight:400}
 .zwift-detail-info{font-size:12px}
 .zwift-detail-info tr td{padding:4px 0;color:var(--text-muted)}
 .zwift-detail-info tr td:last-child{text-align:right;color:var(--text)}
@@ -8666,29 +8667,16 @@ function renderLog(){
 
 // ── ZWIFT ROUTES ──
 
-// The routes are private (a Notion database), so this page shows them only on a
-// device that has been given a key. A device without one asks for nothing and keeps
-// nothing: whatever copy it held is removed, so a key taken away stops showing
-// them here too, not just at the Worker.
-function zwiftShowLocked(message){
-  ZWIFT_DATA=[];zwiftLoaded=false;_zwiftRiddenIndex=null;_zwiftFit=null;_zwiftFitFor=null;
-  try{localStorage.removeItem(ZWIFT_CACHE_KEY);}catch(e){}
-  zwiftSyncState='locked';
-  const groups=document.getElementById('zwiftGroups');if(groups)groups.innerHTML='';
-  const empty=document.getElementById('zwiftEmpty');
-  if(empty){
-    empty.style.display='block';empty.dataset.locked='1';
-    empty.innerHTML='<span class="ms" style="font-size:36px;display:block;margin-bottom:8px">lock</span>'+escapeHtml(message);
-  }
-  renderZwiftSync();
-}
+// Anyone may read the routes; only a device holding an admin key may change them. The
+// Worker says which kind of caller it saw (X-Key-Level), so a revoked key falls back to
+// the read-only list by itself instead of offering edits that would be refused.
+let zwiftEditable=false;
 async function loadZwiftRoutes(forceRefresh=false){
-  if(!hasAdminKey()){
-    zwiftShowLocked('The Zwift routes are private. Open this page once with #admin=<key> on the end of the address to unlock them on this device.');
-    return;
-  }
-  const emptyBox=document.getElementById('zwiftEmpty');
-  if(emptyBox&&emptyBox.dataset.locked){delete emptyBox.dataset.locked;emptyBox.style.display='none';emptyBox.innerHTML='<span class="ms" style="font-size:36px;display:block;margin-bottom:8px">route</span>Could not load Zwift routes.';}
+  // A refresh re-reads Notion and is for the key holder. Anyone else asking for one just
+  // reads again.
+  if(forceRefresh&&!hasAdminKey())forceRefresh=false;
+  // Until the Worker has answered, the key this device holds is the best guess.
+  zwiftEditable=hasAdminKey();
   if(!forceRefresh&&!zwiftLoaded){
     try{
       const cached=localStorage.getItem(ZWIFT_CACHE_KEY);
@@ -8707,9 +8695,9 @@ async function loadZwiftRoutes(forceRefresh=false){
 
   const url=ZWIFT_WORKER_BASE+'/zwift-routes'+(forceRefresh?'?refresh=true':'');
   try{
-    const res=await fetch(url,{cache:'no-store',headers:adminHeaders()});
+    const res=await fetch(url,hasAdminKey()?{cache:'no-store',headers:adminHeaders()}:{cache:'no-store'});
     const json=await res.json();
-    if(res.status===401){ zwiftShowLocked('This device\u2019s key was not accepted, so the Zwift routes are hidden. Open this page again with a current #admin=<key>.'); return; }
+    zwiftEditable=res.headers.get('X-Key-Level')==='admin';
     if(!res.ok||json.error){
       throw new Error(json.message||'Failed to load Zwift routes');
     }
@@ -8753,16 +8741,15 @@ function renderZwiftSync(){
   const el=document.getElementById('zwiftSync');
   if(!el)return;
   const ago=zwiftAgo(zwiftSyncedAt);
-  const loading=zwiftSyncState==='loading',stale=zwiftSyncState==='error',locked=zwiftSyncState==='locked';
+  const loading=zwiftSyncState==='loading',stale=zwiftSyncState==='error';
   let label,detail;
-  if(locked){label='Locked';detail='This device has no key, so the private Zwift routes are not shown.';}
-  else if(loading){label='Checking…';detail='Checking Notion for changes.';}
+  if(loading){label='Checking…';detail='Checking Notion for changes.';}
   else if(stale){
     label=zwiftSyncedAt?`Not synced · ${zwiftAgeShort(zwiftSyncedAt)} old`:'Not synced';
     detail=`Couldn't reach Notion.${ago?` Showing this device's copy from ${ago}.`:''}`;
   }else{label='Up to date';detail=ago?`Checked with Notion ${ago}.`:'From Notion.';}
   el.classList.toggle('stale',stale);el.classList.toggle('loading',loading);
-  el.title=`${detail} Routes come from Notion; the year and sport filters above do not apply here.`;
+  el.title=`${detail}${zwiftEditable?'':' This device can look but not edit.'} Routes come from Notion; the year and sport filters above do not apply here.`;
   el.innerHTML=`<span class="zwift-sync-pill"><i aria-hidden="true"></i>${label}</span><button class="zwift-sync-btn" type="button" onclick="loadZwiftRoutes(true)" aria-label="${stale?'Try again':'Refresh from Notion'}"${loading?' disabled':''}>${ZWIFT_REFRESH_SVG}</button>`;
 }
 
@@ -9238,6 +9225,21 @@ function zwiftLink(url,label){
   return`<a href="${escapeAttr(u.href)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${escapeHtml(label)}</a>`;
 }
 
+// The same four fields the edit form has, as plain results: a status, a day, a day, a
+// time. A blank one says so rather than showing an empty box.
+function zwiftReadOnlyFields(r){
+  const empty='<span class="zwift-ro-empty">Empty</span>';
+  const plan=zwiftPlanDay(r.planned_ride);
+  const planTime=zwiftPlanTime(r.planned_ride);
+  const row=(k,v)=>`<tr><td>${k}</td><td>${v}</td></tr>`;
+  return`<table class="zwift-detail-info zwift-ro" aria-label="Route details, read only">
+    ${row('Status',r.status?`<span style="color:${zwiftStatusColor(r.status)};font-weight:600">${escapeHtml(r.status)}</span>`:empty)}
+    ${row('Planned ride',plan?escapeHtml(fmtDate(plan))+(planTime?' · '+escapeHtml(planTime):''):empty)}
+    ${row('Date completed',r.date_completed?escapeHtml(fmtDate(r.date_completed)):empty)}
+    ${row('Time',r.time?escapeHtml(r.time):empty)}
+  </table>`;
+}
+
 function renderZwiftDetail(r){
   const links=[
     zwiftLink(r.link_zi,'Zwift Insider'),
@@ -9264,8 +9266,7 @@ function renderZwiftDetail(r){
       ${parsed.trailing?`<div class="zwift-directions-trailing">${escapeHtml(parsed.trailing)}</div>`:''}
     </div>`;
   }
-  return`<div class="zwift-detail" onclick="event.stopPropagation()">
-    <div class="zwift-edit-form">
+  const fields=zwiftEditable?`<div class="zwift-edit-form">
       <label>Status<select id="ze-status-${r.id}" onchange="handleZwiftStatusChange('${r.id}','${r.status}')">
         ${ZWIFT_STATUS_ORDER.map(s=>`<option value="${escapeAttr(s)}"${s===r.status?' selected':''}>${escapeHtml(s)}</option>`).join('')}
       </select></label>
@@ -9275,7 +9276,9 @@ function renderZwiftDetail(r){
       <button class="page-btn" onclick="saveZwiftEdit('${r.id}')" id="ze-save-${r.id}">Save</button>
       <button class="page-btn" onclick="cancelZwiftEdit()">Cancel</button>
       <div class="zwift-edit-error" id="ze-error-${r.id}"></div>
-    </div>
+    </div>`:zwiftReadOnlyFields(r);
+  return`<div class="zwift-detail" onclick="event.stopPropagation()">
+    ${fields}
     <table class="zwift-detail-info">
       <tr><td>Est. duration <span style="color:var(--text-light);font-weight:400">(in Notion)</span></td><td>${r.est_duration||'—'}</td></tr>
       ${(()=>{
@@ -9438,6 +9441,7 @@ function afterZwiftSave(saved,prevStatus){
 }
 
 function renderZwiftRowNotice(r){
+  if(!zwiftEditable)return '';   // nothing here can be acted on from a read-only device
   const moving=zwiftMoving[r.id];
   if(moving){
     const left=Math.max(1,Math.ceil((moving-Date.now())/1000));

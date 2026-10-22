@@ -47,7 +47,6 @@ const send = (env, method, path, { key, origin, body, cookie } = {}) => {
 };
 
 const GATED = [
-  ['GET', '/zwift-routes'],
   ['GET', '/debug'],
   ['GET', '/sync-training-log'],
   ['GET', '/backfill-prs'],
@@ -239,99 +238,90 @@ describe('which web pages may talk to it', () => {
 });
 
 
-// ---- The Zwift routes are private ------------------------------------------------
-// They come from a Notion database, and the dashboard that shows them is public.
-// Reading them needs a key of either kind; changing anything needs an admin one, and
-// every device can hold a key of its own so one lost phone is one deleted entry.
+// ---- The Zwift routes: anyone may read them, only an admin key may change them ------
+// The list comes from a Notion database and is shown on a public dashboard as a plain
+// read-only table. What is protected is changing it, and every answer says whether the
+// caller was an admin so the dashboard offers editing to nobody else.
 const ROUTES = JSON.stringify({ data: [{ id: 'r1', route: 'Secret Loop' }], updatedAt: '2026-01-01T00:00:00Z' });
 const zenv = (extra = {}) => {
-  const env = envOf({ ADMIN_KEY: 'phone:aaaa1111,laptop:bbbb2222', VIEW_KEY: 'tablet:cccc3333', ...extra });
+  const env = envOf({ ADMIN_KEY: 'phone:aaaa1111,laptop:bbbb2222', ...extra });
   env.CACHE.m.set('zwift_routes_v1', ROUTES);
   return env;
 };
 
-describe('the Zwift routes are private', () => {
-  it('a stranger gets nothing and the data is not in the answer', async () => {
+describe('the Zwift routes', () => {
+  it('can be read by anyone, key or no key', async () => {
     stub();
     const res = await send(zenv(), 'GET', '/zwift-routes');
-    expect(res.status).toBe(401);
-    expect(await res.text()).not.toContain('Secret Loop');
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain('Secret Loop');
     expect(outbound).toEqual([]);
   });
-  it('a wrong key gets nothing either', async () => {
+  it('and say so: no key is not an admin', async () => {
+    stub();
+    expect((await send(zenv(), 'GET', '/zwift-routes')).headers.get('X-Key-Level')).toBe('none');
+  });
+  it('a wrong or revoked key still reads, as a nobody, rather than being refused', async () => {
     stub();
     const res = await send(zenv(), 'GET', '/zwift-routes', { key: 'dddd4444' });
-    expect(res.status).toBe(401);
-    expect(await res.text()).not.toContain('Secret Loop');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('X-Key-Level')).toBe('none');
   });
-  it('every device with a key can look, whichever kind it holds', async () => {
-    for (const key of ['aaaa1111', 'bbbb2222', 'cccc3333']) {
-      stub();
-      const res = await send(zenv(), 'GET', '/zwift-routes', { key });
-      expect(res.status, key).toBe(200);
-      expect(await res.text()).toContain('Secret Loop');
-    }
-  });
-  it('a view key can look but not change, refresh or trigger anything', async () => {
-    for (const [method, path, body] of GATED.filter(([, p]) => p !== '/zwift-routes')) {
-      stub();
-      const res = await send(zenv(), method, path, { key: 'cccc3333', body });
-      expect(res.status, method + ' ' + path).toBe(403);
-      expect(outbound).toEqual([]);
-    }
-    stub();
-    expect((await send(zenv(), 'GET', '/zwift-routes?refresh=true', { key: 'cccc3333' })).status).toBe(403);
-  });
-  it('an admin key does everything, and each of several works on its own', async () => {
+  it('a good key reads as an admin', async () => {
     for (const key of ['aaaa1111', 'bbbb2222']) {
       stub();
-      const res = await send(zenv(), 'PATCH', '/zwift-routes/abc', { key, body: { status: 'Complete' } });
-      expect([401, 403, 503], key).not.toContain(res.status);
+      expect((await send(zenv(), 'GET', '/zwift-routes', { key })).headers.get('X-Key-Level'), key).toBe('admin');
     }
   });
-  it('a view key is not an admin key just because both are configured', async () => {
+  it('says which kind of caller it was on a fresh read from Notion as well as a cached one', async () => {
     stub();
-    const res = await send(zenv(), 'GET', '/sync-training-log', { key: 'cccc3333' });
-    expect(res.status).toBe(403);
+    globalThis.fetch = vi.fn(async () => json({ results: [], has_more: false }));
+    const env = zenv();
+    env.CACHE.m.delete('zwift_routes_v1');
+    const res = await send(env, 'GET', '/zwift-routes', { key: 'aaaa1111' });
+    expect(res.headers.get('X-Key-Level')).toBe('admin');
   });
-  it('taking one device out of the list stops that device and only that device', async () => {
+  it('changing one needs an admin key', async () => {
+    stub();
+    expect((await send(zenv(), 'PATCH', '/zwift-routes/abc', { body: { status: 'Complete' } })).status).toBe(401);
+    expect((await send(zenv(), 'PATCH', '/zwift-routes/abc', { key: 'dddd4444', body: { status: 'Complete' } })).status).toBe(401);
+    expect(outbound).toEqual([]);
+    for (const key of ['aaaa1111', 'bbbb2222']) {
+      expect([401, 403, 503], key).not.toContain((await send(zenv(), 'PATCH', '/zwift-routes/abc', { key, body: { status: 'Complete' } })).status);
+    }
+  });
+  it('and so does refreshing the list from Notion', async () => {
+    stub();
+    expect((await send(zenv(), 'GET', '/zwift-routes?refresh=true')).status).toBe(401);
+    expect(outbound).toEqual([]);
+  });
+  it('taking one device out of the list stops that device editing, and only that device', async () => {
     stub();
     const gone = zenv({ ADMIN_KEY: 'laptop:bbbb2222' });
-    expect((await send(gone, 'GET', '/zwift-routes', { key: 'aaaa1111' })).status).toBe(401);
-    expect((await send(gone, 'GET', '/zwift-routes', { key: 'bbbb2222' })).status).toBe(200);
+    expect((await send(gone, 'GET', '/zwift-routes', { key: 'aaaa1111' })).headers.get('X-Key-Level')).toBe('none');
+    expect((await send(gone, 'PATCH', '/zwift-routes/abc', { key: 'aaaa1111', body: {} })).status).toBe(401);
+    expect((await send(gone, 'GET', '/zwift-routes', { key: 'bbbb2222' })).headers.get('X-Key-Level')).toBe('admin');
   });
-  it('is shut, not open, with no key of either kind configured', async () => {
-    stub();
-    const res = await send(zenv({ ADMIN_KEY: undefined, VIEW_KEY: undefined }), 'GET', '/zwift-routes', { key: 'anything' });
-    expect(res.status).toBe(503);
-    expect(await res.text()).not.toContain('Secret Loop');
-  });
-  it('and with only a view key configured, the admin routes stay shut', async () => {
+  it('with no admin key configured at all, nobody can change anything (503), but anyone can still read', async () => {
     stub();
     const env = zenv({ ADMIN_KEY: undefined });
-    expect((await send(env, 'PUT', '/prefs', { key: 'cccc3333', body: { prefs: {}, updatedAt: 1 } })).status).toBe(503);
-    expect((await send(env, 'GET', '/zwift-routes', { key: 'cccc3333' })).status).toBe(200);
+    expect((await send(env, 'PATCH', '/zwift-routes/abc', { key: 'anything', body: {} })).status).toBe(503);
+    expect((await send(env, 'GET', '/zwift-routes')).status).toBe(200);
   });
   it('a bare key with no label works, and so does base64-looking padding in a labelled one', async () => {
     stub();
-    expect((await send(zenv({ ADMIN_KEY: 'plainkey99' }), 'GET', '/zwift-routes', { key: 'plainkey99' })).status).toBe(200);
-    expect((await send(zenv({ ADMIN_KEY: 'me:abc=' }), 'GET', '/zwift-routes', { key: 'abc=' })).status).toBe(200);
+    expect((await send(zenv({ ADMIN_KEY: 'plainkey99' }), 'GET', '/zwift-routes', { key: 'plainkey99' })).headers.get('X-Key-Level')).toBe('admin');
+    expect((await send(zenv({ ADMIN_KEY: 'me:abc=' }), 'GET', '/zwift-routes', { key: 'abc=' })).headers.get('X-Key-Level')).toBe('admin');
   });
   it('blank entries in the list are ignored, never matched by a blank key', async () => {
     stub();
-    const env = zenv({ ADMIN_KEY: ' , ,phone:aaaa1111,', VIEW_KEY: ',' });
-    expect((await send(env, 'GET', '/zwift-routes', { key: '' })).status).toBe(401);
-    expect((await send(env, 'GET', '/zwift-routes', { key: 'aaaa1111' })).status).toBe(200);
+    const env = zenv({ ADMIN_KEY: ' , ,phone:aaaa1111,' });
+    expect((await send(env, 'GET', '/zwift-routes', { key: '' })).headers.get('X-Key-Level')).toBe('none');
+    expect((await send(env, 'GET', '/zwift-routes', { key: 'aaaa1111' })).headers.get('X-Key-Level')).toBe('admin');
   });
   it('a list with nothing but blanks in it counts as not configured', async () => {
     stub();
-    const res = await send(zenv({ ADMIN_KEY: 'phone:, ,', VIEW_KEY: ' ' }), 'GET', '/zwift-routes', { key: 'x' });
-    expect(res.status).toBe(503);
-  });
-  it('a key listed as both admin and view counts as admin', async () => {
-    stub();
-    const env = zenv({ ADMIN_KEY: 'both:eeee5555', VIEW_KEY: 'both:eeee5555' });
-    expect((await send(env, 'GET', '/sync-training-log', { key: 'eeee5555' })).status).not.toBe(403);
+    expect((await send(zenv({ ADMIN_KEY: 'phone:, ,' }), 'PATCH', '/zwift-routes/abc', { key: 'x', body: {} })).status).toBe(503);
   });
   it('a write is logged by the device that made it, never by its key', async () => {
     stub();
@@ -341,22 +331,25 @@ describe('the Zwift routes are private', () => {
     expect(said).toContain('laptop');
     expect(said).not.toContain('bbbb2222');
   });
-  it('the private routes never answer a web page from another site', async () => {
-    const res = await send(zenv(), 'GET', '/zwift-routes', { key: 'aaaa1111', origin: 'https://evil.example' });
-    expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull();
+  it('the dashboard may read which kind of caller it was, and no other site may read anything', async () => {
+    const ok = await send(zenv(), 'GET', '/zwift-routes', { key: 'aaaa1111', origin: 'https://activities.laurencekellett.co.uk' });
+    expect(ok.headers.get('Access-Control-Expose-Headers')).toContain('X-Key-Level');
+    const no = await send(zenv(), 'GET', '/zwift-routes', { key: 'aaaa1111', origin: 'https://evil.example' });
+    expect(no.headers.get('Access-Control-Allow-Origin')).toBeNull();
+    expect(no.headers.get('Access-Control-Expose-Headers')).toBeNull();
   });
 });
 
-
 // ---- One secret per device --------------------------------------------------------
-// ADMIN_KEY_<LABEL> and VIEW_KEY_<LABEL> each hold a single key. Deleting the secret
-// revokes the device, with no list to retype.
+// ADMIN_KEY_<LABEL> holds a single key. Deleting the secret revokes the device, with
+// no list to retype.
 describe('a secret of its own for each device', () => {
   const sep = (extra = {}) => {
     const env = envOf({ ADMIN_KEY: undefined, ...extra });
     env.CACHE.m.set('zwift_routes_v1', ROUTES);
     return env;
   };
+  const level = async (env, key) => (await send(env, 'GET', '/zwift-routes', { key })).headers.get('X-Key-Level');
   it('each ADMIN_KEY_<name> is an admin key, and the name is its label', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
     const env = sep({ ADMIN_KEY_PHONE: 'aaaa1111', ADMIN_KEY_LAPTOP: 'bbbb2222' });
@@ -370,43 +363,38 @@ describe('a secret of its own for each device', () => {
     expect(said).toContain('admin LAPTOP ');
     expect(said).not.toContain('aaaa1111');
   });
-  it('each VIEW_KEY_<name> may look and not change', async () => {
-    stub();
-    const env = sep({ ADMIN_KEY_PHONE: 'aaaa1111', VIEW_KEY_TABLET: 'cccc3333' });
-    expect((await send(env, 'GET', '/zwift-routes', { key: 'cccc3333' })).status).toBe(200);
-    expect((await send(env, 'GET', '/sync-training-log', { key: 'cccc3333' })).status).toBe(403);
-  });
   it('deleting one secret revokes that device and only that device', async () => {
     stub();
     const before = sep({ ADMIN_KEY_PHONE: 'aaaa1111', ADMIN_KEY_LAPTOP: 'bbbb2222' });
-    expect((await send(before, 'GET', '/zwift-routes', { key: 'aaaa1111' })).status).toBe(200);
+    expect(await level(before, 'aaaa1111')).toBe('admin');
     const after = sep({ ADMIN_KEY_LAPTOP: 'bbbb2222' });
-    expect((await send(after, 'GET', '/zwift-routes', { key: 'aaaa1111' })).status).toBe(401);
-    expect((await send(after, 'GET', '/zwift-routes', { key: 'bbbb2222' })).status).toBe(200);
+    expect(await level(after, 'aaaa1111')).toBe('none');
+    expect(await level(after, 'bbbb2222')).toBe('admin');
   });
   it('the list form and the separate form work together', async () => {
     stub();
     const env = sep({ ADMIN_KEY: 'old:dddd4444', ADMIN_KEY_PHONE: 'aaaa1111' });
-    expect((await send(env, 'GET', '/zwift-routes', { key: 'dddd4444' })).status).toBe(200);
-    expect((await send(env, 'GET', '/zwift-routes', { key: 'aaaa1111' })).status).toBe(200);
+    expect(await level(env, 'dddd4444')).toBe('admin');
+    expect(await level(env, 'aaaa1111')).toBe('admin');
   });
   it('an empty one is not a key, and a bare prefix is not a name', async () => {
     stub();
-    const env = sep({ ADMIN_KEY_PHONE: '   ', ADMIN_KEY_: 'eeee5555', VIEW_KEY_X: '' });
-    expect((await send(env, 'GET', '/zwift-routes', { key: '' })).status).toBe(503);
-    expect((await send(env, 'GET', '/zwift-routes', { key: 'eeee5555' })).status).toBe(503);
+    const env = sep({ ADMIN_KEY_PHONE: '   ', ADMIN_KEY_: 'eeee5555' });
+    expect(await level(env, '')).toBe('none');
+    expect(await level(env, 'eeee5555')).toBe('none');
+    expect((await send(env, 'PATCH', '/zwift-routes/abc', { key: 'eeee5555', body: {} })).status).toBe(503);
   });
-  it('only those exact prefixes count: a look-alike name opens nothing', async () => {
+  it('only that exact prefix counts: a look-alike name opens nothing', async () => {
     stub();
-    const env = sep({ MY_ADMIN_KEY_PHONE: 'ffff6666', ADMIN_KEYS: 'ffff6666', ADMIN_KEYPHONE: 'ffff6666', FIT_SECURITY_STRING_PHONE: 'ffff6666' });
-    expect((await send(env, 'GET', '/zwift-routes', { key: 'ffff6666' })).status).toBe(503);
+    const env = sep({ MY_ADMIN_KEY_PHONE: 'ffff6666', ADMIN_KEYS: 'ffff6666', ADMIN_KEYPHONE: 'ffff6666', FIT_SECURITY_STRING_PHONE: 'ffff6666', VIEW_KEY_TABLET: 'ffff6666' });
+    expect(await level(env, 'ffff6666')).toBe('none');
+    expect((await send(env, 'PATCH', '/zwift-routes/abc', { key: 'ffff6666', body: {} })).status).toBe(503);
   });
   it('a non-text binding with a matching name is ignored rather than breaking the check', async () => {
     stub();
     const env = sep({ ADMIN_KEY_STORE: { get() {} }, ADMIN_KEY_PHONE: 'aaaa1111' });
-    expect((await send(env, 'GET', '/zwift-routes', { key: 'aaaa1111' })).status).toBe(200);
-    // And it is not turned into text and accepted as a key: its string form is not a password.
+    expect(await level(env, 'aaaa1111')).toBe('admin');
     const only = sep({ ADMIN_KEY_STORE: { get() {} } });
-    expect((await send(only, 'GET', '/zwift-routes', { key: '[object Object]' })).status).toBe(503);
+    expect((await send(only, 'PATCH', '/zwift-routes/abc', { key: '[object Object]', body: {} })).status).toBe(503);
   });
 });
