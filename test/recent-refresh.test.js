@@ -69,8 +69,9 @@ function stravaOk(activities, { gear = {} } = {}) {
   };
 }
 
-const call = (env, qs) => worker.fetch(new Request('https://api.example/activities' + qs), env);
-const envOf = (kv, extra = {}) => ({ CACHE: kv, STRAVA_CLIENT_ID: 'id', STRAVA_CLIENT_SECRET: 'secret', STRAVA_REFRESH_TOKEN: 'r', ...extra });
+// A refresh is the key holder's to ask for (see requireAdmin in worker.js).
+const call = (env, qs) => worker.fetch(new Request('https://api.example/activities' + qs, { headers: { 'X-Admin-Key': 'k' } }), env);
+const envOf = (kv, extra = {}) => ({ CACHE: kv, STRAVA_CLIENT_ID: 'id', STRAVA_CLIENT_SECRET: 'secret', STRAVA_REFRESH_TOKEN: 'r', ADMIN_KEY: 'k', ...extra });
 const seeded = (hist = history()) => {
   const env = JSON.stringify({ data: hist, aiSummary: 'KEEP THIS SUMMARY', updatedAt: '2026-01-01T00:00:00Z', hrZones: { athleteMaxHr: 190, source: 'strava' }, gearMeta: { 'Old Shoes': { brand: 'B', model: 'M', retired: false, kind: 'shoe' } } });
   return fakeKV({ activities_v3: env, activities_last_good_v3: env });
