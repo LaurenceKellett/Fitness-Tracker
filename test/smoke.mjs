@@ -281,6 +281,9 @@ async function main() {
     // would be measuring the network, not this page. The worker gets its own
     // scenario at the end, where it is the subject rather than an interference.
     const ctx = await browser.newContext({ viewport, serviceWorkers, hasTouch, isMobile: hasTouch });
+    // The Zwift routes are private: a device shows them only once it holds a key, so the
+    // scenarios that are about the Zwift tab run on a device that has been given one.
+    await ctx.addInitScript(() => { try { localStorage.setItem('fitness_admin_key', 'test-key'); } catch (e) {} });
     const page = await ctx.newPage();
     const errors = [];
     // Deliberately blocked third-party assets (fonts, tiles, geocoding) and missing
@@ -2225,9 +2228,15 @@ async function main() {
       assert(await page.evaluate(() => localStorage.getItem('fitness_admin_key')) === 's3cret/key', 'the key was not stored');
       assert(!(await page.evaluate(() => location.hash)), 'the key is still in the address bar');
     });
-    await check('an ordinary load sends no key', async () => {
-      const reads = seen.filter((x) => /\/activities$|\/zwift-routes$/.test(x.url));
-      assert(reads.length > 0 && reads.every((x) => x.key === null), JSON.stringify(reads));
+    await check('an ordinary load of the public feed sends no key', async () => {
+      const reads = seen.filter((x) => /\/activities$/.test(x.url));
+      assert(reads.length > 0 && reads.every((x) => x.key === null), JSON.stringify(seen));
+    });
+    await check('but the private Zwift routes are asked for with it, every time', async () => {
+      seen.length = 0;
+      await page.evaluate(() => loadZwiftRoutes());
+      const reads = seen.filter((x) => /\/zwift-routes$/.test(x.url));
+      assert(reads.length > 0 && reads.every((x) => x.key === 's3cret/key'), JSON.stringify(seen));
     });
     await check('a refresh from Strava sends it', async () => {
       seen.length = 0;
@@ -2242,6 +2251,66 @@ async function main() {
       assert(r && r.key === 's3cret/key', JSON.stringify(seen));
     });
     await ctx.close();
+  }
+
+  // ── 4c. The Zwift routes are private ────────────────────────────────────────
+  // A device with no key asks for nothing, shows nothing and keeps nothing; a device
+  // whose key the Worker refuses is treated the same way, so taking a key away stops
+  // the routes appearing on that device, not only at the Worker.
+  {
+    const open = async (key, status) => {
+      const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+      await ctx.addInitScript(([k]) => {
+        try {
+          if (k) localStorage.setItem('fitness_admin_key', k);
+          // A copy left from before the routes were private.
+          localStorage.setItem('zwift_routes_v1', JSON.stringify({ data: [{ id: 'old', route: 'Leftover Route', status: 'Planned', maps: ['Watopia'], distance_mi: 5, elevation_ft: 0 }], syncedAt: new Date().toISOString() }));
+        } catch (e) {}
+      }, [key]);
+      const page = await ctx.newPage();
+      await page.route(/tile\.openstreetmap\.org/, (r) => r.abort());
+      await page.route(/fonts\.g(oogleapis|static)\.com/, (r) => r.abort());
+      await page.route(/nominatim\.openstreetmap\.org/, (r) => r.abort());
+      let asked = 0;
+      await page.route(ACTIVITIES_ROUTE, (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ENVELOPE) }));
+      await page.route('**/zwift-routes**', (r) => {
+        asked++;
+        return status === 200
+          ? r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: ZWIFT_FIXTURE }) })
+          : r.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: true, message: 'no' }) });
+      });
+      await page.goto(base + '/index.html', { waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => !document.body.classList.contains('is-loading'), null, { timeout: 20000 });
+      await page.evaluate(() => window.setTab('zwift'));
+      await page.waitForTimeout(800);
+      const text = await page.evaluate(() => document.getElementById('tab-zwift').innerText);
+      const stored = await page.evaluate(() => localStorage.getItem('zwift_routes_v1'));
+      const held = await page.evaluate(() => ZWIFT_DATA.length);
+      return { ctx, page, asked, text, stored, held };
+    };
+
+    await check('a device with no key asks for nothing, shows nothing and keeps nothing', async () => {
+      const d = await open(null, 200);
+      assert(d.asked === 0, d.asked + ' request(s) went to /zwift-routes with no key');
+      assert(d.held === 0, d.held + ' route(s) held in memory on a device with no key');
+      assert(!/Leftover Route/.test(d.text), 'a route showed on a device with no key');
+      assert(d.stored === null, 'the old copy is still on the device');
+      assert(/private/i.test(d.text), 'it does not say why: ' + d.text.slice(0, 120));
+      await d.ctx.close();
+    });
+    await check('a device whose key is refused hides the routes and drops its copy', async () => {
+      const d = await open('revoked', 401);
+      assert(d.held === 0, d.held + ' route(s) still held');
+      assert(!/Leftover Route/.test(d.text), 'the cached route still showed');
+      assert(d.stored === null, 'the old copy is still on the device');
+      assert(/not accepted/i.test(d.text), 'it does not say the key was refused: ' + d.text.slice(0, 120));
+      await d.ctx.close();
+    });
+    await check('a device with a good key shows the routes', async () => {
+      const d = await open('good', 200);
+      assert(d.held > 0, 'the routes did not load: ' + d.text.slice(0, 120));
+      await d.ctx.close();
+    });
   }
 
   // ── 5. Network failure with a warm cache ────────────────────────────────────

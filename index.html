@@ -8666,7 +8666,29 @@ function renderLog(){
 
 // ── ZWIFT ROUTES ──
 
+// The routes are private (a Notion database), so this page shows them only on a
+// device that has been given a key. A device without one asks for nothing and keeps
+// nothing: whatever copy it held is removed, so a key taken away stops showing
+// them here too, not just at the Worker.
+function zwiftShowLocked(message){
+  ZWIFT_DATA=[];zwiftLoaded=false;_zwiftRiddenIndex=null;_zwiftFit=null;_zwiftFitFor=null;
+  try{localStorage.removeItem(ZWIFT_CACHE_KEY);}catch(e){}
+  zwiftSyncState='locked';
+  const groups=document.getElementById('zwiftGroups');if(groups)groups.innerHTML='';
+  const empty=document.getElementById('zwiftEmpty');
+  if(empty){
+    empty.style.display='block';empty.dataset.locked='1';
+    empty.innerHTML='<span class="ms" style="font-size:36px;display:block;margin-bottom:8px">lock</span>'+escapeHtml(message);
+  }
+  renderZwiftSync();
+}
 async function loadZwiftRoutes(forceRefresh=false){
+  if(!hasAdminKey()){
+    zwiftShowLocked('The Zwift routes are private. Open this page once with #admin=<key> on the end of the address to unlock them on this device.');
+    return;
+  }
+  const emptyBox=document.getElementById('zwiftEmpty');
+  if(emptyBox&&emptyBox.dataset.locked){delete emptyBox.dataset.locked;emptyBox.style.display='none';emptyBox.innerHTML='<span class="ms" style="font-size:36px;display:block;margin-bottom:8px">route</span>Could not load Zwift routes.';}
   if(!forceRefresh&&!zwiftLoaded){
     try{
       const cached=localStorage.getItem(ZWIFT_CACHE_KEY);
@@ -8685,8 +8707,9 @@ async function loadZwiftRoutes(forceRefresh=false){
 
   const url=ZWIFT_WORKER_BASE+'/zwift-routes'+(forceRefresh?'?refresh=true':'');
   try{
-    const res=await fetch(url,forceRefresh?{cache:'no-store',headers:adminHeaders()}:{cache:'no-store'});
+    const res=await fetch(url,{cache:'no-store',headers:adminHeaders()});
     const json=await res.json();
+    if(res.status===401){ zwiftShowLocked('This device\u2019s key was not accepted, so the Zwift routes are hidden. Open this page again with a current #admin=<key>.'); return; }
     if(!res.ok||json.error){
       throw new Error(json.message||'Failed to load Zwift routes');
     }
@@ -8730,9 +8753,10 @@ function renderZwiftSync(){
   const el=document.getElementById('zwiftSync');
   if(!el)return;
   const ago=zwiftAgo(zwiftSyncedAt);
-  const loading=zwiftSyncState==='loading',stale=zwiftSyncState==='error';
+  const loading=zwiftSyncState==='loading',stale=zwiftSyncState==='error',locked=zwiftSyncState==='locked';
   let label,detail;
-  if(loading){label='Checking…';detail='Checking Notion for changes.';}
+  if(locked){label='Locked';detail='This device has no key, so the private Zwift routes are not shown.';}
+  else if(loading){label='Checking…';detail='Checking Notion for changes.';}
   else if(stale){
     label=zwiftSyncedAt?`Not synced · ${zwiftAgeShort(zwiftSyncedAt)} old`:'Not synced';
     detail=`Couldn't reach Notion.${ago?` Showing this device's copy from ${ago}.`:''}`;
@@ -9387,7 +9411,7 @@ async function patchZwiftRoute(id,body){
     body:JSON.stringify(body),
   });
   const json=await res.json();
-  if(res.status===401)throw new Error((json.message||'Locked.')+LOCKED_HINT);
+  if(res.status===401||res.status===403)throw new Error((json.message||'Locked.')+(res.status===401?LOCKED_HINT:''));
   if(!res.ok||json.error)throw new Error(json.message||'Save failed');
   const idx=ZWIFT_DATA.findIndex(r=>r.id===id);
   if(idx!==-1)ZWIFT_DATA[idx]=json.data;

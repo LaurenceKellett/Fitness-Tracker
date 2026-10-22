@@ -85,20 +85,28 @@ const CORS = {
 // =============================================================================
 // WHO MAY DO WHAT
 // =============================================================================
-// Reading the dashboard's data is open: the dashboard is public and so is its
-// repository, so there is nothing to hide about how it is read. Everything that
-// WRITES, spends Strava's rate limit or shows raw Strava data needs the admin key,
-// sent as an X-Admin-Key header:
+// The dashboard is public and so is its repository, so the Worker's address is
+// known to anyone. Two things are therefore kept behind keys, each sent as an
+// X-Admin-Key header:
 //
-//   GET /activities?refresh=…, GET /zwift-routes?refresh=true   (a refresh costs
-//        Strava requests, Notion reads, Workers AI and one of the day's 1,000 KV writes)
-//   GET /sync-training-log, GET /backfill-prs, GET /debug
-//   PATCH /zwift-routes/<id>, PUT /prefs                         (writes)
+//   VIEW   reading the Zwift routes (GET /zwift-routes), which come from a private
+//          Notion database. A view key is for a device that may look.
+//   ADMIN  everything that changes something or spends something: a refresh
+//          (GET /activities?refresh=…, /zwift-routes?refresh=true), the Notion
+//          and PB syncs, /debug, PATCH /zwift-routes/<id>, PUT /prefs. An admin key
+//          may also do everything a view key can.
 //
-// ADMIN_KEY is a Worker secret. With none set these routes answer 503 rather than
-// open: a missing secret must never mean "no lock". The dashboard keeps the key in
-// the browser once you have opened it with #admin=<key> on the end of its address
-// (a fragment never reaches a server or a log).
+// Open to anyone: GET /activities (the cached, home-trimmed feed the public
+// dashboard draws), /prefs and /refresh-status.
+//
+// The keys are Worker secrets, ADMIN_KEY and VIEW_KEY. Each holds one key or several,
+// separated by commas, and a key may be labelled, `phone:3f9c…,laptop:b27a…`, so
+// every device has a key of its own and one lost phone is revoked by deleting one
+// entry. Keys are hex (`openssl rand -hex 24`): no commas or colons in them. With
+// nothing configured for a level the routes that need it answer 503 and stay
+// shut: a missing secret must never mean "no lock". The dashboard keeps its key in
+// the browser once opened with #admin=<key> on the end of its address (a fragment
+// never reaches a server or a log).
 const ADMIN_HEADER = 'X-Admin-Key';
 
 // Compared by digest, so the time taken says nothing about how many leading
@@ -115,17 +123,57 @@ async function sameSecret(given, expected) {
   return diff === 0;
 }
 
+// "phone:abc,laptop:def" or just "abc" -> [{ label, key }]
+function parseKeys(raw) {
+  return String(raw || '').split(',').map((part, i) => {
+    const t = part.trim();
+    if (!t) return null;
+    const at = t.indexOf(':');
+    const label = at > 0 ? t.slice(0, at).trim().slice(0, 24) : 'key' + (i + 1);
+    const key = at > 0 ? t.slice(at + 1).trim() : t;
+    return key ? { label, key } : null;
+  }).filter(Boolean);
+}
+
+// Which level of key this request carries: 'admin', 'view' or null, and the label of
+// the key that matched. Every configured key is compared, never stopping at the
+// first, so the time does not say which entry matched.
+async function keyLevel(request, env) {
+  const given = request.headers.get(ADMIN_HEADER) || '';
+  if (!given) return { level: null, label: null };
+  let found = { level: null, label: null };
+  for (const [level, raw] of [['admin', env.ADMIN_KEY], ['view', env.VIEW_KEY]]) {
+    for (const k of parseKeys(raw)) {
+      if (await sameSecret(given, k.key) && found.level !== 'admin') found = { level, label: k.label };
+    }
+  }
+  return found;
+}
+
+const keyAnswer = (status, message) => new Response(JSON.stringify({ error: true, message }), {
+  status, headers: { ...CORS, 'Content-Type': 'application/json' },
+});
+
 // null when the request may go ahead, otherwise the answer to send instead.
 async function requireAdmin(request, env) {
-  const json = (status, message) => new Response(JSON.stringify({ error: true, message }), {
-    status, headers: { ...CORS, 'Content-Type': 'application/json' },
-  });
-  if (!env.ADMIN_KEY) return json(503, 'ADMIN_KEY is not set on the Worker, so this is switched off.');
-  const given = request.headers.get(ADMIN_HEADER) || '';
-  if (!given || !(await sameSecret(given, env.ADMIN_KEY))) {
-    return json(401, 'This needs the admin key (X-Admin-Key).');
+  if (!parseKeys(env.ADMIN_KEY).length) return keyAnswer(503, 'ADMIN_KEY is not set on the Worker, so this is switched off.');
+  const { level, label } = await keyLevel(request, env);
+  if (level === 'admin') {
+    // Which device did it, never the key itself.
+    console.log('admin', label, request.method, new URL(request.url).pathname);
+    return null;
   }
-  return null;
+  if (level === 'view') return keyAnswer(403, 'This device may look but not change anything.');
+  return keyAnswer(401, 'This needs the admin key (X-Admin-Key).');
+}
+
+// For the routes that only read what is private: either kind of key will do.
+async function requireViewer(request, env) {
+  if (!parseKeys(env.ADMIN_KEY).length && !parseKeys(env.VIEW_KEY).length) {
+    return keyAnswer(503, 'No ADMIN_KEY or VIEW_KEY is set on the Worker, so this is switched off.');
+  }
+  const { level } = await keyLevel(request, env);
+  return level ? null : keyAnswer(401, 'These routes are private. This needs a key (X-Admin-Key).');
 }
 
 // Browsers only: a page on another site cannot read these answers or send these
@@ -204,9 +252,13 @@ async function route(request, env) {
       if (request.method === 'PUT') { const no = await admin(); if (no) return no; }
       return handlePrefs(request, env);
     case '/refresh-status':     return handleRefreshStatus(env);
-    case '/zwift-routes':
-      if (url.searchParams.get('refresh') === 'true') { const no = await admin(); if (no) return no; }
+    // Private: they come from a Notion database. Looking needs any key; a refresh,
+    // which re-reads Notion and spends a KV write, needs the admin one.
+    case '/zwift-routes': {
+      const no = url.searchParams.get('refresh') === 'true' ? await admin() : await requireViewer(request, env);
+      if (no) return no;
       return handleZwiftRoutes(request, env);
+    }
     case '/sync-training-log':  return (await admin()) || handleSyncTrainingLog(env);
     case '/backfill-prs':       return (await admin()) || handleBackfillPrs(env);
     default:
@@ -352,7 +404,7 @@ async function handleActivities(request, env) {
     const no = await requireAdmin(request, env);
     if (no) return no;
   }
-  const isAdmin = !!env.ADMIN_KEY && await sameSecret(request.headers.get(ADMIN_HEADER) || '', env.ADMIN_KEY);
+  const isAdmin = (await keyLevel(request, env)).level === 'admin';
   const recent       = refreshParam === 'recent' ? recentDaysFrom(url.searchParams.get('days')) : 0;
   const forceRefresh = refreshParam === 'true' || recent > 0;
 
