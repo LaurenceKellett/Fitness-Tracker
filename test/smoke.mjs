@@ -2334,6 +2334,76 @@ async function main() {
       assert(d.asked.length > 0 && d.asked.every((x) => !/refresh=true/.test(x.url)), JSON.stringify(d.asked));
       await d.ctx.close();
     });
+    // The home-screen app has its own storage and no address bar, so the key is also
+    // entered from the page itself.
+    await check('a device can unlock itself from the page, and forget the key again', async () => {
+      const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+      const page = await ctx.newPage();
+      await page.route(/tile\.openstreetmap\.org/, (r) => r.abort());
+      await page.route(/fonts\.g(oogleapis|static)\.com/, (r) => r.abort());
+      await page.route(/nominatim\.openstreetmap\.org/, (r) => r.abort());
+      await page.route(ACTIVITIES_ROUTE, (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ENVELOPE) }));
+      await page.route('**/zwift-routes**', (r) => {
+        const good = r.request().headers()['x-admin-key'] === 'abc';
+        r.fulfill({ status: 200, contentType: 'application/json',
+          headers: { 'X-Key-Level': good ? 'admin' : 'none', 'Access-Control-Expose-Headers': 'X-Key-Level' },
+          body: JSON.stringify({ data: ZWIFT_FIXTURE }) });
+      });
+      await page.goto(base + '/index.html', { waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => !document.body.classList.contains('is-loading'), null, { timeout: 20000 });
+      await page.evaluate(() => window.setTab('zwift'));
+      await page.waitForFunction(() => zwiftLoaded && ZWIFT_DATA.length > 0, null, { timeout: 15000 });
+      const editable = () => page.evaluate(() => zwiftEditable);
+      assert(!(await editable()), 'a device with no key started out editable');
+      assert(await page.locator('#zwiftKeyBtn').count() === 1, 'no way to enter a key from the page');
+      await page.evaluate(() => { window.prompt = () => 'abc'; });
+      await page.click('#zwiftKeyBtn');
+      await page.waitForFunction(() => zwiftEditable === true, null, { timeout: 5000 });
+      assert(await page.evaluate(() => localStorage.getItem('fitness_admin_key')) === 'abc', 'the key was not kept');
+      await page.evaluate(() => { window.confirm = () => true; });
+      await page.click('#zwiftKeyBtn');
+      await page.waitForFunction(() => zwiftEditable === false, null, { timeout: 5000 });
+      assert(await page.evaluate(() => localStorage.getItem('fitness_admin_key')) === null, 'the key was not forgotten');
+      // A wrong key is kept and then told it is a nobody by the Worker, so it stays read-only.
+      await page.evaluate(() => { window.prompt = () => 'nope'; });
+      await page.click('#zwiftKeyBtn');
+      await page.waitForTimeout(700);
+      assert(!(await editable()), 'a key the Worker does not recognise made the device editable');
+      // Cancelling the prompt changes nothing.
+      await page.evaluate(() => { localStorage.removeItem('fitness_admin_key'); window.prompt = () => null; });
+      await page.click('#zwiftKeyBtn');
+      await page.waitForTimeout(300);
+      assert(await page.evaluate(() => localStorage.getItem('fitness_admin_key')) === null, 'cancelling stored something');
+      await ctx.close();
+    });
+    await check('the planned-routes calendar starts the week on Monday', async () => {
+      const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+      await ctx.addInitScript(() => { try { localStorage.setItem('fitness_admin_key', 'test-key'); } catch (e) {} });
+      const page = await ctx.newPage();
+      await page.route(/tile\.openstreetmap\.org/, (r) => r.abort());
+      await page.route(/fonts\.g(oogleapis|static)\.com/, (r) => r.abort());
+      await page.route(/nominatim\.openstreetmap\.org/, (r) => r.abort());
+      await page.route(ACTIVITIES_ROUTE, (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ENVELOPE) }));
+      await page.route('**/zwift-routes**', (r) => r.fulfill({ status: 200, contentType: 'application/json', headers: { 'X-Key-Level': 'admin', 'Access-Control-Expose-Headers': 'X-Key-Level' }, body: JSON.stringify({ data: ZWIFT_FIXTURE }) }));
+      await page.goto(base + '/index.html', { waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => !document.body.classList.contains('is-loading'), null, { timeout: 20000 });
+      await page.evaluate(() => window.setTab('zwift'));
+      await page.waitForFunction(() => zwiftLoaded && ZWIFT_DATA.length > 0, null, { timeout: 15000 });
+      await page.evaluate(() => window.setZwiftStatusFilter('Planned'));
+      const look = (y, m) => page.evaluate(([yy, mm]) => {
+        zwiftCalDate = new Date(yy, mm, 1); renderZwiftCalendar();
+        return { dow: [...document.querySelectorAll('.zwift-cal-dow')].map((e) => e.textContent).join(''),
+          blanks: document.querySelectorAll('.zwift-cal-day.empty').length, days: document.querySelectorAll('.zwift-cal-day:not(.empty)').length };
+      }, [y, m]);
+      const mar = await look(2026, 2);   // 1 March 2026 is a Sunday: six blanks before it
+      assert(mar.dow === 'MTWTFSS', 'the headings read ' + mar.dow);
+      assert(mar.blanks === 6 && mar.days === 31, 'March 2026: ' + JSON.stringify(mar));
+      const jun = await look(2026, 5);   // 1 June 2026 is a Monday: none
+      assert(jun.blanks === 0 && jun.days === 30, 'June 2026: ' + JSON.stringify(jun));
+      const sat = await look(2026, 7);   // 1 August 2026 is a Saturday: five blanks
+      assert(sat.blanks === 5, 'August 2026: ' + JSON.stringify(sat));
+      await ctx.close();
+    });
     await check('an admin key gets the form: a dropdown, the two dates, the time, Save and Cancel', async () => {
       const d = await open('good', 'admin');
       assert(d.detail.selects === 1 && d.detail.inputs >= 3 && d.detail.buttons === 2, JSON.stringify(d.detail));

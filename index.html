@@ -1023,6 +1023,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .zwift-sync.stale .zwift-sync-pill i{background:var(--warn-icon)}
 .zwift-sync-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);cursor:pointer;padding:0}
 .zwift-sync-btn svg{display:block}
+.zwift-sync-btn+.zwift-sync-btn{border-left:none}
 .zwift-sync-btn:hover:not(:disabled){color:var(--text)}
 .zwift-sync-btn:disabled{cursor:default;opacity:.5}
 .zwift-sync.stale .zwift-sync-btn{border-color:var(--warn-border);color:var(--warn)}
@@ -8737,6 +8738,30 @@ function zwiftAgeShort(iso){
   if(s<86400)return Math.round(s/3600)+'h';
   return Math.round(s/86400)+'d';
 }
+// The home-screen app and the browser keep separate storage on a phone, so a key typed
+// into the browser's address does not reach the app, and an app has no address bar to
+// type one into. This is the way in from inside the page: paste the device's key, and
+// the same button forgets it again.
+const ZWIFT_LOCK_SVG='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+const ZWIFT_UNLOCK_SVG='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.5-2"/></svg>';
+function zwiftKeyButtonHtml(){
+  const has=hasAdminKey();
+  return`<button class="zwift-sync-btn" id="zwiftKeyBtn" type="button" onclick="zwiftKeyAction()" aria-label="${has?'Forget this device\u2019s admin key':'Unlock editing with an admin key'}" title="${has?'Forget this device\u2019s admin key':'Unlock editing with an admin key'}">${has?ZWIFT_LOCK_SVG:ZWIFT_UNLOCK_SVG}</button>`;
+}
+function zwiftKeyAction(){
+  if(hasAdminKey()){
+    if(!window.confirm('Forget the admin key on this device? The routes stay readable but cannot be edited here.'))return;
+    try{localStorage.removeItem(ADMIN_KEY_STORE);}catch(e){}
+    zwiftEditable=false;
+    loadZwiftRoutes();
+    return;
+  }
+  const k=window.prompt('Paste this device\u2019s admin key to unlock editing.');
+  if(!k||!k.trim())return;
+  try{localStorage.setItem(ADMIN_KEY_STORE,k.trim());}catch(e){}
+  loadZwiftRoutes();
+}
+
 function renderZwiftSync(){
   const el=document.getElementById('zwiftSync');
   if(!el)return;
@@ -8750,7 +8775,7 @@ function renderZwiftSync(){
   }else{label='Up to date';detail=ago?`Checked with Notion ${ago}.`:'From Notion.';}
   el.classList.toggle('stale',stale);el.classList.toggle('loading',loading);
   el.title=`${detail}${zwiftEditable?'':' This device can look but not edit.'} Routes come from Notion; the year and sport filters above do not apply here.`;
-  el.innerHTML=`<span class="zwift-sync-pill"><i aria-hidden="true"></i>${label}</span><button class="zwift-sync-btn" type="button" onclick="loadZwiftRoutes(true)" aria-label="${stale?'Try again':'Refresh from Notion'}"${loading?' disabled':''}>${ZWIFT_REFRESH_SVG}</button>`;
+  el.innerHTML=`<span class="zwift-sync-pill"><i aria-hidden="true"></i>${label}</span>${zwiftKeyButtonHtml()}<button class="zwift-sync-btn" type="button" onclick="loadZwiftRoutes(true)" aria-label="${stale?'Try again':'Refresh from Notion'}"${loading?' disabled':''}>${ZWIFT_REFRESH_SVG}</button>`;
 }
 
 // Coming back to the window is when another device is most likely to have changed
@@ -9118,7 +9143,8 @@ function renderZwiftCalendar(){
 
   const planned=getZwiftPlannedByDate();
   const year=zwiftCalDate.getFullYear(),month=zwiftCalDate.getMonth();
-  const firstDow=new Date(year,month,1).getDay();
+  // Weeks run Monday to Sunday, so Saturday and Sunday sit together on the right.
+  const firstDow=(new Date(year,month,1).getDay()+6)%7;
   const daysInMonth=new Date(year,month+1,0).getDate();
   const monthLabel=zwiftCalDate.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
   const monthKey=`${year}-${String(month+1).padStart(2,'0')}`;
@@ -9129,7 +9155,7 @@ function renderZwiftCalendar(){
   const earlier=dates.some(d=>d.slice(0,7)<monthKey);
   const later=dates.some(d=>d.slice(0,7)>monthKey);
 
-  const dowRow=['S','M','T','W','T','F','S'].map(d=>`<div class="zwift-cal-dow">${d}</div>`).join('');
+  const dowRow=['M','T','W','T','F','S','S'].map(d=>`<div class="zwift-cal-dow">${d}</div>`).join('');
   const blanks=Array.from({length:firstDow},()=>`<div class="zwift-cal-day empty"></div>`).join('');
   const days=Array.from({length:daysInMonth},(_,i)=>{
     const day=i+1;
