@@ -2334,47 +2334,128 @@ async function main() {
       assert(d.asked.length > 0 && d.asked.every((x) => !/refresh=true/.test(x.url)), JSON.stringify(d.asked));
       await d.ctx.close();
     });
-    // The home-screen app has its own storage and no address bar, so the key is also
-    // entered from the page itself.
-    await check('a device can unlock itself from the page, and forget the key again', async () => {
-      const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+    // The home-screen app has its own storage and no address bar, so a key is also entered
+    // from Settings, and checked with the Worker before it is kept.
+    const settingsPage = async (whoami) => {
+      const ctx = await browser.newContext({ viewport: { width: 1000, height: 900 } });
       const page = await ctx.newPage();
       await page.route(/tile\.openstreetmap\.org/, (r) => r.abort());
       await page.route(/fonts\.g(oogleapis|static)\.com/, (r) => r.abort());
       await page.route(/nominatim\.openstreetmap\.org/, (r) => r.abort());
-      await page.route(ACTIVITIES_ROUTE, (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ENVELOPE) }));
+      const seen = [];
+      await page.route(ACTIVITIES_ROUTE, (r) => { seen.push(r.request().url()); return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ENVELOPE) }); });
       await page.route('**/zwift-routes**', (r) => {
         const good = r.request().headers()['x-admin-key'] === 'abc';
         r.fulfill({ status: 200, contentType: 'application/json',
           headers: { 'X-Key-Level': good ? 'admin' : 'none', 'Access-Control-Expose-Headers': 'X-Key-Level' },
           body: JSON.stringify({ data: ZWIFT_FIXTURE }) });
       });
+      await page.route('**/whoami', (r) => {
+        if (whoami === 'down') return r.abort('failed');
+        const good = r.request().headers()['x-admin-key'] === 'abc';
+        r.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Expose-Headers': 'X-Key-Level' }, body: JSON.stringify(good ? { level: 'admin', label: 'PHONE' } : { level: 'none' }) });
+      });
       await page.goto(base + '/index.html', { waitUntil: 'domcontentloaded' });
       await page.waitForFunction(() => !document.body.classList.contains('is-loading'), null, { timeout: 20000 });
-      await page.evaluate(() => window.setTab('zwift'));
-      await page.waitForFunction(() => zwiftLoaded && ZWIFT_DATA.length > 0, null, { timeout: 15000 });
-      const editable = () => page.evaluate(() => zwiftEditable);
-      assert(!(await editable()), 'a device with no key started out editable');
-      assert(await page.locator('#zwiftKeyBtn').count() === 1, 'no way to enter a key from the page');
-      await page.evaluate(() => { window.prompt = () => 'abc'; });
-      await page.click('#zwiftKeyBtn');
-      await page.waitForFunction(() => zwiftEditable === true, null, { timeout: 5000 });
-      assert(await page.evaluate(() => localStorage.getItem('fitness_admin_key')) === 'abc', 'the key was not kept');
-      await page.evaluate(() => { window.confirm = () => true; });
-      await page.click('#zwiftKeyBtn');
-      await page.waitForFunction(() => zwiftEditable === false, null, { timeout: 5000 });
-      assert(await page.evaluate(() => localStorage.getItem('fitness_admin_key')) === null, 'the key was not forgotten');
-      // A wrong key is kept and then told it is a nobody by the Worker, so it stays read-only.
-      await page.evaluate(() => { window.prompt = () => 'nope'; });
-      await page.click('#zwiftKeyBtn');
-      await page.waitForTimeout(700);
-      assert(!(await editable()), 'a key the Worker does not recognise made the device editable');
-      // Cancelling the prompt changes nothing.
-      await page.evaluate(() => { localStorage.removeItem('fitness_admin_key'); window.prompt = () => null; });
-      await page.click('#zwiftKeyBtn');
-      await page.waitForTimeout(300);
-      assert(await page.evaluate(() => localStorage.getItem('fitness_admin_key')) === null, 'cancelling stored something');
-      await ctx.close();
+      await page.evaluate(() => window.openSettings());
+      return { ctx, page, seen };
+    };
+    const msg = (page) => page.evaluate(() => document.getElementById('adminKeyMsg').textContent);
+    const NOT_ALLOWED = /Not allowed\. You need an authorised admin key to make changes, refresh, rearrange or edit\./;
+
+    await check('Settings has an admin key section that says this device has none', async () => {
+      const d = await settingsPage();
+      assert(await d.page.locator('#adminKeyInput').count() === 1, 'no key box in Settings');
+      const st = await d.page.evaluate(() => document.getElementById('adminKeyState').textContent);
+      assert(/No admin key/.test(st) && /rearrange/.test(st), st);
+      assert(await d.page.evaluate(() => document.getElementById('adminKeyForget').hidden), 'a Forget button with nothing to forget');
+      await d.ctx.close();
+    });
+    await check('a key the Worker does not recognise is refused in words and is not kept', async () => {
+      const d = await settingsPage();
+      await d.page.fill('#adminKeyInput', 'nope');
+      await d.page.click('#adminKeyVerify');
+      await d.page.waitForFunction(() => /Not allowed/.test(document.getElementById('adminKeyMsg').textContent), null, { timeout: 5000 });
+      assert(await d.page.evaluate(() => localStorage.getItem('fitness_admin_key')) === null, 'a refused key was stored');
+      assert(await d.page.evaluate(() => !hasAdminKey()), 'the device counts as authorised');
+      await d.ctx.close();
+    });
+    await check('an empty box asks for a key rather than checking nothing', async () => {
+      const d = await settingsPage();
+      await d.page.click('#adminKeyVerify');
+      assert(/Paste a key first/.test(await msg(d.page)), await msg(d.page));
+      await d.ctx.close();
+    });
+    await check('a key that cannot be checked is not kept either', async () => {
+      const d = await settingsPage('down');
+      await d.page.fill('#adminKeyInput', 'abc');
+      await d.page.click('#adminKeyVerify');
+      await d.page.waitForFunction(() => /not kept/.test(document.getElementById('adminKeyMsg').textContent), null, { timeout: 5000 });
+      assert(await d.page.evaluate(() => localStorage.getItem('fitness_admin_key')) === null, 'an unchecked key was stored');
+      await d.ctx.close();
+    });
+    await check('a good key is verified, named, kept, and unlocks editing', async () => {
+      const d = await settingsPage();
+      await d.page.evaluate(() => window.setTab('zwift'));
+      await d.page.waitForFunction(() => zwiftLoaded && ZWIFT_DATA.length > 0, null, { timeout: 15000 });
+      assert(!(await d.page.evaluate(() => zwiftEditable)), 'editable before a key');
+      await d.page.evaluate(() => window.openSettings());
+      await d.page.fill('#adminKeyInput', 'abc');
+      await d.page.click('#adminKeyVerify');
+      await d.page.waitForFunction(() => /Verified/.test(document.getElementById('adminKeyMsg').textContent), null, { timeout: 5000 });
+      assert(/as PHONE/.test(await msg(d.page)), await msg(d.page));
+      assert(await d.page.evaluate(() => localStorage.getItem('fitness_admin_key')) === 'abc', 'the key was not kept');
+      assert(await d.page.evaluate(() => document.getElementById('adminKeyInput').value) === '', 'the key is still sitting in the box');
+      await d.page.waitForFunction(() => zwiftEditable === true, null, { timeout: 5000 });
+      assert(await d.page.evaluate(() => !document.getElementById('adminKeyForget').hidden), 'no way to forget it');
+      await d.ctx.close();
+    });
+    await check('without a key, Rearrange is blocked and says why, and nothing starts', async () => {
+      const d = await settingsPage();
+      await d.page.click('#reorderChartsBtn');
+      assert(await d.page.evaluate(() => reorderOn) === false, 'reorder mode started with no key');
+      assert(NOT_ALLOWED.test(await msg(d.page)), await msg(d.page));
+      assert(await d.page.evaluate(() => document.getElementById('settingsMenu').classList.contains('open')), 'the pane closed on a refusal');
+      await d.ctx.close();
+    });
+    await check('without a key, Refresh from Strava is blocked and asks Strava for nothing', async () => {
+      const d = await settingsPage();
+      d.seen.length = 0;
+      await d.page.click('#refreshBtn');
+      await d.page.waitForTimeout(500);
+      assert(!d.seen.some((u) => /refresh=/.test(u)), 'a refresh went to the Worker: ' + d.seen.join(' '));
+      assert(NOT_ALLOWED.test(await msg(d.page)), await msg(d.page));
+      await d.ctx.close();
+    });
+    await check('with a key, Rearrange starts', async () => {
+      const d = await settingsPage();
+      await d.page.evaluate(() => localStorage.setItem('fitness_admin_key', 'abc'));
+      await d.page.evaluate(() => window.closeSettings());
+      await d.page.evaluate(() => window.openSettings());
+      await d.page.click('#reorderChartsBtn');
+      assert(await d.page.evaluate(() => reorderOn), 'reorder did not start with a key');
+      await d.ctx.close();
+    });
+    await check('forgetting the key ends a rearrange in progress and locks the controls again', async () => {
+      const d = await settingsPage();
+      await d.page.evaluate(() => localStorage.setItem('fitness_admin_key', 'abc'));
+      await d.page.evaluate(() => { window.closeSettings(); window.startReorder(); });
+      assert(await d.page.evaluate(() => reorderOn), 'reorder did not start');
+      await d.page.evaluate(() => { window.confirm = () => true; window.openSettings(); });
+      await d.page.click('#adminKeyForget');
+      assert(await d.page.evaluate(() => reorderOn) === false, 'still rearranging with no key');
+      assert(await d.page.evaluate(() => localStorage.getItem('fitness_admin_key')) === null, 'the key was not forgotten');
+      await d.page.click('#reorderChartsBtn');
+      assert(await d.page.evaluate(() => reorderOn) === false, 'Rearrange worked after forgetting the key');
+      await d.ctx.close();
+    });
+    await check('Try again after a failed load reads again and does not ask Strava, without a key', async () => {
+      const d = await settingsPage();
+      await d.page.evaluate(() => window.closeSettings());
+      d.seen.length = 0;
+      await d.page.evaluate(() => retryData());
+      assert(!d.seen.some((u) => /refresh=/.test(u)), 'a retry asked for a refresh: ' + d.seen.join(' '));
+      await d.ctx.close();
     });
     await check('the planned-routes calendar starts the week on Monday', async () => {
       const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 } });

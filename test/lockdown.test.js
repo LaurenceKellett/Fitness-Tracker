@@ -398,3 +398,64 @@ describe('a secret of its own for each device', () => {
     expect((await send(only, 'PATCH', '/zwift-routes/abc', { key: '[object Object]', body: {} })).status).toBe(503);
   });
 });
+
+
+// ---- Is this key good? -----------------------------------------------------------
+// Settings asks before it keeps a key, so a mistyped one is never stored and trusted.
+describe('checking a key', () => {
+  const who = (env, key, extra = {}) => send(env, 'GET', '/whoami', { key, ...extra });
+  it('a good key is an admin, named by its device, and the key itself never comes back', async () => {
+    const env = envOf({ ADMIN_KEY: undefined, ADMIN_KEY_PHONE: 'aaaa1111', ADMIN_KEY_LAPTOP: 'bbbb2222' });
+    const res = await who(env, 'bbbb2222');
+    const text = await res.text();
+    expect(res.status).toBe(200);
+    expect(JSON.parse(text)).toEqual({ level: 'admin', label: 'LAPTOP' });
+    expect(text).not.toContain('bbbb2222');
+    expect(text).not.toContain('aaaa1111');
+  });
+  it('no key, or a wrong one, is nobody and is told nothing else', async () => {
+    const env = envOf({ ADMIN_KEY: undefined, ADMIN_KEY_PHONE: 'aaaa1111' });
+    for (const key of [undefined, '', 'wrong', 'aaaa111', 'aaaa11112']) {
+      const res = await who(env, key);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ level: 'none' });
+    }
+  });
+  it('with no key configured at all, nobody is anybody', async () => {
+    expect(await (await who(envOf({ ADMIN_KEY: undefined }), 'anything')).json()).toEqual({ level: 'none' });
+  });
+  it('a revoked key stops being good at the next ask', async () => {
+    const before = envOf({ ADMIN_KEY: undefined, ADMIN_KEY_PHONE: 'aaaa1111', ADMIN_KEY_LAPTOP: 'bbbb2222' });
+    const after = envOf({ ADMIN_KEY: undefined, ADMIN_KEY_LAPTOP: 'bbbb2222' });
+    expect((await (await who(before, 'aaaa1111')).json()).level).toBe('admin');
+    expect((await (await who(after, 'aaaa1111')).json()).level).toBe('none');
+  });
+  it('is not cached, and does no work and logs no write', async () => {
+    stub();
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const res = await who(envOf(), KEY);
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    expect(outbound).toEqual([]);
+    expect(log.mock.calls.length).toBe(0);
+  });
+  it('can be asked by the dashboard, and by no other site', async () => {
+    const ok = await who(envOf(), KEY, { origin: 'https://activities.laurencekellett.co.uk' });
+    expect(ok.headers.get('Access-Control-Allow-Origin')).toBe('https://activities.laurencekellett.co.uk');
+    const no = await who(envOf(), KEY, { origin: 'https://evil.example' });
+    expect(no.headers.get('Access-Control-Allow-Origin')).toBeNull();
+  });
+});
+
+describe('what a refused caller is told', () => {
+  it('says what the key is for, in one voice on every route', async () => {
+    for (const [method, path, body] of GATED) {
+      stub();
+      const res = await send(envOf(), method, path, { body });
+      const j = await res.json();
+      expect(j.message, method + ' ' + path).toMatch(/^Not allowed\./);
+      for (const word of ['authorised admin key', 'make changes', 'refresh', 'rearrange', 'edit']) {
+        expect(j.message, method + ' ' + path + ' ' + word).toContain(word);
+      }
+    }
+  });
+});

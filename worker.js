@@ -108,6 +108,8 @@ const CORS = {
 // #admin=<key> on the end of its address (a fragment never reaches a server or a log).
 const ADMIN_HEADER = 'X-Admin-Key';
 const LEVEL_HEADER = 'X-Key-Level';
+// What a refused caller is told, in words that say what the key is for.
+const NOT_ALLOWED = 'Not allowed. You need an authorised admin key to make changes, refresh, rearrange or edit.';
 
 // Compared by digest, so the time taken says nothing about how many leading
 // characters were right.
@@ -172,7 +174,7 @@ async function requireAdmin(request, env) {
     console.log('admin', label, request.method, new URL(request.url).pathname);
     return null;
   }
-  return keyAnswer(401, 'This needs the admin key (X-Admin-Key).');
+  return keyAnswer(401, NOT_ALLOWED);
 }
 
 // Browsers only: a page on another site cannot read these answers or send these
@@ -252,6 +254,14 @@ async function route(request, env) {
       if (request.method === 'PUT') { const no = await admin(); if (no) return no; }
       return handlePrefs(request, env);
     case '/refresh-status':     return handleRefreshStatus(env);
+    // Is this key good? The Settings pane asks before it keeps one. Open to ask, and it
+    // only ever names the key that was just offered, never any other.
+    case '/whoami': {
+      const label = await adminLabel(request, env);
+      return new Response(JSON.stringify(label ? { level: 'admin', label } : { level: 'none' }), {
+        headers: { ...CORS, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      });
+    }
     // Anyone may read the list; a refresh, which re-reads Notion and spends a KV write,
     // needs an admin key. The answer says which kind of caller it was.
     case '/zwift-routes': {

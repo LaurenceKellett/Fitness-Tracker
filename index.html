@@ -1023,7 +1023,6 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .zwift-sync.stale .zwift-sync-pill i{background:var(--warn-icon)}
 .zwift-sync-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);cursor:pointer;padding:0}
 .zwift-sync-btn svg{display:block}
-.zwift-sync-btn+.zwift-sync-btn{border-left:none}
 .zwift-sync-btn:hover:not(:disabled){color:var(--text)}
 .zwift-sync-btn:disabled{cursor:default;opacity:.5}
 .zwift-sync.stale .zwift-sync-btn{border-color:var(--warn-border);color:var(--warn)}
@@ -1527,6 +1526,12 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .settings-row-note{margin-left:auto;font-size:10.5px;font-weight:500;color:var(--text-light);white-space:nowrap;min-width:0;max-width:55%;overflow:hidden;text-overflow:ellipsis;text-align:right}
 .settings-note{font-size:11px;line-height:1.45;color:var(--text-muted);padding:2px 6px 8px}
 .settings-note[hidden]{display:none}
+.admin-key-row{display:flex;gap:8px;align-items:stretch}
+.admin-key-row input{flex:1;min-width:0;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:16px}
+.admin-key-row .unit-opt{flex:none}
+.settings-row.needs-key{opacity:.6}
+#adminKeyMsg.bad{color:var(--warn);font-weight:600}
+#adminKeyMsg.good{color:#16a34a;font-weight:600}
 .settings-row.spinning .refresh-icon{animation:rspin .8s linear infinite}
 /* Only the bottom sheet needs it — a popover closes by clicking away from it. */
 .settings-done{display:none}
@@ -1865,6 +1870,23 @@ body.is-loading .stats-grid *{visibility:hidden}
       <button data-theme-opt="dark" onclick="setTheme('dark')"><span class="ms">dark_mode</span>Dark</button>
     </div>
   </div>
+  <div class="sheet-sec" id="settingsKeySec">
+    <div class="sheet-lbl">Admin key</div>
+    <!-- Changing anything here, refreshing from Strava, rearranging a tab and editing a
+         Zwift route all need a key the Worker recognises. It is kept in this browser (a
+         home-screen app keeps its own copy, which is why it is entered here and not only
+         in the address bar) and checked with the Worker before it is kept. -->
+    <div class="settings-note" id="adminKeyState"></div>
+    <div class="admin-key-row">
+      <input type="password" id="adminKeyInput" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Paste this device&rsquo;s admin key" aria-label="Admin key" onkeydown="if(event.key==='Enter')verifyAdminKey()">
+      <button class="unit-opt" id="adminKeyVerify" type="button" onclick="verifyAdminKey()">Verify</button>
+    </div>
+    <button class="settings-row" id="adminKeyForget" type="button" onclick="forgetAdminKey()" hidden>
+      <span class="ms">lock</span>
+      <span>Forget the key on this device</span>
+    </button>
+    <div class="settings-note" id="adminKeyMsg" role="status" aria-live="polite"></div>
+  </div>
   <div class="settings-actions">
     <!-- Where the boxes sit is a preference like units and the theme, so it is set
          from the same place they are. The button does not open another panel: it
@@ -1933,7 +1955,7 @@ body.is-loading .stats-grid *{visibility:hidden}
   <div class="app-error-body">
     <div class="app-error-title" id="appErrorTitle">Couldn't load your activities</div>
     <div class="app-error-msg" id="appErrorMsg"></div>
-    <button class="app-error-retry" id="appErrorRetry" onclick="refreshData()">Try again</button>
+    <button class="app-error-retry" id="appErrorRetry" onclick="retryData()">Try again</button>
   </div>
 </div>
 
@@ -2749,7 +2771,9 @@ function adminHeaders(extra){
   try{ var k=localStorage.getItem(ADMIN_KEY_STORE); if(k)h['X-Admin-Key']=k; }catch(e){}
   return h;
 }
-const LOCKED_HINT=' Open this page once with #admin=<key> on the end of the address to unlock it.';
+// What a device without a good key is told. The Worker says the same in its own refusals.
+const NOT_ALLOWED_TEXT='Not allowed. You need an authorised admin key to make changes, refresh, rearrange or edit.';
+const LOCKED_HINT=' Add one in Settings.';
 const MAP_ORDER=['Watopia','Makuri Island','Jarvis Island','Scotland','London','Yorkshire','Richmond','France','New York','Innsbruck','Bologna','Gravel Mountain','Crit City','KOM','Rebel Routes','Event Only'];
 const MAP_COLOR={'Watopia':'#d9730d','Makuri Island':'#d9730d','Jarvis Island':'#d9730d','Scotland':'#cb912f','London':'#cb912f','Yorkshire':'#cb912f','Richmond':'#cb912f','France':'#cb912f','New York':'#cb912f','Innsbruck':'#cb912f','Bologna':'#9f6b53','Gravel Mountain':'#9f6b53','Crit City':'#9f6b53','KOM':'#c14c8a','Rebel Routes':'#c14c8a','Event Only':'#9b9a97'};
 function mapDotColor(name){return MAP_COLOR[name]||'#9b9a97';}
@@ -3176,6 +3200,78 @@ function positionSettingsMenu(){
   menu.style.right=Math.max(8,window.innerWidth-r.right)+'px';
 }
 
+// ── The admin key ──────────────────────────────────────────────────────────
+// Said wherever something that needs the key is refused, in one voice.
+function adminDenied(){
+  const menu=document.getElementById('settingsMenu');
+  if(menu&&!menu.classList.contains('open'))openSettings();
+  adminKeyMessage(NOT_ALLOWED_TEXT+' Paste one below.','bad');
+  const input=document.getElementById('adminKeyInput');
+  if(input)input.focus();
+}
+function adminKeyMessage(text,kind){
+  const m=document.getElementById('adminKeyMsg');
+  if(!m)return;
+  m.textContent=text||'';
+  m.className='settings-note'+(kind?' '+kind:'');
+}
+function renderAdminKeyState(){
+  const has=hasAdminKey();
+  const st=document.getElementById('adminKeyState');
+  if(st)st.textContent=has
+    ?'An admin key is kept on this device. Changes, refreshes, rearranging and editing are allowed.'
+    :'No admin key on this device. You can look, but not change, refresh, rearrange or edit.';
+  const f=document.getElementById('adminKeyForget');
+  if(f)f.hidden=!has;
+}
+// What changes when a device gains or loses its key: the Zwift list asks again (the
+// Worker decides whether it may edit), and a rearrange in progress is ended.
+function afterAdminKeyChange(){
+  renderAdminKeyState();
+  const rr=document.getElementById('reorderChartsBtn');
+  if(rr){
+    rr.classList.toggle('needs-key',!hasAdminKey());
+    const note=document.getElementById('reorderBtnNote');
+    if(note)note.textContent=tabIsReorderable(activeTab)?(hasAdminKey()?tabName(activeTab):'needs an admin key'):'nothing to move here';
+  }
+  const rf=document.getElementById('refreshBtn');
+  if(rf)rf.classList.toggle('needs-key',!hasAdminKey());
+  if(!hasAdminKey()&&reorderOn)endReorder(false);
+  if(zwiftLoaded||activeTab==='zwift')loadZwiftRoutes();
+}
+// Checked with the Worker before it is kept, so a mistyped key is never stored and
+// then trusted. Nothing but the answer to this one key comes back.
+async function verifyAdminKey(){
+  const input=document.getElementById('adminKeyInput');
+  const btn=document.getElementById('adminKeyVerify');
+  const k=input?input.value.trim():'';
+  if(!k){adminKeyMessage('Paste a key first.','bad');return;}
+  if(btn)btn.disabled=true;
+  adminKeyMessage('Checking\u2026');
+  try{
+    const res=await fetch(API_BASE+'/whoami',{headers:{'X-Admin-Key':k},cache:'no-store'});
+    const j=await res.json();
+    if(j&&j.level==='admin'){
+      try{localStorage.setItem(ADMIN_KEY_STORE,k);}catch(e){}
+      if(input)input.value='';
+      adminKeyMessage('Verified. This device is authorised'+(j.label?' as '+j.label:'')+'.','good');
+      afterAdminKeyChange();
+    }else{
+      adminKeyMessage('Not allowed. That key is not authorised, so it was not kept. Check you copied the whole key.','bad');
+    }
+  }catch(e){
+    adminKeyMessage('Could not reach the service to check the key, so it was not kept. Try again.','bad');
+  }finally{
+    if(btn)btn.disabled=false;
+  }
+}
+function forgetAdminKey(){
+  if(!window.confirm('Forget the admin key on this device? You will still be able to look, but not change, refresh, rearrange or edit.'))return;
+  try{localStorage.removeItem(ADMIN_KEY_STORE);}catch(e){}
+  adminKeyMessage('Forgotten. This device can look but not change anything.');
+  afterAdminKeyChange();
+}
+
 function openSettings(){
   const menu=document.getElementById('settingsMenu');
   const btn=document.getElementById('settingsBtn');
@@ -3187,8 +3283,12 @@ function openSettings(){
     const ok=tabIsReorderable(activeTab);
     rr.disabled=!ok;
     const note=document.getElementById('reorderBtnNote');
-    if(note)note.textContent=ok?tabName(activeTab):'nothing to move here';
+    if(note)note.textContent=ok?(hasAdminKey()?tabName(activeTab):'needs an admin key'):'nothing to move here';
+    rr.classList.toggle('needs-key',!hasAdminKey());
   }
+  const rf=document.getElementById('refreshBtn');
+  if(rf)rf.classList.toggle('needs-key',!hasAdminKey());
+  renderAdminKeyState();
   const notice=document.getElementById('reorderNotice');
   if(notice)notice.hidden=true;
   closeScopeSheet();
@@ -3574,6 +3674,7 @@ function movePanel(panel,dir,announce){
 // front of you, so it does not drag you off to the Charts tab the way the first
 // version of this did.
 function startReorder(){
+  if(!hasAdminKey()){adminDenied();return;}
   closeSettings();
   const tab=activeTab;
   const el=tabEl(tab);
@@ -8738,30 +8839,6 @@ function zwiftAgeShort(iso){
   if(s<86400)return Math.round(s/3600)+'h';
   return Math.round(s/86400)+'d';
 }
-// The home-screen app and the browser keep separate storage on a phone, so a key typed
-// into the browser's address does not reach the app, and an app has no address bar to
-// type one into. This is the way in from inside the page: paste the device's key, and
-// the same button forgets it again.
-const ZWIFT_LOCK_SVG='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
-const ZWIFT_UNLOCK_SVG='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.5-2"/></svg>';
-function zwiftKeyButtonHtml(){
-  const has=hasAdminKey();
-  return`<button class="zwift-sync-btn" id="zwiftKeyBtn" type="button" onclick="zwiftKeyAction()" aria-label="${has?'Forget this device\u2019s admin key':'Unlock editing with an admin key'}" title="${has?'Forget this device\u2019s admin key':'Unlock editing with an admin key'}">${has?ZWIFT_LOCK_SVG:ZWIFT_UNLOCK_SVG}</button>`;
-}
-function zwiftKeyAction(){
-  if(hasAdminKey()){
-    if(!window.confirm('Forget the admin key on this device? The routes stay readable but cannot be edited here.'))return;
-    try{localStorage.removeItem(ADMIN_KEY_STORE);}catch(e){}
-    zwiftEditable=false;
-    loadZwiftRoutes();
-    return;
-  }
-  const k=window.prompt('Paste this device\u2019s admin key to unlock editing.');
-  if(!k||!k.trim())return;
-  try{localStorage.setItem(ADMIN_KEY_STORE,k.trim());}catch(e){}
-  loadZwiftRoutes();
-}
-
 function renderZwiftSync(){
   const el=document.getElementById('zwiftSync');
   if(!el)return;
@@ -8775,7 +8852,7 @@ function renderZwiftSync(){
   }else{label='Up to date';detail=ago?`Checked with Notion ${ago}.`:'From Notion.';}
   el.classList.toggle('stale',stale);el.classList.toggle('loading',loading);
   el.title=`${detail}${zwiftEditable?'':' This device can look but not edit.'} Routes come from Notion; the year and sport filters above do not apply here.`;
-  el.innerHTML=`<span class="zwift-sync-pill"><i aria-hidden="true"></i>${label}</span>${zwiftKeyButtonHtml()}<button class="zwift-sync-btn" type="button" onclick="loadZwiftRoutes(true)" aria-label="${stale?'Try again':'Refresh from Notion'}"${loading?' disabled':''}>${ZWIFT_REFRESH_SVG}</button>`;
+  el.innerHTML=`<span class="zwift-sync-pill"><i aria-hidden="true"></i>${label}</span><button class="zwift-sync-btn" type="button" onclick="loadZwiftRoutes(true)" aria-label="${stale?'Try again':'Refresh from Notion'}"${loading?' disabled':''}>${ZWIFT_REFRESH_SVG}</button>`;
 }
 
 // Coming back to the window is when another device is most likely to have changed
@@ -9440,7 +9517,7 @@ async function patchZwiftRoute(id,body){
     body:JSON.stringify(body),
   });
   const json=await res.json();
-  if(res.status===401||res.status===403)throw new Error((json.message||'Locked.')+(res.status===401?LOCKED_HINT:''));
+  if(res.status===401||res.status===403)throw new Error((json.message||NOT_ALLOWED_TEXT)+LOCKED_HINT);
   if(!res.ok||json.error)throw new Error(json.message||'Save failed');
   const idx=ZWIFT_DATA.findIndex(r=>r.id===id);
   if(idx!==-1)ZWIFT_DATA[idx]=json.data;
@@ -9857,7 +9934,7 @@ function showLoadError(msg,{inline,reload}={}){
   const retry=document.getElementById('appErrorRetry');
   if(retry){
     retry.textContent=reload?'Reload the page':'Try again';
-    retry.onclick=reload?()=>location.reload():()=>refreshData();
+    retry.onclick=reload?()=>location.reload():()=>retryData();
   }
   box.classList.add('show');
 }
@@ -9915,7 +9992,7 @@ async function loadData(forceRefresh = false) {
   try {
     syncStart(forceRefresh ? 'Refreshing from Strava…' : null);
     const res = await fetch(url, forceRefresh ? { headers: adminHeaders() } : undefined);
-    if (!res.ok) throw new Error(`The activities service answered ${res.status} ${res.statusText||''}`.trim() + '.' + (res.status===401||res.status===503 ? LOCKED_HINT : ''));
+    if (!res.ok) throw new Error(res.status===401||res.status===503 ? NOT_ALLOWED_TEXT+LOCKED_HINT : `The activities service answered ${res.status} ${res.statusText||''}`.trim() + '.');
 
     let json;
     try { json = await res.json(); }
@@ -9965,7 +10042,18 @@ async function loadData(forceRefresh = false) {
   }
 }
 
+// Trying again after a failed load is not a refresh from Strava: a device without a key
+// reads again, and only a key holder asks Strava.
+async function retryData() {
+  if (hasAdminKey()) return refreshData();
+  const retry = document.getElementById('appErrorRetry');
+  if (retry) retry.disabled = true;
+  await loadData(false);
+  if (retry) retry.disabled = false;
+}
+
 async function refreshData() {
+  if(!hasAdminKey()){adminDenied();return;}
   const btn  = document.getElementById('refreshBtn');
   const retry = document.getElementById('appErrorRetry');
   if (btn) { btn.disabled = true; btn.classList.add('spinning'); }
