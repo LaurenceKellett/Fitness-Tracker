@@ -2387,8 +2387,9 @@ async function main() {
       const d = await settingsPage();
       assert(await d.page.locator('#adminKeyInput').count() === 1, 'no key box in Settings');
       const st = await d.page.evaluate(() => document.getElementById('adminKeyState').textContent);
-      assert(/No admin key/.test(st) && /rearrange/.test(st), st);
-      assert(await d.page.evaluate(() => document.getElementById('adminKeyForget').hidden), 'a Forget button with nothing to forget');
+      assert(/Not set on this device/.test(st) && /rearrange/.test(st), st);
+      assert(await d.page.evaluate(() => getComputedStyle(document.getElementById('adminKeyForget')).display === 'none'), 'a Forget button showing with nothing to forget');
+      assert(await d.page.evaluate(() => getComputedStyle(document.getElementById('adminKeyEntry')).display !== 'none'), 'no box to paste a key into');
       await d.ctx.close();
     });
     await check('a key the Worker does not recognise is refused in words and is not kept', async () => {
@@ -2427,7 +2428,8 @@ async function main() {
       assert(await d.page.evaluate(() => localStorage.getItem('fitness_admin_key')) === 'abc', 'the key was not kept');
       assert(await d.page.evaluate(() => document.getElementById('adminKeyInput').value) === '', 'the key is still sitting in the box');
       await d.page.waitForFunction(() => zwiftEditable === true, null, { timeout: 5000 });
-      assert(await d.page.evaluate(() => !document.getElementById('adminKeyForget').hidden), 'no way to forget it');
+      assert(await d.page.evaluate(() => getComputedStyle(document.getElementById('adminKeyForget')).display !== 'none'), 'no way to forget it');
+      assert(await d.page.evaluate(() => getComputedStyle(document.getElementById('adminKeyEntry')).display === 'none'), 'the box is still offered with a key kept');
       await d.ctx.close();
     });
     await check('without a key, Rearrange is blocked and says why, and nothing starts', async () => {

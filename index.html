@@ -1533,12 +1533,23 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .settings-row-note{margin-left:auto;font-size:10.5px;font-weight:500;color:var(--text-light);white-space:nowrap;min-width:0;max-width:55%;overflow:hidden;text-overflow:ellipsis;text-align:right}
 .settings-note{font-size:11px;line-height:1.45;color:var(--text-muted);padding:2px 6px 8px}
 .settings-note[hidden]{display:none}
-.admin-key-row{display:flex;gap:8px;align-items:stretch}
-.admin-key-row input{flex:1;min-width:0;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:16px}
-.admin-key-row .unit-opt{flex:none}
+/* The admin key section, in the sheet's own terms: square corners, the chips' border
+   and type, the notes' small muted line. */
+.settings-menu [hidden]{display:none!important}
+.admin-key-state{font-size:11px;line-height:1.45;color:var(--text-muted);margin:-2px 0 8px}
+.admin-key-row{display:flex;align-items:stretch}
+.admin-key-row input{flex:1;min-width:0;font-family:inherit;font-size:12.5px;padding:8px 10px;border:1px solid var(--border);border-right:none;border-radius:0;background:var(--surface);color:var(--text);outline:none}
+.admin-key-row input::placeholder{color:var(--text-light)}
+.admin-key-row input:focus{border-color:var(--accent)}
+.admin-key-row input:focus+.admin-key-btn{border-left-color:var(--accent)}
+.admin-key-btn{flex:none;font-family:inherit;font-size:12px;font-weight:600;padding:8px 14px;border:1px solid var(--border);border-radius:0;background:var(--surface);color:var(--text);cursor:pointer}
+.admin-key-btn:hover:not(:disabled){background:var(--bg)}
+.admin-key-btn:disabled{opacity:.5;cursor:default}
+.admin-key-msg{font-size:11px;line-height:1.45;color:var(--text-muted);margin-top:7px}
+.admin-key-msg:empty{display:none}
+.admin-key-msg.bad{color:var(--warn);font-weight:600}
+.admin-key-msg.good{color:#16a34a;font-weight:600}
 .settings-row.needs-key{opacity:.6}
-#adminKeyMsg.bad{color:var(--warn);font-weight:600}
-#adminKeyMsg.good{color:#16a34a;font-weight:600}
 .settings-row.spinning .refresh-icon{animation:rspin .8s linear infinite}
 /* Only the bottom sheet needs it — a popover closes by clicking away from it. */
 .settings-done{display:none}
@@ -1678,6 +1689,9 @@ tbody td{padding:10px 14px;vertical-align:middle}
   .zwift-edit-error:empty{display:none}
   .zwift-edit-error{grid-column:1/-1;margin-top:0}
   .unit-opt,.icon-btn{min-height:var(--ctl-h)}
+  /* 16px so iOS does not zoom into the box when it is tapped. */
+  .admin-key-row input,.admin-key-btn{min-height:var(--ctl-h)}
+  .admin-key-row input{font-size:16px}
   .header-toolbar{height:auto}
   /* Full-width bottom sheet below 640px, matching the scope panel exactly. */
   .settings-done{display:block;margin-top:14px}
@@ -1883,16 +1897,18 @@ body.is-loading .stats-grid *{visibility:hidden}
          Zwift route all need a key the Worker recognises. It is kept in this browser (a
          home-screen app keeps its own copy, which is why it is entered here and not only
          in the address bar) and checked with the Worker before it is kept. -->
-    <div class="settings-note" id="adminKeyState"></div>
-    <div class="admin-key-row">
-      <input type="password" id="adminKeyInput" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Paste this device&rsquo;s admin key" aria-label="Admin key" onkeydown="if(event.key==='Enter')verifyAdminKey()">
-      <button class="unit-opt" id="adminKeyVerify" type="button" onclick="verifyAdminKey()">Verify</button>
+    <div class="admin-key-state" id="adminKeyState"></div>
+    <!-- One joined control, the way the Zwift sync pill and its button are: a box and the
+         button that acts on it. With a key kept, the box gives way to Forget, set as one of
+         the sheet's own chips. -->
+    <div class="admin-key-row" id="adminKeyEntry">
+      <input type="password" id="adminKeyInput" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Paste this device&rsquo;s key" aria-label="Admin key" onkeydown="if(event.key==='Enter')verifyAdminKey()">
+      <button class="admin-key-btn" id="adminKeyVerify" type="button" onclick="verifyAdminKey()">Verify</button>
     </div>
-    <button class="settings-row" id="adminKeyForget" type="button" onclick="forgetAdminKey()" hidden>
-      <span class="ms">lock</span>
-      <span>Forget the key on this device</span>
-    </button>
-    <div class="settings-note" id="adminKeyMsg" role="status" aria-live="polite"></div>
+    <div class="sheet-chips">
+      <button id="adminKeyForget" type="button" onclick="forgetAdminKey()" hidden><span class="ms">lock_open</span>Forget the key on this device</button>
+    </div>
+    <div class="admin-key-msg" id="adminKeyMsg" role="status" aria-live="polite"></div>
   </div>
   <div class="settings-actions">
     <!-- Where the boxes sit is a preference like units and the theme, so it is set
@@ -3220,16 +3236,18 @@ function adminKeyMessage(text,kind){
   const m=document.getElementById('adminKeyMsg');
   if(!m)return;
   m.textContent=text||'';
-  m.className='settings-note'+(kind?' '+kind:'');
+  m.className='admin-key-msg'+(kind?' '+kind:'');
 }
 function renderAdminKeyState(){
   const has=hasAdminKey();
   const st=document.getElementById('adminKeyState');
   if(st)st.textContent=has
-    ?'An admin key is kept on this device. Changes, refreshes, rearranging and editing are allowed.'
-    :'No admin key on this device. You can look, but not change, refresh, rearrange or edit.';
+    ?'Set on this device. Changes, refreshes, rearranging and editing are allowed.'
+    :'Not set on this device. You can look, but not change, refresh, rearrange or edit.';
   const f=document.getElementById('adminKeyForget');
   if(f)f.hidden=!has;
+  const entry=document.getElementById('adminKeyEntry');
+  if(entry)entry.hidden=has;
 }
 // What changes when a device gains or loses its key: the Zwift list asks again (the
 // Worker decides whether it may edit), and a rearrange in progress is ended.
