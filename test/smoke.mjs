@@ -2454,7 +2454,25 @@ async function main() {
       await d.page.evaluate(() => window.closeSettings());
       d.seen.length = 0;
       await d.page.evaluate(() => retryData());
+      await d.page.waitForTimeout(400);
       assert(!d.seen.some((u) => /refresh=/.test(u)), 'a retry asked for a refresh: ' + d.seen.join(' '));
+      assert(d.seen.length > 0, 'a retry did not read again at all');
+      assert(!(await d.page.evaluate(() => document.getElementById('settingsMenu').classList.contains('open'))), 'a plain retry opened Settings to say no');
+      await d.ctx.close();
+    });
+    await check('a refused Zwift save says what the key is for', async () => {
+      const d = await settingsPage();
+      await d.page.evaluate(() => localStorage.setItem('fitness_admin_key', 'abc'));
+      await d.page.evaluate(() => window.closeSettings());
+      await d.page.route(/\/zwift-routes\/[^/?]+$/, (r) => r.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: true, message: 'Not allowed. You need an authorised admin key to make changes, refresh, rearrange or edit.' }) }));
+      await d.page.evaluate(() => window.setTab('zwift'));
+      await d.page.waitForFunction(() => zwiftLoaded && zwiftEditable, null, { timeout: 15000 });
+      await d.page.evaluate(() => { window.setZwiftStatusFilter('All'); window.toggleAllZwiftGroups(true); window.toggleZwiftEdit('todo-b'); });
+      await d.page.fill('#ze-time-todo-b', '01:02:03');
+      await d.page.click('#ze-save-todo-b');
+      await d.page.waitForFunction(() => /Not allowed/.test((document.getElementById('ze-error-todo-b') || {}).textContent || ''), null, { timeout: 5000 });
+      const text = await d.page.evaluate(() => document.getElementById('ze-error-todo-b').textContent);
+      assert(/authorised admin key/.test(text) && /Settings/.test(text), text);
       await d.ctx.close();
     });
     await check('the planned-routes calendar starts the week on Monday', async () => {
