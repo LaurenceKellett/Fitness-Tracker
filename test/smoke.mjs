@@ -1634,6 +1634,26 @@ async function main() {
       await page.waitForTimeout(300);
     });
 
+    await check("the year table's Total row sits in its columns, with room round every figure", async () => {
+      await page.evaluate(() => window.setTab('summary'));
+      await page.waitForSelector('#yearTable tfoot td', { timeout: 10000 });
+      const m = await page.evaluate(() => {
+        const t = document.getElementById('yearTable');
+        const body = [...t.querySelector('tbody tr').children], foot = [...t.querySelector('tfoot tr').children];
+        const box = (c) => { const b = c.getBoundingClientRect(), cs = getComputedStyle(c); return { left: b.left, right: b.right, pl: parseFloat(cs.paddingLeft), pr: parseFloat(cs.paddingRight), pt: parseFloat(cs.paddingTop), nums: cs.fontVariantNumeric }; };
+        return { body: body.map(box), foot: foot.map(box), tableLeft: t.getBoundingClientRect().left };
+      });
+      assert(m.body.length === m.foot.length, `${m.body.length} columns above, ${m.foot.length} in the Total row`);
+      m.body.forEach((b, i) => {
+        const f = m.foot[i];
+        assert(Math.abs(b.left - f.left) < 1.5 && Math.abs(b.right - f.right) < 1.5, `column ${i}: ${Math.round(b.left)}–${Math.round(b.right)} above, ${Math.round(f.left)}–${Math.round(f.right)} in Total`);
+        assert(f.pl >= 10 && f.pr >= 10 && f.pt >= 10, `column ${i} of the Total row has padding ${f.pt}/${f.pr}/${f.pl}`);
+        assert(/tabular/.test(f.nums), `column ${i} figures do not line up digit under digit (${f.nums})`);
+      });
+      const label = m.foot[0];
+      assert(label.left - m.tableLeft < 1.5 && label.pl >= 10, 'the Total label touches the edge of the table');
+    });
+
     await check('every clickable row can be reached and opened from the keyboard', async () => {
       // Each of these is a div or a tr with a delegated click handler. A pointer
       // could open all four; a keyboard could open none of them.

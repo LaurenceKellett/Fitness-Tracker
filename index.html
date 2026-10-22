@@ -1255,6 +1255,13 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .two-col-fill .dow-card{flex:1;display:flex;flex-direction:column}
 .two-col-fill .dow-bars{flex:1;height:auto;min-height:90px}
 .scroll-x{overflow-x:auto}
+/* The year table's Total row. It sat outside `tbody td`, so it had none of the padding the
+   rows above have: the label touched the edge and every figure was out of line with its
+   column. It gets the same cell box as a row, a firmer rule above it, and figures that
+   line up digit under digit. */
+#yearTable td,#yearTable th{font-variant-numeric:tabular-nums}
+#yearTable tfoot td{padding:13px 14px;vertical-align:middle;white-space:nowrap;font-weight:700;color:var(--text);background:var(--bg);border-top:2px solid var(--border)}
+#yearTable tfoot td:first-child{color:var(--text-muted);font-size:12px;letter-spacing:.04em;text-transform:uppercase}
 /* EARLY YEARS TOGGLE */
 .early-years-toggle{cursor:pointer;color:var(--text-muted);font-size:12px;padding:10px 14px;background:var(--bg);border-top:1px solid var(--border);text-align:left;transition:color .15s}
 .early-years-toggle:hover{color:var(--text)}
@@ -4153,7 +4160,7 @@ function renderSummary(){
   const totActs=allYearsForTable.reduce((s,y)=>s+data.filter(a=>a.date.slice(0,4)===y).length,0);
   const totByType={};typeKeys.forEach(t=>{totByType[t]=data.filter(a=>typeGroup(a.type)===t).reduce((s,a)=>s+(a.dist_mi||0),0);});
   const totT=data.reduce((s,a)=>s+(a.mt||0),0),totE=data.reduce((s,a)=>s+(a.elv||0),0),totC=data.reduce((s,a)=>s+(a.cal||0),0);
-  const totRow=`<tfoot><tr style="border-top:2px solid var(--border);font-weight:700;background:var(--bg)"><td>Total</td><td>${totActs.toLocaleString('en-GB')}</td>${typeKeys.map(t=>`<td>${totByType[t]?fmtDist(totByType[t]):'—'}</td>`).join('')}<td>${fmtTime(totT)}</td><td>${fmtElv(totE)}</td><td>${fmtNum(totC)}</td></tr></tfoot>`;
+  const totRow=`<tfoot><tr class="year-total"><td>Total</td><td>${totActs.toLocaleString('en-GB')}</td>${typeKeys.map(t=>`<td>${totByType[t]?fmtDist(totByType[t]):'—'}</td>`).join('')}<td>${fmtTime(totT)}</td><td>${fmtElv(totE)}</td><td>${fmtNum(totC)}</td></tr></tfoot>`;
   document.getElementById('yearTable').innerHTML=`<thead>${th}</thead><tbody>${recentYears.map(yearRow).join('')}</tbody>${earlyHtml}${totRow}`;
 
   // Top gear
