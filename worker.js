@@ -11,7 +11,10 @@
 //                             REFRESH). A few requests instead of a couple of dozen
 //   GET /zwift-routes → returns all Zwift routes from Notion in a cached envelope
 //   GET /zwift-routes?refresh=true → forces a fresh pull from Notion
-//   PATCH /zwift-routes/{pageId} → updates Status/Planned Ride/Date completed/Time on one route
+//   PATCH /zwift-routes/{pageId} → updates Status/Planned Ride/Date completed/Time on one route,
+//                             and moves its Google Calendar event to match (calendar.js)
+//   GET /calendar-sync → reconciles planned rides with Google Calendar now (also runs
+//                             every 15 minutes; see CAL_CRON)
 //   GET /sync-training-log → pulls recent Strava activities into the Notion
 //                             Training Log database (also runs on a schedule —
 //                             see the `crons` entry in wrangler.toml)
@@ -20,6 +23,8 @@
 // activities cache so the dashboard is current on arrival instead of paying a
 // full Strava pull on the first visit after the 24h TTL lapses.
 // =============================================================================
+
+import { syncCalendar, syncCalendarRoute, calendarConfigured, calNotionDate, CAL_DEFAULT_TZ } from './calendar.js';
 
 // ---- IMPORTANT: replace this with your actual Worker URL ------------------
 const WORKER_URL = 'https://activities-api.lk-ff7.workers.dev/';
@@ -67,6 +72,9 @@ const ZWIFT_DATA_SOURCE_ID = '13b81faa-c3d2-4f94-83ca-bc782626f1e3';
 // The cron runs every three hours (wrangler.toml). These are the runs that do a
 // full pull; the others merge the last week. See scheduled().
 const FULL_PULL_HOURS_UTC = [9, 15, 21];
+// The Google Calendar reconcile has a cron of its own, so a drag in the calendar
+// reaches Notion within a quarter of an hour. It is the only thing that cron does.
+const CAL_CRON = '*/15 * * * *';
 const ZWIFT_CACHE_KEY      = 'zwift_routes_v1';
 const ZWIFT_CACHE_TTL      = 600; // 10 minutes. Saves from the app clear it at once, and the
                                    // tab's Refresh skips it; each refill costs one of the
@@ -198,16 +206,34 @@ function withCors(response, request, env) {
   return out;
 }
 
+// What calendar.js needs from here to reach Notion, and to drop the routes cache
+// when it has changed a plan, so the dashboard's next read sees it.
+function calendarDeps(env) {
+  return {
+    notionRequest, fetchAllZwiftRoutes, transformNotionRoute,
+    dataSourceId: ZWIFT_DATA_SOURCE_ID,
+    onNotionChange: async () => {
+      if (env.CACHE) await kvBestEffort(env.CACHE.delete(ZWIFT_CACHE_KEY), 'zwift cache delete');
+    },
+  };
+}
+
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') {
       return withCors(new Response(null, { status: 204 }), request, env);
     }
-    return withCors(await route(request, env), request, env);
+    return withCors(await route(request, env, ctx), request, env);
   },
 
-  // Fires on the schedule configured in wrangler.toml's `[triggers] crons`.
+  // Fires on the schedules configured in wrangler.toml's `[triggers] crons`.
   async scheduled(event, env, ctx) {
+    if (event.cron === CAL_CRON) {
+      ctx.waitUntil(syncCalendar(env, calendarDeps(env)).catch(err => {
+        console.error('Scheduled calendar sync failed:', err.message);
+      }));
+      return;
+    }
     ctx.waitUntil((async () => {
       // Sequential, not parallel. Both of these talk to Strava, and its rate
       // limit is per-15-minutes, so firing them together is the one reliable
@@ -240,7 +266,7 @@ export default {
   },
 };
 
-async function route(request, env) {
+async function route(request, env, ctx) {
   const url = new URL(request.url);
   const admin = () => requireAdmin(request, env);
 
@@ -272,13 +298,22 @@ async function route(request, env) {
       return out;
     }
     case '/sync-training-log':  return (await admin()) || handleSyncTrainingLog(env);
+    case '/calendar-sync': {
+      const no = await admin(); if (no) return no;
+      try {
+        const out = await syncCalendar(env, calendarDeps(env));
+        return new Response(JSON.stringify(out, null, 2), { headers: { ...CORS, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: true, message: err.message }), { status: 502, headers: { ...CORS, 'Content-Type': 'application/json' } });
+      }
+    }
     case '/backfill-prs':       return (await admin()) || handleBackfillPrs(env);
     default:
       if (url.pathname.startsWith('/zwift-routes/') && request.method === 'PATCH') {
         const no = await admin();
         if (no) return no;
         const pageId = url.pathname.slice('/zwift-routes/'.length);
-        return handleZwiftRouteUpdate(request, env, pageId);
+        return handleZwiftRouteUpdate(request, env, pageId, ctx);
       }
       return new Response('Not found', { status: 404 });
   }
@@ -1022,7 +1057,7 @@ async function handleZwiftRoutes(request, env) {
   }
 }
 
-async function handleZwiftRouteUpdate(request, env, pageId) {
+async function handleZwiftRouteUpdate(request, env, pageId, ctx) {
   if (!env.NOTION_API_KEY) {
     return new Response(JSON.stringify({ error: true, message: 'NOTION_API_KEY not configured' }), {
       status: 500,
@@ -1071,13 +1106,15 @@ async function handleZwiftRouteUpdate(request, env, pageId) {
   }
 
   if (planned_ride !== undefined) {
-    if (planned_ride !== null && !/^\d{4}-\d{2}-\d{2}$/.test(planned_ride)) {
-      return new Response(JSON.stringify({ error: true, code: 'validation', message: 'planned_ride must be YYYY-MM-DD or null' }), {
+    // A day, or a day and a start time on the owner's clock ('2026-10-28T18:30'),
+    // which Notion stores with the time zone so it reads back as the same hour.
+    if (planned_ride !== null && !/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/.test(planned_ride)) {
+      return new Response(JSON.stringify({ error: true, code: 'validation', message: 'planned_ride must be YYYY-MM-DD, YYYY-MM-DDTHH:MM or null' }), {
         status: 400,
         headers: { ...CORS, 'Content-Type': 'application/json' },
       });
     }
-    properties['Planned Ride'] = planned_ride ? { date: { start: planned_ride } } : { date: null };
+    properties['Planned Ride'] = { date: calNotionDate(planned_ride, env.ZWIFT_TZ || CAL_DEFAULT_TZ) };
   }
 
   if (time !== undefined) {
@@ -1107,7 +1144,16 @@ async function handleZwiftRouteUpdate(request, env, pageId) {
       await kvBestEffort(env.CACHE.delete(ZWIFT_CACHE_KEY), 'zwift cache delete');
     }
 
-    return new Response(JSON.stringify({ data: transformNotionRoute(page) }), {
+    const saved = transformNotionRoute(page);
+    // The calendar follows after the answer has gone, so a slow Google never
+    // slows a save; the 15-minute reconcile catches anything this misses.
+    if (ctx && (planned_ride !== undefined || status !== undefined) && calendarConfigured(env)) {
+      ctx.waitUntil(syncCalendarRoute(env, calendarDeps(env), saved).catch(err => {
+        console.error('Calendar update after save failed:', err.message);
+      }));
+    }
+
+    return new Response(JSON.stringify({ data: saved }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });
   } catch (err) {

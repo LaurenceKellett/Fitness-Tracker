@@ -31,14 +31,16 @@ The Worker holds all secrets and does all the heavy work. The Pages frontend is 
 |------|---------|
 | `worker.js` | Cloudflare Worker — OAuth, Strava fetch, GPS privacy trimming, KV caching, AI summary, Zwift Routes proxy, and the scheduled Strava → Notion Training Log sync |
 | `index.html` | Dashboard frontend — all CSS, HTML, and the app's own JS |
+| `calendar.js` | Planned Zwift rides ↔ Google Calendar, both ways (see **Google Calendar sync**). Imported by `worker.js`; imports `calc.js` for the route estimates |
 | `calc.js` | The pure derivations and formatters, split out of `index.html` so they can be unit-tested. Loaded as a classic script before the inline one, so its top-level declarations share the same global scope and every existing call site works unchanged |
 | `sw.js` | Service worker — caches the app shell and the two CDN libraries so the dashboard opens offline |
 | `manifest.webmanifest`, `icons/` | Web app manifest and icons, so it installs to a phone home screen |
 | `test/calc.test.js` | Vitest unit tests for `calc.js` |
+| `test/calendar.test.js` | Unit tests for the calendar sync's decisions, and the 15-minute cron end to end against a stubbed Google and Notion |
 | `test/smoke.mjs` | Playwright smoke test — boots the real page against a stubbed Worker and drives every tab |
 | `.github/workflows/test.yml` | Runs both suites on every push |
 | `wrangler.toml` | Wrangler config for the Worker |
-| `.github/workflows/deploy-worker.yml` | Auto-deploys the Worker to Cloudflare on every push that touches `worker.js` or `wrangler.toml` |
+| `.github/workflows/deploy-worker.yml` | Auto-deploys the Worker to Cloudflare on every push that touches `worker.js`, `calendar.js`, `calc.js` or `wrangler.toml` |
 | `activities.csv` | **Not committed** (in `.gitignore`) — personal Strava export, never goes to GitHub |
 
 ---
@@ -369,7 +371,8 @@ This repository is public, so the Worker's address is public. **Reading is open*
 | `GET /backfill-prs` | **Needs the admin key.** Collects one slice (40) of segment PBs from Strava's best-efforts and refreshes the cache. Returns `{ checked, found, remaining }`. Also runs automatically on the cron — see **Segment PBs** below. The envelope it republishes carries `hrZones`; without that, running this route stripped the zone chart's provenance and dropped it silently to a derived max |
 | `GET /zwift-routes` | Open to read; the answer carries `X-Key-Level` (`admin` or `none`). Returns the cached Zwift routes envelope `{ data, updatedAt }`, proxied live from Notion |
 | `GET /zwift-routes?refresh=true` | **Needs the admin key.** Bypasses cache, re-fetches all routes from Notion |
-| `PATCH /zwift-routes/{pageId}` | **Needs the admin key.** Updates `status`/`planned_ride`/`date_completed`/`time` on one route, writes straight to Notion |
+| `PATCH /zwift-routes/{pageId}` | **Needs the admin key.** Updates `status`/`planned_ride`/`date_completed`/`time` on one route, writes straight to Notion. `planned_ride` is a day or a day and start time (`2026-10-28T18:30`); the route's Google Calendar event follows |
+| `GET /calendar-sync` | **Needs the admin key.** Reconciles planned rides with Google Calendar now and answers with what it did (it also runs every 15 minutes). See **Google Calendar sync** |
 | `GET /whoami` | Open. Is the key in `X-Admin-Key` a good admin key? `{ level: 'admin', label: 'PHONE' }` or `{ level: 'none' }`. Names only the key it was just given, never another, and is never cached |
 | `GET /refresh-status` | What the current or last pull from Strava is doing: `{ state, stage, page, fetched, expectedPages, expectedTotal, lastDurationMs, startedAt, updatedAt }`, `state` one of `idle`, `running`, `done`, `failed`. Written by the refresh as it goes, one KV write every 1.2 s at most; `Cache-Control: no-store` |
 | `GET /prefs` | The dashboard's own settings — today the panel order per zone — as `{ prefs, updatedAt }`. `updatedAt` is 0 when nothing has ever been saved |
@@ -1662,6 +1665,67 @@ not started for five days after it was completed on the phone.
   a few letters (or to nothing beside a Rebel badge).
 
 ---
+
+## Google Calendar sync
+
+Every route that is not yet Complete and has a planned ride gets an event in the main
+Google Calendar: **🚴 Route name**, marked **private**, with the route's facts and links in
+its description. Drag the event and the plan moves; change the plan in the dashboard or in
+Notion and the event moves. A Complete route is left alone, event and all, so the calendar
+keeps where each ride actually happened.
+
+- **Length.** The route's estimate, plus a fifth of it and never less than ten minutes,
+  rounded up to five: Notion's *Est. Duration* where it has one, otherwise the dashboard's
+  own fit from your completed times (the `~30:21` on each row), otherwise an hour.
+- **No start time** makes an all-day event on the planned day. Give it a time in the
+  dashboard (the **Start time** box beside *Planned ride*) and it becomes a timed event.
+  Notion stores the time with its zone (`ZWIFT_TZ`, default `Europe/London`), so it reads
+  back as the same hour.
+- **How fast.** A save in the dashboard moves the event at once. A drag in Google, or an
+  edit made directly in Notion, is picked up by a reconcile that runs every 15 minutes
+  (its own cron, `*/15 * * * *`, which does nothing else) and on demand at
+  `GET /calendar-sync` (admin key).
+- **Which side wins.** The one changed last. Notion keeps edit times to the minute, so the
+  calendar wins only when its event changed more than a minute after the page did.
+- **Deleting the event** clears the plan (the route stays Planned, with no day), unless the
+  page was edited again afterwards, in which case the event is put back.
+- **Which events are its own.** Each carries private extended properties `zwiftSync=1` and
+  `zwiftRouteId=<Notion page id>`. That tag is the only thing the sync reads or writes in
+  the calendar; your other events are never touched, and no mapping is stored anywhere.
+
+### Setting it up (once)
+
+The Worker needs three secrets. None of them goes in this repository or in a chat: they go
+straight into Cloudflare.
+
+1. **A Google Cloud project.** At [console.cloud.google.com](https://console.cloud.google.com)
+   create a project (any name, e.g. *Fitness dashboard*). In **APIs & Services → Library**,
+   enable the **Google Calendar API**.
+2. **The consent screen.** In **Google Auth Platform** (or *OAuth consent screen*): user
+   type **External**, an app name and your email. Under **Data access** add the scope
+   `https://www.googleapis.com/auth/calendar.events`. Under **Audience** add your Google
+   address as a test user, then press **Publish app**. *This matters:* an app left in
+   *Testing* has its refresh tokens expire after seven days and the sync stops. Publishing
+   a personal app needs no review; Google just shows an "unverified app" warning when you
+   sign in, which is expected.
+3. **An OAuth client.** **Clients → Create client**, type **Web application**, with the
+   authorised redirect URI `https://developers.google.com/oauthplayground`. Keep the
+   **Client ID** and **Client secret** it shows.
+4. **A refresh token.** Open the
+   [OAuth 2.0 Playground](https://developers.google.com/oauthplayground). Click the gear
+   icon, tick **Use your own OAuth credentials**, and paste the client ID and secret. In
+   *Step 1* type the scope `https://www.googleapis.com/auth/calendar.events` into the box
+   and press **Authorize APIs**; sign in with the calendar's account and allow it (through
+   **Advanced → Go to … (unsafe)** on the unverified warning). In *Step 2* press **Exchange
+   authorization code for tokens** and copy the **Refresh token**.
+5. **The secrets.** In the Cloudflare dashboard, **Workers & Pages → activities-api →
+   Settings → Variables and Secrets**, add three of type *Secret*: `GOOGLE_CLIENT_ID`,
+   `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`.
+
+Within 15 minutes every planned route still to ride is in the calendar. Until all three
+secrets are set the sync does nothing at all. If it stops later, the Worker log says
+`Google token refresh failed (400 invalid_grant)`: the token was revoked or the app went
+back to Testing; repeat step 4 and replace `GOOGLE_REFRESH_TOKEN`.
 
 ## Ideas not built
 

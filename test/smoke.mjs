@@ -1177,7 +1177,7 @@ async function main() {
       }
     });
 
-    await check('a planned date saves, moves a Not started route to Planned, and dots its day on the calendar', async () => {
+    await check('a planned day and start time save once, move a Not started route to Planned, and dot the calendar', async () => {
       const patchRoute = /\/zwift-routes\/[^/?]+$/;
       let sent = null, patches = 0;
       await page.route(patchRoute, (r) => {
@@ -1195,11 +1195,19 @@ async function main() {
         await page.dispatchEvent('#ze-plan-todo-a', 'change');
         await page.waitForTimeout(300);
         assert(patches === 0, `a change saved before the picker was closed (${JSON.stringify(sent)})`);
-        await page.dispatchEvent('#ze-plan-todo-a', 'blur');
-        await page.dispatchEvent('#ze-plan-todo-a', 'blur');
-        await page.waitForFunction(() => ZWIFT_DATA.find((r) => r.id === 'todo-a').planned_ride === '2026-11-03', null, { timeout: 5000 });
-        assert(sent && sent.planned_ride === '2026-11-03' && sent.status === 'Planned',
-          `picking the day sent ${JSON.stringify(sent)}`);
+        // Day, then straight on to its start time: one save, not an all-day one
+        // followed by a timed one.
+        await page.focus('#ze-plantime-todo-a');
+        await page.waitForTimeout(400);
+        assert(patches === 0, `moving from the day to its time saved already (${JSON.stringify(sent)})`);
+        await page.fill('#ze-plantime-todo-a', '18:30');
+        await page.$eval('#ze-plantime-todo-a', (el) => el.blur());
+        await page.waitForFunction(() => ZWIFT_DATA.find((r) => r.id === 'todo-a').planned_ride === '2026-11-03T18:30', null, { timeout: 5000 });
+        assert(sent && sent.planned_ride === '2026-11-03T18:30' && sent.status === 'Planned',
+          `picking the day and time sent ${JSON.stringify(sent)}`);
+        // A second blur once the save is in has nothing new to send.
+        await page.dispatchEvent('#ze-plantime-todo-a', 'blur');
+        await page.waitForTimeout(400);
         assert(patches === 1, `one pick sent ${patches} saves`);
         const still = await page.evaluate(() => ({
           open: zwiftEditingId, status: document.getElementById('ze-status-todo-a')?.value,

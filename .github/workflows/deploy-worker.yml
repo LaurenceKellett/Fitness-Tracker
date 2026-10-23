@@ -3,8 +3,12 @@ name: Deploy Worker
 on:
   push:
     branches: [main]
+    # Everything the Worker bundles: calendar.js imports calc.js for the route
+    # estimates, so a change to either changes what is deployed.
     paths:
       - worker.js
+      - calendar.js
+      - calc.js
       - wrangler.toml
 
 jobs:

@@ -20,4 +20,7 @@ binding = "AI"
 # Cloudflare cron is UTC-only; with a run every three hours, daylight saving
 # no longer needs the hours shifting by hand.
 [triggers]
-crons = ["0 */3 * * *"]
+# The second is the Google Calendar reconcile (calendar.js): planned Zwift rides
+# both ways, so a drag in the calendar reaches Notion within 15 minutes. It does
+# nothing else, and nothing at all until the GOOGLE_* secrets are set.
+crons = ["0 */3 * * *", "*/15 * * * *"]

@@ -1105,8 +1105,9 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .zwift-edit-form input[type=date]::-webkit-date-and-time-value{text-align:left}
 .zwift-edit-form .page-btn{height:34px;padding:0 14px}
 .zwift-edit-form label{width:160px}
-.zwift-edit-form label:nth-of-type(1){width:150px}
-.zwift-edit-form label:last-of-type{width:130px}
+.zwift-edit-form .zl-status{width:150px}
+.zwift-edit-form .zl-start{width:130px}
+.zwift-edit-form .zl-time{width:130px}
 .zwift-edit-error{color:var(--danger);font-size:12px;margin-top:6px;width:100%}
 .zwift-ro-empty{color:var(--text-light);font-style:italic;font-weight:400}
 .zwift-detail-info{font-size:12px}
@@ -1691,14 +1692,14 @@ tbody td{padding:10px 14px;vertical-align:middle}
   .zwift-group summary{font-size:14px}
   .zwift-cat-badge{font-size:11px}
 
-  /* Edit form as a grid: Status and Planned ride, then Date completed and Time,
-     then Save and Cancel. Every control is 44px, and 16px text so iOS does not
+  /* Edit form as a grid: Planned ride and its start time, then Status and Date
+     completed, then Time with Save and Cancel. Every control is 44px, and 16px text so iOS does not
      zoom on focus. */
   .zwift-edit-form{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 10px;align-items:end}
   .zwift-edit-form label:nth-of-type(n){width:auto;grid-column:span 2}
   .zwift-edit-form select,.zwift-edit-form input,.zwift-edit-form .page-btn{height:44px;font-size:16px}
   .zwift-edit-form input[type=date]{line-height:42px}
-  .zwift-edit-form .page-btn{padding:0;font-size:14px;grid-column:span 2}
+  .zwift-edit-form .page-btn{padding:0;font-size:14px;grid-column:span 1}
   .zwift-edit-error:empty{display:none}
   .zwift-edit-error{grid-column:1/-1;margin-top:0}
   .unit-opt,.icon-btn{min-height:var(--ctl-h)}
@@ -9446,12 +9447,13 @@ function renderZwiftDetail(r){
     </div>`;
   }
   const fields=zwiftEditable?`<div class="zwift-edit-form">
-      <label>Status<select id="ze-status-${r.id}" onchange="handleZwiftStatusChange('${r.id}','${r.status}')">
+      <label class="zl-plan">Planned ride<input type="date" id="ze-plan-${escapeAttr(r.id)}" value="${escapeAttr(zwiftPlanDay(r.planned_ride))}" onblur="queueZwiftPlanChange('${r.id}')"></label>
+      <label class="zl-start">Start time<input type="time" id="ze-plantime-${escapeAttr(r.id)}" value="${escapeAttr(zwiftPlanTime(r.planned_ride))}" onblur="queueZwiftPlanChange('${r.id}')"></label>
+      <label class="zl-status">Status<select id="ze-status-${r.id}" onchange="handleZwiftStatusChange('${r.id}','${r.status}')">
         ${ZWIFT_STATUS_ORDER.map(s=>`<option value="${escapeAttr(s)}"${s===r.status?' selected':''}>${escapeHtml(s)}</option>`).join('')}
       </select></label>
-      <label>Planned ride<input type="date" id="ze-plan-${escapeAttr(r.id)}" value="${escapeAttr(zwiftPlanDay(r.planned_ride))}" onblur="handleZwiftPlanChange('${r.id}',this.value)"></label>
-      <label>Date completed<input type="date" id="ze-date-${escapeAttr(r.id)}" max="${todayLocalISO()}" value="${escapeAttr(r.date_completed||'')}" onchange="handleZwiftDateChange('${r.id}')"></label>
-      <label>Time<input type="text" id="ze-time-${escapeAttr(r.id)}" inputmode="numeric" autocomplete="off" placeholder="h:mm:ss" value="${escapeAttr(r.time||'')}" onblur="tidyZwiftTime('${r.id}')"></label>
+      <label class="zl-done">Date completed<input type="date" id="ze-date-${escapeAttr(r.id)}" max="${todayLocalISO()}" value="${escapeAttr(r.date_completed||'')}" onchange="handleZwiftDateChange('${r.id}')"></label>
+      <label class="zl-time">Time<input type="text" id="ze-time-${escapeAttr(r.id)}" inputmode="numeric" autocomplete="off" placeholder="h:mm:ss" value="${escapeAttr(r.time||'')}" onblur="tidyZwiftTime('${r.id}')"></label>
       <button class="page-btn" onclick="saveZwiftEdit('${r.id}')" id="ze-save-${r.id}">Save</button>
       <button class="page-btn" onclick="cancelZwiftEdit()">Cancel</button>
       <div class="zwift-edit-error" id="ze-error-${r.id}"></div>
@@ -9518,12 +9520,35 @@ function tidyZwiftTime(id){
 // a day for a route nobody has started also makes it Planned, since that is what
 // planning it means; anything further along keeps its status.
 const zwiftPlanInFlight={};
-async function handleZwiftPlanChange(id,day){
+// The plan as the form holds it: 'YYYY-MM-DD', or with the start time
+// 'YYYY-MM-DDTHH:MM', or '' for none. A time without a day is no plan.
+function zwiftPlanValue(v){
+  const day=zwiftPlanDay(v);
+  if(!day)return '';
+  const t=zwiftPlanTime(v);
+  return t?day+'T'+t:day;
+}
+function zwiftPlanFromForm(id){
+  const day=(document.getElementById('ze-plan-'+id)||{}).value||'';
+  const t=(document.getElementById('ze-plantime-'+id)||{}).value||'';
+  return day?(t?day+'T'+t:day):'';
+}
+// Leaving the day for its start time (or back) is one edit, not two: waits a beat
+// and saves only once focus has left both, so the calendar event does not go
+// all-day and then timed.
+function queueZwiftPlanChange(id){
+  setTimeout(()=>{
+    const a=document.activeElement;
+    if(a&&(a.id==='ze-plan-'+id||a.id==='ze-plantime-'+id))return;
+    handleZwiftPlanChange(id,zwiftPlanFromForm(id));
+  },250);
+}
+async function handleZwiftPlanChange(id,value){
   const prev=ZWIFT_DATA.find(r=>r.id===id);
   if(!prev)return;
-  day=day||'';
+  const day=value||'';
   // A second blur while the first save is out would send it twice.
-  if(day===zwiftPlanDay(prev.planned_ride)||zwiftPlanInFlight[id]===day)return;
+  if(day===zwiftPlanValue(prev.planned_ride)||zwiftPlanInFlight[id]===day)return;
   zwiftPlanInFlight[id]=day;
   const body={planned_ride:day||null};
   if(day&&prev.status==='Not started')body.status='Planned';
@@ -9532,7 +9557,7 @@ async function handleZwiftPlanChange(id,day){
   try{
     const saved=await patchZwiftRoute(id,body);
     if(day){
-      const [y,m]=day.split('-').map(Number);
+      const [y,m]=day.slice(0,10).split('-').map(Number);
       zwiftCalDate=new Date(y,m-1,1);zwiftCalSelected=null;
     }
     buildZwiftStatusFilters();
@@ -9543,6 +9568,7 @@ async function handleZwiftPlanChange(id,day){
     const el=document.getElementById('ze-error-'+id);
     if(el)el.textContent='Planned date not saved: '+(e.message||'try again.');
     if(document.getElementById('ze-plan-'+id))document.getElementById('ze-plan-'+id).value=zwiftPlanDay(prev.planned_ride);
+    if(document.getElementById('ze-plantime-'+id))document.getElementById('ze-plantime-'+id).value=zwiftPlanTime(prev.planned_ride);
   }finally{
     delete zwiftPlanInFlight[id];
   }
@@ -9567,7 +9593,7 @@ async function saveZwiftEdit(id){
 
   const status=document.getElementById('ze-status-'+id).value;
   const dateVal=document.getElementById('ze-date-'+id).value;
-  const planVal=document.getElementById('ze-plan-'+id).value;
+  const planVal=zwiftPlanFromForm(id);
   const timeVal=parseZwiftTime(document.getElementById('ze-time-'+id).value);
 
   if(timeVal===null){
@@ -9593,7 +9619,7 @@ async function saveZwiftEdit(id){
     const body={status,date_completed:dateVal||null,time:timeVal||null};
     // Only send the planned day when it changed: sending it back unchanged would
     // strip the start time Notion holds on a timed one.
-    if(planVal!==zwiftPlanDay(prev.planned_ride))body.planned_ride=planVal||null;
+    if(planVal!==zwiftPlanValue(prev.planned_ride))body.planned_ride=planVal||null;
     const saved=await patchZwiftRoute(id,body);
     // Just completed with no time: the form stays open on it, asking for one. An old
     // completion saved without a time closes as normal.
