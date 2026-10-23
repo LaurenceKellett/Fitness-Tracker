@@ -1075,6 +1075,9 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .zwift-cal-day.has-routes{cursor:pointer}
 .zwift-cal-day.has-routes:hover{background:var(--bg)}
 .zwift-cal-day.selected{background:var(--virtual-soft)}
+/* Today: an outline and a heavier figure, so it reads at a glance and still shows
+   through the selected fill and the dots. */
+.zwift-cal-day.today{box-shadow:inset 0 0 0 1.5px var(--text);font-weight:700}
 .zwift-cal-day.empty{visibility:hidden}
 .zwift-cal-dots{display:flex;justify-content:center;gap:2px;margin-top:2px}
 .zwift-cal-dot{width:5px;height:5px;border-radius:0;background:var(--ride)}
@@ -9308,7 +9311,8 @@ function renderZwiftCalendar(){
     // One dot per kind on the day, worst first.
     const kinds=['overdue','planned','done'].filter(k=>routes.some(r=>zwiftPlanState(r,today)===k));
     const dots=has?`<div class="zwift-cal-dots">${kinds.map(k=>`<span class="zwift-cal-dot ${k}"></span>`).join('')}</div>`:'';
-    return`<div class="zwift-cal-day${has?' has-routes':''}${sel?' selected':''}" ${has?`onclick="selectZwiftCalDay('${dateStr}')"`:''}>${day}${dots}</div>`;
+    const isToday=dateStr===today;
+    return`<div class="zwift-cal-day${has?' has-routes':''}${sel?' selected':''}${isToday?' today':''}"${isToday?' aria-current="date" title="Today"':''} ${has?`onclick="selectZwiftCalDay('${dateStr}')"`:''}>${day}${dots}</div>`;
   }).join('');
 
   const selRoutes=zwiftCalSelected?(planned[zwiftCalSelected]||[]):[];

@@ -1392,7 +1392,7 @@ async function main() {
       }
     });
 
-    await check('calendar dots are green once ridden and red once their day has gone by', async () => {
+    await check('calendar dots are green once ridden and red once their day has gone by, and today is marked', async () => {
       const saved = await page.evaluate(() => {
         const keep = ['todo-a', 'todo-b', 'done-1'].map((id) => ({ id, ...ZWIFT_DATA.find((r) => r.id === id) }));
         const d = new Date(), iso = (x) => x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
@@ -1417,6 +1417,10 @@ async function main() {
         assert(cal.overdue === 1 && cal.done >= 1, `yesterday should carry a red and a green dot: ${JSON.stringify(cal)}`);
         assert(/1 planned ride has gone by/.test(cal.note), `the missed-ride note read "${cal.note}"`);
         assert(cal.flag, 'the missed route carries no flag in the list');
+        // Today is marked, in whichever month it falls.
+        await page.evaluate(() => { const d = new Date(); zwiftCalDate = new Date(d.getFullYear(), d.getMonth(), 1); renderZwiftCalendar(); });
+        const today = await page.evaluate(() => [...document.querySelectorAll('#zwiftCalendar .zwift-cal-day.today')].map((e) => e.firstChild.textContent.trim()));
+        assert(today.length === 1 && today[0] === String(new Date().getDate()), `today is marked on ${JSON.stringify(today)}`);
       } finally {
         await page.evaluate((keep) => {
           keep.forEach((k) => Object.assign(ZWIFT_DATA.find((r) => r.id === k.id), { planned_ride: k.planned_ride, status: k.status }));
