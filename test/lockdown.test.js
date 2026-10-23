@@ -459,3 +459,55 @@ describe('what a refused caller is told', () => {
     }
   });
 });
+
+// The Notion integration reaches the diary and the Training Log as well as Zwift
+// Routes. The route save writes to a page by id, so the id has to be a page of
+// Zwift Routes, confirmed by Notion, before anything is written: even with a good
+// key, a diary page is answered as not found and never touched.
+describe('the route save writes only to Zwift Routes', () => {
+  const ZWIFT_DS = '13b81faa-c3d2-4f94-83ca-bc782626f1e3';
+  const DIARY_DS = '5276333e-fb61-47fd-8ab6-710d8bb8a656';
+  const PAGE = '0123456789abcdef0123456789abcdef';
+  function notion(parentDs) {
+    const calls = [];
+    globalThis.fetch = vi.fn(async (url, init = {}) => {
+      const u = String(url), method = init.method || 'GET';
+      calls.push(method + ' ' + u);
+      if (u.includes('/v1/pages/') && method === 'GET') {
+        return json({ id: PAGE, parent: { type: 'data_source_id', data_source_id: parentDs },
+          properties: { Name: { title: [{ plain_text: 'Dear diary' }] } } });
+      }
+      if (u.includes('/v1/pages/') && method === 'PATCH') {
+        return json({ id: PAGE, parent: { type: 'data_source_id', data_source_id: parentDs },
+          properties: { Route: { title: [{ plain_text: 'Urumaze' }] }, Status: { status: { name: 'Complete' } } } });
+      }
+      return json({}, 404);
+    });
+    return calls;
+  }
+
+  it('refuses a diary page with a good key, and writes nothing to it', async () => {
+    const calls = notion(DIARY_DS);
+    const res = await send(envOf(), 'PATCH', `/zwift-routes/${PAGE}`, { key: KEY, body: { status: 'Complete' } });
+    expect(res.status).toBe(404);
+    const text = await res.text();
+    expect(text).not.toContain('Dear diary');
+    expect(calls.filter((c) => c.startsWith('PATCH'))).toEqual([]);
+  });
+
+  it('writes to a page of Zwift Routes', async () => {
+    const calls = notion(ZWIFT_DS.replace(/-/g, ''));
+    const res = await send(envOf(), 'PATCH', `/zwift-routes/${PAGE}`, { key: KEY, body: { status: 'Complete' } });
+    expect(res.status).toBe(200);
+    expect(calls.filter((c) => c.startsWith('PATCH'))).toHaveLength(1);
+  });
+
+  it('refuses an id that is not a page id before asking Notion anything', async () => {
+    const calls = notion(ZWIFT_DS);
+    for (const id of ['abc', '..%2Fdatabases%2F' + PAGE, PAGE + '/x']) {
+      const res = await send(envOf(), 'PATCH', `/zwift-routes/${id}`, { key: KEY, body: { status: 'Complete' } });
+      expect([400, 404], id).toContain(res.status);
+    }
+    expect(calls).toEqual([]);
+  });
+});

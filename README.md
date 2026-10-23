@@ -347,6 +347,13 @@ Dashboard settings — the panel order set by **Rearrange this tab** — live un
 This repository is public, so the Worker's address is public. **Reading is open**: the cached, home-trimmed activity feed, the Zwift routes (shown on the dashboard as a plain read-only table), the dashboard's layout and the refresh progress. **Everything that changes something or spends something needs an admin key**, sent as an `X-Admin-Key` header: a refresh (`/activities?refresh=…`, `/zwift-routes?refresh=true`), the Notion and PB syncs, `/debug`, `PATCH /zwift-routes/{id}` and `PUT /prefs`. The routes that need one are marked in the table below.
 
 - **A key per device, as a secret per device.** Name each secret `ADMIN_KEY_` plus the device: `ADMIN_KEY_PHONE`, `ADMIN_KEY_LAPTOP`, `ADMIN_KEY_TOOLS`. Each holds one key; whatever follows the underscore is the device's label. **A lost phone is revoked by deleting its one secret**; nothing else changes. (Cloudflare never shows a saved secret again, so a single comma-separated list would mean retyping every other key to remove one. The list form, `ADMIN_KEY` = `phone:3f9c…,laptop:b27a…`, still works and the two can be mixed.) Make every key with `openssl rand -hex 24`. Only these exact names are read, so a secret called anything else grants nothing. The label of the device that made a write goes to the Worker's log (`admin PHONE PUT /prefs`), never the key.
+- **The diary and the Training Log are never served.** The Notion integration can reach
+  them (the Training Log sync links each activity to its day's diary page), but only the
+  cron and the admin-only `/sync-training-log` touch them, and that answers with counts.
+  No open route reads either. The route save, `PATCH /zwift-routes/{id}`, accepts only a
+  Notion page id and asks Notion for the page's parent before writing: a page that is not
+  a row of Zwift Routes, a diary page included, is answered as **404 Route not found**,
+  with nothing written and nothing of the page sent back, even with a good key.
 - **A secret that is not set is a locked door, not an open one.** With no admin key configured, the routes that need one answer **503**.
 - **Unlocking the dashboard.** Open it once on each device with that device's key on the end of the address: `https://activities.laurencekellett.co.uk/#admin=<key>`. The page keeps the key in that browser and removes it from the address bar (a fragment is never sent to a server or logged). Do not bookmark the unlock address.
 - **What a device without a key sees.** The Zwift tab as a plain table: opening a route shows its status, planned ride, date completed and time as results, with **Empty** where a field has nothing, and no dropdowns, boxes or Save button. Refresh just reads again.

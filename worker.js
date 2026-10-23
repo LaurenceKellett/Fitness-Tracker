@@ -1071,6 +1071,14 @@ async function handleZwiftRouteUpdate(request, env, pageId, ctx) {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });
   }
+  // A Notion page id and nothing else. The id goes into a Notion URL, where
+  // "../databases/<id>" would resolve to a different endpoint altogether.
+  if (!/^(?:[0-9a-f]{32}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(pageId)) {
+    return new Response(JSON.stringify({ error: true, code: 'validation', message: 'Not a route id' }), {
+      status: 400,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
 
   let body;
   try {
@@ -1135,6 +1143,19 @@ async function handleZwiftRouteUpdate(request, env, pageId, ctx) {
   }
 
   try {
+    // The integration can also reach the Training Log and the diary, so a page id
+    // is only written to once Notion confirms it is a row of Zwift Routes. Without
+    // this, a key and a diary page's id would write to the diary and echo it back.
+    // Anything else answers as a missing route, saying nothing about the page.
+    const bare = (x) => String(x || '').replace(/-/g, '').toLowerCase();
+    const target = await notionRequest(`/v1/pages/${pageId}`, env);
+    if (bare(target.parent && target.parent.data_source_id) !== bare(ZWIFT_DATA_SOURCE_ID)) {
+      return new Response(JSON.stringify({ error: true, code: 'notion_not_found', message: 'Route not found.' }), {
+        status: 404,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
+
     const page = await notionRequest(`/v1/pages/${pageId}`, env, {
       method: 'PATCH',
       body:   JSON.stringify({ properties }),
