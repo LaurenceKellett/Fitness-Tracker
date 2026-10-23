@@ -2763,6 +2763,11 @@ let logSort={col:'date',dir:-1};let logSearch='';let charts={};
 
 let ZWIFT_DATA=[];let zwiftLoaded=false;let zwiftSearch='';let zwiftStatusFilter='Not started';
 let zwiftEditingId=null;let zwiftSaving=false;let zwiftGroupOpen={};
+// A KOM, Rebel or Event route is listed twice: under its world and under its
+// category. Only the copy that was tapped opens, so there is one form on the page
+// and one set of ze-* ids. With two, Save read the untouched copy higher up (the
+// world comes first) and wrote back what was already there.
+let zwiftEditingGroup=null;
 // A route saved with a time but not marked complete gets a one-tap nudge to finish it.
 let zwiftSuggestCompleteId=null;
 // Routes just marked complete stay in the list they were in for a few seconds, with a
@@ -9036,10 +9041,17 @@ function renderZwiftTable(){
 
   document.getElementById('zwiftEmpty').style.display=ZWIFT_DATA.length?'none':(zwiftLoaded?'block':'none');
 
+  // The group each route's form and row id belong to: the one it was opened from,
+  // or the first it appears in (a calendar jump or a countdown names no group).
+  const homeGroup={};
+  groups.forEach(g=>g.routes.forEach(r=>{if(!(r.id in homeGroup))homeGroup[r.id]=g.name;}));
+  if(zwiftEditingId&&zwiftEditingGroup&&groups.some(g=>g.name===zwiftEditingGroup&&g.routes.some(r=>r.id===zwiftEditingId)))
+    homeGroup[zwiftEditingId]=zwiftEditingGroup;
   document.getElementById('zwiftGroups').innerHTML=groups.map(g=>{
     const complete=g.routes.filter(r=>r.status==='Complete').length;
     const rowsHtml=g.routes.map(r=>{
-      const open=zwiftEditingId===r.id;
+      const home=homeGroup[r.id]===g.name;
+      const open=zwiftEditingId===r.id&&home;
       // An estimate is only worth showing where there is no real time to show
       // instead. A completed route states what it actually took.
       const est=r.status!=='Complete'&&!r.time_sec
@@ -9048,8 +9060,8 @@ function renderZwiftTable(){
       const catBadges=(r.maps||[]).filter(m=>ZWIFT_CATEGORY_TAGS.includes(m)&&m!==g.name).map(m=>
         `<span class="zwift-cat-badge" style="background:${mapDotColor(m)}1a;color:${mapDotColor(m)}">${ZWIFT_CATEGORY_LABEL[m]}</span>`
       ).join('');
-      return`<div id="zwift-row-${r.id}">
-        <div class="zwift-list-row" onclick="toggleZwiftEdit('${r.id}')">
+      return`<div${home?` id="zwift-row-${r.id}"`:''}>
+        <div class="zwift-list-row" onclick="toggleZwiftEdit('${r.id}','${escapeAttr(g.name)}')">
           <span class="zwift-dot" style="background:${zwiftStatusColor(r.status)}"></span>
           <div class="zwift-row-main">
             <span class="zwift-row-name">${r.route}</span>
@@ -9063,7 +9075,7 @@ function renderZwiftTable(){
             <span class="zwift-chevron${open?' open':''}">${ZWIFT_CHEVRON_SVG}</span>
           </div>
         </div>
-        ${renderZwiftRowNotice(r)}
+        ${home?renderZwiftRowNotice(r):''}
         ${open?renderZwiftDetail(r):''}
       </div>`;
     }).join('');
@@ -9127,7 +9139,7 @@ function selectZwiftCalDay(dateStr){
 }
 
 function goToZwiftRoute(id){
-  zwiftEditingId=id;
+  zwiftEditingId=id;zwiftEditingGroup=null;
   renderZwiftTable();
   const el=document.getElementById('zwift-row-'+id);
   if(el)el.scrollIntoView({behavior:'smooth',block:'center'});
@@ -9289,8 +9301,12 @@ function renderZwiftCalendar(){
   </div>`;
 }
 
-function toggleZwiftEdit(id){
-  zwiftEditingId=zwiftEditingId===id?null:id;
+function toggleZwiftEdit(id,group){
+  // Tapping the other copy of an open route moves the form there rather than
+  // closing it.
+  const same=zwiftEditingId===id&&(!group||zwiftEditingGroup===group);
+  zwiftEditingId=same?null:id;
+  zwiftEditingGroup=same?null:(group||null);
   renderZwiftTable();
 }
 function cancelZwiftEdit(){

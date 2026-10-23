@@ -1271,6 +1271,43 @@ async function main() {
       await page.evaluate(() => window.setZwiftStatusFilter('All'));
     });
 
+    await check('a route listed under its world and under KOM saves what was typed in the KOM copy', async () => {
+      const patchRoute = /\/zwift-routes\/[^/?]+$/;
+      let sent = null;
+      await page.route(patchRoute, (r) => {
+        const id = decodeURIComponent(r.request().url().split('/').pop());
+        sent = JSON.parse(r.request().postData() || '{}');
+        r.fulfill({ status: 200, contentType: 'application/json',
+          body: JSON.stringify({ data: { ...ZWIFT_FIXTURE.find((x) => x.id === id), maps: ['KOM', 'Watopia'], ...sent } }) });
+      });
+      try {
+        await page.evaluate(() => {
+          ZWIFT_DATA.find((r) => r.id === 'todo-c').maps = ['KOM', 'Watopia'];
+          window.setZwiftStatusFilter('All'); window.toggleAllZwiftGroups(true);
+        });
+        // Tap the copy under KOM, the second group it appears in.
+        await page.evaluate(() => {
+          const kom = [...document.querySelectorAll('.zwift-group')].find((d) => d.querySelector('summary').textContent.startsWith('KOM'));
+          [...kom.querySelectorAll('.zwift-list-row')].find((r) => r.textContent.includes('Todo Route C')).click();
+        });
+        const forms = await page.evaluate(() => document.querySelectorAll('#ze-time-todo-c').length);
+        assert(forms === 1, `${forms} edit forms open for one route`);
+        const inKom = await page.evaluate(() => document.getElementById('ze-time-todo-c').closest('.zwift-group').querySelector('summary').textContent.startsWith('KOM'));
+        assert(inKom, 'the form opened in the world group, not the KOM copy that was tapped');
+        await page.fill('#ze-time-todo-c', '00:42:00');
+        await page.click('#ze-save-todo-c');
+        await page.waitForFunction(() => zwiftEditingId === null, null, { timeout: 5000 });
+        assert(sent && sent.time === '00:42:00', `the save sent ${JSON.stringify(sent)}`);
+      } finally {
+        await page.unroute(patchRoute);
+        await page.evaluate(() => {
+          Object.assign(ZWIFT_DATA.find((r) => r.id === 'todo-c'), { maps: ['Watopia'], time: null, time_sec: null, status: 'Blocked' });
+          zwiftSuggestCompleteId = null; zwiftMoving = {};
+          window.setZwiftStatusFilter('All');
+        });
+      }
+    });
+
     await check('the Zwift tab says when it could not reach Notion, and recovers on refresh', async () => {
       await page.evaluate(() => window.setTab('zwift'));
       await page.waitForFunction(() => zwiftLoaded && !zwiftFetching, null, { timeout: 10000 });
