@@ -1135,10 +1135,13 @@ async function main() {
       // The list stub answers every /zwift-routes request with the whole catalogue;
       // a save needs the one route back, as the Worker returns it.
       const patchRoute = /\/zwift-routes\/[^/?]+$/;
+      // Remembers what each save wrote, as Notion does: "Mark complete" sends only
+      // the status and date, and the time saved a moment before must still be there.
+      const store = {};
       await page.route(patchRoute, (r) => {
         const id = decodeURIComponent(r.request().url().split('/').pop());
         const body = JSON.parse(r.request().postData() || '{}');
-        const row = { ...ZWIFT_FIXTURE.find((x) => x.id === id), ...body };
+        const row = store[id] = { ...(store[id] || ZWIFT_FIXTURE.find((x) => x.id === id)), ...body };
         if (row.time) {
           const [h, m, s] = row.time.split(':').map(Number);
           row.time_sec = h * 3600 + m * 60 + s;
@@ -1305,6 +1308,112 @@ async function main() {
           zwiftSuggestCompleteId = null; zwiftMoving = {};
           window.setZwiftStatusFilter('All');
         });
+      }
+    });
+
+    await check('completing without a time keeps the route where it is until the time is in', async () => {
+      const patchRoute = /\/zwift-routes\/[^/?]+$/;
+      const store = {};
+      let sent = null;
+      await page.route(patchRoute, (r) => {
+        const id = decodeURIComponent(r.request().url().split('/').pop());
+        sent = JSON.parse(r.request().postData() || '{}');
+        const row = store[id] = { ...(store[id] || ZWIFT_FIXTURE.find((x) => x.id === id)), ...sent };
+        r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: row }) });
+      });
+      try {
+        await page.evaluate(() => { window.setZwiftStatusFilter('Planned'); window.toggleAllZwiftGroups(true); window.toggleZwiftEdit('todo-b'); });
+        await page.selectOption('#ze-status-todo-b', 'Complete');
+        await page.dispatchEvent('#ze-status-todo-b', 'change');
+        const dated = await page.$eval('#ze-date-todo-b', (el) => el.value);
+        assert(dated === await page.evaluate(() => todayLocalISO()), `choosing Complete set the date to "${dated}"`);
+        await page.click('#ze-save-todo-b');
+        await page.waitForFunction(() => ZWIFT_DATA.find((r) => r.id === 'todo-b').status === 'Complete', null, { timeout: 5000 });
+        await page.waitForTimeout(400);
+        const held = await page.evaluate(() => ({
+          row: !!document.getElementById('zwift-row-todo-b'),
+          form: !!document.getElementById('ze-time-todo-b'),
+          moving: !!zwiftMoving['todo-b'],
+          notice: document.querySelector('#zwift-row-todo-b .zwift-row-notice')?.textContent || '',
+          flag: !!document.querySelector('#zwift-row-todo-b .zwift-flag.notime'),
+        }));
+        assert(held.row && held.form && !held.moving, `without a time it ${JSON.stringify(held)}`);
+        assert(/Add your time/.test(held.notice) && held.flag, `no prompt for the time: ${JSON.stringify(held)}`);
+        // Digits only, as the iOS number pad types them.
+        await page.fill('#ze-time-todo-b', '10203');
+        await page.click('#ze-save-todo-b');
+        await page.waitForSelector('#zwift-row-todo-b .zwift-move-count', { timeout: 5000 });
+        assert(sent.time === '01:02:03', `the time went as ${JSON.stringify(sent.time)}`);
+        await page.waitForFunction(() => !document.getElementById('zwift-row-todo-b'), null, { timeout: 7000 });
+      } finally {
+        await page.unroute(patchRoute);
+        await page.evaluate(() => {
+          Object.assign(ZWIFT_DATA.find((x) => x.id === 'todo-b'), { status: 'Planned', time: null, time_sec: null, date_completed: null });
+          zwiftSuggestCompleteId = null; zwiftMoving = {}; Object.keys(zwiftAwaitingTime).forEach((k) => delete zwiftAwaitingTime[k]);
+          zwiftEditingId = null; window.setZwiftStatusFilter('All');
+        });
+      }
+    });
+
+    await check('the edit form keeps status and completion date in step, and refuses a bad time or a future date', async () => {
+      let patches = 0;
+      const patchRoute = /\/zwift-routes\/[^/?]+$/;
+      await page.route(patchRoute, (r) => { patches++; r.fulfill({ status: 500, body: '{}' }); });
+      try {
+        await page.evaluate(() => { window.setZwiftStatusFilter('All'); window.toggleAllZwiftGroups(true); window.toggleZwiftEdit('todo-a'); });
+        await page.fill('#ze-date-todo-a', '2026-01-02');
+        await page.dispatchEvent('#ze-date-todo-a', 'change');
+        assert(await page.$eval('#ze-status-todo-a', (el) => el.value) === 'Complete', 'a completion date left the status alone');
+        await page.selectOption('#ze-status-todo-a', 'Not started');
+        await page.dispatchEvent('#ze-status-todo-a', 'change');
+        assert(await page.$eval('#ze-date-todo-a', (el) => el.value) === '', 'moving off Complete kept the completion date');
+        await page.fill('#ze-time-todo-a', '00:75:00');
+        await page.click('#ze-save-todo-a');
+        const bad = await page.$eval('#ze-error-todo-a', (el) => el.textContent);
+        assert(/not a time/.test(bad), `00:75:00 was answered with "${bad}"`);
+        await page.fill('#ze-time-todo-a', '');
+        await page.selectOption('#ze-status-todo-a', 'Complete');
+        await page.fill('#ze-date-todo-a', '2099-01-01');
+        await page.click('#ze-save-todo-a');
+        const future = await page.$eval('#ze-error-todo-a', (el) => el.textContent);
+        assert(/future/.test(future), `a 2099 completion was answered with "${future}"`);
+        assert(patches === 0, `${patches} save(s) went out for a form that should have been refused`);
+      } finally {
+        await page.unroute(patchRoute);
+        await page.evaluate(() => { zwiftEditingId = null; window.setZwiftStatusFilter('All'); });
+      }
+    });
+
+    await check('calendar dots are green once ridden and red once their day has gone by', async () => {
+      const saved = await page.evaluate(() => {
+        const keep = ['todo-a', 'todo-b', 'done-1'].map((id) => ({ id, ...ZWIFT_DATA.find((r) => r.id === id) }));
+        const d = new Date(), iso = (x) => x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
+        const ago = new Date(d); ago.setDate(d.getDate() - 1);
+        const ahead = new Date(d); ahead.setDate(d.getDate() + 1);
+        ZWIFT_DATA.find((r) => r.id === 'todo-b').planned_ride = iso(ago);     // Planned, yesterday: missed
+        ZWIFT_DATA.find((r) => r.id === 'done-1').planned_ride = iso(ago);     // Complete, yesterday: ridden
+        ZWIFT_DATA.find((r) => r.id === 'todo-a').planned_ride = iso(ahead);   // tomorrow: to come
+        ZWIFT_DATA.find((r) => r.id === 'todo-a').status = 'Planned';
+        zwiftCalDate = new Date(ago.getFullYear(), ago.getMonth(), 1);   // yesterday's month
+        return keep;
+      });
+      try {
+        await page.evaluate(() => window.setZwiftStatusFilter('Planned'));
+        const cal = await page.evaluate(() => ({
+          overdue: document.querySelectorAll('#zwiftCalendar .zwift-cal-dot.overdue').length,
+          done: document.querySelectorAll('#zwiftCalendar .zwift-cal-dot.done').length,
+          planned: document.querySelectorAll('#zwiftCalendar .zwift-cal-dot.planned').length,
+          note: document.querySelector('#zwiftCalendar .zwift-cal-overdue')?.textContent || '',
+          flag: !!document.querySelector('#zwift-row-todo-b .zwift-flag.overdue'),
+        }));
+        assert(cal.overdue === 1 && cal.done >= 1, `yesterday should carry a red and a green dot: ${JSON.stringify(cal)}`);
+        assert(/1 planned ride has gone by/.test(cal.note), `the missed-ride note read "${cal.note}"`);
+        assert(cal.flag, 'the missed route carries no flag in the list');
+      } finally {
+        await page.evaluate((keep) => {
+          keep.forEach((k) => Object.assign(ZWIFT_DATA.find((r) => r.id === k.id), { planned_ride: k.planned_ride, status: k.status }));
+          window.setZwiftStatusFilter('All');
+        }, saved);
       }
     });
 

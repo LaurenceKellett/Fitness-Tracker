@@ -15,7 +15,7 @@ const {
   calendarPeriod, periodTotals, periodStartISO, periodLength, PERIOD_BASE,
   CHRONIC_DAYS, CHRONIC_WEIGHTS, weeklyLoadStats, MONOTONY_CAP,
   yearEndProjection, projectionWindow, daysInYear, PROJ_WINDOW_MIN,
-  zwiftYearStats, zwiftYearVerdict, ZW_PACE_MIN_DAYS,
+  zwiftYearStats, zwiftYearVerdict, ZW_PACE_MIN_DAYS, zwiftPlanState, parseZwiftTime,
   setScope,
 } = calc;
 
@@ -1565,5 +1565,40 @@ describe('zwiftYearVerdict', () => {
   it('names the best year when there is no pace yet', () => {
     const rows = [{ status: 'Complete', date_completed: '2025-03-03' }, { status: 'Complete', date_completed: '2025-04-03' }];
     expect(zwiftYearVerdict(zwiftYearStats(rows, '2026-01-10'))).toBe('2025 is your best year so far, with 2 routes.');
+  });
+});
+
+describe('zwiftPlanState', () => {
+  const r = (status, planned_ride) => ({ status, planned_ride });
+  it('is done for a completed route, overdue for a past day, planned for today on', () => {
+    expect(zwiftPlanState(r('Complete', '2026-10-01'), '2026-10-23')).toBe('done');
+    expect(zwiftPlanState(r('Planned', '2026-10-22'), '2026-10-23')).toBe('overdue');
+    expect(zwiftPlanState(r('Planned', '2026-10-23'), '2026-10-23')).toBe('planned');
+    expect(zwiftPlanState(r('Planned', '2026-11-01'), '2026-10-23')).toBe('planned');
+    expect(zwiftPlanState(r('Planned', null), '2026-10-23')).toBeNull();
+  });
+  it('compares the day of a timed plan, not its hour', () => {
+    expect(zwiftPlanState(r('Planned', '2026-10-23T12:00:00.000Z'), '2026-10-23')).toBe('planned');
+  });
+});
+
+describe('parseZwiftTime', () => {
+  it('reads colon times as m:ss or h:mm:ss and pads them', () => {
+    expect(parseZwiftTime('1:02:03')).toBe('01:02:03');
+    expect(parseZwiftTime('30:21')).toBe('00:30:21');
+    expect(parseZwiftTime('01:02:03')).toBe('01:02:03');
+  });
+  it('reads bare digits right to left, for a keypad with no colon', () => {
+    expect(parseZwiftTime('10203')).toBe('01:02:03');
+    expect(parseZwiftTime('3021')).toBe('00:30:21');
+    expect(parseZwiftTime('45')).toBe('00:00:45');
+  });
+  it('is empty for nothing and null for what is not a time', () => {
+    expect(parseZwiftTime('  ')).toBe('');
+    expect(parseZwiftTime('00:75:00')).toBeNull();
+    expect(parseZwiftTime('1:2:3:4')).toBeNull();
+    expect(parseZwiftTime('abc')).toBeNull();
+    expect(parseZwiftTime('0')).toBeNull();
+    expect(parseZwiftTime('1234567')).toBeNull();
   });
 });

@@ -941,6 +941,49 @@ function projectionWindow(mix,doy){
 
 function daysInYear(y){return(+y%4===0&&(+y%100!==0||+y%400===0))?366:365;}
 
+/* ── ZWIFT: A PLANNED DAY'S STATE ──
+ * done     the route is Complete, whenever it was planned for
+ * overdue  its planned day has gone by and it is not Complete
+ * planned  today or later, still to ride
+ * The planned value may carry a start time; only its local day is compared, so a
+ * ride planned for this evening is not overdue this morning.
+ */
+function zwiftPlanState(route,todayIso){
+  if(!route||!route.planned_ride)return null;
+  if(route.status==='Complete')return'done';
+  let day=route.planned_ride;
+  if(day.length>10){
+    const d=new Date(day);
+    day=isNaN(d)?day.slice(0,10):d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  return day<todayIso.slice(0,10)?'overdue':'planned';
+}
+
+/* ── ZWIFT: READING A TYPED TIME ──
+ * Returns HH:MM:SS, '' for nothing typed, or null for something that is not a time.
+ * Lenient on purpose: the iOS number pad has no colon, so digits alone are read
+ * right to left as seconds, minutes, hours ("10203" is 1:02:03, "3021" is 30:21).
+ * With colons, two parts are minutes and seconds, as the estimates are written
+ * ("~30:21"), and three are hours, minutes and seconds. Minutes and seconds past
+ * 59, and a time of nothing at all, are refused rather than guessed at.
+ */
+function parseZwiftTime(text){
+  const t=String(text==null?'':text).trim();
+  if(!t)return'';
+  let h,m,s;
+  if(/^\d{1,6}$/.test(t)){
+    const p=t.padStart(6,'0');
+    h=+p.slice(0,2);m=+p.slice(2,4);s=+p.slice(4,6);
+  }else{
+    const parts=t.split(/[:.]/);
+    if(parts.length<2||parts.length>3||parts.some(x=>!/^\d{1,2}$/.test(x)))return null;
+    const n=parts.map(Number);
+    if(n.length===2){h=0;[m,s]=n;}else[h,m,s]=n;
+  }
+  if(m>59||s>59||h+m+s===0)return null;
+  return[h,m,s].map(v=>String(v).padStart(2,'0')).join(':');
+}
+
 /* ── ZWIFT ROUTES BY YEAR ──
  * Completed routes counted by the year of their completion date, every year from
  * the first through the current one (a quiet year is a zero, not a gap). Routes
@@ -1076,7 +1119,7 @@ if (typeof module !== 'undefined' && module.exports) {
     calendarPeriod,periodTotals,periodStartISO,periodBackISO,periodLength,PERIOD_BASE,
     CHRONIC_DAYS,CHRONIC_WEIGHTS,weeklyLoadStats,MONOTONY_CAUTION,MONOTONY_CAP,
     yearEndProjection,projectionWindow,daysInYear,PROJ_WINDOW_MIN,
-    zwiftYearStats,zwiftYearVerdict,ZW_PACE_MIN_DAYS,
+    zwiftYearStats,zwiftYearVerdict,ZW_PACE_MIN_DAYS,zwiftPlanState,parseZwiftTime,
     setScope(s){
       if(s.unit!==undefined)unit=s.unit;
       if(s.activeYear!==undefined)activeYear=s.activeYear;

@@ -1076,7 +1076,20 @@ tbody td{padding:10px 14px;vertical-align:middle}
 .zwift-cal-day.has-routes:hover{background:var(--bg)}
 .zwift-cal-day.selected{background:var(--virtual-soft)}
 .zwift-cal-day.empty{visibility:hidden}
-.zwift-cal-dot{width:5px;height:5px;border-radius:0;background:var(--ride);margin:2px auto 0}
+.zwift-cal-dots{display:flex;justify-content:center;gap:2px;margin-top:2px}
+.zwift-cal-dot{width:5px;height:5px;border-radius:0;background:var(--ride)}
+/* Green once ridden, red once its day has gone by without it: a nudge to move it. */
+.zwift-cal-dot.done{background:#16a34a}
+.zwift-cal-dot.overdue{background:var(--danger)}
+.zwift-cal-nav .page-btn.has-overdue::after{background:var(--danger)}
+.zwift-cal-overdue{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  margin:-2px 0 10px;padding:8px 10px;font-size:12px;color:var(--danger);background:var(--danger-soft,rgba(220,38,38,.07))}
+.zwift-cal-tag{font-size:11px;font-weight:600;margin-left:6px}
+.zwift-cal-tag.overdue{color:var(--danger)}
+.zwift-cal-tag.done{color:#16a34a}
+.zwift-flag{font-size:10px;font-weight:700;padding:1px 6px;white-space:nowrap;flex-shrink:0}
+.zwift-flag.overdue{color:var(--danger);background:var(--danger-soft,rgba(220,38,38,.08))}
+.zwift-flag.notime{color:var(--warn,#b45309);background:var(--warn-soft,rgba(245,158,11,.12))}
 .zwift-cal-detail{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:12px}
 .zwift-cal-detail-item{display:flex;justify-content:space-between;align-items:center;padding:4px 0;cursor:pointer}
 .zwift-cal-detail-item:hover{color:var(--accent)}
@@ -1969,7 +1982,7 @@ body.is-loading .stats-grid *{visibility:hidden}
 <!-- calc.js carries a stamp of its own content (npm run stamp; the unit tests check it
      is current), so a freshly deployed page can never be paired with a cached older copy
      of the script — which is exactly how one deploy died on "daysInYear is not defined". -->
-<script src="calc.js?v=27d65f63"></script>
+<script src="calc.js?v=ca6ff4bf"></script>
 <div id="dashTooltip" class="dash-tooltip"></div>
 <div class="main">
 
@@ -2768,6 +2781,7 @@ let zwiftEditingId=null;let zwiftSaving=false;let zwiftGroupOpen={};
 // and one set of ze-* ids. With two, Save read the untouched copy higher up (the
 // world comes first) and wrote back what was already there.
 let zwiftEditingGroup=null;
+const zwiftAwaitingTime={};
 // A route saved with a time but not marked complete gets a one-tap nudge to finish it.
 let zwiftSuggestCompleteId=null;
 // Routes just marked complete stay in the list they were in for a few seconds, with a
@@ -8948,7 +8962,7 @@ function filterZwiftRoutes(){zwiftSearch=document.getElementById('zwiftSearch').
 
 function getZwiftGroups(){
   let rows=ZWIFT_DATA;
-  if(zwiftStatusFilter!=='All')rows=rows.filter(r=>r.status===zwiftStatusFilter||zwiftMoving[r.id]||r.id===zwiftEditingId);
+  if(zwiftStatusFilter!=='All')rows=rows.filter(r=>r.status===zwiftStatusFilter||zwiftMoving[r.id]||zwiftAwaitingTime[r.id]||r.id===zwiftEditingId);
   if(zwiftSearch)rows=rows.filter(r=>r.route.toLowerCase().includes(zwiftSearch)||(r.maps||[]).some(m=>m.toLowerCase().includes(zwiftSearch)));
 
   const groups=[];
@@ -9066,6 +9080,8 @@ function renderZwiftTable(){
           <div class="zwift-row-main">
             <span class="zwift-row-name">${r.route}</span>
             ${catBadges}
+            ${zwiftPlanState(r,todayLocalISO())==='overdue'?`<span class="zwift-flag overdue" title="Its planned day has gone by: pick a new one">Missed ${new Date(zwiftPlanDay(r.planned_ride)+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>`:''}
+            ${r.status==='Complete'&&!r.time?'<span class="zwift-flag notime" title="Complete, but no time is saved for it">No time</span>':''}
             ${riddenIdx[r.id]?`<span class="zwift-ridden" title="Matched ${riddenIdx[r.id].count} virtual ride${riddenIdx[r.id].count===1?'':'s'} by name · last ${fmtDate(riddenIdx[r.id].last)}"><span class="ms">check</span>Ridden ${riddenIdx[r.id].count}×</span>`:''}
             <span class="zwift-row-stats">${stats}</span>
             ${est!=null?`<span class="zwift-est" title="Estimated from your own completed routes: ${Math.round(zwiftFitCached().mph*10)/10} mph on the flat plus ${Math.round(zwiftFitCached().minPer1000ft*10)/10} min per 1000 ft climbed"><span class="ms">schedule</span>~${fmtEstTime(est)}</span>`:''}
@@ -9130,6 +9146,13 @@ function getZwiftPlannedByDate(){
 function stepZwiftCalMonth(dir){
   zwiftCalDate.setMonth(zwiftCalDate.getMonth()+dir);
   zwiftCalSelected=null;
+  renderZwiftCalendar();
+}
+
+function showZwiftOverdue(day){
+  const [y,m]=day.split('-').map(Number);
+  zwiftCalDate=new Date(y,m-1,1);
+  zwiftCalSelected=day;
   renderZwiftCalendar();
 }
 
@@ -9265,9 +9288,13 @@ function renderZwiftCalendar(){
   // Arrows only point at rides still to do. Completed routes keep their old
   // planned days, which flagged every month back to January as if something
   // were waiting there.
+  const today=todayLocalISO();
   const dates=Object.entries(planned).filter(([,rs])=>rs.some(r=>r.status!=='Complete')).map(([d])=>d);
   const earlier=dates.some(d=>d.slice(0,7)<monthKey);
   const later=dates.some(d=>d.slice(0,7)>monthKey);
+  const overdueDays=dates.filter(d=>d<today).sort();
+  const overdueEarlier=overdueDays.some(d=>d.slice(0,7)<monthKey);
+  const overdueCount=overdueDays.reduce((n,d)=>n+planned[d].filter(r=>zwiftPlanState(r,today)==='overdue').length,0);
 
   const dowRow=['M','T','W','T','F','S','S'].map(d=>`<div class="zwift-cal-dow">${d}</div>`).join('');
   const blanks=Array.from({length:firstDow},()=>`<div class="zwift-cal-day empty"></div>`).join('');
@@ -9277,25 +9304,33 @@ function renderZwiftCalendar(){
     const routes=planned[dateStr]||[];
     const has=routes.length>0;
     const sel=zwiftCalSelected===dateStr;
-    return`<div class="zwift-cal-day${has?' has-routes':''}${sel?' selected':''}" ${has?`onclick="selectZwiftCalDay('${dateStr}')"`:''}>${day}${has?'<div class="zwift-cal-dot"></div>':''}</div>`;
+    // One dot per kind on the day, worst first.
+    const kinds=['overdue','planned','done'].filter(k=>routes.some(r=>zwiftPlanState(r,today)===k));
+    const dots=has?`<div class="zwift-cal-dots">${kinds.map(k=>`<span class="zwift-cal-dot ${k}"></span>`).join('')}</div>`:'';
+    return`<div class="zwift-cal-day${has?' has-routes':''}${sel?' selected':''}" ${has?`onclick="selectZwiftCalDay('${dateStr}')"`:''}>${day}${dots}</div>`;
   }).join('');
 
   const selRoutes=zwiftCalSelected?(planned[zwiftCalSelected]||[]):[];
   const detail=zwiftCalSelected?`<div class="zwift-cal-detail">
     <div style="font-weight:600;margin-bottom:4px">${fmtDate(zwiftCalSelected)}</div>
-    ${selRoutes.map(r=>`<div class="zwift-cal-detail-item" onclick="goToZwiftRoute('${r.id}')">
-      <span>${r.route}</span><span style="color:var(--text-muted)">${[zwiftPlanTime(r.planned_ride),...(r.maps||[])].filter(Boolean).join(' · ')}</span>
-    </div>`).join('')}
+    ${selRoutes.map(r=>{const st=zwiftPlanState(r,today);return`<div class="zwift-cal-detail-item" onclick="goToZwiftRoute('${r.id}')">
+      <span>${r.route}${st==='overdue'?'<span class="zwift-cal-tag overdue">Missed · tap to move</span>':st==='done'?'<span class="zwift-cal-tag done">Ridden</span>':''}</span><span style="color:var(--text-muted)">${[zwiftPlanTime(r.planned_ride),...(r.maps||[])].filter(Boolean).join(' · ')}</span>
+    </div>`;}).join('')}
   </div>`:'';
+  const overdueNote=overdueCount?`<div class="zwift-cal-overdue" role="status">
+      <span>${overdueCount} planned ride${overdueCount===1?' has':'s have'} gone by without being ridden. Move ${overdueCount===1?'it':'them'} to a new day.</span>
+      <button class="page-btn" type="button" onclick="showZwiftOverdue('${overdueDays[0]}')">Show</button>
+    </div>`:'';
 
   el.innerHTML=`<div class="zwift-cal">
     <div class="zwift-cal-head">
       <span class="zwift-cal-title">${monthLabel}</span>
       <div class="zwift-cal-nav">
-        <button class="page-btn${earlier?' has-more':''}" onclick="stepZwiftCalMonth(-1)" aria-label="Previous month${earlier?', has planned rides':''}"${earlier?' title="Planned rides in an earlier month"':''}>‹</button>
+        <button class="page-btn${earlier?' has-more':''}${overdueEarlier?' has-overdue':''}" onclick="stepZwiftCalMonth(-1)" aria-label="Previous month${earlier?', has planned rides':''}"${earlier?' title="Planned rides in an earlier month"':''}>‹</button>
         <button class="page-btn${later?' has-more':''}" onclick="stepZwiftCalMonth(1)" aria-label="Next month${later?', has planned rides':''}"${later?' title="Planned rides in a later month"':''}>›</button>
       </div>
     </div>
+    ${overdueNote}
     <div class="zwift-cal-grid">${dowRow}${blanks}${days}</div>
     ${detail}
   </div>`;
@@ -9415,8 +9450,8 @@ function renderZwiftDetail(r){
         ${ZWIFT_STATUS_ORDER.map(s=>`<option value="${escapeAttr(s)}"${s===r.status?' selected':''}>${escapeHtml(s)}</option>`).join('')}
       </select></label>
       <label>Planned ride<input type="date" id="ze-plan-${escapeAttr(r.id)}" value="${escapeAttr(zwiftPlanDay(r.planned_ride))}" onblur="handleZwiftPlanChange('${r.id}',this.value)"></label>
-      <label>Date completed<input type="date" id="ze-date-${escapeAttr(r.id)}" value="${escapeAttr(r.date_completed||'')}"></label>
-      <label>Time (HH:MM:SS)<input type="text" id="ze-time-${escapeAttr(r.id)}" placeholder="00:00:00" value="${escapeAttr(r.time||'')}"></label>
+      <label>Date completed<input type="date" id="ze-date-${escapeAttr(r.id)}" max="${todayLocalISO()}" value="${escapeAttr(r.date_completed||'')}" onchange="handleZwiftDateChange('${r.id}')"></label>
+      <label>Time<input type="text" id="ze-time-${escapeAttr(r.id)}" inputmode="numeric" autocomplete="off" placeholder="h:mm:ss" value="${escapeAttr(r.time||'')}" onblur="tidyZwiftTime('${r.id}')"></label>
       <button class="page-btn" onclick="saveZwiftEdit('${r.id}')" id="ze-save-${r.id}">Save</button>
       <button class="page-btn" onclick="cancelZwiftEdit()">Cancel</button>
       <div class="zwift-edit-error" id="ze-error-${r.id}"></div>
@@ -9447,12 +9482,29 @@ function todayLocalISO(){
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 
+// Status and completion date stay in step in the form, before anything is saved:
+// Complete brings today's date if none is set (a date already typed is kept), and
+// moving off Complete clears the date, so a Not started route never carries one.
+// Picking a completion date makes the route Complete.
 function handleZwiftStatusChange(id,originalStatus){
   const sel=document.getElementById('ze-status-'+id);
-  if(sel&&sel.value==='Complete'&&originalStatus!=='Complete'){
-    const dateInput=document.getElementById('ze-date-'+id);
-    if(dateInput)dateInput.value=todayLocalISO();
-  }
+  const dateInput=document.getElementById('ze-date-'+id);
+  if(!sel||!dateInput)return;
+  if(sel.value==='Complete'){if(!dateInput.value)dateInput.value=todayLocalISO();}
+  else dateInput.value='';
+}
+function handleZwiftDateChange(id){
+  const sel=document.getElementById('ze-status-'+id);
+  const dateInput=document.getElementById('ze-date-'+id);
+  if(sel&&dateInput&&dateInput.value&&sel.value!=='Complete')sel.value='Complete';
+}
+// Shows what a typed time was read as ("10203" becomes 01:02:03) as soon as the
+// field is left, so a misreading is caught before Save.
+function tidyZwiftTime(id){
+  const el=document.getElementById('ze-time-'+id);
+  if(!el)return;
+  const t=parseZwiftTime(el.value);
+  if(t)el.value=t;
 }
 
 // Picking a day for a route nobody has started yet is what planning it means, so
@@ -9516,10 +9568,18 @@ async function saveZwiftEdit(id){
   const status=document.getElementById('ze-status-'+id).value;
   const dateVal=document.getElementById('ze-date-'+id).value;
   const planVal=document.getElementById('ze-plan-'+id).value;
-  const timeVal=document.getElementById('ze-time-'+id).value.trim();
+  const timeVal=parseZwiftTime(document.getElementById('ze-time-'+id).value);
 
-  if(timeVal&&!/^\d{2}:\d{2}:\d{2}$/.test(timeVal)){
-    errorEl.textContent='Time must be in HH:MM:SS format.';
+  if(timeVal===null){
+    errorEl.textContent='That is not a time. Type it as 1:02:03 or 30:21, or just the digits: 10203.';
+    return;
+  }
+  if(dateVal&&dateVal>todayLocalISO()){
+    errorEl.textContent='The date completed cannot be in the future.';
+    return;
+  }
+  if(status==='Complete'&&!dateVal){
+    errorEl.textContent='Add the date it was completed.';
     return;
   }
 
@@ -9535,7 +9595,9 @@ async function saveZwiftEdit(id){
     // strip the start time Notion holds on a timed one.
     if(planVal!==zwiftPlanDay(prev.planned_ride))body.planned_ride=planVal||null;
     const saved=await patchZwiftRoute(id,body);
-    zwiftEditingId=null;
+    // Just completed with no time: the form stays open on it, asking for one. An old
+    // completion saved without a time closes as normal.
+    zwiftEditingId=saved.status==='Complete'&&!saved.time&&(prevStatus!=='Complete'||zwiftAwaitingTime[id])?id:null;
     // A newly planned day should be on screen the next time the calendar is, not
     // two months along with nothing to say it is there.
     if(saved.planned_ride&&saved.planned_ride!==prev.planned_ride){
@@ -9570,13 +9632,20 @@ async function patchZwiftRoute(id,body){
 
 // One place decides what follows a save: a fresh completion counts down out of the
 // list; a time saved without completing gets a nudge to finish the job.
+// A route marked Complete with no time stays where it is (zwiftAwaitingTime) until
+// the time is in, then counts down out of the list like any other completion. Left
+// without one, it says so: "No time" on the row, and the notice below it.
 function afterZwiftSave(saved,prevStatus){
   const id=saved.id;
   if(zwiftSuggestCompleteId===id)zwiftSuggestCompleteId=null;
-  if(saved.status==='Complete'&&prevStatus!=='Complete'){
+  if(saved.status==='Complete'&&!saved.time){
+    if(prevStatus!=='Complete'||zwiftAwaitingTime[id])zwiftAwaitingTime[id]=true;
+  }else if(saved.status==='Complete'&&(prevStatus!=='Complete'||zwiftAwaitingTime[id])){
+    delete zwiftAwaitingTime[id];
     startZwiftMoveCountdown(id);
-  }else if(saved.status!=='Complete'&&saved.time){
-    zwiftSuggestCompleteId=id;
+  }else if(saved.status!=='Complete'){
+    delete zwiftAwaitingTime[id];
+    if(saved.time)zwiftSuggestCompleteId=id;
   }
   buildZwiftStatusFilters();
   renderZwiftTable();
@@ -9592,6 +9661,13 @@ function renderZwiftRowNotice(r){
     return`<div class="zwift-row-notice" onclick="event.stopPropagation()" role="status">
       <span><strong>Complete.</strong> Moving to Complete in <span class="zwift-move-count" data-id="${escapeAttr(r.id)}">${left}</span>s</span>
       <button class="page-btn" type="button" onclick="finishZwiftMove('${r.id}')">Move now</button>
+    </div>`;
+  }
+  if(zwiftAwaitingTime[r.id]&&r.status==='Complete'&&!r.time){
+    return`<div class="zwift-row-notice" onclick="event.stopPropagation()" role="status">
+      <span><strong>Complete.</strong> Add your time and it moves to Complete; it stays here until then.</span>
+      ${zwiftEditingId===r.id?'':`<button class="page-btn" type="button" onclick="toggleZwiftEdit('${r.id}')">Add time</button>`}
+      <button class="page-btn" type="button" onclick="leaveZwiftWithoutTime('${r.id}')">No time</button>
     </div>`;
   }
   if(zwiftSuggestCompleteId===r.id&&r.status!=='Complete'){
@@ -9625,6 +9701,13 @@ async function markZwiftComplete(id){
   }
 }
 function dismissZwiftSuggest(){zwiftSuggestCompleteId=null;renderZwiftTable();}
+// Done without a time after all: let it go the way every completion goes.
+function leaveZwiftWithoutTime(id){
+  delete zwiftAwaitingTime[id];
+  if(zwiftEditingId===id)zwiftEditingId=null;
+  startZwiftMoveCountdown(id);
+  renderZwiftTable();
+}
 
 function startZwiftMoveCountdown(id){
   // Only worth holding it back if the current tab is about to drop it.

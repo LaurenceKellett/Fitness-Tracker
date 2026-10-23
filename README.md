@@ -1628,6 +1628,19 @@ not started for five days after it was completed on the phone.
   moment it opens. Picking a day for a Not started route makes it Planned. Notion holds
   some planned rides with a start time; they are read as the local day they fall on, and
   Save only sends a planned day that changed so the time is not wiped.
+- **Calendar dots say how a planned day went**: green once the route is Complete, red
+  once its day has gone by without it, and the ride colour for today on. A note above the
+  calendar counts the missed ones with a button to show the first, the day list says
+  "Missed · tap to move", and the route's row carries a "Missed 20 Oct" flag. The rule is
+  `zwiftPlanState` in `calc.js`.
+- **Completing without a time keeps the route where it is**, with its form open and a
+  note asking for the time; it counts down out of the list once the time is saved, or
+  straight away on "No time". A completed route with no time is flagged "No time".
+- **The form keeps itself consistent before Save**: Complete fills today's date if none
+  is set, moving off Complete clears the date, and picking a completion date makes the
+  route Complete. A date in the future, or a Complete with no date, is refused. Times are
+  read leniently (`parseZwiftTime`): `1:02:03`, `30:21`, or digits alone (`10203`), since
+  the iOS number pad has no colon; impossible ones like `00:75:00` are refused.
 - **The Planned filter shows a calendar** of planned days. Saving a new one moves it to
   that month, and the month arrows carry a dot when routes not yet complete are planned
   before or after the month in view.
