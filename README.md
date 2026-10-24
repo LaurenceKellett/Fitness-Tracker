@@ -1758,8 +1758,6 @@ they are done.
   (The Watopia 150!'s 0 ft is confirmed.)
 
 **Older routes:**
-- [ ] **Danger Noodle**: the Strava link is an app share link (`strava.app.link/…`);
-  replace it with the `strava.com/segments/…` address.
 - [ ] **Downtown Eruption**: 9,012 ft over 12.1 mi is steeper than Alpe du Zwift; almost
   certainly a typo (901 ft?).
 - [ ] **Shared Strava segments**. Each group below points at one segment; give each route
