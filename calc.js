@@ -941,6 +941,60 @@ function projectionWindow(mix,doy){
 
 function daysInYear(y){return(+y%4===0&&(+y%100!==0||+y%400===0))?366:365;}
 
+/* ── RECOVERY (GARMIN) ──
+ * days: { 'YYYY-MM-DD': { steps, rhr, stress, bbMax, bbMin, sleepSec, sleepScore,
+ * hrv, hrvWeek, hrvLow, hrvHigh, hrvStatus } } as the Worker's /health keeps them.
+ * Garmin files sleep and HRV under the morning you woke up, so the night before an
+ * activity is simply that activity's own date.
+ */
+function healthNight(days,dateIso){
+  const r=days&&days[String(dateIso||'').slice(0,10)];
+  if(!r)return null;
+  return(r.sleepScore!=null||r.sleepSec!=null||r.hrv!=null||r.rhr!=null)?r:null;
+}
+
+function healthWindow(days,todayIso,n){
+  const out=[];
+  for(let i=0;i<n;i++){
+    const d=new Date(Date.UTC(+todayIso.slice(0,4),+todayIso.slice(5,7)-1,+todayIso.slice(8,10)-i));
+    const k=d.toISOString().slice(0,10);
+    if(days&&days[k])out.push(days[k]);
+  }
+  return out;
+}
+const avgOf=(xs)=>xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:null;
+
+/* Resting heart rate this week against the 60 days before it. Needs four readings in
+ * the week and twenty in the baseline, or it says nothing: a rise worked out from
+ * two mornings is noise. */
+function restingHrTrend(days,todayIso){
+  const week=healthWindow(days,todayIso,7).map(r=>r.rhr).filter(v=>v>0);
+  const before=healthWindow(days,todayIso,67).slice(7).map(r=>r.rhr).filter(v=>v>0);
+  if(week.length<4||before.length<20)return null;
+  const avg7=avgOf(week),base=avgOf(before);
+  return{avg7:Math.round(avg7),base:Math.round(base),delta:Math.round(avg7-base)};
+}
+
+/* Last night's HRV, and how many of the last seven nights fell below the balanced
+ * range Garmin keeps for you. */
+function hrvRecent(days,todayIso){
+  const week=healthWindow(days,todayIso,7).filter(r=>r.hrv!=null);
+  if(!week.length)return null;
+  const last=week[0];
+  const below=week.filter(r=>r.hrvLow!=null&&r.hrv<r.hrvLow).length;
+  return{hrv:last.hrv,status:last.hrvStatus||null,low:last.hrvLow,high:last.hrvHigh,below,nights:week.length};
+}
+
+/* One sentence on whether anything says ease off. Resting HR leads, because a rise
+ * of five or more is the earlier and plainer warning. */
+function recoveryVerdict(rhr,hrv){
+  if(rhr&&rhr.delta>=5)return`Resting heart rate is ${rhr.delta} bpm above its usual level this week (${rhr.avg7} against ${rhr.base}). That often comes before illness or overreaching, so an easier day or two would be no loss.`;
+  if(hrv&&hrv.below>=3)return`HRV has been below its balanced range on ${hrv.below} of the last ${hrv.nights} nights. One low night means little; a run of them is the body asking for less.`;
+  if(hrv&&hrv.status==='BALANCED'&&(!rhr||rhr.delta<=2))return'HRV is in its balanced range'+(rhr?' and resting heart rate is at its usual level':'')+': nothing here says hold back.';
+  if(hrv&&hrv.status)return`Last night's HRV reads ${hrv.status.toLowerCase()}`+(rhr?`, with resting heart rate ${rhr.delta>=0?rhr.delta+' bpm above':-rhr.delta+' bpm below'} its usual level.`:'.');
+  return'';
+}
+
 /* ── ZWIFT: A PLANNED DAY'S STATE ──
  * done     the route is Complete, whenever it was planned for
  * overdue  its planned day has gone by and it is not Complete
@@ -1120,6 +1174,7 @@ if (typeof module !== 'undefined' && module.exports) {
     CHRONIC_DAYS,CHRONIC_WEIGHTS,weeklyLoadStats,MONOTONY_CAUTION,MONOTONY_CAP,
     yearEndProjection,projectionWindow,daysInYear,PROJ_WINDOW_MIN,
     zwiftYearStats,zwiftYearVerdict,ZW_PACE_MIN_DAYS,zwiftPlanState,parseZwiftTime,
+    healthNight,restingHrTrend,hrvRecent,recoveryVerdict,
     setScope(s){
       if(s.unit!==undefined)unit=s.unit;
       if(s.activeYear!==undefined)activeYear=s.activeYear;

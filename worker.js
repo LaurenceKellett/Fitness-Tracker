@@ -15,6 +15,9 @@
 //                             and moves its Google Calendar event to match (calendar.js)
 //   GET /calendar-sync → reconciles planned rides with Google Calendar now (also runs
 //                             every 15 minutes; see CAL_CRON)
+//   GET /health → the owner's daily Garmin numbers (sleep, HRV, resting HR, steps…),
+//                             admin key only; ?refresh=1 reads Garmin first (garmin.js,
+//                             and GARMIN_CRON)
 //   GET /sync-training-log → pulls recent Strava activities into the Notion
 //                             Training Log database (also runs on a schedule —
 //                             see the `crons` entry in wrangler.toml)
@@ -25,6 +28,7 @@
 // =============================================================================
 
 import { syncCalendar, syncCalendarRoute, calendarConfigured, calNotionDate, CAL_DEFAULT_TZ } from './calendar.js';
+import { refreshGarmin, readGarmin, garminConfigured } from './garmin.js';
 
 // ---- IMPORTANT: replace this with your actual Worker URL ------------------
 const WORKER_URL = 'https://activities-api.lk-ff7.workers.dev/';
@@ -75,6 +79,17 @@ const FULL_PULL_HOURS_UTC = [9, 15, 21];
 // The Google Calendar reconcile has a cron of its own, so a drag in the calendar
 // reaches Notion within a quarter of an hour. It is the only thing that cron does.
 const CAL_CRON = '*/15 * * * *';
+// Garmin's daily health numbers, on a cron of their own: a first run reads a year in
+// about 26 requests, which beside the Strava sync would crowd the per-run limit.
+const GARMIN_CRON = '20 */3 * * *';
+
+// Today on the owner's clock, which is how Garmin files its days.
+function ownerToday(env) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+    timeZone: env.ZWIFT_TZ || CAL_DEFAULT_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date()).map(x => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}`;
+}
 const ZWIFT_CACHE_KEY      = 'zwift_routes_v1';
 const ZWIFT_CACHE_TTL      = 600; // 10 minutes. Saves from the app clear it at once, and the
                                    // tab's Refresh skips it; each refill costs one of the
@@ -228,6 +243,12 @@ export default {
 
   // Fires on the schedules configured in wrangler.toml's `[triggers] crons`.
   async scheduled(event, env, ctx) {
+    if (event.cron === GARMIN_CRON) {
+      ctx.waitUntil(refreshGarmin(env, { today: ownerToday(env) }).catch(err => {
+        console.error('Scheduled Garmin refresh failed:', err.message);
+      }));
+      return;
+    }
     if (event.cron === CAL_CRON) {
       ctx.waitUntil(syncCalendar(env, calendarDeps(env)).catch(err => {
         console.error('Scheduled calendar sync failed:', err.message);
@@ -308,6 +329,18 @@ async function route(request, env, ctx) {
       }
     }
     case '/backfill-prs':       return (await admin()) || handleBackfillPrs(env);
+    // Health data: never part of the public feed, and nothing at all without a key.
+    case '/health': {
+      const no = await admin(); if (no) return no;
+      const headers = { ...CORS, 'Content-Type': 'application/json', 'Cache-Control': 'no-store, private' };
+      if (!garminConfigured(env)) return new Response(JSON.stringify({ configured: false, days: {} }), { headers });
+      let note = null;
+      if (url.searchParams.get('refresh')) {
+        try { await refreshGarmin(env, { today: ownerToday(env) }); } catch (err) { note = err.message; }
+      }
+      const stored = (await readGarmin(env)) || { days: {} };
+      return new Response(JSON.stringify({ configured: true, ...stored, ...(note ? { error: note } : {}) }), { headers });
+    }
     default:
       if (url.pathname.startsWith('/zwift-routes/') && request.method === 'PATCH') {
         const no = await admin();

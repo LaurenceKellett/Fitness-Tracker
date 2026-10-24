@@ -31,6 +31,7 @@ The Worker holds all secrets and does all the heavy work. The Pages frontend is 
 |------|---------|
 | `worker.js` | Cloudflare Worker — OAuth, Strava fetch, GPS privacy trimming, KV caching, AI summary, Zwift Routes proxy, and the scheduled Strava → Notion Training Log sync |
 | `index.html` | Dashboard frontend — all CSS, HTML, and the app's own JS |
+| `garmin.js` | Reads the owner's daily Garmin health numbers (sleep, HRV, resting HR, steps) for the admin-only `/health` (see **Recovery (Garmin)**) |
 | `calendar.js` | Planned Zwift rides ↔ Google Calendar, both ways (see **Google Calendar sync**). Imported by `worker.js`; imports `calc.js` for the route estimates |
 | `calc.js` | The pure derivations and formatters, split out of `index.html` so they can be unit-tested. Loaded as a classic script before the inline one, so its top-level declarations share the same global scope and every existing call site works unchanged |
 | `sw.js` | Service worker — caches the app shell and the two CDN libraries so the dashboard opens offline |
@@ -379,6 +380,7 @@ This repository is public, so the Worker's address is public. **Reading is open*
 | `GET /zwift-routes` | Open to read; the answer carries `X-Key-Level` (`admin` or `none`). Returns the cached Zwift routes envelope `{ data, updatedAt }`, proxied live from Notion |
 | `GET /zwift-routes?refresh=true` | **Needs the admin key.** Bypasses cache, re-fetches all routes from Notion |
 | `PATCH /zwift-routes/{pageId}` | **Needs the admin key.** Updates `status`/`planned_ride`/`date_completed`/`time` on one route, writes straight to Notion. `planned_ride` is a day or a day and start time (`2026-10-28T18:30`); the route's Google Calendar event follows |
+| `GET /health` | **Needs the admin key.** The owner's daily Garmin numbers, never cached; `?refresh=1` reads Garmin first. See **Recovery (Garmin)** |
 | `GET /calendar-sync` | **Needs the admin key.** Reconciles planned rides with Google Calendar now and answers with what it did (it also runs every 15 minutes). See **Google Calendar sync** |
 | `GET /whoami` | Open. Is the key in `X-Admin-Key` a good admin key? `{ level: 'admin', label: 'PHONE' }` or `{ level: 'none' }`. Names only the key it was just given, never another, and is never cached |
 | `GET /refresh-status` | What the current or last pull from Strava is doing: `{ state, stage, page, fetched, expectedPages, expectedTotal, lastDurationMs, startedAt, updatedAt }`, `state` one of `idle`, `running`, `done`, `failed`. Written by the refresh as it goes, one KV write every 1.2 s at most; `Cache-Control: no-store` |
@@ -1733,6 +1735,52 @@ Within 15 minutes every planned route still to ride is in the calendar. Until al
 secrets are set the sync does nothing at all. If it stops later, the Worker log says
 `Google token refresh failed (400 invalid_grant)`: the token was revoked or the app went
 back to Testing; repeat step 4 and replace `GOOGLE_REFRESH_TOKEN`.
+
+## Recovery (Garmin)
+
+The owner's daily health numbers, from Garmin's **Personal API** (Garmin Connect →
+*Personal API key*; launched October 2026). They are **health data**, so:
+
+- **Never public.** They are not part of `/activities`, so not of the CV's snapshot either.
+  They are served only by `GET /health`, which needs the admin key, with
+  `Cache-Control: no-store, private`.
+- **Never stored on a device.** The dashboard asks for them only when it holds a key, keeps
+  them in memory, and drops them the moment the key is forgotten. The service worker never
+  caches `/health`. A device without a key (or whose key the Worker refuses) never asks and
+  shows nothing of them: no section, no empty card.
+
+**What is kept**, per day, in KV under `garmin_v1` (about 50 KB a year): steps, resting
+heart rate, average stress, Body Battery high and low, sleep duration and score, and
+overnight HRV with Garmin's 7-day average, balanced range and status. Nothing finer than a
+day, and nothing of nutrition, weight or cycle tracking. Garmin files sleep and HRV under
+the morning you woke up, so the night before an activity is that activity's own date.
+
+**Where it shows**
+- **Charts → Recovery → Readiness and load**: the last 90 days of HRV against its balanced
+  range (nights outside it in red), resting heart rate, and training time as bars. Chips
+  for last night's HRV, this week's resting HR against the 60 days before, and 7-day sleep
+  score and steps. The verdict leads with a resting HR rise of 5 bpm or more, then three or
+  more nights below the HRV range, then the all-clear (`recoveryVerdict` in `calc.js`).
+- **Each activity**: *The night before*, with sleep score and duration, HRV, resting HR
+  and Body Battery peak.
+
+**How it is read** (`garmin.js`). The `GARMIN_API` secret is swapped for a 24-hour bearer
+token at `POST https://personal.connectapi.garmin.com/personalapitoken-service/personal-api/personal-api-key/token`
+(`Authorization: ApiKey <key>`), then three endpoints are read: `/usersummary-service/v2/dailysummaries`
+and `/sleep-service/sleep/dailySleepSummariesByDate` (31 days a request) and
+`/hrv-service/hrv/daily/{start}/{end}` (365). Paths and fields are from Garmin's own client
+(`garmin-connect-personal-api-python` 1.0.0) and the `gcpapi-sync` models generated from
+Garmin's OpenAPI document. It has its own cron (`20 */3 * * *`): the first run reads a year
+in about 26 requests, later ones reread the last four days, and KV is written only when
+something changed. `GET /health?refresh=1` (admin) reads Garmin first.
+
+**When the key expires.** A Personal API key lasts 30 days to a year. When Garmin refuses
+it, the stored days are kept and the chart says *"Garmin refused the GARMIN_API key: it has
+probably expired"*. Make a new key in Garmin Connect and replace the `GARMIN_API` secret.
+
+**Not built yet**: sleep against riding efficiency (worth showing only past ~30 nights, and
+saying so if there is no link), recovery time after big efforts, steps away from exercise,
+and Garmin's per-activity Training Effect.
 
 ## To do: Zwift Routes data in Notion
 

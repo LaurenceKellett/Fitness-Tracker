@@ -2433,6 +2433,90 @@ async function main() {
     await ctx.close();
   }
 
+  // ── 4d. Recovery, from Garmin: only with a key the Worker accepts ───────────
+  // Health data is asked for only by a device holding a key, shown only when the
+  // Worker answers it, and never written to the device.
+  {
+    const iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    const healthDays = () => {
+      const days = {};
+      for (let i = 0; i < 90; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        days[iso(d)] = { hrv: 60 - (i % 5), hrvLow: 55, hrvHigh: 70, hrvStatus: 'BALANCED', rhr: 47, sleepScore: 81, sleepSec: 26100, steps: 9000, bbMax: 85 };
+      }
+      ENVELOPE.data.forEach((a) => { const k = a.date.slice(0, 10); days[k] = { ...(days[k] || {}), hrv: 58, hrvStatus: 'BALANCED', rhr: 48, sleepScore: 77, sleepSec: 25200, bbMax: 80 }; });
+      return days;
+    };
+    const open = async (key, status) => {
+      const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+      await ctx.addInitScript(([k]) => { try { if (k) localStorage.setItem('fitness_admin_key', k); } catch (e) {} }, [key]);
+      const page = await ctx.newPage();
+      await page.route(/tile\.openstreetmap\.org/, (r) => r.abort());
+      await page.route(/fonts\.g(oogleapis|static)\.com/, (r) => r.abort());
+      await page.route(/nominatim\.openstreetmap\.org/, (r) => r.abort());
+      await page.route(ACTIVITIES_ROUTE, (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ENVELOPE) }));
+      await page.route('**/zwift-routes**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) }));
+      const asked = [];
+      await page.route('**/health**', (r) => {
+        asked.push(r.request().headers()['x-admin-key'] || null);
+        if (status === 401) return r.fulfill({ status: 401, contentType: 'application/json', body: '{"error":true}' });
+        return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ configured: true, days: healthDays(), updatedAt: new Date().toISOString() }) });
+      });
+      await page.goto(base + '/index.html', { waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => !document.body.classList.contains('is-loading'), null, { timeout: 20000 });
+      await page.waitForTimeout(500);
+      await page.evaluate(() => window.setTab('charts'));
+      await page.waitForTimeout(400);
+      const state = await page.evaluate(() => {
+        const id = String(ALL_DATA[0].id);
+        openActivityModal(id);
+        const modal = document.getElementById('actModal').innerText;
+        closeActivityModal();
+        const stored = Object.keys(localStorage).map((k) => localStorage.getItem(k) || '').join(' ');
+        return {
+          shown: !document.getElementById('recoveryZone').hidden && !document.getElementById('recoveryHeader').hidden,
+          chips: document.getElementById('readinessChips').textContent,
+          verdict: document.getElementById('readinessVerdict').textContent,
+          night: /The night before/.test(modal) && /77/.test(modal),
+          leaked: /sleepScore|hrvStatus/.test(stored),
+        };
+      });
+      return { ctx, page, asked, state };
+    };
+
+    {
+      const { ctx, asked, state } = await open('s3cret/key', 200);
+      await check('with a key the Worker accepts, Recovery shows HRV, resting HR, sleep and steps', async () => {
+        assert(state.shown, 'the Recovery section stayed hidden');
+        assert(/ms/.test(state.chips) && /bpm/.test(state.chips) && /sleep score/.test(state.chips) && /steps/.test(state.chips), `the chips read "${state.chips}"`);
+        assert(/nothing here says hold back/.test(state.verdict), `the verdict read "${state.verdict}"`);
+        assert(asked.length > 0 && asked.every((k) => k === 's3cret/key'), `health was asked for with ${JSON.stringify(asked)}`);
+      });
+      await check('an activity shows the night before it', async () => {
+        assert(state.night, 'no "The night before" block, or the wrong night, in the activity');
+      });
+      await check('health data is never written to the device', async () => {
+        assert(!state.leaked, 'health data was found in localStorage');
+      });
+      await ctx.close();
+    }
+    {
+      const { ctx, asked, state } = await open(null, 200);
+      await check('without a key, health data is never asked for and nothing of it shows', async () => {
+        assert(asked.length === 0, `/health was asked for ${asked.length} time(s) without a key`);
+        assert(!state.shown && !state.night, `shown ${state.shown}, night ${state.night}`);
+      });
+      await ctx.close();
+    }
+    {
+      const { ctx, state } = await open('revoked', 401);
+      await check('a key the Worker refuses shows nothing of it either', async () => {
+        assert(!state.shown && !state.night, `shown ${state.shown}, night ${state.night}`);
+      });
+      await ctx.close();
+    }
+  }
+
   // ── 4c. The Zwift routes: anyone reads, only an admin key edits ─────────────
   // A device with no key (or whose key the Worker did not recognise) sees the same
   // list as plain results, with an "Empty" where a field has nothing, and none of the

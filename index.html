@@ -1986,7 +1986,7 @@ body.is-loading .stats-grid *{visibility:hidden}
 <!-- calc.js carries a stamp of its own content (npm run stamp; the unit tests check it
      is current), so a freshly deployed page can never be paired with a cached older copy
      of the script — which is exactly how one deploy died on "daysInYear is not defined". -->
-<script src="calc.js?v=ca6ff4bf"></script>
+<script src="calc.js?v=667d3501"></script>
 <div id="dashTooltip" class="dash-tooltip"></div>
 <div class="main">
 
@@ -2257,6 +2257,18 @@ body.is-loading .stats-grid *{visibility:hidden}
       <div class="chart-wrap"><canvas id="chartElev"></canvas></div>
       <div id="elevChips" class="chart-chips"></div>
       <div id="elevVerdict" class="chart-verdict"></div>
+    </div>
+  </div>
+  <!-- Garmin health data. Hidden until /health answers this device's admin key, and
+       never drawn from anything stored on the device. -->
+  <div class="section-header" id="recoveryHeader" hidden><h2>Recovery</h2><span class="badge">From Garmin · shown only on a device with the admin key</span></div>
+  <div class="charts-grid chart-zone" data-zone="recovery" data-zone-label="Recovery" id="recoveryZone" hidden>
+    <div class="chart-card span-full" data-panel="readiness">
+      <div class="chart-title">Readiness and load</div>
+      <div class="chart-sub" id="readinessSub">The last 90 days: overnight HRV (line) against its balanced range (band), resting heart rate (red) and training time (bars)</div>
+      <div class="chart-wrap tall"><canvas id="chartReadiness"></canvas></div>
+      <div id="readinessChips" class="chart-chips"></div>
+      <div id="readinessVerdict" class="chart-verdict"></div>
     </div>
   </div>
   <div class="section-header"><h2>Intensity</h2><span class="badge">How hard — the half of training volume can't tell you</span></div>
@@ -2608,6 +2620,9 @@ body.is-loading .stats-grid *{visibility:hidden}
 
 <script>
 let ALL_DATA = [];
+// Garmin's daily numbers from /health: held in memory only, never in localStorage or
+// a cache, and null on any device without a working admin key.
+let HEALTH=null;
 // Bumped whenever ALL_DATA is replaced, so derived caches know to recompute.
 let _dataGen=0;
 
@@ -3286,6 +3301,7 @@ function afterAdminKeyChange(){
   if(rf)rf.classList.toggle('needs-key',!hasAdminKey());
   if(!hasAdminKey()&&reorderOn)endReorder(false);
   if(zwiftLoaded||activeTab==='zwift')loadZwiftRoutes();
+  loadHealth();
 }
 // Checked with the Worker before it is kept, so a mistyped key is never stored and
 // then trusted. Nothing but the answer to this one key comes back.
@@ -3700,7 +3716,9 @@ function announceReorder(msg){
 // own parent is all it takes to cross a zone boundary.
 function movePanel(panel,dir,announce){
   const tab=reorderTab||activeTab;
-  const panels=allPanels(tab);
+  // A whole section that is not showing (Recovery, on a device with no Garmin data)
+  // is stepped over, so a card is never moved somewhere it cannot be seen.
+  const panels=allPanels(tab).filter(p=>!p.closest('[data-zone][hidden]'));
   const i=panels.indexOf(panel);
   const j=i+dir;
   if(i<0||j<0||j>=panels.length)return false;
@@ -5013,6 +5031,7 @@ function renderCharts(){
   renderSummaryLines(data,monthKeys,typeKeys,colorFull);
   renderExtraCharts(data,monthKeys);
   renderLoad(data);
+  renderRecovery();
   renderCumulative(data);
   renderPaceScatter(data);
   renderEfficiency(data);
@@ -5985,6 +6004,98 @@ function yearRamp(n,i){
 // time, not Relative Effort: `score` only exists on activities with heart-rate
 // data, and a load chart that silently drops a third of your training is worse
 // than no load chart.
+// ── RECOVERY ──
+// Asked for only with a key, and forgotten the moment the key is. A refused key (401)
+// or a Worker without GARMIN_API leaves HEALTH null and the section hidden.
+async function loadHealth(){
+  if(!hasAdminKey()){HEALTH=null;renderRecovery();return;}
+  try{
+    const res=await fetch(API_BASE+'/health',{headers:adminHeaders(),cache:'no-store'});
+    const j=res.ok?await res.json():null;
+    HEALTH=j&&j.configured&&j.days&&Object.keys(j.days).length?j:(j&&j.configured&&j.error?j:null);
+  }catch(e){HEALTH=null;}
+  renderRecovery();
+}
+
+function renderRecovery(){
+  const head=document.getElementById('recoveryHeader');
+  const zone=document.getElementById('recoveryZone');
+  if(!head||!zone)return;
+  const days=HEALTH&&HEALTH.days||{};
+  const keys=Object.keys(days).sort();
+  const show=!!HEALTH&&hasAdminKey();
+  head.hidden=!show;zone.hidden=!show;
+  if(!show){destroyChart('readiness');return;}
+  const sub=document.getElementById('readinessSub');
+  if(sub)sub.textContent='The last 90 days: overnight HRV (line) against its balanced range (band), resting heart rate (red) and training time (bars)';
+  const today=todayLocalISO();
+  if(!keys.length){
+    // Configured, but nothing read yet: almost always an expired or refused key.
+    chartSummary('readiness',[],HEALTH.error?'Garmin: '+HEALTH.error:'No Garmin days yet. The first read runs within three hours of the GARMIN_API secret being set.');
+    setChartEmpty('chartReadiness','Nothing from Garmin yet.');
+    return;
+  }
+  setChartEmpty('chartReadiness');
+  const span=[];
+  for(let i=89;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);span.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'));}
+  const trained={};
+  ALL_DATA.forEach(a=>{if(a.date&&a.mt)trained[a.date.slice(0,10)]=(trained[a.date.slice(0,10)]||0)+a.mt/3600;});
+  const pick=k=>span.map(d=>days[d]&&days[d][k]!=null?days[d][k]:null);
+  const hrv=pick('hrv'),lo=pick('hrvLow'),hi=pick('hrvHigh'),rhr=pick('rhr'),status=pick('hrvStatus');
+  const hours=span.map(d=>trained[d]?+trained[d].toFixed(2):null);
+  const maxH=Math.max(1,...hours.filter(Boolean));
+  // Resting HR is never drawn across less than 20 bpm: scaled to its own few beats,
+  // ordinary day-to-day noise looks like a crisis.
+  const rv=rhr.filter(v=>v!=null);
+  const rMid=rv.length?(Math.min(...rv)+Math.max(...rv))/2:50;
+  const rHalf=rv.length?Math.max(10,(Math.max(...rv)-Math.min(...rv))/2+2):10;
+  const teal='#0d9488',red='#ef4444',warn=cssVar('--danger','#dc2626');
+  if(sub&&HEALTH.error)sub.textContent='Garmin: '+HEALTH.error+' Showing what was read before.';
+  ensureCharts().then(()=>{
+    const cv=document.getElementById('chartReadiness');
+    if(!cv)return;
+    destroyChart('readiness');
+    charts.readiness=upsertChart('readiness',cv.getContext('2d'),{
+      type:'bar',
+      data:{labels:span.map(d=>new Date(d+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})),datasets:[
+        {type:'line',label:'Balanced range',data:hi,borderColor:'transparent',backgroundColor:teal+'1f',pointRadius:0,fill:'+1',spanGaps:true,yAxisID:'y',order:3},
+        {type:'line',label:'Balanced range (low)',data:lo,borderColor:'transparent',pointRadius:0,fill:false,spanGaps:true,yAxisID:'y',order:3},
+        {type:'line',label:'HRV',data:hrv,borderColor:teal,backgroundColor:teal,borderWidth:2,tension:.25,spanGaps:true,yAxisID:'y',order:1,
+          pointRadius:hrv.map((v,i)=>v==null?0:(status[i]&&status[i]!=='BALANCED'?3.5:1.5)),
+          pointBackgroundColor:hrv.map((v,i)=>status[i]&&status[i]!=='BALANCED'?warn:teal),pointBorderWidth:0},
+        {type:'line',label:'Resting HR',data:rhr,borderColor:red,backgroundColor:red,borderWidth:1.5,borderDash:[4,3],pointRadius:0,tension:.25,spanGaps:true,yAxisID:'y1',order:2},
+        {label:'Training',data:hours,backgroundColor:chartGrid(),borderRadius:0,yAxisID:'y2',order:4},
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+        plugins:{legend:{display:false},tooltip:{filter:it=>it.dataset.label!=='Balanced range (low)'&&it.raw!=null,callbacks:{label:c=>{
+          const v=c.raw;
+          if(c.dataset.label==='HRV')return`HRV ${v} ms${status[c.dataIndex]?' · '+status[c.dataIndex].toLowerCase():''}`;
+          if(c.dataset.label==='Balanced range')return lo[c.dataIndex]!=null?`Balanced ${lo[c.dataIndex]}–${v} ms`:'';
+          if(c.dataset.label==='Resting HR')return`Resting HR ${v} bpm`;
+          return`Trained ${fmtTime(Math.round(v*3600))}`;
+        }}}},
+        scales:{x:{grid:{display:false},ticks:{font:{size:10},color:chartTick(),maxTicksLimit:8,maxRotation:0}},
+          // Neither starts at zero: an HRV of 58 against a range of 55-70 is the whole
+          // story, and from zero it is a flat line along the top.
+          y:{position:'left',beginAtZero:false,grace:'10%',title:{display:true,text:'HRV (ms)',font:{size:10},color:chartTick()},grid:{color:chartGrid()},ticks:{font:{size:10},color:chartTick()}},
+          y1:{position:'right',beginAtZero:false,min:Math.floor((rMid-rHalf)/5)*5,max:Math.ceil((rMid+rHalf)/5)*5,title:{display:true,text:'Resting HR (bpm)',font:{size:10},color:chartTick()},grid:{display:false},ticks:{font:{size:10},color:chartTick()}},
+          // Bars kept to the bottom third, so training sits under the lines rather than over them.
+          y2:{display:false,beginAtZero:true,max:maxH*3}}}
+    });
+  });
+  const rt=restingHrTrend(days,today),hv=hrvRecent(days,today);
+  // The last seven days counted back from today, not the last seven days held.
+  const recent=span.slice(-7).map(k=>days[k]).filter(Boolean);
+  const avg=k=>{const xs=recent.map(r=>r[k]).filter(v=>v!=null);return xs.length?Math.round(xs.reduce((a,b)=>a+b,0)/xs.length):null;};
+  const sleep7=avg('sleepScore'),steps7=avg('steps');
+  const chips=[];
+  if(hv)chips.push({n:hv.hrv+' ms',label:'HRV last night'+(hv.status?' · '+hv.status.toLowerCase():''),col:teal});
+  if(rt)chips.push({n:rt.avg7+' bpm',label:`resting HR this week (${rt.delta>=0?'+':'−'}${Math.abs(rt.delta)} on usual)`,col:red});
+  if(sleep7!=null)chips.push({n:String(sleep7),label:'sleep score, 7-day average',col:'#6366f1'});
+  if(steps7!=null)chips.push({n:steps7.toLocaleString('en-GB'),label:'steps a day, last 7',col:'#f59e0b'});
+  chartSummary('readiness',chips,recoveryVerdict(rt,hv));
+}
+
 function renderLoad(data,t=LOAD_TARGET){
   if(!data.length){
     setChartEmpty(t.canvas,'No activities in this filter.');
@@ -8623,6 +8734,18 @@ function openActivityModal(id){
 
   const when=fmtDate(a.date)+(a.time?' · '+a.time:'');
 
+  // The night before, from Garmin: only where /health answered this device's key.
+  const night=HEALTH&&hasAdminKey()?healthNight(HEALTH.days,a.date):null;
+  const nightStats=night?[
+    night.sleepScore!=null||night.sleepSec?{label:'Sleep',value:[night.sleepScore!=null?String(night.sleepScore):null,night.sleepSec?fmtTime(night.sleepSec):null].filter(Boolean).join(' · ')}:null,
+    night.hrv!=null?{label:'HRV',value:night.hrv+' ms'+(night.hrvStatus?' · '+night.hrvStatus.toLowerCase():'')}:null,
+    night.rhr!=null?{label:'Resting HR',value:night.rhr+' bpm'}:null,
+    night.bbMax!=null?{label:'Body Battery peak',value:String(night.bbMax)}:null,
+  ].filter(Boolean):[];
+  const nightBlock=nightStats.length?`
+    <div class="gear-modal-section-title">The night before</div>
+    <div class="gear-modal-stats act-night">${nightStats.map(s=>`<div><div class="gear-modal-stat-label">${s.label}</div><div class="gear-modal-stat-value">${s.value}</div></div>`).join('')}</div>`:'';
+
   document.getElementById('actModal').innerHTML=`
     ${hasRoute
       ? `<div id="actModalMap" class="act-map"></div>`
@@ -8640,6 +8763,7 @@ function openActivityModal(id){
     </div>
     <div class="gear-modal-body">
       <div class="gear-modal-stats">${stats.map(s=>`<div${s.title?` title="${escapeAttr(s.title)}"`:''}><div class="gear-modal-stat-label">${s.label}</div><div class="gear-modal-stat-value">${s.value}</div></div>`).join('')}</div>
+      ${nightBlock}
       ${zoneBlock}
       ${prs?`<div class="gear-modal-section-title" style="margin-top:20px">Segment bests on this run</div><div class="gear-modal-types">${prs}</div>`:''}
       <div class="act-actions">
@@ -10347,6 +10471,7 @@ restoreAllLayouts();
 pullPrefs();
 
 loadData();
+loadHealth();
   
 // ── MAP ──
 let _map=null,_mapLayers=[];

@@ -23,4 +23,6 @@ binding = "AI"
 # The second is the Google Calendar reconcile (calendar.js): planned Zwift rides
 # both ways, so a drag in the calendar reaches Notion within 15 minutes. It does
 # nothing else, and nothing at all until the GOOGLE_* secrets are set.
-crons = ["0 */3 * * *", "*/15 * * * *"]
+# The third reads the owner's daily Garmin numbers (garmin.js); nothing until the
+# GARMIN_API secret is set.
+crons = ["0 */3 * * *", "*/15 * * * *", "20 */3 * * *"]

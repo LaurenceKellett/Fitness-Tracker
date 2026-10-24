@@ -139,8 +139,9 @@ self.addEventListener('fetch', (event) => {
   try { url = new URL(request.url); } catch (e) { return; }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
-  // Activity and Zwift data belong to localStorage, not to this layer.
-  if (/\/(activities|zwift-routes|sync-training-log|backfill-prs|prefs|refresh-status)\b/.test(url.pathname)) return;
+  // Activity and Zwift data belong to localStorage, not to this layer; health data
+  // is never stored on the device at all.
+  if (/\/(activities|zwift-routes|sync-training-log|backfill-prs|prefs|refresh-status|health)\b/.test(url.pathname)) return;
   // Map tiles are numerous, large and change rarely — but caching them silently
   // would grow without bound, so they are left to the browser's own HTTP cache.
   if (/tile\.openstreetmap\.org$/.test(url.hostname)) return;

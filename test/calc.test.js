@@ -16,6 +16,7 @@ const {
   CHRONIC_DAYS, CHRONIC_WEIGHTS, weeklyLoadStats, MONOTONY_CAP,
   yearEndProjection, projectionWindow, daysInYear, PROJ_WINDOW_MIN,
   zwiftYearStats, zwiftYearVerdict, ZW_PACE_MIN_DAYS, zwiftPlanState, parseZwiftTime,
+  healthNight, restingHrTrend, hrvRecent, recoveryVerdict,
   setScope,
 } = calc;
 
@@ -1600,5 +1601,38 @@ describe('parseZwiftTime', () => {
     expect(parseZwiftTime('abc')).toBeNull();
     expect(parseZwiftTime('0')).toBeNull();
     expect(parseZwiftTime('1234567')).toBeNull();
+  });
+});
+
+// ── RECOVERY (GARMIN) ────────────────────────────────────────────────────────
+describe('recovery', () => {
+  const day = (iso, n) => new Date(Date.UTC(2026, 9, 24 - n)).toISOString().slice(0, 10);
+  const build = (fn, n = 70) => Object.fromEntries(Array.from({ length: n }, (_, i) => [day('2026-10-24', i), fn(i)]));
+
+  it('finds the night before an activity under the activity\'s own date', () => {
+    const days = { '2026-10-24': { sleepScore: 82, hrv: 58 }, '2026-10-23': { steps: 9000 } };
+    expect(healthNight(days, '2026-10-24').sleepScore).toBe(82);
+    expect(healthNight(days, '2026-10-23')).toBeNull();   // steps alone are not a night
+    expect(healthNight(null, '2026-10-24')).toBeNull();
+  });
+
+  it('measures this week\'s resting HR against the 60 days before', () => {
+    const days = build((i) => ({ rhr: i < 7 ? 53 : 47 }));
+    expect(restingHrTrend(days, '2026-10-24')).toEqual({ avg7: 53, base: 47, delta: 6 });
+  });
+  it('says nothing about resting HR on too few readings', () => {
+    expect(restingHrTrend(build((i) => (i < 3 ? { rhr: 50 } : {})), '2026-10-24')).toBeNull();
+  });
+
+  it('counts the nights below the balanced range', () => {
+    const days = build((i) => ({ hrv: i < 3 ? 48 : 60, hrvLow: 55, hrvHigh: 70, hrvStatus: i < 3 ? 'UNBALANCED' : 'BALANCED' }), 7);
+    expect(hrvRecent(days, '2026-10-24')).toMatchObject({ hrv: 48, below: 3, nights: 7, status: 'UNBALANCED' });
+  });
+
+  it('leads with a resting HR rise, then a run of low HRV, then the all-clear', () => {
+    expect(recoveryVerdict({ avg7: 53, base: 47, delta: 6 }, { below: 4, nights: 7 })).toMatch(/^Resting heart rate is 6 bpm above/);
+    expect(recoveryVerdict({ delta: 1 }, { below: 3, nights: 7 })).toMatch(/^HRV has been below its balanced range on 3 of the last 7/);
+    expect(recoveryVerdict({ delta: 0 }, { below: 0, nights: 7, status: 'BALANCED' })).toMatch(/nothing here says hold back/);
+    expect(recoveryVerdict(null, null)).toBe('');
   });
 });
