@@ -1758,8 +1758,6 @@ they are done.
   (The Watopia 150!'s 0 ft is confirmed.)
 
 **Older routes:**
-- [ ] **Downtown Eruption**: 9,012 ft over 12.1 mi is steeper than Alpe du Zwift; almost
-  certainly a typo (901 ft?).
 - [ ] **Shared Strava segments**. Each group below points at one segment; give each route
   its own, or confirm the share is right:
   - The Über Pretzel / Three Little Sisters (certainly wrong)
