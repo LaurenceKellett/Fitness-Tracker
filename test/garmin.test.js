@@ -51,6 +51,13 @@ describe('reading Garmin\'s answers', () => {
     expect(mergeDays(a, { '2026-10-24': { steps: 9000, sleepScore: null } }))
       .toEqual({ '2026-10-24': { steps: 9000, sleepScore: 70 } });
   });
+  it('reads numbers sent as strings, and a wrapper under another name', () => {
+    expect(fromSummaries({ data: [SUMMARY('2026-10-24', { heartRate: { restingValue: '47' } })] })['2026-10-24'].rhr).toBe(47);
+    expect(fromHrv({ items: [HRV('2026-10-24')] })['2026-10-24'].hrv).toBe(58);
+  });
+  it('dates a sleep record by its own calendarDate, not the next night\'s need', () => {
+    expect(Object.keys(fromSleep([SLEEP('2026-10-24', { nextSleepNeed: { calendarDate: '2026-10-25' } })]))).toEqual(['2026-10-24']);
+  });
   it('cuts a range into the windows each endpoint allows', () => {
     expect(windows('2026-01-01', '2026-02-10', 31)).toEqual([['2026-01-01', '2026-01-31'], ['2026-02-01', '2026-02-10']]);
     expect(addDays('2026-03-01', -1)).toBe('2026-02-28');
@@ -85,9 +92,10 @@ describe('refreshing from Garmin', () => {
     const kv = fakeKV();
     await refreshGarmin(env(kv), { today: '2026-10-24' });
     const reads = calls.filter((c) => c.method === 'GET');
-    expect(reads.filter((c) => c.u.includes('dailysummaries'))).toHaveLength(12);
+    // Summaries take a year a call, sleep 31 days, HRV 28 (its limit is undocumented).
+    expect(reads.filter((c) => c.u.includes('dailysummaries'))).toHaveLength(1);
     expect(reads.filter((c) => c.u.includes('dailySleep'))).toHaveLength(12);
-    expect(reads.filter((c) => c.u.includes('/hrv/daily/'))).toHaveLength(1);
+    expect(reads.filter((c) => c.u.includes('/hrv/daily/'))).toHaveLength(14);
     expect(calls.length).toBeLessThan(50);   // a free Worker's subrequest limit
     const stored = JSON.parse(kv.m.get(GARMIN_KV));
     expect(stored.days['2026-10-24']).toMatchObject({ steps: 9120, sleepScore: 82, hrv: 58, rhr: 47 });
@@ -114,6 +122,25 @@ describe('refreshing from Garmin', () => {
     const stored = JSON.parse(kv.m.get(GARMIN_KV));
     expect(stored.days['2026-10-24'].hrv).toBe(58);
     expect(stored.error).toMatch(/expired/);
+  });
+
+  it('treats 204 and 404 as no data, and renews a lapsed token once on a 401', async () => {
+    let tokens = 0, hrv401 = true;
+    globalThis.fetch = vi.fn(async (url, init = {}) => {
+      const u = String(url);
+      if (u.includes('/personal-api-key/token')) { tokens++; return new Response('tok' + tokens); }
+      if (u.includes('/dailysummaries')) return new Response(null, { status: 204 });
+      if (u.includes('/dailySleepSummariesByDate')) return new Response('', { status: 404 });
+      if (u.includes('/hrv-service/hrv/daily/')) {
+        if (hrv401 && init.headers.Authorization === 'Bearer tok1') { hrv401 = false; return new Response('', { status: 401 }); }
+        return json({ hrvSummaries: [HRV('2026-10-24')] });
+      }
+      return json({}, 500);
+    });
+    const kv = fakeKV();
+    await refreshGarmin({ GARMIN_API: 'gk', CACHE: kv }, { today: '2026-10-24', recentDays: 4 });
+    expect(tokens).toBe(2);
+    expect(JSON.parse(kv.m.get(GARMIN_KV)).days['2026-10-24'].hrv).toBe(58);
   });
 
   it('does nothing at all without the GARMIN_API secret', async () => {

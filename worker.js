@@ -80,7 +80,7 @@ const FULL_PULL_HOURS_UTC = [9, 15, 21];
 // reaches Notion within a quarter of an hour. It is the only thing that cron does.
 const CAL_CRON = '*/15 * * * *';
 // Garmin's daily health numbers, on a cron of their own: a first run reads a year in
-// about 26 requests, which beside the Strava sync would crowd the per-run limit.
+// about 28 requests, which beside the Strava sync would crowd the per-run limit.
 const GARMIN_CRON = '20 */3 * * *';
 
 // Today on the owner's clock, which is how Garmin files its days.

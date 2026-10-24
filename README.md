@@ -1767,11 +1767,12 @@ the morning you woke up, so the night before an activity is that activity's own 
 **How it is read** (`garmin.js`). The `GARMIN_API` secret is swapped for a 24-hour bearer
 token at `POST https://personal.connectapi.garmin.com/personalapitoken-service/personal-api/personal-api-key/token`
 (`Authorization: ApiKey <key>`), then three endpoints are read: `/usersummary-service/v2/dailysummaries`
-and `/sleep-service/sleep/dailySleepSummariesByDate` (31 days a request) and
-`/hrv-service/hrv/daily/{start}/{end}` (365). Paths and fields are from Garmin's own client
+(a year a request), `/sleep-service/sleep/dailySleepSummariesByDate` (31 days) and
+`/hrv-service/hrv/daily/{start}/{end}` (28 days: its limit is undocumented). A 204 or 404
+is no data for those days, and a 401 mid-run renews the token once. Paths and fields are from Garmin's own client
 (`garmin-connect-personal-api-python` 1.0.0) and the `gcpapi-sync` models generated from
 Garmin's OpenAPI document. It has its own cron (`20 */3 * * *`): the first run reads a year
-in about 26 requests, later ones reread the last four days, and KV is written only when
+in about 28 requests, later ones reread the last four days, and KV is written only when
 something changed. `GET /health?refresh=1` (admin) reads Garmin first.
 
 **When the key expires.** A Personal API key lasts 30 days to a year. When Garmin refuses

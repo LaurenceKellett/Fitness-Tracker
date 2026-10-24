@@ -4,8 +4,9 @@
  * a key they make in Connect: GARMIN_API, a Worker secret. The key is swapped for a
  * bearer token (a JWT, good for 24 hours, no refresh token) and the token reads.
  * Paths and field names are from Garmin's own client (garmin-connect-personal-api-
- * python 1.0.0) and the typed models in gcpapi-sync, which are generated from Garmin's
- * OpenAPI document. A key lasts 30 days to a year; when it expires the token swap is
+ * python 1.0.0) and the typed models in gcpapi-sync, generated from Garmin's OpenAPI
+ * document, and checked against the owner's live account (the Tools app's brief, 24
+ * October 2026): the request limits and the defensive reading below come from that. A key lasts 30 days to a year; when it expires the token swap is
  * refused, the stored days stay as they were, and the error is kept for the
  * dashboard to show.
  *
@@ -25,11 +26,12 @@
 export const GARMIN_BASE = 'https://personal.connectapi.garmin.com';
 const TOKEN_PATH = '/personalapitoken-service/personal-api/personal-api-key/token';
 export const GARMIN_KV = 'garmin_v1';
-// The longest span each endpoint accepts in one request.
-const WINDOW = { summaries: 31, sleep: 31, hrv: 365 };
+// The longest span each endpoint accepts in one request, as seen on the live API.
+// HRV's limit is undocumented, so it is kept to 28 days to be safe.
+const WINDOW = { summaries: 365, sleep: 31, hrv: 28 };
 export const GARMIN_BACKFILL_DAYS = 365;
-// Sleep and HRV land the morning after, and a late sync can revise yesterday, so each
-// refresh rereads a few days rather than one.
+// Sleep and HRV land the morning after, and watches sync late, so each refresh rereads
+// a few days rather than one; anything older is settled.
 export const GARMIN_RECENT_DAYS = 4;
 
 export function garminConfigured(env) {
@@ -60,9 +62,15 @@ export function windows(from, to, max) {
 function rows(json, key) {
   if (Array.isArray(json)) return json;
   if (json && Array.isArray(json[key])) return json[key];
-  return [];
+  // A wrapper under some other name: take the first array it holds.
+  const first = json && typeof json === 'object' && Object.values(json).find(Array.isArray);
+  return first || [];
 }
-const num = (v) => (typeof v === 'number' && isFinite(v) ? v : null);
+// The API is new: any figure may be missing, and numbers sometimes arrive as strings.
+const num = (v) => {
+  const n = typeof v === 'string' && v.trim() !== '' ? Number(v) : v;
+  return typeof n === 'number' && isFinite(n) ? n : null;
+};
 
 export function fromSummaries(json) {
   const out = {};
@@ -141,13 +149,19 @@ async function garminToken(env) {
   return token;
 }
 
-async function garminGet(token, path, params) {
+// auth: { token, renew() }, so a token that has lapsed mid-run is replaced once.
+async function garminGet(auth, path, params) {
   const url = GARMIN_BASE + path + (params ? '?' + new URLSearchParams(params).toString() : '');
-  for (let attempt = 0; ; attempt++) {
-    const res = await fetch(url, { headers: { Accept: 'application/json', Authorization: `Bearer ${token}` } });
+  let renewed = false, waited = false;
+  for (;;) {
+    const res = await fetch(url, { headers: { Accept: 'application/json', Authorization: `Bearer ${auth.token}` } });
+    // 204 and 404 are "nothing for those days", not a failure.
+    if (res.status === 204 || res.status === 404) return null;
+    if (res.status === 401 && !renewed) { renewed = true; auth.token = await auth.renew(); continue; }
     // One retry on a rate limit, honouring a short Retry-After; a longer wait is the
     // next run's job.
-    if (res.status === 429 && attempt === 0) {
+    if (res.status === 429 && !waited) {
+      waited = true;
       const wait = Math.min(parseFloat(res.headers.get('Retry-After') || '2') || 2, 10);
       await new Promise((r) => setTimeout(r, wait * 1000));
       continue;
@@ -160,16 +174,16 @@ async function garminGet(token, path, params) {
 
 // Every day from `from` to `to`, inclusive, from the three endpoints that carry it.
 export async function pullGarmin(env, from, to) {
-  const token = await garminToken(env);
+  const auth = { token: await garminToken(env), renew: () => garminToken(env) };
   const parts = [];
   for (const [s, e] of windows(from, to, WINDOW.summaries)) {
-    parts.push(fromSummaries(await garminGet(token, '/usersummary-service/v2/dailysummaries', { startDate: s, endDate: e })));
+    parts.push(fromSummaries(await garminGet(auth, '/usersummary-service/v2/dailysummaries', { startDate: s, endDate: e })));
   }
   for (const [s, e] of windows(from, to, WINDOW.sleep)) {
-    parts.push(fromSleep(await garminGet(token, '/sleep-service/sleep/dailySleepSummariesByDate', { startDate: s, endDate: e })));
+    parts.push(fromSleep(await garminGet(auth, '/sleep-service/sleep/dailySleepSummariesByDate', { startDate: s, endDate: e })));
   }
   for (const [s, e] of windows(from, to, WINDOW.hrv)) {
-    parts.push(fromHrv(await garminGet(token, `/hrv-service/hrv/daily/${s}/${e}`)));
+    parts.push(fromHrv(await garminGet(auth, `/hrv-service/hrv/daily/${s}/${e}`)));
   }
   return mergeDays({}, ...parts);
 }

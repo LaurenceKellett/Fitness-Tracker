@@ -6087,12 +6087,15 @@ function renderRecovery(){
   // The last seven days counted back from today, not the last seven days held.
   const recent=span.slice(-7).map(k=>days[k]).filter(Boolean);
   const avg=k=>{const xs=recent.map(r=>r[k]).filter(v=>v!=null);return xs.length?Math.round(xs.reduce((a,b)=>a+b,0)/xs.length):null;};
-  const sleep7=avg('sleepScore'),steps7=avg('steps');
+  const sleep7=avg('sleepScore');
+  // Today's steps are still being counted; the average is of the seven days before.
+  const stepDays=span.slice(-8,-1).map(k=>days[k]&&days[k].steps).filter(v=>v!=null);
+  const steps7=stepDays.length?Math.round(stepDays.reduce((a,b)=>a+b,0)/stepDays.length):null;
   const chips=[];
   if(hv)chips.push({n:hv.hrv+' ms',label:'HRV last night'+(hv.status?' · '+hv.status.toLowerCase():''),col:teal});
   if(rt)chips.push({n:rt.avg7+' bpm',label:`resting HR this week (${rt.delta>=0?'+':'−'}${Math.abs(rt.delta)} on usual)`,col:red});
   if(sleep7!=null)chips.push({n:String(sleep7),label:'sleep score, 7-day average',col:'#6366f1'});
-  if(steps7!=null)chips.push({n:steps7.toLocaleString('en-GB'),label:'steps a day, last 7',col:'#f59e0b'});
+  if(steps7!=null)chips.push({n:steps7.toLocaleString('en-GB'),label:'steps a day, previous 7 days',col:'#f59e0b'});
   chartSummary('readiness',chips,recoveryVerdict(rt,hv));
 }
 
