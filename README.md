@@ -1734,6 +1734,48 @@ secrets are set the sync does nothing at all. If it stops later, the Worker log 
 `Google token refresh failed (400 invalid_grant)`: the token was revoked or the app went
 back to Testing; repeat step 4 and replace `GOOGLE_REFRESH_TOKEN`.
 
+## To do: Zwift Routes data in Notion
+
+Gaps in the Notion **Zwift Routes** database, as of 24 October 2026. The dashboard copes
+with every one of them (a missing distance means no time estimate, and a calendar event
+for that route falls back to an hour), but each should be filled in. Tick and delete as
+they are done.
+
+**Wild Isles / Tour of Watopia 2026 routes**, added before launch:
+- [ ] **One Ride to Rule Them All**: Zwift Insider link, Strava segment link.
+- [ ] **Molten Momentum**: Zwift Insider link, Strava segment link.
+- [ ] **Crit Cross**: Zwift Insider link, Strava segment link.
+- [ ] **Caldera Cruiser** (renamed from "Caldera Coaster"): distance and climbing. Check
+  that the Zwift Insider link (`/route/caldera-cruiser/`, guessed from the usual pattern)
+  opens, and that Strava segment 42374295 is this route's.
+- [ ] **Laps, Camera, Traction**: confirm the name's punctuation (taken from the Zwift
+  Insider address).
+- [ ] **Event Only** tags: once the expansion is live, check whether any of the Tour of
+  Watopia routes (One Ride to Rule Them All, Molten Momentum, Crit Cross) are event only.
+- [ ] **Distance and climbing** for California Dreamin', California Roll, Four Foalsmen,
+  Pacific Pursuit, Seafoam Circuit and Watt Goes Up Must Come Down came from a summary of
+  Zwift Insider's pre-launch teaser. Check them against the route pages after launch.
+  (The Watopia 150!'s 0 ft is confirmed.)
+
+**Older routes:**
+- [ ] **Montmartre KOM**: no Strava segment link.
+- [ ] **Danger Noodle**: the Strava link is an app share link (`strava.app.link/…`);
+  replace it with the `strava.com/segments/…` address.
+- [ ] **Downtown Eruption**: 9,012 ft over 12.1 mi is steeper than Alpe du Zwift; almost
+  certainly a typo (901 ft?).
+- [ ] **Shared Strava segments**. Each group below points at one segment; give each route
+  its own, or confirm the share is right:
+  - The Über Pretzel / Three Little Sisters (certainly wrong)
+  - Gran Fondo / Grand Central Circuit / Grand Central Circuit Reverse
+  - Classique / London Classique (possibly one route under two names: keep one?)
+  - Greater London Loop / Greater London Loop Reverse
+  - The Highline / The Highline Reverse
+  - LaGuardia Loop / LaGuardia Loop Reverse
+
+**Bulk:**
+- [ ] **ZwiftHacks links** missing on about 311 routes, in the existing form
+  `https://zwifthacks.com/app/events/?route=<route name>`. Claude can fill these in.
+
 ## Ideas not built
 
 Nothing in this section exists. It is a place to leave a design worked out far enough
