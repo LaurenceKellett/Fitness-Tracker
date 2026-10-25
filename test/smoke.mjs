@@ -335,6 +335,12 @@ async function main() {
       r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ state: 'idle' }) })
     );
 
+    // A test that sets a key would otherwise ask the live Worker for /health, whose
+    // CORS rightly refuses this origin and logs an error. No Garmin here.
+    await page.route('**/health**', (r) =>
+      r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ configured: false }) })
+    );
+
     await page.goto(base + '/index.html', { waitUntil: 'domcontentloaded' });
     return { ctx, page, errors };
   }
