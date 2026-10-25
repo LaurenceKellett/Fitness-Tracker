@@ -2442,9 +2442,11 @@ async function main() {
       const days = {};
       for (let i = 0; i < 90; i++) {
         const d = new Date(); d.setDate(d.getDate() - i);
-        days[iso(d)] = { hrv: 60 - (i % 5), hrvLow: 55, hrvHigh: 70, hrvStatus: 'BALANCED', rhr: 47, sleepScore: 81, sleepSec: 26100, steps: 9000, bbMax: 85 };
+        const prev = new Date(d); prev.setDate(prev.getDate() - 1);
+        days[iso(d)] = { hrv: 60 - (i % 5), hrvLow: 55, hrvHigh: 70, hrvStatus: 'BALANCED', rhr: 47, sleepScore: 81, sleepSec: 26100, steps: 9000, stepGoal: 8000, bbMax: 85,
+          deepSec: 5000, lightSec: 14000, remSec: 6000, awakeSec: 1100, sleepStart: iso(prev) + 'T23:10', sleepEnd: iso(d) + 'T06:30', sleepNeed: 450, resp: 14 };
       }
-      ENVELOPE.data.forEach((a) => { const k = a.date.slice(0, 10); days[k] = { ...(days[k] || {}), hrv: 58, hrvStatus: 'BALANCED', rhr: 48, sleepScore: 77, sleepSec: 25200, bbMax: 80 }; });
+      ENVELOPE.data.forEach((a) => { const k = a.date.slice(0, 10); days[k] = { ...(days[k] || {}), hrv: 58, hrvStatus: 'BALANCED', rhr: 47, sleepScore: 77, sleepSec: 25200, bbMax: 80 }; });
       return days;
     };
     const open = async (key, status) => {
@@ -2465,6 +2467,11 @@ async function main() {
       await page.goto(base + '/index.html', { waitUntil: 'domcontentloaded' });
       await page.waitForFunction(() => !document.body.classList.contains('is-loading'), null, { timeout: 20000 });
       await page.waitForTimeout(500);
+      // The morning line lives on the Summary tab, the page that opens first.
+      const morningShown = await page.evaluate(() => {
+        const el = document.getElementById('sumMorning');
+        return el && el.offsetParent !== null && el.getBoundingClientRect().height > 0 ? el.textContent : '';
+      });
       await page.evaluate(() => window.setTab('charts'));
       await page.waitForTimeout(400);
       const state = await page.evaluate(() => {
@@ -2473,23 +2480,31 @@ async function main() {
         const modal = document.getElementById('actModal').innerText;
         closeActivityModal();
         const stored = Object.keys(localStorage).map((k) => localStorage.getItem(k) || '').join(' ');
+        // Visible on screen, not merely un-hidden: a class's display can outrank the
+        // hidden attribute, which is how this section once stayed on screen without a key.
+        const seen = (id) => { const el = document.getElementById(id); return !!el && el.offsetParent !== null && el.getBoundingClientRect().height > 0; };
+        const chips = ['readiness', 'sleep', 'hrv', 'steps', 'bedtime'].map((k) => document.getElementById(k + 'Chips').textContent).join(' | ');
         return {
-          shown: !document.getElementById('recoveryZone').hidden && !document.getElementById('recoveryHeader').hidden,
-          chips: document.getElementById('readinessChips').textContent,
+          shown: seen('recoveryZone') && seen('recoveryHeader'),
+          anyVisible: seen('recoveryZone') || seen('recoveryHeader'),
+          chips,
           verdict: document.getElementById('readinessVerdict').textContent,
           night: /The night before/.test(modal) && /77/.test(modal),
           leaked: /sleepScore|hrvStatus/.test(stored),
         };
       });
+      state.morning = morningShown;
+      state.anyVisible = state.anyVisible || !!morningShown;
       return { ctx, page, asked, state };
     };
 
     {
       const { ctx, asked, state } = await open('s3cret/key', 200);
-      await check('with a key the Worker accepts, Recovery shows HRV, resting HR, sleep and steps', async () => {
-        assert(state.shown, 'the Recovery section stayed hidden');
-        assert(/ms/.test(state.chips) && /bpm/.test(state.chips) && /sleep score/.test(state.chips) && /steps/.test(state.chips), `the chips read "${state.chips}"`);
+      await check('with a key the Worker accepts, Recovery shows resting HR, sleep, HRV, steps and bedtime', async () => {
+        assert(state.shown, 'the Recovery section is not on screen');
+        assert(/bpm/.test(state.chips) && /average score/.test(state.chips) && / ms/.test(state.chips) && /a day on average/.test(state.chips) && /average bedtime/.test(state.chips), `the chips read "${state.chips}"`);
         assert(/nothing here says hold back/.test(state.verdict), `the verdict read "${state.verdict}"`);
+        assert(/This morning/.test(state.morning), `the morning line read "${state.morning}"`);
         assert(asked.length > 0 && asked.every((k) => k === 's3cret/key'), `health was asked for with ${JSON.stringify(asked)}`);
       });
       await check('an activity shows the night before it', async () => {
@@ -2502,16 +2517,16 @@ async function main() {
     }
     {
       const { ctx, asked, state } = await open(null, 200);
-      await check('without a key, health data is never asked for and nothing of it shows', async () => {
+      await check('without a key, health data is never asked for and nothing of it is on screen', async () => {
         assert(asked.length === 0, `/health was asked for ${asked.length} time(s) without a key`);
-        assert(!state.shown && !state.night, `shown ${state.shown}, night ${state.night}`);
+        assert(!state.anyVisible && !state.night, `visible ${state.anyVisible}, night ${state.night}`);
       });
       await ctx.close();
     }
     {
       const { ctx, state } = await open('revoked', 401);
       await check('a key the Worker refuses shows nothing of it either', async () => {
-        assert(!state.shown && !state.night, `shown ${state.shown}, night ${state.night}`);
+        assert(!state.anyVisible && !state.night, `visible ${state.anyVisible}, night ${state.night}`);
       });
       await ctx.close();
     }

@@ -3,7 +3,8 @@
 // are shaped as its OpenAPI document describes them.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  windows, addDays, fromSummaries, fromSleep, fromHrv, mergeDays, refreshGarmin, GARMIN_KV,
+  windows, addDays, fromSummaries, fromSleep, fromHrv, fromActivities, mergeDays, refreshGarmin,
+  dayOf, wallOf, GARMIN_KV, GARMIN_ACTS_KV, GARMIN_FLOOR, GARMIN_BUDGET,
 } from '../garmin.js';
 import worker from '../worker.js';
 
@@ -28,18 +29,31 @@ const SUMMARY = (day, o = {}) => ({
   bodyBattery: { maxValue: 88, minValue: 21 },
   ...o,
 });
-const SLEEP = (day, o = {}) => ({ calendarDate: day, sleepTimeSeconds: 26100, sleepScores: { overall: { value: 82, qualifierKey: 'GOOD' } }, ...o });
+const SLEEP = (day, o = {}) => ({
+  calendarDate: day, sleepTimeSeconds: 26100, sleepScores: { overall: { value: 82, qualifierKey: 'GOOD' } },
+  deepSleepSeconds: 5400, lightSleepSeconds: 14400, remSleepSeconds: 6300, awakeSleepSeconds: 900,
+  sleepStartTimestampLocal: '2026-10-23T23:05:12.0', sleepEndTimestampLocal: '2026-10-24T06:40:00.0',
+  sleepNeed: { actual: 480 }, averageRespirationValue: 14.2, nextSleepNeed: { calendarDate: '2026-10-25' }, ...o,
+});
+const ACT = (day, o = {}) => ({
+  activityId: Number(day.replace(/-/g, '')), startTimeLocal: day + 'T07:30:00.0', startTimeGMT: day + 'T06:30:00.0',
+  activityType: { typeKey: 'virtual_ride' }, duration: 3700, movingDuration: 3600, distance: 32000, averageHR: 142,
+  hrTimeInZone_1: 300, hrTimeInZone_2: 1500, hrTimeInZone_3: 1200, hrTimeInZone_4: 500, hrTimeInZone_5: 100,
+  powerTimeInZone_1: 200, powerTimeInZone_2: 1400, powerTimeInZone_3: 1300, powerTimeInZone_4: 500, powerTimeInZone_5: 150, powerTimeInZone_6: 40, powerTimeInZone_7: 10,
+  aerobicTrainingEffect: 3.4, anaerobicTrainingEffect: 1.1, trainingEffectLabel: 'TEMPO', activityTrainingLoad: 112, differenceBodyBattery: -18, ...o,
+});
 const HRV = (day, o = {}) => ({ calendarDate: day, lastNightAvg: 58, weeklyAvg: 61, baseline: { balancedLow: 55, balancedUpper: 70 }, status: 'BALANCED', ...o });
 
 describe('reading Garmin\'s answers', () => {
   it('takes steps, resting HR, stress and Body Battery from the daily summaries', () => {
     expect(fromSummaries({ data: [SUMMARY('2026-10-24')] })).toEqual({
-      '2026-10-24': { steps: 9120, rhr: 47, stress: 28, bbMax: 88, bbMin: 21 },
+      '2026-10-24': { steps: 9120, stepGoal: 8000, rhr: 47, stress: 28, bbMax: 88, bbMin: 21 },
     });
   });
   it('takes duration and score from sleep, and skips a night with nothing recorded', () => {
     expect(fromSleep([SLEEP('2026-10-24'), SLEEP('2026-10-23', { sleepTimeSeconds: 0, sleepScores: null })]))
-      .toEqual({ '2026-10-24': { sleepSec: 26100, sleepScore: 82 } });
+      .toEqual({ '2026-10-24': { sleepSec: 26100, sleepScore: 82, sleepQ: 'GOOD', deepSec: 5400, lightSec: 14400, remSec: 6300,
+        awakeSec: 900, sleepStart: '2026-10-23T23:05', sleepEnd: '2026-10-24T06:40', sleepNeed: 480, resp: 14.2 } });
   });
   it('takes last night\'s HRV with its balanced range and status', () => {
     expect(fromHrv({ hrvSummaries: [HRV('2026-10-24'), HRV('2026-10-23', { lastNightAvg: null })] })).toEqual({
@@ -58,6 +72,19 @@ describe('reading Garmin\'s answers', () => {
   it('dates a sleep record by its own calendarDate, not the next night\'s need', () => {
     expect(Object.keys(fromSleep([SLEEP('2026-10-24', { nextSleepNeed: { calendarDate: '2026-10-25' } })]))).toEqual(['2026-10-24']);
   });
+  it('reads an activity\'s measured zones, Training Effect and Body Battery cost', () => {
+    const a = fromActivities([ACT('2026-10-24')])['20261024'];
+    expect(a).toMatchObject({ start: '2026-10-24T07:30:00', gmt: '2026-10-24T06:30:00', type: 'virtual_ride', dur: 3600,
+      zones: [300, 1500, 1200, 500, 100], aerobic: 3.4, anaerobic: 1.1, label: 'TEMPO', load: 112, bb: -18 });
+    expect(a.power).toHaveLength(7);
+    expect(fromActivities([ACT('2026-10-24', { hrTimeInZone_1: null, hrTimeInZone_2: null, hrTimeInZone_3: null, hrTimeInZone_4: null, hrTimeInZone_5: null })])['20261024'].zones).toBeNull();
+  });
+  it('reads dates and times in every form Garmin sends them', () => {
+    expect(dayOf({ date: '2026-10-24', localDate: '2026-10-24' })).toBe('2026-10-24');
+    expect(dayOf(Date.UTC(2026, 9, 24, 12))).toBe('2026-10-24');
+    expect(wallOf(Date.UTC(2026, 9, 23, 23, 5))).toBe('2026-10-23T23:05');
+    expect(wallOf('2026-10-23 23:05:12')).toBe('2026-10-23T23:05');
+  });
   it('cuts a range into the windows each endpoint allows', () => {
     expect(windows('2026-01-01', '2026-02-10', 31)).toEqual([['2026-01-01', '2026-01-31'], ['2026-02-01', '2026-02-10']]);
     expect(addDays('2026-03-01', -1)).toBe('2026-02-28');
@@ -74,6 +101,7 @@ describe('refreshing from Garmin', () => {
       if (u.includes('/dailysummaries')) return json({ data: [SUMMARY('2026-10-24')] });
       if (u.includes('/dailySleepSummariesByDate')) return json([SLEEP('2026-10-24')]);
       if (u.includes('/hrv-service/hrv/daily/')) return json({ hrvSummaries: [HRV('2026-10-24')] });
+      if (u.includes('/activities/search/activities')) return json([ACT(u.match(/startDate=([\d-]+)/)[1])]);
       return json({}, 404);
     });
     return calls;
@@ -87,28 +115,50 @@ describe('refreshing from Garmin', () => {
     expect(calls.slice(1).every((c) => c.auth === 'Bearer eyJ.token.sig')).toBe(true);
   });
 
-  it('reads a year on the first run, in windows that fit the request limit', async () => {
+  it('reads the last few days and a year of history on the first run, inside the budget', async () => {
     const calls = garmin();
     const kv = fakeKV();
     await refreshGarmin(env(kv), { today: '2026-10-24' });
     const reads = calls.filter((c) => c.method === 'GET');
-    // Summaries take a year a call, sleep 31 days, HRV 28 (its limit is undocumented).
-    expect(reads.filter((c) => c.u.includes('dailysummaries'))).toHaveLength(1);
-    expect(reads.filter((c) => c.u.includes('dailySleep'))).toHaveLength(12);
-    expect(reads.filter((c) => c.u.includes('/hrv/daily/'))).toHaveLength(14);
-    expect(calls.length).toBeLessThan(50);   // a free Worker's subrequest limit
+    // The last four days (3 reads), last week's activities (1), then one year: summaries
+    // a year a call, sleep 31 days, HRV 28 (its limit is undocumented).
+    expect(reads.filter((c) => c.u.includes('dailysummaries'))).toHaveLength(2);
+    expect(reads.filter((c) => c.u.includes('dailySleep'))).toHaveLength(13);
+    expect(reads.filter((c) => c.u.includes('/hrv/daily/'))).toHaveLength(15);
+    expect(calls.length).toBeLessThanOrEqual(GARMIN_BUDGET);   // under a free Worker's 50
     const stored = JSON.parse(kv.m.get(GARMIN_KV));
-    expect(stored.days['2026-10-24']).toMatchObject({ steps: 9120, sleepScore: 82, hrv: 58, rhr: 47 });
+    expect(stored.days['2026-10-24']).toMatchObject({ steps: 9120, sleepScore: 82, hrv: 58, rhr: 47, deepSec: 5400, sleepStart: '2026-10-23T23:05', resp: 14.2 });
+    expect(stored.backfill.daily).toBe('2025-10-20');
   });
 
-  it('rereads only the last few days once it has a year, and writes nothing if nothing changed', async () => {
-    garmin();
+  it('walks back to 2013 over successive runs, the days first and then the activities', async () => {
     const kv = fakeKV();
+    let runs = 0, last;
+    while (runs < 60) {
+      const calls = garmin();
+      last = await refreshGarmin(env(kv), { today: '2026-10-24' });
+      runs++;
+      expect(calls.length).toBeLessThanOrEqual(GARMIN_BUDGET);
+      if (last.complete) break;
+    }
+    expect(last.complete).toBe(true);
+    const stored = JSON.parse(kv.m.get(GARMIN_KV));
+    expect(stored.backfill.daily).toBe(GARMIN_FLOOR);
+    expect(stored.backfill.acts).toBe(GARMIN_FLOOR);
+    // About fourteen runs for the days, then the months of activities.
+    expect(runs).toBeLessThan(25);
+    const acts = JSON.parse(kv.m.get(GARMIN_ACTS_KV)).acts;
+    expect(Object.keys(acts).length).toBeGreaterThan(150);   // one a month back to 2013
+  });
+
+  it('once the history is in, rereads only the last few days, and writes nothing if nothing changed', async () => {
+    const kv = fakeKV({ [GARMIN_KV]: JSON.stringify({ days: {}, backfill: { daily: GARMIN_FLOOR, acts: GARMIN_FLOOR, actsPage: 0 } }) });
+    garmin();
     await refreshGarmin(env(kv), { today: '2026-10-24' });
     const calls = garmin();
     const before = kv.puts.length;
     await refreshGarmin(env(kv), { today: '2026-10-24' });
-    expect(calls.filter((c) => c.method === 'GET')).toHaveLength(3);
+    expect(calls.filter((c) => c.method === 'GET')).toHaveLength(4);
     expect(calls.find((c) => c.u.includes('dailysummaries')).u).toContain('startDate=2026-10-21');
     expect(kv.puts.length).toBe(before);
   });
@@ -135,6 +185,7 @@ describe('refreshing from Garmin', () => {
         if (hrv401 && init.headers.Authorization === 'Bearer tok1') { hrv401 = false; return new Response('', { status: 401 }); }
         return json({ hrvSummaries: [HRV('2026-10-24')] });
       }
+      if (u.includes('/activities/search/activities')) return new Response(null, { status: 204 });
       return json({}, 500);
     });
     const kv = fakeKV();

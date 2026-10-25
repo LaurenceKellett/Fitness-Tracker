@@ -507,6 +507,7 @@ function periodLabel(scope){
 // Reads as a sentence fragment after a figure: "142 mi in 2026" / "…in the last 30 days".
 function periodPhrase(scope){
   const sc=scope==null?activeYear:scope;
+  if(sc==='All')return'across your whole history';
   if(ROLLING_PERIODS[sc])return'in the '+ROLLING_PERIODS[sc].label.toLowerCase();
   return'in '+String(sc);
 }
@@ -985,14 +986,118 @@ function hrvRecent(days,todayIso){
   return{hrv:last.hrv,status:last.hrvStatus||null,low:last.hrvLow,high:last.hrvHigh,below,nights:week.length};
 }
 
+/* Breathing rate asleep this week against the 60 days before: it tends to rise a day
+ * or two before illness shows. Same thresholds of evidence as resting HR. */
+function respTrend(days,todayIso){
+  const week=healthWindow(days,todayIso,7).map(r=>r.resp).filter(v=>v>0);
+  const before=healthWindow(days,todayIso,67).slice(7).map(r=>r.resp).filter(v=>v>0);
+  if(week.length<4||before.length<20)return null;
+  const avg7=avgOf(week),base=avgOf(before);
+  return{avg7:Math.round(avg7*10)/10,base:Math.round(base*10)/10,delta:Math.round((avg7-base)*10)/10};
+}
+
 /* One sentence on whether anything says ease off. Resting HR leads, because a rise
- * of five or more is the earlier and plainer warning. */
-function recoveryVerdict(rhr,hrv){
+ * of five or more is the earlier and plainer warning; then breathing rate asleep up a
+ * breath a minute or more; then a run of low HRV. */
+function recoveryVerdict(rhr,hrv,resp){
   if(rhr&&rhr.delta>=5)return`Resting heart rate is ${rhr.delta} bpm above its usual level this week (${rhr.avg7} against ${rhr.base}). That often comes before illness or overreaching, so an easier day or two would be no loss.`;
+  if(resp&&resp.delta>=1)return`Breathing rate asleep is up ${resp.delta} a minute on its usual level this week (${resp.avg7} against ${resp.base}). That tends to rise a day or two before illness shows.`;
   if(hrv&&hrv.below>=3)return`HRV has been below its balanced range on ${hrv.below} of the last ${hrv.nights} nights. One low night means little; a run of them is the body asking for less.`;
   if(hrv&&hrv.status==='BALANCED'&&(!rhr||rhr.delta<=2))return'HRV is in its balanced range'+(rhr?' and resting heart rate is at its usual level':'')+': nothing here says hold back.';
   if(hrv&&hrv.status)return`Last night's HRV reads ${hrv.status.toLowerCase()}`+(rhr?`, with resting heart rate ${rhr.delta>=0?rhr.delta+' bpm above':-rhr.delta+' bpm below'} its usual level.`:'.');
   return'';
+}
+
+/* ── RECOVERY OVER A PERIOD ──
+ * The Recovery charts follow the same period control as every other chart. A period
+ * is a date range; within it, days are grouped by day, week (Monday start) or month.
+ */
+function healthRange(scope,days,today){
+  const keys=Object.keys(days||{}).sort();
+  if(!keys.length)return null;
+  const t=today||todayISO();
+  const sc=scope==null?activeYear:scope;
+  if(sc==='All')return{from:keys[0],to:t};
+  if(isYearScope(sc)){const y=String(sc);return{from:y+'-01-01',to:(y+'-12-31')<t?y+'-12-31':t};}
+  return{from:periodStart(sc,t)||keys[0],to:t};
+}
+// Days for a month or so, weeks for up to a year, months beyond.
+function healthAutoUnit(from,to){
+  const span=(new Date(to+'T12:00:00')-new Date(from+'T12:00:00'))/86400000+1;
+  return span<=45?'day':span<=400?'week':'month';
+}
+/* Every bucket from `from` to `to`, empty ones included (value null), so a gap in the
+ * data shows as a gap rather than closing up. `pick` returns a day's figure or null;
+ * `how` is 'avg' (per day with data) or 'sum'. */
+function healthBuckets(days,from,to,unit,pick,how){
+  const out=[],at={};
+  const d=new Date(from+'T12:00:00Z'),end=new Date(to+'T12:00:00Z');
+  for(;d<=end;d.setUTCDate(d.getUTCDate()+1)){
+    const k=d.toISOString().slice(0,10);
+    const key=unit==='day'?k:periodStartISO(k,unit);
+    let b=at[key];
+    if(!b){b=at[key]={key,sum:0,n:0};out.push(b);}
+    const v=days&&days[k]?pick(days[k],k):null;
+    if(v!=null&&isFinite(v)){b.sum+=v;b.n++;}
+  }
+  return out.map(b=>({key:b.key,n:b.n,value:b.n?(how==='sum'?b.sum:b.sum/b.n):null}));
+}
+/* Bedtimes and wake times on one evening-to-noon axis: minutes after 18:00, so 23:30
+ * is 330 and 06:45 the next morning is 765. */
+function nightMinutes(wall){
+  if(!wall)return null;
+  const m=/T?(\d{2}):(\d{2})/.exec(String(wall).slice(10)||String(wall));
+  if(!m)return null;
+  const t=+m[1]*60+(+m[2]);
+  return t>=18*60?t-18*60:t+6*60;
+}
+function nightClock(mins){
+  if(mins==null||!isFinite(mins))return'—';
+  const t=((Math.round(mins)+18*60)%1440+1440)%1440;
+  return String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0');
+}
+function sdOf(xs){
+  if(xs.length<2)return null;
+  const m=avgOf(xs);
+  return Math.sqrt(xs.reduce((a,x)=>a+(x-m)*(x-m),0)/(xs.length-1));
+}
+
+/* ── GARMIN ACTIVITIES ↔ STRAVA ──
+ * The same ride reaches Strava and Garmin Connect separately. They are paired by local
+ * start: the same day, within three minutes, and (where both say) moving times within
+ * a third of each other, nearest start first and each Garmin activity used once.
+ * Returns { stravaId: garminRecord }.
+ */
+function garminMatch(stravaActs,garminActs){
+  const byDay={};
+  Object.entries(garminActs||{}).forEach(([id,g])=>{
+    if(!g||!g.start)return;
+    (byDay[g.start.slice(0,10)]=byDay[g.start.slice(0,10)]||[]).push({id,g});
+  });
+  const mins=t=>{const m=/^(\d{2}):(\d{2})/.exec(t||'');return m?+m[1]*60+(+m[2]):null;};
+  const pairs=[];
+  (stravaActs||[]).forEach(a=>{
+    const at=mins(a.time),day=a.date&&a.date.slice(0,10);
+    if(at==null||!day||!byDay[day])return;
+    byDay[day].forEach(({id,g})=>{
+      const diff=Math.abs(mins(g.start.slice(11,16))-at);
+      if(diff>3)return;
+      if(a.mt>0&&g.dur>0){const r=a.mt/g.dur;if(r<0.75||r>1.33)return;}
+      pairs.push({sid:String(a.id),gid:id,g,diff});
+    });
+  });
+  pairs.sort((x,y)=>x.diff-y.diff);
+  const out={},usedG=new Set();
+  pairs.forEach(p=>{if(out[p.sid]||usedG.has(p.gid))return;out[p.sid]=p.g;usedG.add(p.gid);});
+  return out;
+}
+// Garmin's Training Effect labels, in words; anything new is tidied rather than hidden.
+const TE_LABELS={RECOVERY:'Recovery',AEROBIC_BASE:'Base',TEMPO:'Tempo',LACTATE_THRESHOLD:'Threshold',
+  VO2MAX:'VO2 max',ANAEROBIC_CAPACITY:'Anaerobic',SPRINT:'Sprint',NO_BENEFIT:'No benefit'};
+const TE_ORDER=['RECOVERY','AEROBIC_BASE','TEMPO','LACTATE_THRESHOLD','VO2MAX','ANAEROBIC_CAPACITY','SPRINT','NO_BENEFIT'];
+function teLabel(k){
+  if(!k)return'Unlabelled';
+  return TE_LABELS[k]||String(k).toLowerCase().replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());
 }
 
 /* ── ZWIFT: A PLANNED DAY'S STATE ──
@@ -1174,7 +1279,7 @@ if (typeof module !== 'undefined' && module.exports) {
     CHRONIC_DAYS,CHRONIC_WEIGHTS,weeklyLoadStats,MONOTONY_CAUTION,MONOTONY_CAP,
     yearEndProjection,projectionWindow,daysInYear,PROJ_WINDOW_MIN,
     zwiftYearStats,zwiftYearVerdict,ZW_PACE_MIN_DAYS,zwiftPlanState,parseZwiftTime,
-    healthNight,restingHrTrend,hrvRecent,recoveryVerdict,
+    healthNight,restingHrTrend,hrvRecent,recoveryVerdict,respTrend,healthRange,healthAutoUnit,healthBuckets,nightMinutes,nightClock,sdOf,garminMatch,teLabel,TE_ORDER,
     setScope(s){
       if(s.unit!==undefined)unit=s.unit;
       if(s.activeYear!==undefined)activeYear=s.activeYear;

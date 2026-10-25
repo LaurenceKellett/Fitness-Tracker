@@ -16,7 +16,8 @@ const {
   CHRONIC_DAYS, CHRONIC_WEIGHTS, weeklyLoadStats, MONOTONY_CAP,
   yearEndProjection, projectionWindow, daysInYear, PROJ_WINDOW_MIN,
   zwiftYearStats, zwiftYearVerdict, ZW_PACE_MIN_DAYS, zwiftPlanState, parseZwiftTime,
-  healthNight, restingHrTrend, hrvRecent, recoveryVerdict,
+  healthNight, restingHrTrend, hrvRecent, recoveryVerdict, respTrend, healthRange, healthAutoUnit,
+  healthBuckets, nightMinutes, nightClock, sdOf, garminMatch, teLabel,
   setScope,
 } = calc;
 
@@ -1075,6 +1076,7 @@ describe('rolling periods', () => {
     expect(periodLabel('90d')).toBe('Last 90 days');
     expect(periodPhrase('2026')).toBe('in 2026');
     expect(periodPhrase('30d')).toBe('in the last 30 days');
+    expect(periodPhrase('All')).toBe('across your whole history');
   });
 
   it('accepts only scopes the UI can actually produce', () => {
@@ -1634,5 +1636,68 @@ describe('recovery', () => {
     expect(recoveryVerdict({ delta: 1 }, { below: 3, nights: 7 })).toMatch(/^HRV has been below its balanced range on 3 of the last 7/);
     expect(recoveryVerdict({ delta: 0 }, { below: 0, nights: 7, status: 'BALANCED' })).toMatch(/nothing here says hold back/);
     expect(recoveryVerdict(null, null)).toBe('');
+  });
+});
+
+describe('recovery over a period', () => {
+  const days = { '2026-10-20': { steps: 8000 }, '2026-10-21': { steps: 10000 }, '2026-10-23': { steps: 6000 }, '2013-05-01': { steps: 1 } };
+
+  it('turns the period control into a date range', () => {
+    expect(healthRange('All', days, '2026-10-24')).toEqual({ from: '2013-05-01', to: '2026-10-24' });
+    expect(healthRange('2025', days, '2026-10-24')).toEqual({ from: '2025-01-01', to: '2025-12-31' });
+    expect(healthRange('2026', days, '2026-10-24')).toEqual({ from: '2026-01-01', to: '2026-10-24' });
+    expect(healthRange('30d', days, '2026-10-24')).toEqual({ from: '2026-09-25', to: '2026-10-24' });
+    expect(healthRange('All', {}, '2026-10-24')).toBeNull();
+  });
+  it('groups by day for a month, week for a year, month beyond', () => {
+    expect(healthAutoUnit('2026-09-25', '2026-10-24')).toBe('day');
+    expect(healthAutoUnit('2026-01-01', '2026-10-24')).toBe('week');
+    expect(healthAutoUnit('2013-05-01', '2026-10-24')).toBe('month');
+  });
+  it('buckets with gaps kept, as an average per day with data or a sum', () => {
+    const daily = healthBuckets(days, '2026-10-20', '2026-10-23', 'day', (r) => r.steps, 'avg');
+    expect(daily.map((b) => b.value)).toEqual([8000, 10000, null, 6000]);
+    const weekly = healthBuckets(days, '2026-10-19', '2026-10-25', 'week', (r) => r.steps, 'avg');
+    expect(weekly).toEqual([{ key: '2026-10-19', n: 3, value: 8000 }]);
+    expect(healthBuckets(days, '2026-10-19', '2026-10-25', 'week', (r) => r.steps, 'sum')[0].value).toBe(24000);
+  });
+  it('puts bedtimes and wake times on one evening-to-noon axis', () => {
+    expect(nightMinutes('2026-10-23T23:30')).toBe(330);
+    expect(nightMinutes('2026-10-24T00:30')).toBe(390);
+    expect(nightMinutes('2026-10-24T06:45')).toBe(765);
+    expect(nightClock(330)).toBe('23:30');
+    expect(nightClock(765)).toBe('06:45');
+    expect(Math.round(sdOf([300, 330, 360]))).toBe(30);
+  });
+  it('warns on a rise in breathing rate asleep, after resting HR and before HRV', () => {
+    const d = {};
+    for (let i = 0; i < 70; i++) d[new Date(Date.UTC(2026, 9, 24 - i)).toISOString().slice(0, 10)] = { resp: i < 7 ? 15.6 : 14.2 };
+    const r = respTrend(d, '2026-10-24');
+    expect(r).toEqual({ avg7: 15.6, base: 14.2, delta: 1.4 });
+    expect(recoveryVerdict({ delta: 1 }, { below: 4, nights: 7 }, r)).toMatch(/^Breathing rate asleep is up 1.4/);
+    expect(recoveryVerdict({ delta: 6, avg7: 53, base: 47 }, null, r)).toMatch(/^Resting heart rate/);
+  });
+});
+
+describe('garminMatch', () => {
+  const g = (start, dur) => ({ start, dur });
+  it('pairs a Strava activity with the Garmin one starting within three minutes', () => {
+    const m = garminMatch(
+      [{ id: 1, date: '2026-10-24', time: '07:30', mt: 3600 }, { id: 2, date: '2026-10-24', time: '18:00', mt: 1800 }],
+      { a: g('2026-10-24T07:31:40', 3550), b: g('2026-10-24T12:00:00', 1800), c: g('2026-10-24T18:05:00', 1800) });
+    expect(Object.keys(m)).toEqual(['1']);
+    expect(m['1'].start).toBe('2026-10-24T07:31:40');
+  });
+  it('refuses a pair whose moving times disagree, and uses each Garmin activity once', () => {
+    expect(garminMatch([{ id: 1, date: '2026-10-24', time: '07:30', mt: 3600 }], { a: g('2026-10-24T07:30:00', 900) })).toEqual({});
+    const m = garminMatch(
+      [{ id: 1, date: '2026-10-24', time: '07:30', mt: 3600 }, { id: 2, date: '2026-10-24', time: '07:32', mt: 3600 }],
+      { a: g('2026-10-24T07:32:00', 3600) });
+    expect(Object.keys(m)).toEqual(['2']);   // the nearer start wins
+  });
+  it('names Training Effect labels, and tidies one it does not know', () => {
+    expect(teLabel('LACTATE_THRESHOLD')).toBe('Threshold');
+    expect(teLabel('NEW_KIND_OF_THING')).toBe('New kind of thing');
+    expect(teLabel(null)).toBe('Unlabelled');
   });
 });

@@ -31,7 +31,7 @@ The Worker holds all secrets and does all the heavy work. The Pages frontend is 
 |------|---------|
 | `worker.js` | Cloudflare Worker — OAuth, Strava fetch, GPS privacy trimming, KV caching, AI summary, Zwift Routes proxy, and the scheduled Strava → Notion Training Log sync |
 | `index.html` | Dashboard frontend — all CSS, HTML, and the app's own JS |
-| `garmin.js` | Reads the owner's daily Garmin health numbers (sleep, HRV, resting HR, steps) for the admin-only `/health` (see **Recovery (Garmin)**) |
+| `garmin.js` | Reads the owner's Garmin health numbers (sleep, HRV, resting HR, steps) and activities, back to 2013, for the admin-only `/health` (see **Recovery (Garmin)**) |
 | `calendar.js` | Planned Zwift rides ↔ Google Calendar, both ways (see **Google Calendar sync**). Imported by `worker.js`; imports `calc.js` for the route estimates |
 | `calc.js` | The pure derivations and formatters, split out of `index.html` so they can be unit-tested. Loaded as a classic script before the inline one, so its top-level declarations share the same global scope and every existing call site works unchanged |
 | `sw.js` | Service worker — caches the app shell and the two CDN libraries so the dashboard opens offline |
@@ -1749,39 +1749,84 @@ The owner's daily health numbers, from Garmin's **Personal API** (Garmin Connect
   caches `/health`. A device without a key (or whose key the Worker refuses) never asks and
   shows nothing of them: no section, no empty card.
 
-**What is kept**, per day, in KV under `garmin_v1` (about 50 KB a year): steps, resting
-heart rate, average stress, Body Battery high and low, sleep duration and score, and
-overnight HRV with Garmin's 7-day average, balanced range and status. Nothing finer than a
-day, and nothing of nutrition, weight or cycle tracking. Garmin files sleep and HRV under
-the morning you woke up, so the night before an activity is that activity's own date.
+**What is kept.** Per day, in KV under `garmin_v1`: steps and step goal, resting heart
+rate, average stress, Body Battery high and low; sleep duration, score and quality, deep /
+light / REM / awake time, when sleep started and ended (local clock), Garmin's sleep need
+and overnight breathing rate; overnight HRV with its 7-day average, balanced range and
+status. Per Garmin activity, under `garmin_acts_v1`: start (local and GMT), type, moving
+time, distance, average HR, seconds in each of the five Garmin HR zones (and power zones
+when recorded), aerobic and anaerobic Training Effect with its label, training load and
+Body Battery used. Nothing finer than that, and nothing of nutrition, weight or cycle
+tracking. Garmin files sleep and HRV under the morning you woke up, so the night before an
+activity is that activity's own date.
 
-**Where it shows**
-- **Charts → Recovery → Readiness and load**: the last 90 days of HRV against its balanced
-  range (nights outside it in red), resting heart rate, and training time as bars. Chips
-  for last night's HRV, this week's resting HR against the 60 days before, and 7-day sleep
-  score and steps. The verdict leads with a resting HR rise of 5 bpm or more, then three or
-  more nights below the HRV range, then the all-clear (`recoveryVerdict` in `calc.js`).
-- **Each activity**: *The night before*, with sleep score and duration, HRV, resting HR
-  and Body Battery peak.
+**How far back.** Everything Garmin holds, back to 1 January 2013 (`GARMIN_FLOOR`). The free
+Workers plan allows 50 subrequests a run, so each run spends at most 40 (`GARMIN_BUDGET`):
+first the token, the last four days and the last week of activities, then the daily
+backfill a year at a time (about 27 requests a year, newest first), and only once that
+reaches 2013 the activity backfill, a month at a time. Progress is kept in KV, so a run
+picks up where the last stopped. At eight runs a day the whole history lands in about two
+to three days; each `GET /health?refresh=1` (admin) runs an extra pass.
+
+**Where it shows.** Charts → Recovery, which exists only for a device holding the key:
+- **Resting heart rate and training**: the last 90 days, whatever the period control says,
+  with resting HR as a line (red dots on nights HRV was outside its range) over training
+  time as bars. The verdict leads with a resting HR rise of 5 bpm or more, then overnight
+  breathing up a breath a minute or more on the month before (often the first sign of
+  illness), then three or more of the last seven nights below the HRV range, then the
+  all-clear (`recoveryVerdict` in `calc.js`).
+- **Sleep**: score, or with the switch, deep / light / REM / awake stacked.
+- **Bedtime and wake time**: floating bars from falling asleep to waking, with the spread of
+  bedtimes as the steadiness figure.
+- **HRV**: overnight HRV against its balanced range.
+- **Steps**: a day's average against the goal, by day, week or month (auto from the period,
+  overridable). Today is left out, being half-counted.
+- **What each workout costs you**: Body Battery used against hours moving, one dot per
+  Garmin activity, coloured by sport, with Body Battery per hour as the chips.
+- **What kind of training it was**: hours under each Training Effect label, stacked by week
+  or month. Garmin's labels are its own judgement; the verdict says so.
+
+These follow the period control (sleep, bedtime, HRV, steps, workout cost and Training
+Effect), bucketing by day up to 45 days, by week up to 400, by month beyond
+(`healthRange`, `healthAutoUnit`, `healthBuckets` in `calc.js`).
+
+Elsewhere, still only with the key:
+- **Summary → This morning**: last night's sleep and score, HRV and its status, resting HR
+  and Body Battery, in one line.
+- **Measured heart-rate zones.** Each Strava activity is matched to its Garmin twin (same
+  day, starts within three minutes, moving times within a third of each other, nearest
+  first, each Garmin activity used once: `garminMatch`). A matched activity's estimated
+  zones are swapped for Garmin's measured ones, everywhere zones are used, and the zone
+  chart's subtitle counts how many were measured. Forgetting the key restores the
+  estimates.
+- **Each activity**: *The night before, and what it took*: sleep, HRV, resting HR, Body
+  Battery peak, then Body Battery used and Training Effect; the zone bar says when it is
+  measured.
+
+**A lesson in hiding.** The Recovery header, zone and morning line are hidden with the
+`hidden` attribute, but `.charts-grid`, `.section-header` and `.sum-morning` set `display`,
+which beats the attribute's user-agent style: the empty section showed without a key (no
+data was ever sent). A `[hidden]{display:none!important}` rule for those three fixes it, the
+rearrange buttons skip panels in hidden zones, and the smoke test checks what is on screen
+(not the attribute) with no key and with a refused key.
 
 **How it is read** (`garmin.js`). The `GARMIN_API` secret is swapped for a 24-hour bearer
 token at `POST https://personal.connectapi.garmin.com/personalapitoken-service/personal-api/personal-api-key/token`
-(`Authorization: ApiKey <key>`), then three endpoints are read: `/usersummary-service/v2/dailysummaries`
-(a year a request), `/sleep-service/sleep/dailySleepSummariesByDate` (31 days) and
-`/hrv-service/hrv/daily/{start}/{end}` (28 days: its limit is undocumented). A 204 or 404
-is no data for those days, and a 401 mid-run renews the token once. Paths and fields are from Garmin's own client
+(`Authorization: ApiKey <key>`), then four endpoints are read: `/usersummary-service/v2/dailysummaries`
+(a year a request), `/sleep-service/sleep/dailySleepSummariesByDate` (31 days),
+`/hrv-service/hrv/daily/{start}/{end}` (28 days: its limit is undocumented) and
+`/activitylist-service/activities/search/activities` (45 a page). A 204 or 404 is no data,
+and a 401 mid-run renews the token once. Paths and fields are from Garmin's own client
 (`garmin-connect-personal-api-python` 1.0.0) and the `gcpapi-sync` models generated from
-Garmin's OpenAPI document. It has its own cron (`20 */3 * * *`): the first run reads a year
-in about 28 requests, later ones reread the last four days, and KV is written only when
-something changed. `GET /health?refresh=1` (admin) reads Garmin first.
+Garmin's OpenAPI document. It has its own cron (`20 */3 * * *`), and KV is written only
+when something changed.
 
 **When the key expires.** A Personal API key lasts 30 days to a year. When Garmin refuses
 it, the stored days are kept and the chart says *"Garmin refused the GARMIN_API key: it has
 probably expired"*. Make a new key in Garmin Connect and replace the `GARMIN_API` secret.
 
 **Not built yet**: sleep against riding efficiency (worth showing only past ~30 nights, and
-saying so if there is no link), recovery time after big efforts, steps away from exercise,
-and Garmin's per-activity Training Effect.
+saying so if there is no link), and recovery time after big efforts.
 
 ## To do: Zwift Routes data in Notion
 
