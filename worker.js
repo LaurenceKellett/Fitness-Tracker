@@ -372,7 +372,8 @@ async function route(request, env, ctx) {
       try {
         if (url.searchParams.get('reset')) await forgetEndpoints(env);
         const week = weekFor(url.searchParams.get('week'), env);
-        const r = await sendWeekly(env, week, await weeklyData(env));
+        // Last week, the one the coming Tuesday covers, is marked as sent; any other is not.
+        const r = await sendWeekly(env, week, await weeklyData(env), { mark: week.from === weekFor(null, env).from });
         return new Response(JSON.stringify({ sent: true, ...r }), { headers });
       } catch (err) {
         return new Response(JSON.stringify({ sent: false, error: err.message }), { status: 502, headers });

@@ -2,7 +2,7 @@
 // on the quarter-hour cron), sent through a stubbed Fastmail.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildWeekly, lastWeek, mondayOf, WEEKLY_HEADER } from '../weekly.js';
-import { maybeSendWeekly } from '../weekly.js';
+import { maybeSendWeekly, sendWeekly } from '../weekly.js';
 import worker from '../worker.js';
 
 afterEach(() => vi.restoreAllMocks());
@@ -53,7 +53,7 @@ describe('what it says', () => {
   });
   it('holds every section there is data for', () => {
     for (const s of ['Training', 'Day by day', 'Every activity', 'Heart-rate zones', 'What kind of training it was', 'Power', 'Sleep', 'Recovery', 'Running', 'Zwift routes', '2026 so far']) {
-      expect(mail.html).toContain(`>${s}</div>`);
+      expect(mail.html).toContain(`>${s}</td>`);
     }
   });
   it('carries what you told Garmin, matched to the Strava activity', () => {
@@ -72,7 +72,7 @@ describe('what it says', () => {
     expect(mail.html).not.toMatch(/undefined|NaN|null|\[object/);
     expect(mail.text).not.toMatch(/undefined|NaN|\[object/);
     expect(mail.html).not.toMatch(/text-transform/i);
-    expect(mail.html).toContain('color-scheme:light');
+    expect(mail.html).toContain('color-scheme: light dark');
   });
   it('says so plainly for an empty week', () => {
     const empty = buildWeekly({ acts: [], days: {}, gacts: {}, routes: [] }, WEEK);
@@ -123,6 +123,13 @@ describe('when it goes', () => {
     for (let i = 0; i < 3; i++) await expect(maybeSendWeekly(e, TUE_0700, load)).rejects.toThrow();
     expect(await maybeSendWeekly(e, TUE_0700, load)).toEqual({ skipped: 'done this week' });
     expect(JSON.parse(e.CACHE.m.get('weekly_email_v1'))).toMatchObject({ tries: 3, error: expect.any(String) });
+  });
+  it('a send by hand of the week Tuesday would send stops Tuesday sending it again', async () => {
+    const sent = fastmail();
+    const e = env();
+    await sendWeekly(e, { from: '2026-10-19', to: '2026-10-25' }, DATA, { mark: true });
+    expect(await maybeSendWeekly(e, TUE_0700, load)).toEqual({ skipped: 'done this week' });
+    expect(sent).toHaveLength(1);
   });
   it('does nothing without the Fastmail token', async () => {
     globalThis.fetch = vi.fn();

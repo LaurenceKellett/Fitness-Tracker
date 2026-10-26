@@ -23,10 +23,9 @@
  * Health data goes only to WEEKLY_TO (the owner's own address), from the owner's own
  * Fastmail. It is never in a URL or a log line.
  *
- * Styling is light only, fixed, as the Tasks digest settled on: `color-scheme: light`
- * so clients do not invert it, every surface painting its own background. Charts are
- * table cells with heights and widths, which every mail client draws; no images, no
- * scripts, no web fonts.
+ * Styling follows the Japan planner's email (see Look, below). Charts are table cells
+ * with heights and widths, which every mail client draws; the only images are the
+ * section icons, and a blocked one leaves an empty tinted square.
  */
 import calc from './calc.js';
 import { sendMail } from './jmap.js';
@@ -67,47 +66,100 @@ function weekLabel(w) {
 }
 
 // ── Look ─────────────────────────────────────────────────────────────────────
+// The Japan planner's email, carried over: a solid ink header block, then soft grey
+// section cards with square-ish corners, each titled by a small label and icon over
+// a hairline, holding white rows; links underlined in the accent. The dashboard and
+// the planner share the accent (#ff385c) and the font (Plus Jakarta Sans), so this
+// reads as the same family. A dark palette in THEME, as the planner has, is applied
+// by clients that honour prefers-color-scheme; the chart colours hold on either.
 const P = {
-  ink: '#1a1a1a', body: '#33363b', muted: '#6b7280', faint: '#9aa1ab',
-  canvas: '#f1f2f4', card: '#ffffff', edge: '#e3e5e9', hair: '#eef0f2', track: '#eef0f2',
-  good: '#15803d', warn: '#b45309', bad: '#c92a2a', accent: '#0a46b9',
+  ink: '#222222', body: '#222222', muted: '#6b6b6b', faint: '#8a8a8a',
+  canvas: '#ffffff', card: '#f7f7f7', surface: '#ffffff', edge: '#e3e3e3', hair: '#ececec', track: '#e9e9e9',
+  hero: '#222222', heroText: '#ffffff', heroMuted: '#cfcfd4', heroAccent: '#ffb3c1',
+  accent: '#ff385c', accentSoft: '#ffeef1', accentText: '#d70466',
+  good: '#1a7f43', warn: '#9a6410', bad: '#c92a2a',
 };
 const SPORT = { Ride: '#0a46b9', Virtual: '#9b6cf0', Run: '#d33a3c', Walk: '#0d9488', Swim: '#0891b2', Other: '#94a3b8' };
 const ZONE = ['#94a3b8', '#0ea5e9', '#22c55e', '#f59e0b', '#ef4444'];
 const TE_COL = { RECOVERY: '#94a3b8', AEROBIC_BASE: '#38bdf8', TEMPO: '#22c55e', LACTATE_THRESHOLD: '#f59e0b', VO2MAX: '#f97316', ANAEROBIC_CAPACITY: '#ef4444', SPRINT: '#a855f7', NO_BENEFIT: '#cbd5e1' };
-const FONT = `-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif`;
+const FONT = `'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif`;
+const FONT_URL = 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap';
 const f = (size, weight = 400, lh = 1.5) => `font-family:${FONT};font-size:${size}px;font-weight:${weight};line-height:${lh};`;
 const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const R_CARD = 6, R_ROW = 4;
+const THEME = `
+  a.lk { color:${P.ink}; text-decoration:underline; text-decoration-color:${P.accent}; text-underline-offset:2px; }
+  @media (prefers-color-scheme: dark) {
+    body, .page { background:#18191c !important; }
+    .card { background:#26272d !important; border-color:#45464e !important; }
+    .sf   { background:#32333a !important; border-color:#4a4b53 !important; }
+    .card, .sf, .tx { color:#f2f2f2 !important; }
+    .mu   { color:#b4b4ba !important; }
+    .ac   { color:#ff6b7a !important; }
+    .gd   { color:#5fd48f !important; }
+    .wn   { color:#e0a642 !important; }
+    .hair { border-color:#45464e !important; }
+    .hero { background:#2b2c33 !important; border-color:#45464e !important; }
+    .trk  { background:#45464e !important; }
+    .iw   { background:#3a2226 !important; }
+    .btn  { background:#f2f2f2 !important; color:#111111 !important; }
+    a.lk  { color:#f2f2f2 !important; }
+    /* Text coloured inline in the sections, without a class of its own. */
+    .card [style*="color:#222222"] { color:#f2f2f2 !important; }
+    .card [style*="color:#6b6b6b"], .card [style*="color:#8a8a8a"] { color:#b4b4ba !important; }
+    .card [style*="color:#1a7f43"] { color:#5fd48f !important; }
+    .card [style*="color:#9a6410"] { color:#e0a642 !important; }
+  }`;
 
+// The dashboard's Material Symbols, as small images in the accent: several mail
+// clients never load an icon font and would print the ligature word instead.
+function icon(name, size = 16) {
+  const url = `https://api.iconify.design/material-symbols/${name.replace(/_/g, '-')}-rounded.svg?color=%23ff385c&width=24&height=24`;
+  return `<img src="${url}" width="${size}" height="${size}" alt="" style="display:inline-block;width:${size}px;height:${size}px;border:0;vertical-align:middle;">`;
+}
+function iconBox(name, box = 26, size = 16) {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" class="iw" style="width:${box}px;height:${box}px;border-radius:${R_ROW}px;background:${P.accentSoft};"><tr>`
+    + `<td align="center" valign="middle" style="width:${box}px;height:${box}px;line-height:0;">${icon(name, size)}</td></tr></table>`;
+}
+const SECTION_ICON = {
+  Training: 'directions_bike', 'Day by day': 'calendar_month', 'Every activity': 'format_list_bulleted',
+  'Heart-rate zones': 'favorite', 'What kind of training it was': 'bolt', Power: 'electric_bolt', Sleep: 'bedtime',
+  Recovery: 'monitor_heart', Running: 'directions_run', 'Zwift routes': 'route',
+};
+// One card per section: its label and icon over a hairline, a line saying what it
+// shows, then the content in a white row.
 function card(title, sub, inner) {
-  return `<tr><td style="padding:0 0 14px 0;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${P.card};border:1px solid ${P.edge};border-radius:10px;">
-<tr><td style="padding:18px 20px 16px 20px;">
-<div style="${f(16, 650, 1.3)}color:${P.ink};">${esc(title)}</div>
-${sub ? `<div style="${f(13, 400, 1.45)}color:${P.muted};margin-top:3px;">${sub}</div>` : ''}
-<div style="margin-top:14px;">${inner}</div>
-</td></tr></table></td></tr>`;
+  const ic = SECTION_ICON[title] || 'trending_up';
+  return `<tr><td style="padding:0 0 12px 0;">
+<div class="card tx" style="background:${P.card};color:${P.ink};border:1px solid ${P.edge};border-radius:${R_CARD}px;padding:14px 16px 14px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="hair" style="margin:0 0 10px 0;border-bottom:1px solid ${P.edge};"><tr>
+<td style="width:26px;padding:0 9px 10px 0;vertical-align:middle;">${iconBox(ic)}</td>
+<td class="ac" style="vertical-align:middle;padding:0 0 10px 0;${f(14, 700, 1.3)}color:${P.accentText};">${esc(title)}</td></tr></table>
+${sub ? `<div class="mu" style="${f(12.5, 400, 1.45)}color:${P.muted};margin:0 0 10px 0;">${sub}</div>` : ''}
+<div class="sf tx" style="background:${P.surface};color:${P.ink};border:1px solid ${P.edge};border-radius:${R_ROW}px;padding:14px 14px 12px 14px;">${inner}</div>
+</div></td></tr>`;
 }
 // A row of big figures, each with a label and an optional line under it.
 function figures(items) {
-  const cells = items.filter(Boolean).map((x) => `<td valign="top" style="padding:0 14px 8px 0;">
-<div style="${f(22, 650, 1.15)}color:${x.col || P.ink};white-space:nowrap;">${x.n}</div>
-<div style="${f(12, 500, 1.35)}color:${P.muted};">${esc(x.label)}</div>
-${x.sub ? `<div style="${f(11, 400, 1.35)}color:${x.subCol || P.faint};margin-top:2px;">${x.sub}</div>` : ''}</td>`).join('');
+  const cells = items.filter(Boolean).map((x) => `<td valign="top" style="padding:0 16px 8px 0;">
+<div class="${x.col ? '' : 'tx'}" style="${f(22, 800, 1.15)}color:${x.col || P.ink};white-space:nowrap;letter-spacing:-0.3px;">${x.n}</div>
+<div class="mu" style="${f(12, 600, 1.35)}color:${P.muted};">${esc(x.label)}</div>
+${x.sub ? `<div style="${f(11.5, 500, 1.35)}color:${x.subCol || P.faint};margin-top:2px;">${x.sub}</div>` : ''}</td>`).join('');
   return `<table role="presentation" cellpadding="0" cellspacing="0"><tr>${cells}</tr></table>`;
 }
 // Vertical bars, one a column, each a stack of { v, col } from the bottom up, with a
 // figure above and a label below. `max` sets the scale; a column of nothing is a gap.
+// Square-topped, like the dashboard's own bars.
 function vbars(cols, { height = 96, max } = {}) {
   const top = max || Math.max(1e-9, ...cols.map((c) => c.stack.reduce((a, s) => a + (s.v || 0), 0)));
   const cells = cols.map((c) => {
     const segs = c.stack.filter((s) => s.v > 0).reverse()
       .map((s) => `<div style="height:${Math.max(2, Math.round((s.v / top) * height))}px;background:${s.col};font-size:0;line-height:0;">&nbsp;</div>`).join('');
     return `<td valign="bottom" align="center" style="padding:0 3px;">
-<div style="${f(11, 600, 1.2)}color:${P.body};padding-bottom:3px;">${c.top || '&nbsp;'}</div>
-<div style="width:100%;max-width:56px;margin:0 auto;">${segs || `<div style="height:2px;background:${P.track};font-size:0;line-height:0;">&nbsp;</div>`}</div></td>`;
+<div class="tx" style="${f(11, 700, 1.2)}color:${P.ink};padding-bottom:3px;">${c.top || '&nbsp;'}</div>
+<div style="width:100%;max-width:56px;margin:0 auto;">${segs || `<div class="trk" style="height:2px;background:${P.track};font-size:0;line-height:0;">&nbsp;</div>`}</div></td>`;
   }).join('');
-  const labels = cols.map((c) => `<td align="center" style="${f(11, 500, 1.3)}color:${P.muted};padding:5px 3px 0 3px;">${c.label}</td>`).join('');
+  const labels = cols.map((c) => `<td align="center" class="hair mu" style="${f(11, 600, 1.3)}color:${P.muted};padding:6px 3px 0 3px;border-top:1px solid ${P.edge};">${c.label}</td>`).join('');
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;">
 <tr style="height:${height + 18}px;">${cells}</tr><tr>${labels}</tr></table>`;
 }
@@ -117,14 +169,14 @@ function split(parts) {
   if (!total) return '';
   const shown = parts.filter((p) => p.v > 0);
   const cells = shown.map((p) => `<td style="width:${(p.v / total * 100).toFixed(2)}%;background:${p.col};height:14px;font-size:0;line-height:0;">&nbsp;</td>`).join('');
-  const key = shown.map((p) => `<span style="white-space:nowrap;margin-right:12px;"><span style="display:inline-block;width:9px;height:9px;background:${p.col};border-radius:2px;"></span> ${esc(p.label)} <strong style="color:${P.ink};">${Math.round(p.v / total * 100)}%</strong>${p.extra ? ` <span style="color:${P.faint};">${p.extra}</span>` : ''}</span>`).join(' ');
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-radius:4px;overflow:hidden;table-layout:fixed;"><tr>${cells}</tr></table>
-<div style="${f(12, 400, 1.9)}color:${P.body};margin-top:8px;">${key}</div>`;
+  const key = shown.map((p) => `<span style="white-space:nowrap;margin-right:12px;"><span style="display:inline-block;width:9px;height:9px;background:${p.col};"></span> ${esc(p.label)} <strong class="tx" style="color:${P.ink};">${Math.round(p.v / total * 100)}%</strong>${p.extra ? ` <span class="mu" style="color:${P.faint};">${p.extra}</span>` : ''}</span>`).join(' ');
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;"><tr>${cells}</tr></table>
+<div class="tx" style="${f(12, 500, 1.9)}color:${P.body};margin-top:8px;">${key}</div>`;
 }
-function note(text) { return text ? `<div style="${f(13, 400, 1.55)}color:${P.body};margin-top:12px;">${text}</div>` : ''; }
+function note(text) { return text ? `<div class="tx" style="${f(13, 400, 1.55)}color:${P.body};margin-top:12px;">${text}</div>` : ''; }
 function table(head, rows) {
-  const th = head.map((h, i) => `<td style="${f(11, 600, 1.3)}color:${P.muted};padding:0 10px 6px 0;border-bottom:1px solid ${P.edge};${i ? '' : ''}">${h}</td>`).join('');
-  const tr = rows.map((r) => `<tr>${r.map((c, i) => `<td valign="top" style="${f(13, i ? 400 : 500, 1.4)}color:${i ? P.body : P.ink};padding:7px 10px 7px 0;border-bottom:1px solid ${P.hair};">${c}</td>`).join('')}</tr>`).join('');
+  const th = head.map((h) => `<td class="mu hair" style="${f(11, 700, 1.3)}color:${P.muted};padding:0 10px 6px 0;border-bottom:1px solid ${P.edge};">${h}</td>`).join('');
+  const tr = rows.map((r) => `<tr>${r.map((c, i) => `<td valign="top" class="tx hair" style="${f(13, i ? 400 : 600, 1.4)}color:${P.ink};padding:8px 10px 8px 0;border-bottom:1px solid ${P.hair};">${c}</td>`).join('')}</tr>`).join('');
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${th}</tr>${tr}</table>`;
 }
 function delta(now, before, { unit = '', better = 'up', fmt = (v) => String(Math.round(v)) } = {}) {
@@ -337,7 +389,7 @@ export function buildWeekly(data, week, opts = {}) {
     // HRV each night as a strip against its range.
     const hrvStrip = hrvN.length ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;margin-top:10px;"><tr>${nights.map((n) => {
       const r = n.r, ok = r.hrvStatus === 'BALANCED';
-      return `<td align="center" style="padding:0 3px;"><div style="background:${r.hrv == null ? P.track : ok ? '#dcfce7' : '#fde68a'};border-radius:6px;padding:6px 0;${f(13, 650, 1.2)}color:${r.hrv == null ? P.faint : ok ? P.good : P.warn};">${r.hrv != null ? r.hrv : '–'}</div><div style="${f(11, 500, 1.3)}color:${P.muted};padding-top:4px;">${dayName(n.d)}</div></td>`;
+      return `<td align="center" style="padding:0 3px;"><div style="background:${r.hrv == null ? P.track : ok ? '#dcfce7' : '#fde68a'};border-radius:${R_ROW}px;padding:6px 0;${f(13, 650, 1.2)}color:${r.hrv == null ? P.faint : ok ? P.good : P.warn};">${r.hrv != null ? r.hrv : '–'}</div><div style="${f(11, 500, 1.3)}color:${P.muted};padding-top:4px;">${dayName(n.d)}</div></td>`;
     }).join('')}</tr></table>` : '';
     // Stress, as shares of the measured week.
     const st = ['stressRest', 'stressLow', 'stressMed', 'stressHigh'].map((k) => sum(nights, (n) => n.r[k]));
@@ -404,20 +456,29 @@ export function buildWeekly(data, week, opts = {}) {
 
   const subject = `Your week, ${weekLabel(week)}: ` + (t.n ? `${hrs(t.time)}, ${mi(t.dist)} mi` : 'a rest week');
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><title>${esc(subject)}</title></head>
-<body style="margin:0;padding:0;background:${P.canvas};color-scheme:light;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${P.canvas};"><tr><td align="center" style="padding:24px 12px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;">
-<tr><td style="padding:0 2px 16px 2px;">
-<div style="${f(13, 600, 1.4)}color:${P.muted};">Your week · ${esc(weekLabel(week))}</div>
-<div style="${f(22, 650, 1.3)}color:${P.ink};margin-top:4px;">${esc(headline)}</div>
-</td></tr>
+<meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><title>${esc(subject)}</title>
+<link href="${FONT_URL}" rel="stylesheet">
+<style>:root { color-scheme: light dark; supported-color-schemes: light dark; } @import url('${FONT_URL}');${THEME}</style></head>
+<body style="margin:0;padding:0;background:${P.canvas};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="page" style="background:${P.canvas};"><tr><td align="center" style="padding:12px 10px 28px 10px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;">
+<tr><td style="padding:2px 0 12px 0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="hero" style="background:${P.hero};border:1px solid ${P.hero};border-radius:${R_CARD}px;"><tr>
+<td style="width:44px;vertical-align:middle;padding:18px 0 18px 16px;">
+<table role="presentation" cellpadding="0" cellspacing="0" style="width:44px;height:44px;border-radius:${R_ROW}px;background:#ffffff;"><tr>
+<td align="center" valign="middle" style="width:44px;height:44px;line-height:0;"><div style="display:inline-block;width:18px;height:18px;background:${P.accent};font-size:0;line-height:0;">&nbsp;</div></td></tr></table></td>
+<td style="vertical-align:middle;padding:18px 16px 18px 14px;">
+<div style="${f(12, 700, 1.4)}color:${P.heroAccent};">Your week · ${esc(weekLabel(week))}</div>
+<div style="${f(20, 800, 1.25)}color:${P.heroText};letter-spacing:-0.3px;margin-top:2px;">${esc(headline)}</div>
+</td></tr></table></td></tr>
 ${sections.join('\n')}
-<tr><td style="padding:6px 2px 0 2px;${f(12, 400, 1.6)}color:${P.faint};">
-<a href="${DASHBOARD_URL}" style="color:${P.accent};text-decoration:none;font-weight:600;">Open the dashboard</a> for every chart behind this.<br>
-Training from Strava; recovery, zones, Training Effect, power and what you logged from Garmin. Sent every Tuesday for the Monday to Sunday before.<br>
-Fitness weekly email ${WEEKLY_CODE}
-</td></tr></table></td></tr></table></body></html>`;
+<tr><td align="center" style="padding:10px 2px 0 2px;">
+<a class="btn" href="${DASHBOARD_URL}" style="display:inline-block;background:${P.ink};color:#ffffff;${f(13, 700, 1.2)}text-decoration:none;padding:12px 20px;border-radius:${R_CARD}px;">Open the dashboard</a>
+<div class="mu" style="${f(12, 400, 1.6)}color:${P.muted};margin-top:14px;">
+Every chart behind this is on <a class="lk" href="${DASHBOARD_URL}" style="color:${P.muted};text-decoration:underline;text-decoration-color:${P.accent};">the dashboard</a>.<br>
+Training from Strava; recovery, zones, Training Effect, power and what you logged from Garmin.<br>
+Sent every Tuesday for the Monday to Sunday before · fitness weekly email ${WEEKLY_CODE}
+</div></td></tr></table></td></tr></table></body></html>`;
   return { subject, html, text: `${subject}\n\n${text.join('\n')}\n\n${DASHBOARD_URL}\n\nFitness weekly email ${WEEKLY_CODE}\n` };
 }
 
@@ -451,9 +512,12 @@ function weeklyTo(env) {
   return String(env.WEEKLY_TO || '').split(',').map((x) => x.trim()).filter(Boolean).map((email) => ({ email }));
 }
 
-export async function sendWeekly(env, week, data) {
+export async function sendWeekly(env, week, data, { mark = false } = {}) {
   const mail = buildWeekly(data, week);
   const id = await sendMail(env, { to: weeklyTo(env), subject: mail.subject, html: mail.html, text: mail.text, headers: { [WEEKLY_HEADER]: WEEKLY_HEADER_VALUE } });
+  // A send by hand of the week Tuesday would send counts as Tuesday's, so a Monday
+  // "Send it now" is not followed by the same email the next morning.
+  if (mark && env.CACHE) await env.CACHE.put(WEEKLY_KV, JSON.stringify({ week: week.from, tries: 1, sentAt: new Date().toISOString(), subject: mail.subject, byHand: true }));
   return { week: week.from, subject: mail.subject, id };
 }
 

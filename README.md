@@ -1895,8 +1895,12 @@ against the 90 days before and all time; sleep each night against need, with why
 moved and Garmin's suggested bedtime; HRV each night, resting HR against the four weeks
 before, steps, Body Battery charged, stress, and the readiness verdict as of Sunday; running
 form and fastest splits; Zwift routes done, planned for this week and overdue; the year so
-far against last year. Charts are table cells, which every mail client draws; no images,
-scripts or web fonts, and a fixed light palette as the Tasks digest settled on.
+far against last year. It looks like the Japan planner's email: an ink header block, grey
+section cards with small corners, each titled by an icon and label over a hairline, white
+rows inside, links underlined in the accent, and the planner's dark palette for clients
+that follow the system's dark mode. Charts are table cells, which every mail client draws;
+the only images are the section icons. A *Send it now* of last week counts as that
+Tuesday's send, so it does not arrive twice.
 
 **When it goes.** It rides on the quarter-hour calendar cron rather than a cron of its own:
 Cloudflare's free plan allows five cron triggers across the whole account, and the Tasks
