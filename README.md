@@ -32,16 +32,18 @@ The Worker holds all secrets and does all the heavy work. The Pages frontend is 
 | `worker.js` | Cloudflare Worker — OAuth, Strava fetch, GPS privacy trimming, KV caching, AI summary, Zwift Routes proxy, and the scheduled Strava → Notion Training Log sync |
 | `index.html` | Dashboard frontend — all CSS, HTML, and the app's own JS |
 | `garmin.js` | Reads the owner's Garmin health numbers (sleep, HRV, resting HR, steps) and activities, back to 2013, for the admin-only `/health` (see **Recovery (Garmin)**) |
+| `weekly.js`, `jmap.js` | The Tuesday email: what it says, and sending it through Fastmail (see **Weekly email**) |
 | `calendar.js` | Planned Zwift rides ↔ Google Calendar, both ways (see **Google Calendar sync**). Imported by `worker.js`; imports `calc.js` for the route estimates |
 | `calc.js` | The pure derivations and formatters, split out of `index.html` so they can be unit-tested. Loaded as a classic script before the inline one, so its top-level declarations share the same global scope and every existing call site works unchanged |
 | `sw.js` | Service worker — caches the app shell and the two CDN libraries so the dashboard opens offline |
 | `manifest.webmanifest`, `icons/` | Web app manifest and icons, so it installs to a phone home screen |
 | `test/calc.test.js` | Vitest unit tests for `calc.js` |
 | `test/calendar.test.js` | Unit tests for the calendar sync's decisions, and the 15-minute cron end to end against a stubbed Google and Notion |
+| `test/garmin.test.js`, `test/weekly.test.js` | The Garmin reads against a stubbed Garmin, and the weekly email: what it says, when it goes (against a stubbed Fastmail), and that it needs the key |
 | `test/smoke.mjs` | Playwright smoke test — boots the real page against a stubbed Worker and drives every tab |
 | `.github/workflows/test.yml` | Runs both suites on every push |
 | `wrangler.toml` | Wrangler config for the Worker |
-| `.github/workflows/deploy-worker.yml` | Auto-deploys the Worker to Cloudflare on every push that touches `worker.js`, `calendar.js`, `calc.js` or `wrangler.toml` |
+| `.github/workflows/deploy-worker.yml` | Auto-deploys the Worker to Cloudflare on every push that touches `worker.js`, `calendar.js`, `garmin.js`, `weekly.js`, `jmap.js`, `calc.js` or `wrangler.toml` |
 | `activities.csv` | **Not committed** (in `.gitignore`) — personal Strava export, never goes to GitHub |
 
 ---
@@ -381,6 +383,7 @@ This repository is public, so the Worker's address is public. **Reading is open*
 | `GET /zwift-routes?refresh=true` | **Needs the admin key.** Bypasses cache, re-fetches all routes from Notion |
 | `PATCH /zwift-routes/{pageId}` | **Needs the admin key.** Updates `status`/`planned_ride`/`date_completed`/`time` on one route, writes straight to Notion. `planned_ride` is a day or a day and start time (`2026-10-28T18:30`); the route's Google Calendar event follows |
 | `GET /health` | **Needs the admin key.** The owner's daily Garmin numbers, never cached; `?refresh=1` reads Garmin first. See **Recovery (Garmin)** |
+| `GET /weekly/preview`, `GET /weekly/status`, `POST /weekly/send` | **Need the admin key.** The Tuesday email: see **Weekly email** |
 | `GET /calendar-sync` | **Needs the admin key.** Reconciles planned rides with Google Calendar now and answers with what it did (it also runs every 15 minutes). See **Google Calendar sync** |
 | `GET /whoami` | Open. Is the key in `X-Admin-Key` a good admin key? `{ level: 'admin', label: 'PHONE' }` or `{ level: 'none' }`. Names only the key it was just given, never another, and is never cached |
 | `GET /refresh-status` | What the current or last pull from Strava is doing: `{ state, stage, page, fetched, expectedPages, expectedTotal, lastDurationMs, startedAt, updatedAt }`, `state` one of `idle`, `running`, `done`, `failed`. Written by the refresh as it goes, one KV write every 1.2 s at most; `Cache-Control: no-store` |
@@ -1756,8 +1759,24 @@ and overnight breathing rate; overnight HRV with its 7-day average, balanced ran
 status. Per Garmin activity, under `garmin_acts_v1`: start (local and GMT), type, moving
 time, distance, average HR, seconds in each of the five Garmin HR zones (and power zones
 when recorded), aerobic and anaerobic Training Effect with its label, training load and
-Body Battery used. Nothing finer than that, and nothing of nutrition, weight or cycle
-tracking. Garmin files sleep and HRV under the morning you woke up, so the night before an
+Body Battery used; best average power over 15 durations from 1 second to 5 hours (the
+power curve), normalised power, TSS and IF; the VO2 max, FTP and lactate threshold Garmin
+held after it; breathing rate; and for a run, cadence, stride, ground contact time and
+balance, vertical oscillation and ratio, grade-adjusted speed and fastest 1 km / mile /
+5 km / 10 km / half / marathon splits. Per day, as well: time at each stress level, Body
+Battery charged and drained, intensity minutes, and what sleep need was built from
+(baseline and Garmin's reason codes for training, sleep history, HRV and naps) with its
+recommended bedtime. Nothing of nutrition, weight or cycle tracking.
+
+**What you told Garmin** about an activity is not in the activity list, only in each
+activity's own record (`/activity-service/activity/{id}`, one request each): your RPE
+(stored 10 to 100, shown out of 10), how you felt (very weak to very strong), how closely it
+followed a planned workout (`directWorkoutComplianceScore`) and, when there was one, that
+workout's name (`…/{id}/workouts`), and recovery heart rate. Each run reads these for the
+last week's activities, then works back through the rest to `DETAIL_FLOOR` (2021, before
+which watches did not ask), eight a run while the activity history is still arriving and
+whatever budget is left once it is in. An activity read this way is marked `det` and kept
+when the list is reread (`mergeActs`). Garmin files sleep and HRV under the morning you woke up, so the night before an
 activity is that activity's own date.
 
 **How far back.** Everything Garmin holds, back to 1 January 2013 (`GARMIN_FLOOR`). The free
@@ -1786,8 +1805,32 @@ to three days; each `GET /health?refresh=1` (admin) runs an extra pass.
 - **What kind of training it was**: hours under each Training Effect label, stacked by week
   or month. Garmin's labels are its own judgement; the verdict says so.
 
-These follow the period control (sleep, bedtime, HRV, steps, workout cost and Training
-Effect), bucketing by day up to 45 days, by week up to 400, by month beyond
+- **Sleep against what you needed**: hours slept (pale where short) against Garmin's need
+  and your baseline, with how often Garmin raised the need and for what
+  (`needReasons`). Its recommended bedtime is the green band on the bedtime chart.
+- **Stress through the day**: hours at rest, low, medium and high, stacked. It moves with
+  HRV, since Garmin reads stress from it; the verdict says so.
+
+Charts → Performance (only when Garmin holds power, VO2 max, FTP or recovery HR):
+- **Best power for every duration**: the period's best at each duration, the same span a
+  year earlier, and the all-time best (dashed), with the ride each came from in the
+  tooltip. Rides recorded only on Zwift or Strava never reach Garmin, so their power is
+  not here, and the empty state says so.
+- **VO2 max and FTP over the years**: the last estimate each month, rides and runs apart,
+  across all history whatever the period.
+- **How fast your heart rate recovers**: each activity's recovery heart rate, and the
+  average. Most watches record the fall over two minutes (higher is fitter), a few the
+  heart rate at two minutes; `recHrMeaning` tells which from the values and the chart
+  words itself to match.
+
+Charts → Running (only when Garmin holds runs with running dynamics):
+- **Running form**: cadence and stride, or ground contact and vertical ratio, run by run
+  or by week or month.
+- **Fastest splits**: the period's and the all-time fastest at each distance, inside any
+  run.
+
+These follow the period control (sleep, bedtime, HRV, steps, workout cost, Training
+Effect, sleep need, stress, power, recovery HR and running), bucketing by day up to 45 days, by week up to 400, by month beyond
 (`healthRange`, `healthAutoUnit`, `healthBuckets` in `calc.js`).
 
 Elsewhere, still only with the key:
@@ -1799,23 +1842,27 @@ Elsewhere, still only with the key:
   zones are swapped for Garmin's measured ones, everywhere zones are used, and the zone
   chart's subtitle counts how many were measured. Forgetting the key restores the
   estimates.
-- **Each activity**: *The night before, and what it took*: sleep, HRV, resting HR, Body
-  Battery peak, then Body Battery used and Training Effect; the zone bar says when it is
-  measured.
+- **Each activity**: *How it felt* (your RPE and feel, the workout it followed and how
+  closely, recovery heart rate), then *From Garmin* (normalised power, TSS and IF, VO2 max,
+  breathing; for a run, its form), then *The night before, and what it took*: sleep,
+  HRV, resting HR, Body Battery peak, Body Battery used and Training Effect. The zone bar
+  says when it is measured.
 
 **A lesson in hiding.** The Recovery header, zone and morning line are hidden with the
 `hidden` attribute, but `.charts-grid`, `.section-header` and `.sum-morning` set `display`,
 which beats the attribute's user-agent style: the empty section showed without a key (no
-data was ever sent). A `[hidden]{display:none!important}` rule for those three fixes it, the
+data was ever sent). A `[hidden]{display:none!important}` rule for those (and the
+Performance and Running sections since) fixes it, the
 rearrange buttons skip panels in hidden zones, and the smoke test checks what is on screen
 (not the attribute) with no key and with a refused key.
 
 **How it is read** (`garmin.js`). The `GARMIN_API` secret is swapped for a 24-hour bearer
 token at `POST https://personal.connectapi.garmin.com/personalapitoken-service/personal-api/personal-api-key/token`
-(`Authorization: ApiKey <key>`), then four endpoints are read: `/usersummary-service/v2/dailysummaries`
+(`Authorization: ApiKey <key>`), then these are read: `/usersummary-service/v2/dailysummaries`
 (a year a request), `/sleep-service/sleep/dailySleepSummariesByDate` (31 days),
 `/hrv-service/hrv/daily/{start}/{end}` (28 days: its limit is undocumented) and
-`/activitylist-service/activities/search/activities` (45 a page). A 204 or 404 is no data,
+`/activitylist-service/activities/search/activities` (45 a page), and each activity's own
+`/activity-service/activity/{id}` (and `…/workouts` where it followed one). A 204 or 404 is no data,
 and a 401 mid-run renews the token once. Paths and fields are from Garmin's own client
 (`garmin-connect-personal-api-python` 1.0.0) and the `gcpapi-sync` models generated from
 Garmin's OpenAPI document. It has its own cron (`20 */3 * * *`), and KV is written only
@@ -1826,7 +1873,67 @@ it, the stored days are kept and the chart says *"Garmin refused the GARMIN_API 
 probably expired"*. Make a new key in Garmin Connect and replace the `GARMIN_API` secret.
 
 **Not built yet**: sleep against riding efficiency (worth showing only past ~30 nights, and
-saying so if there is no link), and recovery time after big efforts.
+saying so if there is no link), recovery time after big efforts, and RPE against Training
+Effect (worth it only once RPE has been logged for a while).
+
+## Weekly email
+
+Every **Tuesday from 07:00 London**, the Worker emails last week, Monday to Sunday, to
+`WEEKLY_TO`. Tuesday rather than Monday so the weekend's rides and the Sunday night's
+sleep have synced first. `weekly.js` builds it (pure: stored data and a week in, `{ subject,
+html, text }` out); `jmap.js` sends it through Fastmail's API, copied from the Tasks app's
+morning digest.
+
+**What it holds**, each part only when there is something to put in it: the week in one
+line; training time, distance, climbing and count against the four weeks before (with the
+load ratio's word: steady, building, easing off…) and the same week last year; a bar for
+each day by sport; every activity with its Training Effect, your RPE and feel, the workout
+it followed and how closely, Body Battery used, normalised power and recovery HR;
+heart-rate zones as Garmin measured them, with the easy / tempo / hard split; Training
+Effect labels and Garmin's load for the week; power bests at 5 s, 1, 5, 20 and 60 minutes
+against the 90 days before and all time; sleep each night against need, with why the need
+moved and Garmin's suggested bedtime; HRV each night, resting HR against the four weeks
+before, steps, Body Battery charged, stress, and the readiness verdict as of Sunday; running
+form and fastest splits; Zwift routes done, planned for this week and overdue; the year so
+far against last year. Charts are table cells, which every mail client draws; no images,
+scripts or web fonts, and a fixed light palette as the Tasks digest settled on.
+
+**When it goes.** It rides on the quarter-hour calendar cron rather than a cron of its own:
+Cloudflare's free plan allows five cron triggers across the whole account, and the Tasks
+app holds one. Each firing checks the owner's clock (`ZWIFT_TZ`, London by default) and
+returns at once unless it is Tuesday, 07:00 or later, and last week has not gone yet. A
+mark in KV (`weekly_email_v1`) is written before each try, and a week gets at most three,
+so a send whose mark failed to save cannot repeat every quarter hour.
+
+**Setting it up (once).** The only thing it needs is a Fastmail API token on this Worker:
+1. Fastmail → Settings → Privacy & Security → **Connected apps & API tokens** → New API
+   token, **Mail** scope with read and write, nothing else. (The Tasks app's token works
+   too, if you would rather not make another.)
+2. Cloudflare → Workers & Pages → **activities-api** → Settings → Variables and Secrets →
+   Add, type **Secret**: `FASTMAIL_TOKEN`. Deploy if the page offers it. Or
+   `npx wrangler secret put FASTMAIL_TOKEN`.
+
+`WEEKLY_FROM` and `WEEKLY_TO` are in `wrangler.toml` (`hello@laurencekellett.co.uk`); the
+first must be an address the token may send as, the second is comma-separated.
+
+**Checking it**, all with the admin key, and from Settings → Weekly email on a device that
+holds it (*Preview last week* opens it in a new tab; *Send it now* sends):
+
+| Route | What |
+|---|---|
+| `GET /weekly/preview` | The email in the browser; sends nothing. `?week=2026-10-21` for the week holding that day, `&format=text` for the plain part |
+| `GET /weekly/status` | What the cron would decide now: the owner's day and hour, the next week, who it goes to, whether the token is set, and the last try |
+| `POST /weekly/send` | Sends now. `?week=` as above; `&reset=1` once after changing the token or address |
+
+**Filtering it.** Every one carries the header `X-Fitness-Weekly: fitness-weekly-email`
+(build a Fastmail rule on that) and ends with `FT-WEEKLY` for searching.
+
+| What it says | What to do |
+|---|---|
+| `FASTMAIL_TOKEN is not set` | Step 2 has not run, or its version was not deployed |
+| `Fastmail session 401` | The token is wrong, expired or lacks Mail scope |
+| `Fastmail has no identity for …` | `WEEKLY_FROM` is not an address the account sends as; the error lists the ones it can |
+| Nothing arrived | `/weekly/status`: not yet Tuesday 07:00 London, no token, or `last` holds the error |
 
 ## To do: Zwift Routes data in Notion
 

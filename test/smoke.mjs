@@ -2455,6 +2455,17 @@ async function main() {
       ENVELOPE.data.forEach((a) => { const k = a.date.slice(0, 10); days[k] = { ...(days[k] || {}), hrv: 58, hrvStatus: 'BALANCED', rhr: 47, sleepScore: 77, sleepSec: 25200, bbMax: 80 }; });
       return days;
     };
+    // Garmin's copy of the first activity (so it pairs), with power, VO2 max and what
+    // you told the watch, and a run with its form.
+    const healthActs = () => {
+      const a = ENVELOPE.data[0];
+      const pc = [900, 850, 760, 640, 520, 470, 380, 330, 300, 270, 262, 250, 230, null, null];
+      return {
+        g1: { start: a.date.slice(0, 10) + 'T' + (a.time || '07:00') + ':00', type: 'virtual_ride', dur: a.mt, pc, vo2: 52, ftp: 270, rpe: 6, feel: 75, comp: 90, workout: 'Sweet spot', recHr: 31 },
+        g2: { start: a.date.slice(0, 10) + 'T05:00:00', type: 'running', dur: 1800, recHr: 33, vo2: 49, run: { cad: 170, stride: 110, gct: 240, vr: 7.8, splits: [270, 450, 1450, null, null, null] } },
+        g3: { start: a.date.slice(0, 10) + 'T04:00:00', type: 'road_biking', dur: 3600, recHr: 29, pc },
+      };
+    };
     const open = async (key, status) => {
       const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 } });
       await ctx.addInitScript(([k]) => { try { if (k) localStorage.setItem('fitness_admin_key', k); } catch (e) {} }, [key]);
@@ -2468,7 +2479,7 @@ async function main() {
       await page.route('**/health**', (r) => {
         asked.push(r.request().headers()['x-admin-key'] || null);
         if (status === 401) return r.fulfill({ status: 401, contentType: 'application/json', body: '{"error":true}' });
-        return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ configured: true, days: healthDays(), updatedAt: new Date().toISOString() }) });
+        return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ configured: true, days: healthDays(), acts: healthActs(), updatedAt: new Date().toISOString() }) });
       });
       await page.goto(base + '/index.html', { waitUntil: 'domcontentloaded' });
       await page.waitForFunction(() => !document.body.classList.contains('is-loading'), null, { timeout: 20000 });
@@ -2490,9 +2501,14 @@ async function main() {
         // hidden attribute, which is how this section once stayed on screen without a key.
         const seen = (id) => { const el = document.getElementById(id); return !!el && el.offsetParent !== null && el.getBoundingClientRect().height > 0; };
         const chips = ['readiness', 'sleep', 'hrv', 'steps', 'bedtime'].map((k) => document.getElementById(k + 'Chips').textContent).join(' | ');
+        const garminZones = ['recoveryZone', 'recoveryHeader', 'perfZone', 'perfHeader', 'runZone', 'runHeader'];
         return {
           shown: seen('recoveryZone') && seen('recoveryHeader'),
-          anyVisible: seen('recoveryZone') || seen('recoveryHeader'),
+          perf: seen('perfZone') && seen('runZone'),
+          perfChips: ['powercurve', 'fitness', 'runform'].map((k) => document.getElementById(k + 'Chips').textContent).join(' | '),
+          felt: /How it felt/.test(modal) && /6\/10/.test(modal) && /Strong/.test(modal) && /Sweet spot/.test(modal),
+          weekly: (openSettings(), !document.getElementById('settingsWeeklySec').hidden),
+          anyVisible: garminZones.some(seen),
           chips,
           verdict: document.getElementById('readinessVerdict').textContent,
           night: /The night before/.test(modal) && /77/.test(modal),
@@ -2516,6 +2532,12 @@ async function main() {
       await check('an activity shows the night before it', async () => {
         assert(state.night, 'no "The night before" block, or the wrong night, in the activity');
       });
+      await check('with the key, Performance and Running show, and the activity says how it felt', async () => {
+        assert(state.perf, 'the Performance or Running section is not on screen');
+        assert(/best 20 min/.test(state.perfChips) && /VO2 max, rides now/.test(state.perfChips) && /spm/.test(state.perfChips), `the chips read "${state.perfChips}"`);
+        assert(state.felt, 'no "How it felt" with the RPE, feel and workout in the activity');
+        assert(state.weekly, 'the weekly email controls are not offered with a key');
+      });
       await check('health data is never written to the device', async () => {
         assert(!state.leaked, 'health data was found in localStorage');
       });
@@ -2525,14 +2547,15 @@ async function main() {
       const { ctx, asked, state } = await open(null, 200);
       await check('without a key, health data is never asked for and nothing of it is on screen', async () => {
         assert(asked.length === 0, `/health was asked for ${asked.length} time(s) without a key`);
-        assert(!state.anyVisible && !state.night, `visible ${state.anyVisible}, night ${state.night}`);
+        assert(!state.anyVisible && !state.night && !state.felt, `visible ${state.anyVisible}, night ${state.night}, felt ${state.felt}`);
+        assert(!state.weekly, 'the weekly email controls are offered without a key');
       });
       await ctx.close();
     }
     {
       const { ctx, state } = await open('revoked', 401);
       await check('a key the Worker refuses shows nothing of it either', async () => {
-        assert(!state.anyVisible && !state.night, `visible ${state.anyVisible}, night ${state.night}`);
+        assert(!state.anyVisible && !state.night && !state.felt, `visible ${state.anyVisible}, night ${state.night}, felt ${state.felt}`);
       });
       await ctx.close();
     }

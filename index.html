@@ -480,7 +480,12 @@ a{color:inherit;text-decoration:none}
 /* The Recovery section and the morning line carry health data. A class's display
    outranks the hidden attribute, so without these they stayed on screen, empty,
    on a device with no key. */
-#recoveryHeader[hidden],#recoveryZone[hidden],#sumMorning[hidden]{display:none!important}
+#recoveryHeader[hidden],#recoveryZone[hidden],#perfHeader[hidden],#perfZone[hidden],#runHeader[hidden],#runZone[hidden],#sumMorning[hidden]{display:none!important}
+.run-bests{width:100%;border-collapse:collapse;font-size:13px}
+.run-bests th{font-weight:600;color:var(--text-light);text-align:left;padding:6px 8px 6px 0;border-bottom:1px solid var(--border);font-size:11px}
+.run-bests td{padding:7px 8px 7px 0;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
+.run-bests td.rb-when{color:var(--text-light);font-size:11px}
+.run-bests tr:last-child td{border-bottom:0}
 .charts-grid.wide{grid-template-columns:1fr}
 /* ── INK & SIGNAL, IN BOXES ──
    Every tile is a box: the surface colour, a hairline border and the slight shadow in
@@ -1934,6 +1939,18 @@ body.is-loading .stats-grid *{visibility:hidden}
     </div>
     <div class="admin-key-msg" id="adminKeyMsg" role="status" aria-live="polite"></div>
   </div>
+  <!-- The Tuesday email (weekly.js in the Worker). It carries health data, so it is
+       previewed and sent only with the key, and the preview is drawn from the Worker's
+       answer, never stored on the device. -->
+  <div class="sheet-sec" id="settingsWeeklySec" hidden>
+    <div class="sheet-lbl">Weekly email</div>
+    <div class="admin-key-state">Every Tuesday morning, for the Monday to Sunday before.</div>
+    <div class="sheet-chips">
+      <button type="button" onclick="previewWeekly()"><span class="ms">preview</span>Preview last week</button>
+      <button type="button" id="weeklySendBtn" onclick="sendWeeklyNow()"><span class="ms">send</span>Send it now</button>
+    </div>
+    <div class="admin-key-msg" id="weeklyMsg" role="status" aria-live="polite"></div>
+  </div>
   <div class="settings-actions">
     <!-- Where the boxes sit is a preference like units and the theme, so it is set
          from the same place they are. The button does not open another panel: it
@@ -1993,7 +2010,7 @@ body.is-loading .stats-grid *{visibility:hidden}
 <!-- calc.js carries a stamp of its own content (npm run stamp; the unit tests check it
      is current), so a freshly deployed page can never be paired with a cached older copy
      of the script — which is exactly how one deploy died on "daysInYear is not defined". -->
-<script src="calc.js?v=20642766"></script>
+<script src="calc.js?v=b5c4b1f3"></script>
 <div id="dashTooltip" class="dash-tooltip"></div>
 <div class="main">
 
@@ -2338,6 +2355,69 @@ body.is-loading .stats-grid *{visibility:hidden}
       <div class="chart-wrap"><canvas id="chartTeffect"></canvas></div>
       <div id="teffectChips" class="chart-chips"></div>
       <div id="teffectVerdict" class="chart-verdict"></div>
+    </div>
+    <div class="chart-card" data-panel="sleepneed">
+      <div class="chart-title">Sleep against what you needed</div>
+      <div class="chart-sub" id="sleepneedSub">Hours slept (bars) against Garmin's sleep need (line) and your baseline (dashed)</div>
+      <div class="chart-wrap"><canvas id="chartSleepneed"></canvas></div>
+      <div id="sleepneedChips" class="chart-chips"></div>
+      <div id="sleepneedVerdict" class="chart-verdict"></div>
+    </div>
+    <div class="chart-card" data-panel="stress">
+      <div class="chart-title">Stress through the day</div>
+      <div class="chart-sub" id="stressSub">Hours a day at each of Garmin's stress levels</div>
+      <div class="chart-wrap"><canvas id="chartStress"></canvas></div>
+      <div id="stressChips" class="chart-chips"></div>
+      <div id="stressVerdict" class="chart-verdict"></div>
+    </div>
+  </div>
+  <div class="section-header" id="perfHeader" hidden><h2>Performance</h2><span class="badge">From Garmin · shown only on a device with the admin key</span></div>
+  <div class="charts-grid chart-zone" data-zone="performance" data-zone-label="Performance" id="perfZone" hidden>
+    <div class="chart-card span-full" data-panel="powercurve">
+      <div class="chart-title">Best power for every duration</div>
+      <div class="chart-sub" id="powercurveSub">Your best average power over each length of effort</div>
+      <div class="chart-wrap"><canvas id="chartPowercurve"></canvas></div>
+      <div id="powercurveChips" class="chart-chips"></div>
+      <div id="powercurveVerdict" class="chart-verdict"></div>
+    </div>
+    <div class="chart-card" data-panel="fitness">
+      <div class="chart-title">VO2 max and FTP over the years</div>
+      <div class="chart-sub" id="fitnessSub">Garmin's estimates, the last one each month, across all your history</div>
+      <div class="chart-wrap"><canvas id="chartFitness"></canvas></div>
+      <div id="fitnessChips" class="chart-chips"></div>
+      <div id="fitnessVerdict" class="chart-verdict"></div>
+    </div>
+    <div class="chart-card" data-panel="rechr">
+      <div class="chart-title">How fast your heart rate recovers</div>
+      <div class="chart-sub" id="rechrSub">Garmin's recovery heart rate after each activity</div>
+      <div class="chart-wrap"><canvas id="chartRechr"></canvas></div>
+      <div id="rechrChips" class="chart-chips"></div>
+      <div id="rechrVerdict" class="chart-verdict"></div>
+    </div>
+  </div>
+  <div class="section-header" id="runHeader" hidden><h2>Running</h2><span class="badge">From Garmin · shown only on a device with the admin key</span></div>
+  <div class="charts-grid chart-zone" data-zone="running" data-zone-label="Running" id="runZone" hidden>
+    <div class="chart-card span-full" data-panel="runform">
+      <div class="chart-head">
+        <div class="chart-head-text">
+          <div class="chart-title">Running form</div>
+          <div class="chart-sub" id="runformSub">How you run, from the watch's running dynamics</div>
+        </div>
+        <div class="chart-ctl" role="group" aria-label="Show running form as">
+          <button type="button" class="chart-ctl-btn" data-runview="stride" onclick="setRunView('stride')">Cadence and stride</button>
+          <button type="button" class="chart-ctl-btn" data-runview="contact" onclick="setRunView('contact')">Contact and bounce</button>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="chartRunform"></canvas></div>
+      <div id="runformChips" class="chart-chips"></div>
+      <div id="runformVerdict" class="chart-verdict"></div>
+    </div>
+    <div class="chart-card" data-panel="runbests">
+      <div class="chart-title">Fastest splits</div>
+      <div class="chart-sub" id="runbestsSub">Garmin's fastest time at each distance, inside any run</div>
+      <div id="runbestsTable"></div>
+      <div id="runbestsChips" class="chart-chips"></div>
+      <div id="runbestsVerdict" class="chart-verdict"></div>
     </div>
   </div>
   <div class="section-header"><h2>Intensity</h2><span class="badge">How hard — the half of training volume can't tell you</span></div>
@@ -3355,6 +3435,40 @@ function renderAdminKeyState(){
   if(f)f.hidden=!has;
   const entry=document.getElementById('adminKeyEntry');
   if(entry)entry.hidden=has;
+  const wk=document.getElementById('settingsWeeklySec');
+  if(wk)wk.hidden=!has;
+}
+function weeklyMessage(text,kind){
+  const m=document.getElementById('weeklyMsg');
+  if(m){m.textContent=text||'';m.className='admin-key-msg'+(kind?' '+kind:'');}
+}
+// Opens the email as it would arrive, in a new tab. The tab is opened before the
+// request so the browser counts it as the tap's own doing.
+async function previewWeekly(){
+  if(!hasAdminKey())return;
+  const w=window.open('','_blank');
+  weeklyMessage('Building the preview…');
+  try{
+    const res=await fetch(API_BASE+'/weekly/preview',{headers:adminHeaders(),cache:'no-store'});
+    if(!res.ok)throw new Error(res.status===401?'The Worker did not accept this device\'s key.':'The Worker answered '+res.status+'.');
+    const html=await res.text();
+    if(w){w.document.open();w.document.write(html);w.document.close();}
+    else{const u=URL.createObjectURL(new Blob([html],{type:'text/html'}));location.href=u;}
+    weeklyMessage('');
+  }catch(e){if(w)w.close();weeklyMessage(e.message,'bad');}
+}
+async function sendWeeklyNow(){
+  if(!hasAdminKey())return;
+  if(!window.confirm('Send last week\'s email now? It goes to the address set in the Worker, as on Tuesdays.'))return;
+  const b=document.getElementById('weeklySendBtn');if(b)b.disabled=true;
+  weeklyMessage('Sending…');
+  try{
+    const res=await fetch(API_BASE+'/weekly/send',{method:'POST',headers:adminHeaders(),cache:'no-store'});
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok||!j.sent)throw new Error(j.error||('The Worker answered '+res.status+'.'));
+    weeklyMessage('Sent: '+j.subject,'good');
+  }catch(e){weeklyMessage(e.message,'bad');}
+  finally{if(b)b.disabled=false;}
 }
 // What changes when a device gains or loses its key: the Zwift list asks again (the
 // Worker decides whether it may edit), and a rearrange in progress is ended.
@@ -6147,7 +6261,10 @@ function renderRecovery(){
   const show=!!HEALTH&&hasAdminKey();
   head.hidden=!show;zone.hidden=!show;
   renderMorning(show);
-  if(!show){['readiness','sleep','bedtime','hrv','steps','bbcost','teffect'].forEach(destroyChart);return;}
+  const acts=show&&HEALTH.acts||{};
+  const perf=show&&garminHasPerf(acts),runs=show&&garminHasRuns(acts);
+  [['perfHeader',perf],['perfZone',perf],['runHeader',runs],['runZone',runs]].forEach(([id,on])=>{const el=document.getElementById(id);if(el)el.hidden=!on;});
+  if(!show){['readiness','sleep','bedtime','hrv','steps','bbcost','teffect','sleepneed','stress','powercurve','fitness','rechr','runform'].forEach(destroyChart);return;}
   const days=HEALTH.days||{};
   if(!Object.keys(days).length&&HEALTH.error){
     chartSummary('readiness',[],'Garmin: '+HEALTH.error);
@@ -6161,7 +6278,285 @@ function renderRecovery(){
     renderSteps(days);
     renderBbCost();
     renderTrainingEffect();
+    renderSleepNeed(days);
+    renderStress(days);
+    if(perf){renderPowerCurve(acts);renderFitness(acts);renderRecHr(acts);}
+    if(runs){renderRunForm(acts);renderRunBests(acts);}
   });
+}
+
+let runView='stride';
+function setRunView(v){runView=v;renderRecovery();}
+
+// Garmin activities with power, VO2 max, FTP or recovery HR: whether Performance shows.
+function garminHasPerf(acts){return Object.values(acts||{}).some(g=>g&&(Array.isArray(g.pc)||g.vo2||g.ftp||g.recHr));}
+function garminHasRuns(acts){return Object.values(acts||{}).some(g=>g&&g.run&&isGarminRun(g));}
+// The Garmin activities' own date range for a period, for charts that have no days map.
+function actRange(acts){
+  const days={};Object.values(acts||{}).forEach(g=>{if(g&&g.start)days[g.start.slice(0,10)]=1;});
+  return healthRange(activeYear,days);
+}
+
+// Sleep against Garmin's need for it, and why the need moved.
+function renderSleepNeed(days){
+  const cv=document.getElementById('chartSleepneed');
+  if(!cv)return;
+  const range=healthRange(activeYear,days);
+  const keys=range?Object.keys(days).filter(k=>k>=range.from&&k<=range.to&&days[k].sleepNeed&&days[k].sleepSec).sort():[];
+  if(!keys.length){setChartEmpty('chartSleepneed','No sleep need from Garmin '+periodPhrase(activeYear)+'.');chartSummary('sleepneed',[],'');return;}
+  setChartEmpty('chartSleepneed');
+  const unit=healthAutoUnit(range.from,range.to);
+  const pick=f=>healthBuckets(days,range.from,range.to,unit,r=>r.sleepNeed&&r.sleepSec?f(r):null,'avg').map(b=>b.value!=null?+b.value.toFixed(2):null);
+  const slept=pick(r=>r.sleepSec/3600),need=pick(r=>r.sleepNeed/60),base=pick(r=>r.needBase?r.needBase/60:null);
+  const labels=healthBuckets(days,range.from,range.to,unit,()=>null,'avg').map(b=>bucketLabel(b.key,unit));
+  const sub=document.getElementById('sleepneedSub');
+  if(sub)sub.textContent=`Hours slept (bars) against Garmin's sleep need (line) and your baseline (dashed), ${noteUnit(unit)}`;
+  destroyChart('sleepneed');
+  charts.sleepneed=upsertChart('sleepneed',cv.getContext('2d'),{
+    type:'bar',
+    data:{labels,datasets:[
+      {label:'Slept',data:slept,backgroundColor:slept.map((v,i)=>v!=null&&need[i]!=null&&v<need[i]?'#c7d2fe':'#818cf8'),borderRadius:0,order:3},
+      {type:'line',label:'Need',data:need,borderColor:'#15803d',borderWidth:2,pointRadius:unit==='day'?2:0,tension:.25,spanGaps:true,order:1},
+      {type:'line',label:'Baseline',data:base,borderColor:cssVar('--text-light','#6b7280'),borderDash:[4,4],borderWidth:1.5,pointRadius:0,tension:.25,spanGaps:true,order:2},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw!=null?`${c.dataset.label} ${fmtTime(Math.round(c.raw*3600))}`:''}}},
+      scales:{x:recoveryX(),y:recoveryY({beginAtZero:false,ticks:{font:{size:10},color:chartTick(),callback:v=>v+'h'}})}}
+  });
+  const recs=keys.map(k=>days[k]);
+  const m=xs=>xs.length?xs.reduce((a,c)=>a+c,0)/xs.length:null;
+  const avgNeed=m(recs.map(r=>r.sleepNeed)),avgBase=m(recs.filter(r=>r.needBase).map(r=>r.needBase));
+  const short=m(recs.map(r=>Math.max(0,r.sleepNeed-r.sleepSec/60)));
+  const metPct=Math.round(recs.filter(r=>r.sleepSec/60>=r.sleepNeed).length/recs.length*100);
+  const why=needReasons(recs);
+  const chips=[{n:fmtTime(Math.round(avgNeed*60)),label:'average need',col:'#15803d'}];
+  if(avgBase!=null)chips.push({n:fmtTime(Math.round(avgBase*60)),label:'your baseline',col:'#6b7280'});
+  chips.push({n:fmtTime(Math.round(short*60)),label:'short a night, on average',col:'#a5b4fc'});
+  chips.push({n:metPct+'%',label:'nights you met it',col:'#818cf8'});
+  let verdict='';
+  if(why.raised&&avgBase!=null){
+    const top=why.factors.slice(0,2).map(f=>`${f.label} (${f.nights} night${f.nights===1?'':'s'})`);
+    verdict=`Garmin asked for more than your baseline on ${why.raised} of ${why.nights} nights${top.length?', most often for '+top.join(' and '):''}. You met the need on ${metPct}% of nights.`;
+  }else verdict=`You met Garmin's sleep need on ${metPct}% of nights ${periodPhrase(activeYear)}, about ${fmtTime(Math.round(short*60))} short on an average night.`;
+  chartSummary('sleepneed',chips,verdict);
+}
+
+// Hours a day at each stress level, stacked.
+function renderStress(days){
+  const cv=document.getElementById('chartStress');
+  if(!cv)return;
+  const range=healthRange(activeYear,days);
+  const has=r=>r.stressRest!=null||r.stressLow!=null||r.stressMed!=null||r.stressHigh!=null;
+  const keys=range?Object.keys(days).filter(k=>k>=range.from&&k<=range.to&&has(days[k])).sort():[];
+  if(!keys.length){setChartEmpty('chartStress','No stress levels from Garmin '+periodPhrase(activeYear)+'.');chartSummary('stress',[],'');return;}
+  setChartEmpty('chartStress');
+  const unit=healthAutoUnit(range.from,range.to);
+  const cols={stressRest:'#38bdf8',stressLow:'#fcd34d',stressMed:'#f59e0b',stressHigh:'#ea580c'};
+  const series=STRESS_LEVELS.map(([k])=>healthBuckets(days,range.from,range.to,unit,r=>has(r)?(r[k]||0)/3600:null,'avg'));
+  const sub=document.getElementById('stressSub');
+  if(sub)sub.textContent=`Hours a day at each of Garmin's stress levels, ${noteUnit(unit)}`;
+  destroyChart('stress');
+  charts.stress=upsertChart('stress',cv.getContext('2d'),{
+    type:'bar',
+    data:{labels:series[0].map(b=>bucketLabel(b.key,unit)),datasets:STRESS_LEVELS.map(([k,l],i)=>({label:l,data:series[i].map(b=>b.value!=null?+b.value.toFixed(2):null),backgroundColor:cols[k],borderRadius:0,stack:'s'}))},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{tooltip:{callbacks:{label:c=>`${c.dataset.label} ${fmtTime(Math.round(c.raw*3600))}`}}},
+      scales:{x:Object.assign(recoveryX(),{stacked:true}),y:recoveryY({stacked:true,beginAtZero:true,ticks:{font:{size:10},color:chartTick(),callback:v=>v+'h'}})}}
+  });
+  const tot={};STRESS_LEVELS.forEach(([k])=>{tot[k]=keys.reduce((a,d)=>a+(days[d][k]||0),0);});
+  const all=Object.values(tot).reduce((a,c)=>a+c,0)||1;
+  const pct=k=>Math.round(tot[k]/all*100);
+  const hard=pct('stressMed')+pct('stressHigh');
+  // The latest month against the period, where the period is long enough to have one.
+  const recentFrom=addDaysISO(range.to,-29);
+  const rk=keys.filter(k=>k>=recentFrom),ok=keys.filter(k=>k<recentFrom);
+  const share=ks=>{const s=ks.reduce((a,d)=>a+(days[d].stressMed||0)+(days[d].stressHigh||0),0),t=ks.reduce((a,d)=>a+STRESS_LEVELS.reduce((x,[k])=>x+(days[d][k]||0),0),0);return t?s/t*100:null;};
+  const rs=share(rk),os=ok.length>=30?share(ok):null;
+  chartSummary('stress',[
+    {n:pct('stressRest')+'%',label:'at rest',col:cols.stressRest},
+    {n:pct('stressLow')+'%',label:'low',col:cols.stressLow},
+    {n:hard+'%',label:'medium or high',col:cols.stressHigh},
+  ],`${hard}% of measured time ${periodPhrase(activeYear)} was at medium or high stress.`+(rs!=null&&os!=null?(Math.abs(rs-os)<3?' The last 30 days are much the same.':` The last 30 days ran ${rs>os?'higher':'lower'}, at ${Math.round(rs)}%.`):'')+' Garmin reads stress from heart-rate variability, so this moves with the HRV chart rather than adding to it.');
+}
+function addDaysISO(iso,n){const d=new Date(iso+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);}
+
+// Best average power for each duration: this period against all time and the year before.
+function renderPowerCurve(acts){
+  const cv=document.getElementById('chartPowercurve');
+  if(!cv)return;
+  const range=actRange(acts);
+  const cur=range?powerCurve(acts,range.from,range.to):[];
+  if(!cur.some(Boolean)){setChartEmpty('chartPowercurve','No power from Garmin '+periodPhrase(activeYear)+'. Rides recorded only on Zwift or Strava never reach Garmin, so their power is not here.');chartSummary('powercurve',[],'');return;}
+  setChartEmpty('chartPowercurve');
+  const all=powerCurve(acts);
+  // The same span a year earlier, for a period that is not already everything.
+  const prev=activeYear==='All'?null:powerCurve(acts,addDaysISO(range.from,-365),addDaysISO(range.to,-365));
+  const idx=PC_SECS.map((s,i)=>i).filter(i=>all[i]);
+  const w=list=>idx.map(i=>list&&list[i]?list[i].w:null);
+  const ds=[{label:periodLabel(activeYear),data:w(cur),borderColor:groupColor('Ride'),backgroundColor:groupColor('Ride'),borderWidth:2.5,pointRadius:3,tension:.3,spanGaps:true}];
+  if(prev&&prev.some(Boolean))ds.push({label:'A year earlier',data:w(prev),borderColor:'#a5b4fc',borderWidth:1.5,pointRadius:0,tension:.3,spanGaps:true});
+  if(activeYear!=='All')ds.push({label:'All-time best',data:w(all),borderColor:cssVar('--text-light','#6b7280'),borderDash:[4,4],borderWidth:1.5,pointRadius:0,tension:.3,spanGaps:true});
+  const src=[cur,prev,all];
+  destroyChart('powercurve');
+  charts.powercurve=upsertChart('powercurve',cv.getContext('2d'),{
+    type:'line',
+    data:{labels:idx.map(i=>pcLabel(PC_SECS[i])),datasets:ds},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{tooltip:{callbacks:{label:c=>{
+        const list=c.dataset.label==='All-time best'?all:c.dataset.label==='A year earlier'?prev:cur;
+        const b=list&&list[idx[c.dataIndex]];
+        return b?`${c.dataset.label} ${b.w} W · ${fmtDate(b.start.slice(0,10))}`:'';}}}},
+      scales:{x:recoveryX(),y:recoveryY({beginAtZero:false,ticks:{font:{size:10},color:chartTick(),callback:v=>v+' W'}})}}
+  });
+  const at=s=>cur[PC_SECS.indexOf(s)];
+  const chips=[[5,'#f97316'],[60,'#f59e0b'],[300,'#22c55e'],[1200,groupColor('Ride')]].filter(([s])=>at(s))
+    .map(([s,col])=>({n:at(s).w+' W',label:'best '+pcLabel(s),col}));
+  const t20=at(1200),a20=all[PC_SECS.indexOf(1200)];
+  let verdict='';
+  if(t20&&a20){
+    const pct=Math.round(t20.w/a20.w*100);
+    verdict=`Your best 20 minutes ${periodPhrase(activeYear)} was ${t20.w} W, ${pct>=100?'your best ever':pct+'% of your best ever ('+a20.w+' W, '+fmtDate(a20.start.slice(0,10))+')'}. 95% of a 20-minute best is the usual rough guide to FTP: about ${Math.round(t20.w*0.95)} W.`;
+  }else verdict=`Best efforts ${periodPhrase(activeYear)}, from the rides Garmin recorded with power.`;
+  chartSummary('powercurve',chips,verdict);
+}
+
+// VO2 max for rides and runs, and FTP, a point a month across every year Garmin holds.
+function renderFitness(acts){
+  const cv=document.getElementById('chartFitness');
+  if(!cv)return;
+  const f=fitnessSeries(acts);
+  const months=[...new Set([...f.vo2Ride,...f.vo2Run,...f.ftp].map(x=>x.month))].sort();
+  if(!months.length){setChartEmpty('chartFitness','Garmin has no VO2 max or FTP estimate yet.');chartSummary('fitness',[],'');return;}
+  setChartEmpty('chartFitness');
+  const on=list=>{const m={};list.forEach(x=>{m[x.month]=x.value;});return months.map(k=>m[k]??null);};
+  const ds=[];
+  if(f.vo2Ride.length)ds.push({label:'VO2 max, rides',data:on(f.vo2Ride),borderColor:groupColor('Ride'),backgroundColor:groupColor('Ride'),borderWidth:2,pointRadius:1.5,spanGaps:true,yAxisID:'y'});
+  if(f.vo2Run.length)ds.push({label:'VO2 max, runs',data:on(f.vo2Run),borderColor:groupColor('Run'),backgroundColor:groupColor('Run'),borderWidth:2,pointRadius:1.5,spanGaps:true,yAxisID:'y'});
+  if(f.ftp.length)ds.push({label:'FTP (W)',data:on(f.ftp),borderColor:'#f59e0b',backgroundColor:'#f59e0b',borderWidth:2,borderDash:[5,3],pointRadius:1.5,spanGaps:true,stepped:true,yAxisID:'y2'});
+  destroyChart('fitness');
+  charts.fitness=upsertChart('fitness',cv.getContext('2d'),{
+    type:'line',
+    data:{labels:months.map(m=>new Date(m+'-15T12:00:00').toLocaleDateString('en-GB',{month:'short',year:'2-digit'})),datasets:ds},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{tooltip:{filter:it=>it.raw!=null}},
+      scales:{x:recoveryX(),
+        y:recoveryY({display:!!(f.vo2Ride.length||f.vo2Run.length),title:{display:true,text:'VO2 max',font:{size:10},color:chartTick()}}),
+        y2:recoveryY({display:!!f.ftp.length,position:'right',grid:{display:false},title:{display:true,text:'FTP (W)',font:{size:10},color:chartTick()}})}}
+  });
+  const chips=[],lines=[];
+  const latest=l=>l[l.length-1],peak=l=>l.reduce((a,x)=>x.value>a.value?x:a,l[0]);
+  const yearAgo=(l)=>{const t=latest(l).month,c=String(+t.slice(0,4)-1)+t.slice(4);const e=l.filter(x=>x.month<=c);return e.length?e[e.length-1]:null;};
+  [['vo2Ride','VO2 max on the bike',groupColor('Ride'),'','VO2 max, rides'],['vo2Run','VO2 max running',groupColor('Run'),'','VO2 max, runs'],['ftp','FTP','#f59e0b',' W','FTP']].forEach(([k,name,col,u,chip])=>{
+    const l=f[k];if(!l.length)return;
+    const now=latest(l),top=peak(l),ago=yearAgo(l);
+    chips.push({n:Math.round(now.value)+u,label:chip+' now',col});
+    let s=`${name} is ${Math.round(now.value)}${u}`;
+    if(ago&&ago.value!==now.value)s+=`, ${now.value>ago.value?'up':'down'} from ${Math.round(ago.value)}${u} a year before`;
+    if(top.value>now.value)s+=`; its peak was ${Math.round(top.value)}${u} in ${new Date(top.month+'-15T12:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'})}`;
+    lines.push(s+'.');
+  });
+  const lt=f.lt.length?latest(f.lt):null;
+  if(lt)chips.push({n:Math.round(lt.value)+' bpm',label:'lactate threshold',col:'#ef4444'});
+  chartSummary('fitness',chips,lines.join(' ')+' These are Garmin\'s estimates and jump when the watch or the sport changes, so read the trend, not a single month.');
+}
+
+// Recovery heart rate after each activity, over the period.
+function renderRecHr(acts){
+  const cv=document.getElementById('chartRechr');
+  if(!cv)return;
+  const range=actRange(acts);
+  const list=range?garminIn(acts,range.from,range.to).filter(g=>g.recHr>0):[];
+  if(list.length<3){setChartEmpty('chartRechr','Too few activities with a recovery heart rate '+periodPhrase(activeYear)+'. Garmin records it only when you stop the activity on the watch and stand still for two minutes.');chartSummary('rechr',[],'');return;}
+  setChartEmpty('chartRechr');
+  const meaning=recHrMeaning(list.map(g=>g.recHr));
+  const unit=healthAutoUnit(range.from,range.to);
+  const byDay={};list.forEach(g=>{byDay[g.start.slice(0,10)]={v:g.recHr};});
+  const avg=healthBuckets(byDay,range.from,range.to,unit==='day'?'week':unit,r=>r.v,'avg');
+  const labels=avg.map(b=>b.key);
+  const bu=unit==='month'?'month':'week';
+  const pts=list.map(g=>({x:bucketLabel(periodStartISO(g.start.slice(0,10),bu),bu),y:g.recHr,g}));
+  const sub=document.getElementById('rechrSub');
+  if(sub)sub.textContent=meaning==='drop'?'How far your heart rate fell in the two minutes after stopping (higher is fitter): each activity, and the average':'Your heart rate two minutes after stopping (lower is fitter): each activity, and the average';
+  destroyChart('rechr');
+  charts.rechr=upsertChart('rechr',cv.getContext('2d'),{
+    type:'line',
+    data:{labels:labels.map(k=>bucketLabel(k,bu)),datasets:[
+      {type:'scatter',label:'Activity',data:pts,backgroundColor:pts.map(p=>(isGarminRun(p.g)?groupColor('Run'):groupColor('Ride'))+'aa'),pointRadius:3},
+      {label:'Average',data:avg.map(b=>b.value!=null?Math.round(b.value):null),borderColor:cssVar('--text','#111'),borderWidth:1.5,pointRadius:0,tension:.3,spanGaps:true},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:c=>c.raw&&c.raw.g?`${fmtDate(c.raw.g.start.slice(0,10))} · ${c.raw.y} bpm`:`Average ${c.raw} bpm`}}},
+      scales:{x:recoveryX(),y:recoveryY({ticks:{font:{size:10},color:chartTick(),callback:v=>v+' bpm'}})}}
+  });
+  const vals=list.map(g=>g.recHr),m=vals.reduce((a,c)=>a+c,0)/vals.length;
+  const best=meaning==='drop'?Math.max(...vals):Math.min(...vals);
+  const half=Math.floor(list.length/2),early=list.slice(0,half).map(g=>g.recHr),late=list.slice(half).map(g=>g.recHr);
+  const em=early.reduce((a,c)=>a+c,0)/early.length,lm=late.reduce((a,c)=>a+c,0)/late.length;
+  const better=meaning==='drop'?lm-em:em-lm;
+  chartSummary('rechr',[
+    {n:Math.round(m)+' bpm',label:'average',col:'#111827'},
+    {n:best+' bpm',label:'best',col:'#15803d'},
+    {n:String(list.length),label:'activities with a reading',col:'#94a3b8'},
+  ],Math.abs(better)<2?`Recovery heart rate has held steady ${periodPhrase(activeYear)}.`:`Recovery heart rate ${better>0?'improved':'slipped'} by about ${Math.round(Math.abs(better))} bpm from the first half of the period to the second${better>0?': the heart settling faster is one of the clearer signs of fitness.':'. Tiredness shows here before it shows anywhere else, so it is worth reading beside the HRV chart.'}`);
+}
+
+// Running form over the period: cadence and stride, or ground contact and bounce.
+function renderRunForm(acts){
+  const cv=document.getElementById('chartRunform');
+  if(!cv)return;
+  document.querySelectorAll('[data-runview]').forEach(b=>b.classList.toggle('active',b.dataset.runview===runView));
+  const range=actRange(acts);
+  const rd=range?runDays(acts,range.from,range.to):{};
+  const keys=Object.keys(rd).sort();
+  if(!keys.length){setChartEmpty('chartRunform','No runs with running dynamics from Garmin '+periodPhrase(activeYear)+'.');chartSummary('runform',[],'');return;}
+  setChartEmpty('chartRunform');
+  const unit=keys.length<=12?'day':healthAutoUnit(range.from,range.to);
+  const from=unit==='day'?keys[0]:range.from;
+  const series=f=>healthBuckets(rd,from,range.to,unit,f,'avg');
+  const base=series(()=>null);
+  const keep=unit==='day'?base.map((b,i)=>rd[b.key]?i:-1).filter(i=>i>=0):base.map((b,i)=>i);
+  const vals=f=>{const s=series(f);return keep.map(i=>s[i].value!=null?+s[i].value.toFixed(2):null);};
+  const labels=keep.map(i=>bucketLabel(base[i].key,unit));
+  const pair=runView==='contact'
+    ?[['Ground contact (ms)',r=>r.gct,'#0d9488','y'],['Vertical ratio (%)',r=>r.vr,'#f59e0b','y2']]
+    :[['Cadence (spm)',r=>r.cad,groupColor('Run'),'y'],['Stride (m)',r=>r.stride!=null?r.stride/100:null,'#6366f1','y2']];
+  const sub=document.getElementById('runformSub');
+  if(sub)sub.textContent=(runView==='contact'?'Time on the ground each step, and how much of each stride goes up rather than forward':'Steps a minute, and the length of each')+(unit==='day'?', run by run':', '+noteUnit(unit));
+  destroyChart('runform');
+  charts.runform=upsertChart('runform',cv.getContext('2d'),{
+    type:'line',
+    data:{labels,datasets:pair.map(([l,f,col,ax])=>({label:l,data:vals(f),borderColor:col,backgroundColor:col,borderWidth:2,pointRadius:2.5,tension:.3,spanGaps:true,yAxisID:ax}))},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      scales:{x:recoveryX(),y:recoveryY({beginAtZero:false}),y2:recoveryY({beginAtZero:false,position:'right',grid:{display:false}})}}
+  });
+  const recs=keys.map(k=>rd[k]);
+  const m=k=>{const xs=recs.map(r=>r[k]).filter(v=>v!=null);return xs.length?xs.reduce((a,c)=>a+c,0)/xs.length:null;};
+  const cad=m('cad'),stride=m('stride'),gct=m('gct'),vr=m('vr'),gcb=m('gcb'),gap=m('gap');
+  const chips=[];
+  if(cad!=null)chips.push({n:Math.round(cad)+' spm',label:'cadence',col:groupColor('Run')});
+  if(stride!=null)chips.push({n:(stride/100).toFixed(2)+' m',label:'stride',col:'#6366f1'});
+  if(gct!=null)chips.push({n:Math.round(gct)+' ms',label:'ground contact',col:'#0d9488'});
+  if(vr!=null)chips.push({n:vr.toFixed(1)+'%',label:'vertical ratio',col:'#f59e0b'});
+  if(gap!=null)chips.push({n:fmtPace(1609.34/gap),label:'grade-adjusted pace',col:'#94a3b8'});
+  const notes=[];
+  if(cad!=null)notes.push(cad<165?`A cadence of ${Math.round(cad)} is on the low side; a few more, shorter steps usually means less braking.`:`A cadence of ${Math.round(cad)} is in the usual range for a trained runner.`);
+  if(gcb!=null&&Math.abs(gcb-50)>=1.5)notes.push(`Ground contact leans ${gcb>50?'left':'right'} (${gcb.toFixed(1)}%), which is worth watching if one side niggles.`);
+  chartSummary('runform',chips,`${keys.length} day${keys.length===1?'':'s'} of runs ${periodPhrase(activeYear)}. `+notes.join(' '));
+}
+
+// Fastest time at each split distance: this period and all time.
+function renderRunBests(acts){
+  const el=document.getElementById('runbestsTable');
+  if(!el)return;
+  const range=actRange(acts);
+  const cur=range?bestSplits(acts,range.from,range.to):[];
+  const all=bestSplits(acts);
+  if(!all.some(Boolean)){el.innerHTML='<div class="chart-empty" style="position:static;padding:24px 0">No fastest splits from Garmin yet.</div>';chartSummary('runbests',[],'');return;}
+  const both=activeYear!=='All';
+  const rows=SPLIT_M.map((m,i)=>all[i]?`<tr><td>${SPLIT_NAMES[i]}</td>${both?`<td>${cur[i]?fmtPRTime(cur[i].sec):'—'}</td>`:''}<td>${fmtPRTime(all[i].sec)}</td><td class="rb-when">${fmtDate(all[i].start.slice(0,10))}</td></tr>`:'').join('');
+  el.innerHTML=`<table class="run-bests"><thead><tr><th>Distance</th>${both?`<th>${escapeHtml(periodLabel(activeYear))}</th>`:''}<th>All time</th><th>Set</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const newBest=SPLIT_M.map((m,i)=>cur[i]&&all[i]&&cur[i].sec===all[i].sec&&activeYear!=='All'?SPLIT_NAMES[i]:null).filter(Boolean);
+  chartSummary('runbests',[],newBest.length?`All-time bests set ${periodPhrase(activeYear)}: ${newBest.join(', ')}.`:'These are the fastest stretches inside any run, not race results, so a fast 5 km inside a 10 km counts.');
 }
 
 // "This morning" on the Summary tab: last night's sleep and HRV (filed under today)
@@ -6295,15 +6690,22 @@ function renderBedtime(days){
   const bed=healthBuckets(days,range.from,range.to,unit,r=>nightMinutes(r.sleepStart),'avg');
   const wake=healthBuckets(days,range.from,range.to,unit,r=>nightMinutes(r.sleepEnd),'avg');
   const data=bed.map((b,i)=>b.value!=null&&wake[i].value!=null?[Math.round(b.value),Math.round(wake[i].value)]:null);
-  const all=data.filter(Boolean).flat();
+  // Garmin's recommended bedtime, where it gave one: a shaded band.
+  const recS=healthBuckets(days,range.from,range.to,unit,r=>clockToNight(r.bedRecStart),'avg').map(b=>b.value!=null?Math.round(b.value):null);
+  const recE=healthBuckets(days,range.from,range.to,unit,r=>clockToNight(r.bedRecEnd),'avg').map(b=>b.value!=null?Math.round(b.value):null);
+  const hasRec=recS.some(v=>v!=null)&&recE.some(v=>v!=null);
+  const all=data.filter(Boolean).flat().concat(hasRec?[...recS,...recE].filter(v=>v!=null):[]);
   const sub=document.getElementById('bedtimeSub');
-  if(sub)sub.textContent=`From falling asleep to waking, ${noteUnit(unit)}`;
+  if(sub)sub.textContent=`From falling asleep to waking, ${noteUnit(unit)}`+(hasRec?', with Garmin\'s suggested bedtime in green':'');
   destroyChart('bedtime');
   charts.bedtime=upsertChart('bedtime',cv.getContext('2d'),{
     type:'bar',
-    data:{labels:bed.map(b=>bucketLabel(b.key,unit)),datasets:[{label:'Asleep',data,backgroundColor:'#818cf8',borderRadius:0}]},
+    data:{labels:bed.map(b=>bucketLabel(b.key,unit)),datasets:[{label:'Asleep',data,backgroundColor:'#818cf8',borderRadius:0,order:3}].concat(hasRec?[
+      {type:'line',label:'Suggested bedtime from',data:recS,borderColor:'#15803d',borderWidth:1,pointRadius:0,spanGaps:true,order:5},
+      {type:'line',label:'Suggested bedtime to',data:recE,borderColor:'#15803d',borderWidth:1,pointRadius:0,spanGaps:true,fill:'-1',backgroundColor:'rgba(21,128,61,.15)',order:4},
+    ]:[])},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},
-      tooltip:{callbacks:{label:c=>c.raw?`${nightClock(c.raw[0])} to ${nightClock(c.raw[1])}`:''}}},
+      tooltip:{callbacks:{label:c=>c.dataset.type==='line'?(c.raw!=null?`${c.dataset.label} ${nightClock(c.raw)}`:''):c.raw?`${nightClock(c.raw[0])} to ${nightClock(c.raw[1])}`:''}}},
       scales:{x:recoveryX(),
         // Evening at the top, morning at the bottom, the way a night is read.
         y:recoveryY({reverse:true,min:Math.floor((Math.min(...all)-30)/60)*60,max:Math.ceil((Math.max(...all)+30)/60)*60,ticks:{font:{size:10},color:chartTick(),stepSize:60,callback:v=>nightClock(v)}})}}
@@ -6311,11 +6713,17 @@ function renderBedtime(days){
   const beds=keys.map(k=>nightMinutes(days[k].sleepStart)),wakes=keys.map(k=>nightMinutes(days[k].sleepEnd));
   const m=xs=>xs.reduce((a,c)=>a+c,0)/xs.length;
   const sd=sdOf(beds);
+  // Nights asleep inside Garmin's suggested window, give or take a quarter of an hour.
+  const recNights=keys.filter(k=>days[k].bedRecStart!=null&&days[k].bedRecEnd!=null);
+  const inWin=recNights.filter(k=>{const b=nightMinutes(days[k].sleepStart);return b>=clockToNight(days[k].bedRecStart)-15&&b<=clockToNight(days[k].bedRecEnd)+15;}).length;
+  const winPct=recNights.length?Math.round(inWin/recNights.length*100):null;
   chartSummary('bedtime',[
     {n:nightClock(m(beds)),label:'average bedtime',col:'#3730a3'},
     {n:nightClock(m(wakes)),label:'average wake',col:'#818cf8'},
     ...(sd!=null?[{n:'±'+Math.round(sd)+' min',label:'bedtime spread',col:'#94a3b8'}]:[]),
-  ],sd==null?'':sd<=30?`Bedtime holds within about ${Math.round(sd)} minutes either way: steady.`:`Bedtime moves by about ${Math.round(sd)} minutes either way. A steadier bedtime tends to do more for how sleep feels than any one long night.`);
+    ...(winPct!=null?[{n:winPct+'%',label:'nights in Garmin\'s suggested window',col:'#15803d'}]:[]),
+  ],(sd==null?'':sd<=30?`Bedtime holds within about ${Math.round(sd)} minutes either way: steady.`:`Bedtime moves by about ${Math.round(sd)} minutes either way. A steadier bedtime tends to do more for how sleep feels than any one long night.`)
+    +(winPct!=null?` You were asleep inside Garmin's suggested bedtime (the green band) on ${winPct}% of the nights it gave one.`:''));
 }
 
 function renderHrv(days){
@@ -9115,6 +9523,28 @@ function openActivityModal(id){
     if(ga.bb!=null&&ga.bb<0)nightStats.push({label:'Body Battery used',value:String(-ga.bb)});
     if(ga.aerobic!=null)nightStats.push({label:'Training Effect',value:`${ga.aerobic.toFixed(1)} aerobic · ${(ga.anaerobic||0).toFixed(1)} anaerobic`+(ga.label?` (${teLabel(ga.label).toLowerCase()})`:'')});
   }
+  // What you told Garmin about it, how it went against a planned workout, and what the
+  // watch measured that Strava does not carry.
+  const feltStats=[],moreStats=[];
+  if(ga){
+    if(ga.rpe)feltStats.push({label:'Effort you gave it',value:`${ga.rpe}/10 · ${rpeWord(ga.rpe)}`});
+    if(ga.feel!=null)feltStats.push({label:'How you felt',value:feelWord(ga.feel)});
+    if(ga.comp!=null)feltStats.push({label:ga.workout?'Followed '+escapeHtml(ga.workout):'Followed the workout',value:Math.round(ga.comp)+'%'});
+    if(ga.recHr)feltStats.push({label:'Recovery heart rate',value:ga.recHr+' bpm'});
+    if(ga.np)moreStats.push({label:'Normalised power',value:Math.round(ga.np)+' W'});
+    if(ga.tss)moreStats.push({label:'Training stress',value:Math.round(ga.tss)+(ga.if?` · IF ${ga.if.toFixed(2)}`:'')});
+    if(ga.vo2)moreStats.push({label:'VO2 max after',value:String(Math.round(ga.vo2))});
+    if(ga.resp)moreStats.push({label:'Breathing',value:Math.round(ga.resp)+' breaths a minute'});
+    const r=ga.run||{};
+    if(r.cad)moreStats.push({label:'Cadence',value:Math.round(r.cad)+' spm'});
+    if(r.stride)moreStats.push({label:'Stride',value:(r.stride/100).toFixed(2)+' m'});
+    if(r.gct)moreStats.push({label:'Ground contact',value:Math.round(r.gct)+' ms'+(r.gcb?` · ${r.gcb.toFixed(1)}% left`:'')});
+    if(r.vr)moreStats.push({label:'Vertical ratio',value:r.vr.toFixed(1)+'%'+(r.vo?` · ${r.vo.toFixed(1)} cm`:'')});
+    if(r.gap)moreStats.push({label:'Grade-adjusted pace',value:fmtPace(1609.34/r.gap)});
+  }
+  const statGrid=list=>`<div class="gear-modal-stats act-night">${list.map(s=>`<div><div class="gear-modal-stat-label">${s.label}</div><div class="gear-modal-stat-value">${s.value}</div></div>`).join('')}</div>`;
+  const feltBlock=(feltStats.length?`<div class="gear-modal-section-title">How it felt</div>${statGrid(feltStats)}`:'')
+    +(moreStats.length?`<div class="gear-modal-section-title">${ga&&ga.run?'Running form, from Garmin':'From Garmin'}</div>${statGrid(moreStats)}`:'');
   const nightBlock=nightStats.length?`
     <div class="gear-modal-section-title">${night?'The night before, and what it took':'What it took'}</div>
     <div class="gear-modal-stats act-night">${nightStats.map(s=>`<div><div class="gear-modal-stat-label">${s.label}</div><div class="gear-modal-stat-value">${s.value}</div></div>`).join('')}</div>`:'';
@@ -9136,6 +9566,7 @@ function openActivityModal(id){
     </div>
     <div class="gear-modal-body">
       <div class="gear-modal-stats">${stats.map(s=>`<div${s.title?` title="${escapeAttr(s.title)}"`:''}><div class="gear-modal-stat-label">${s.label}</div><div class="gear-modal-stat-value">${s.value}</div></div>`).join('')}</div>
+      ${feltBlock}
       ${nightBlock}
       ${zoneBlock}
       ${prs?`<div class="gear-modal-section-title" style="margin-top:20px">Segment bests on this run</div><div class="gear-modal-types">${prs}</div>`:''}

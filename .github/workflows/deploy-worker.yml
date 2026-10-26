@@ -9,6 +9,8 @@ on:
       - worker.js
       - calendar.js
       - garmin.js
+      - weekly.js
+      - jmap.js
       - calc.js
       - wrangler.toml
 

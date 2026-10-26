@@ -1100,6 +1100,113 @@ function teLabel(k){
   return TE_LABELS[k]||String(k).toLowerCase().replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());
 }
 
+/* ── GARMIN: PERFORMANCE AND RUNNING ──
+ * Built on the Garmin activity records (garmin.js): HEALTH.acts in the browser, the
+ * stored copy in the Worker's weekly email. `start` is the local start, so its first
+ * ten characters are the day.
+ */
+// The durations Garmin keeps a best average power for (the same list as garmin.js).
+const PC_SECS=[1,2,5,10,20,30,60,120,300,600,1200,1800,3600,7200,18000];
+function pcLabel(s){return s<60?s+'s':s<3600?(s/60)+' min':(s/3600)+' h';}
+// The fastest-split distances, in metres, and their names.
+const SPLIT_M=[1000,1609,5000,10000,21098,42195];
+const SPLIT_NAMES=['1 km','1 mile','5 km','10 km','Half marathon','Marathon'];
+function garminIn(acts,from,to){
+  return Object.entries(acts||{})
+    .filter(([,g])=>g&&g.start&&(!from||g.start.slice(0,10)>=from)&&(!to||g.start.slice(0,10)<=to))
+    .map(([id,g])=>Object.assign({id},g))
+    .sort((a,b)=>a.start<b.start?-1:a.start>b.start?1:0);
+}
+const isGarminRun=g=>/run/i.test(g&&g.type||'');
+const isGarminRide=g=>/(cycl|bik|ride)/i.test(g&&g.type||'');
+// The best average power at each duration in [from, to], and the activity it came from.
+function powerCurve(acts,from,to){
+  const best=PC_SECS.map(()=>null);
+  garminIn(acts,from,to).forEach(g=>{
+    if(!Array.isArray(g.pc))return;
+    g.pc.forEach((w,i)=>{if(w>0&&(!best[i]||w>best[i].w))best[i]={w,start:g.start,id:g.id};});
+  });
+  return best;
+}
+/* A slow-moving figure Garmin re-estimates as you train (VO2 max, FTP, lactate
+ * threshold): one value a month, the last one that month held. */
+function monthlyLatest(acts,pick){
+  const out={};
+  garminIn(acts).forEach(g=>{const v=pick(g);if(v!=null&&v>0)out[g.start.slice(0,7)]={month:g.start.slice(0,7),value:v,start:g.start};});
+  return Object.values(out).sort((a,b)=>a.month<b.month?-1:1);
+}
+function fitnessSeries(acts){
+  return{
+    vo2Ride:monthlyLatest(acts,g=>isGarminRide(g)?g.vo2:null),
+    vo2Run:monthlyLatest(acts,g=>isGarminRun(g)?g.vo2:null),
+    ftp:monthlyLatest(acts,g=>g.ftp),
+    lt:monthlyLatest(acts,g=>g.lt),
+  };
+}
+/* Garmin's recovery heart rate is the fall in the two minutes after you stop on most
+ * watches, and the heart rate at two minutes on some. A fall is rarely above 70 and a
+ * heart rate rarely below it, so the middle of what was recorded says which this is:
+ * 'drop' (higher is better) or 'level' (lower is better). */
+function recHrMeaning(values){
+  const xs=(values||[]).filter(v=>v>0).sort((a,b)=>a-b);
+  if(!xs.length)return'drop';
+  return xs[Math.floor(xs.length/2)]>70?'level':'drop';
+}
+/* Garmin's reasons for moving tonight's sleep need off its baseline, counted over a
+ * set of nights. Its codes are short words; anything meaning "no change" is not a
+ * reason. Returns [{key, label, nights}] most frequent first, and how many nights
+ * needed more than the baseline. */
+const NEED_FACTORS=[['needTrain','training load'],['needHist','recent short sleep'],['needHrv','HRV'],['needNap','naps']];
+function needAdjusted(v){
+  if(v==null||v===0||v==='')return false;
+  return!/^(no[_ ]?change|none|no[_ ]?adjustment|neutral|zero|0|normal|n\/a)$/i.test(String(v).trim());
+}
+function needReasons(recs){
+  const rs=(recs||[]).filter(r=>r&&r.sleepNeed);
+  const factors=NEED_FACTORS.map(([key,label])=>({key,label,nights:rs.filter(r=>needAdjusted(r[key])).length}))
+    .filter(f=>f.nights>0).sort((a,b)=>b.nights-a.nights);
+  const raised=rs.filter(r=>r.needBase&&r.sleepNeed>r.needBase).length;
+  return{nights:rs.length,raised,factors};
+}
+// A recommended bedtime (minutes after midnight) on the night axis (minutes after 18:00).
+function clockToNight(mins){
+  if(mins==null||!isFinite(mins))return null;
+  const t=((mins%1440)+1440)%1440;
+  return t>=18*60?t-18*60:t+6*60;
+}
+// Hours a day at each Garmin stress level.
+const STRESS_LEVELS=[['stressRest','Rest'],['stressLow','Low'],['stressMed','Medium'],['stressHigh','High']];
+// The fastest time Garmin recorded at each split distance in [from, to].
+function bestSplits(acts,from,to){
+  const best=SPLIT_M.map(()=>null);
+  garminIn(acts,from,to).forEach(g=>{
+    const sp=g.run&&g.run.splits;if(!Array.isArray(sp))return;
+    sp.forEach((t,i)=>{if(t>0&&(!best[i]||t<best[i].sec))best[i]={sec:t,start:g.start,id:g.id};});
+  });
+  return best;
+}
+/* Runs' form by day, shaped like the health days so healthBuckets can group them: the
+ * average of each figure over that day's runs. */
+function runDays(acts,from,to){
+  const out={},n={};
+  garminIn(acts,from,to).forEach(g=>{
+    if(!isGarminRun(g)||!g.run)return;
+    const d=g.start.slice(0,10);out[d]=out[d]||{};n[d]=n[d]||{};
+    ['cad','stride','gct','gcb','vo','vr','gap'].forEach(k=>{
+      const v=g.run[k];if(v==null)return;
+      out[d][k]=((out[d][k]||0)*(n[d][k]||0)+v)/((n[d][k]||0)+1);n[d][k]=(n[d][k]||0)+1;
+    });
+  });
+  return out;
+}
+// RPE and feel in words. Feel is stored as 0, 25, 50, 75 or 100.
+const FEEL_WORDS=['Very weak','Weak','Normal','Strong','Very strong'];
+function feelWord(v){return v==null?null:FEEL_WORDS[Math.max(0,Math.min(4,Math.round(v/25)))];}
+function rpeWord(v){
+  if(!v)return null;
+  return v<=2?'very easy':v<=4?'easy':v<=6?'moderate':v<=8?'hard':'maximal';
+}
+
 /* ── ZWIFT: A PLANNED DAY'S STATE ──
  * done     the route is Complete, whenever it was planned for
  * overdue  its planned day has gone by and it is not Complete
@@ -1280,6 +1387,8 @@ if (typeof module !== 'undefined' && module.exports) {
     yearEndProjection,projectionWindow,daysInYear,PROJ_WINDOW_MIN,
     zwiftYearStats,zwiftYearVerdict,ZW_PACE_MIN_DAYS,zwiftPlanState,parseZwiftTime,
     healthNight,restingHrTrend,hrvRecent,recoveryVerdict,respTrend,healthRange,healthAutoUnit,healthBuckets,nightMinutes,nightClock,sdOf,garminMatch,teLabel,TE_ORDER,
+    PC_SECS,pcLabel,SPLIT_M,SPLIT_NAMES,garminIn,isGarminRun,isGarminRide,powerCurve,monthlyLatest,fitnessSeries,recHrMeaning,
+    NEED_FACTORS,needAdjusted,needReasons,clockToNight,STRESS_LEVELS,bestSplits,runDays,FEEL_WORDS,feelWord,rpeWord,
     setScope(s){
       if(s.unit!==undefined)unit=s.unit;
       if(s.activeYear!==undefined)activeYear=s.activeYear;

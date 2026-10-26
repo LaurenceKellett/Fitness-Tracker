@@ -2,6 +2,9 @@ name            = "activities-api"
 main            = "worker.js"
 compatibility_date = "2024-01-01"
 account_id      = "ff7d99e86c89fefa648b7c06f5447f81"
+# Leave any variable set in the Cloudflare dashboard alone on deploy; [vars] below
+# adds to them rather than replacing them.
+keep_vars = true
 
 # This connects your code's "env.CACHE" to an actual KV bucket
 [[kv_namespaces]]
@@ -19,6 +22,15 @@ binding = "AI"
 # repo's daily snapshot that reads it, is never more than three hours behind.
 # Cloudflare cron is UTC-only; with a run every three hours, daylight saving
 # no longer needs the hours shifting by hand.
+# The weekly email (weekly.js), every Tuesday from 07:00 London for the Monday to
+# Sunday before. WEEKLY_FROM must be an address the Fastmail token may send as;
+# WEEKLY_TO is comma-separated. FASTMAIL_TOKEN is a secret, never in this file:
+#   npx wrangler secret put FASTMAIL_TOKEN
+# (Fastmail -> Settings -> Privacy & Security -> API tokens, Mail scope, read and write.)
+[vars]
+WEEKLY_FROM = "hello@laurencekellett.co.uk"
+WEEKLY_TO   = "hello@laurencekellett.co.uk"
+
 [triggers]
 # The second is the Google Calendar reconcile (calendar.js): planned Zwift rides
 # both ways, so a drag in the calendar reaches Notion within 15 minutes. It does

@@ -1701,3 +1701,70 @@ describe('garminMatch', () => {
     expect(teLabel(null)).toBe('Unlabelled');
   });
 });
+
+// ── GARMIN: PERFORMANCE AND RUNNING ──────────────────────────────────────────
+describe('Garmin performance and running', () => {
+  const { PC_SECS, pcLabel, powerCurve, fitnessSeries, recHrMeaning, needAdjusted, needReasons, clockToNight,
+    bestSplits, runDays, feelWord, rpeWord, garminIn } = calc;
+  const pc = (o) => PC_SECS.map((s) => o[s] ?? null);
+  const acts = {
+    a: { start: '2025-03-02T08:00:00', type: 'road_biking', pc: pc({ 5: 700, 60: 400, 1200: 260 }), vo2: 52, ftp: 270 },
+    b: { start: '2025-03-20T08:00:00', type: 'virtual_ride', pc: pc({ 5: 750, 60: 380, 1200: 255 }), vo2: 53, ftp: 275 },
+    c: { start: '2026-06-01T08:00:00', type: 'running', vo2: 49, run: { cad: 170, stride: 110, splits: [280, 460, 1500, null, null, null] } },
+    d: { start: '2026-06-03T08:00:00', type: 'running', run: { cad: 174, splits: [270, null, 1530, 3200, null, null] } },
+  };
+  it('takes the best power at each duration, and the ride it came from', () => {
+    const c = powerCurve(acts);
+    expect(c[PC_SECS.indexOf(5)]).toMatchObject({ w: 750, id: 'b' });
+    expect(c[PC_SECS.indexOf(60)]).toMatchObject({ w: 400, id: 'a' });
+    expect(c[PC_SECS.indexOf(3600)]).toBeNull();
+    expect(powerCurve(acts, '2025-03-10', '2025-12-31')[PC_SECS.indexOf(60)].w).toBe(380);
+    expect(pcLabel(5)).toBe('5s');
+    expect(pcLabel(300)).toBe('5 min');
+    expect(pcLabel(3600)).toBe('1 h');
+  });
+  it('keeps VO2 max and FTP as the last value each month, rides and runs apart', () => {
+    const f = fitnessSeries(acts);
+    expect(f.vo2Ride).toEqual([{ month: '2025-03', value: 53, start: '2025-03-20T08:00:00' }]);
+    expect(f.vo2Run.map((x) => x.value)).toEqual([49]);
+    expect(f.ftp.map((x) => x.value)).toEqual([275]);
+  });
+  it('tells a fall in heart rate from a heart rate', () => {
+    expect(recHrMeaning([28, 34, 40])).toBe('drop');
+    expect(recHrMeaning([110, 98, 104])).toBe('level');
+    expect(recHrMeaning([])).toBe('drop');
+  });
+  it('counts what moved sleep need off its baseline', () => {
+    expect(needAdjusted('NO_CHANGE')).toBe(false);
+    expect(needAdjusted(0)).toBe(false);
+    expect(needAdjusted('INCREASING')).toBe(true);
+    const r = needReasons([
+      { sleepNeed: 500, needBase: 470, needTrain: 'HIGH', needHrv: 'NO_CHANGE' },
+      { sleepNeed: 490, needBase: 470, needTrain: 'HIGH', needHrv: 'INCREASING' },
+      { sleepNeed: 470, needBase: 470, needTrain: 'NO_CHANGE' },
+      { sleepSec: 100 },
+    ]);
+    expect(r).toEqual({ nights: 3, raised: 2, factors: [{ key: 'needTrain', label: 'training load', nights: 2 }, { key: 'needHrv', label: 'HRV', nights: 1 }] });
+  });
+  it('puts a recommended bedtime on the night axis', () => {
+    expect(clockToNight(22 * 60 + 30)).toBe(270);
+    expect(clockToNight(30)).toBe(390);
+    expect(clockToNight(null)).toBeNull();
+  });
+  it('finds the fastest split at each distance, and averages a day of runs', () => {
+    const b = bestSplits(acts);
+    expect(b[0]).toMatchObject({ sec: 270, id: 'd' });
+    expect(b[2]).toMatchObject({ sec: 1500, id: 'c' });
+    expect(b[3].sec).toBe(3200);
+    expect(b[4]).toBeNull();
+    expect(runDays(acts)).toEqual({ '2026-06-01': { cad: 170, stride: 110 }, '2026-06-03': { cad: 174 } });
+    expect(garminIn(acts, '2026-01-01').map((g) => g.id)).toEqual(['c', 'd']);
+  });
+  it('says RPE and feel in words', () => {
+    expect(feelWord(75)).toBe('Strong');
+    expect(feelWord(0)).toBe('Very weak');
+    expect(feelWord(null)).toBeNull();
+    expect(rpeWord(7)).toBe('hard');
+    expect(rpeWord(3)).toBe('easy');
+  });
+});

@@ -18,11 +18,25 @@
  *                     lightSec, remSec, awakeSec, sleepStart / sleepEnd (local wall time,
  *                     'YYYY-MM-DDTHH:MM'), sleepNeed (minutes), resp (breaths a minute
  *                     asleep)
+ *                     needBase, needFb, needTrain, needHist, needHrv, needNap (what
+ *                     Garmin's sleep need was built from: its baseline in minutes and
+ *                     its own reason codes), bedRecStart / bedRecEnd (its recommended
+ *                     bedtime, minutes after midnight)
+ *                     stressRest, stressLow, stressMed, stressHigh (seconds at each),
+ *                     bbCharged, bbDrained, imMod, imVig (intensity minutes)
  *                     hrv, hrvWeek, hrvLow, hrvHigh, hrvStatus
  *   garmin_acts_v1  per Garmin activity: its local and GMT start, type, duration,
  *                   distance, average HR, time in each HR zone (5) and power zone (7),
  *                   aerobic and anaerobic Training Effect and its label, Garmin's
- *                   training load, and the Body Battery it used.
+ *                   training load, and the Body Battery it used; best average power
+ *                   over PC_SECS (the power curve), normalised power, TSS, IF, and the
+ *                   VO2 max, FTP and lactate threshold Garmin held after it; breathing
+ *                   rate; for runs, cadence, stride, ground contact, vertical
+ *                   oscillation and ratio, grade-adjusted speed and fastest splits.
+ *                   From each activity's own record (one request each, so a budget a
+ *                   run, back to DETAIL_FLOOR): what you said about it (RPE, feel),
+ *                   how closely it followed a planned workout and that workout's name,
+ *                   and recovery heart rate. `det` marks one that has been read.
  * Nothing finer than a day for health, and nothing of nutrition, weight or cycle
  * tracking.
  *
@@ -54,6 +68,15 @@ export const GARMIN_BUDGET = 40;
 // a few days rather than one; anything older is settled.
 export const GARMIN_RECENT_DAYS = 4;
 const RECENT_ACT_DAYS = 7;
+// Each activity's own record carries what the list does not: your RPE and feel, workout
+// compliance, recovery heart rate. Garmin added the first two around 2021, so there is
+// no point reading further back than that, a request at a time.
+export const DETAIL_FLOOR = '2021-01-01';
+// While the activity history is still arriving, details get only this much of a run.
+const DETAIL_SHARE = 8;
+// The durations Garmin keeps a best average power for, in seconds.
+export const PC_SECS = [1, 2, 5, 10, 20, 30, 60, 120, 300, 600, 1200, 1800, 3600, 7200, 18000];
+const SPLITS = [1000, 1609, 5000, 10000, 21098, 42195];
 
 export function garminConfigured(env) {
   return !!(env && typeof env.GARMIN_API === 'string' && env.GARMIN_API.trim());
@@ -107,6 +130,11 @@ const num = (v) => {
   return typeof n === 'number' && isFinite(n) ? n : null;
 };
 
+const secs = (ms) => { const n = num(ms); return n == null ? null : Math.round(n / 1000); };
+// Garmin's reason codes, kept as sent (they are short words like NO_CHANGE); a number is
+// kept as a number.
+const code = (v) => (typeof v === 'string' && v.trim() ? v.trim() : num(v));
+
 export function fromSummaries(json) {
   const out = {};
   rows(json, 'data').forEach((r) => {
@@ -119,6 +147,14 @@ export function fromSummaries(json) {
       stress: num(r.stress?.avgLevel),
       bbMax: num(r.bodyBattery?.maxValue),
       bbMin: num(r.bodyBattery?.minValue),
+      bbCharged: num(r.bodyBattery?.chargedValue),
+      bbDrained: num(r.bodyBattery?.drainedValue),
+      stressRest: secs(r.stress?.restDurationInMillis),
+      stressLow: secs(r.stress?.lowStressDurationInMillis),
+      stressMed: secs(r.stress?.mediumStressDurationInMillis),
+      stressHigh: secs(r.stress?.highStressDurationInMillis),
+      imMod: num(r.intensityMinutes?.moderate),
+      imVig: num(r.intensityMinutes?.vigorous),
     };
   });
   return out;
@@ -136,8 +172,9 @@ export function fromSleep(json) {
     // no data, not a night of no sleep.
     if (!secs) return;
     // Sleep need is minutes in practice; a value too large to be minutes is seconds.
-    let need = num(r.sleepNeed?.actual);
-    if (need != null && need > 2000) need = Math.round(need / 60);
+    const mins = (v) => { const n = num(v); return n != null && n > 2000 ? Math.round(n / 60) : n; };
+    const need = mins(r.sleepNeed?.actual);
+    const sn = r.sleepNeed || {};
     out[day] = {
       sleepSec: secs,
       sleepScore: num(r.sleepScores?.overall?.value),
@@ -150,6 +187,14 @@ export function fromSleep(json) {
       sleepEnd: wallOf(r.sleepEndTimestampLocal),
       sleepNeed: need,
       resp: num(r.averageRespirationValue),
+      needBase: mins(sn.baseline),
+      needFb: code(sn.feedback),
+      needTrain: code(sn.trainingFeedback),
+      needHist: code(sn.sleepHistoryAdjustment),
+      needHrv: code(sn.hrvAdjustment),
+      needNap: code(sn.napAdjustment),
+      bedRecStart: num(sn.recommendedBedtimeStartMins),
+      bedRecEnd: num(sn.recommendedBedtimeEndMins),
     };
   });
   return out;
@@ -196,9 +241,78 @@ export function fromActivities(json) {
       label: typeof r.trainingEffectLabel === 'string' ? r.trainingEffectLabel : null,
       load: num(r.activityTrainingLoad),
       bb: num(r.differenceBodyBattery),
+      ...perfOf(r),
+      ...inputOf(r),
     };
   });
   return out;
+}
+
+const isRun = (type) => /run/i.test(type || '');
+// Power, fitness markers, breathing and, for a run, its form: only what is present, so a
+// ride on a watch with no power meter costs nothing in storage.
+function perfOf(r) {
+  const o = {};
+  const put = (k, v) => { if (v != null) o[k] = v; };
+  if (r.excludeFromPowerCurveReports !== true) {
+    const pc = PC_SECS.map((s) => num(r['maxAvgPower_' + s]));
+    if (pc.some((v) => v)) o.pc = pc.map((v) => v || null);
+  }
+  put('ap', num(r.avgPower));
+  put('np', num(r.normPower));
+  put('tss', num(r.trainingStressScore));
+  put('if', num(r.intensityFactor));
+  put('vo2', num(r.vO2MaxValue));
+  put('ftp', num(r.maxFtp));
+  put('lt', num(r.lactateThresholdBpm));
+  put('resp', num(r.avgRespirationRate));
+  if (isRun(r.activityType?.typeKey)) {
+    const run = {};
+    const rput = (k, v) => { if (v != null) run[k] = v; };
+    // Garmin's own cadence field is steps a minute on both feet; the "double" one is a
+    // fallback some watches fill instead.
+    rput('cad', num(r.averageRunningCadenceInStepsPerMinute) ?? num(r.avgDoubleCadence));
+    rput('stride', num(r.avgStrideLength));
+    rput('gct', num(r.avgGroundContactTime));
+    rput('gcb', num(r.avgGroundContactBalance));
+    rput('vo', num(r.avgVerticalOscillation));
+    rput('vr', num(r.avgVerticalRatio));
+    rput('gap', num(r.avgGradeAdjustedSpeed));
+    const sp = SPLITS.map((m) => num(r['fastestSplit_' + m]));
+    if (sp.some((v) => v)) run.splits = sp.map((v) => v || null);
+    if (Object.keys(run).length) o.run = run;
+  }
+  return o;
+}
+
+// What you told Garmin about an activity, and how it went against a planned workout.
+// RPE is stored as 10 to 100 (10 times the 1 to 10 scale); feel as 0, 25, 50, 75 or 100
+// (very weak to very strong). Read from the list when it carries them, and from the
+// activity's own record otherwise.
+export function inputOf(r) {
+  const o = {};
+  let rpe = num(r.directWorkoutRpe) ?? num(r.perceivedWorkoutEffort);
+  if (rpe != null && rpe > 10) rpe = Math.round(rpe / 10);
+  if (rpe) o.rpe = rpe;
+  const feel = num(r.directWorkoutFeel);
+  if (feel != null) o.feel = feel;
+  const comp = num(r.directWorkoutComplianceScore);
+  if (comp != null) o.comp = comp;
+  const rec = num(r.recoveryHeartRate);
+  if (rec) o.recHr = rec;
+  return o;
+}
+
+// An activity's own record: { summaryDTO: {...} } (or the summary bare).
+export function fromDetail(json) {
+  const s = (json && (json.summaryDTO || json.summary)) || json || {};
+  return inputOf(s);
+}
+// The planned workout an activity followed, if any: its name.
+export function workoutName(json) {
+  const list = Array.isArray(json) ? json : rows(json, 'workouts');
+  const w = list.find((x) => x && typeof x.workoutName === 'string' && x.workoutName.trim());
+  return w ? w.workoutName.trim() : null;
 }
 
 // Later pieces win field by field, and a null never overwrites a number: a day read
@@ -211,6 +325,15 @@ export function mergeDays(base, ...parts) {
     Object.entries(rec).forEach(([k, v]) => { if (v != null) cur[k] = v; });
     out[day] = cur;
   }));
+  return out;
+}
+
+// An activity read again from the list keeps what only its own record held (RPE, feel,
+// compliance, recovery HR, the `det` mark), so the last week's activities, reread every
+// run, are not read in detail every run too.
+export function mergeActs(base, got) {
+  const out = { ...(base || {}) };
+  Object.entries(got || {}).forEach(([id, rec]) => { out[id] = { ...(out[id] || {}), ...rec }; });
   return out;
 }
 
@@ -312,7 +435,28 @@ export async function refreshGarmin(env, { today, budget = GARMIN_BUDGET } = {})
   try {
     const auth = await newAuth(env);
     days = mergeDays(days, await pullDays(auth, addDays(now, -(GARMIN_RECENT_DAYS - 1)), now));
-    acts = { ...acts, ...(await pullActivityPage(auth, addDays(now, -(RECENT_ACT_DAYS - 1)), now, 0)).acts };
+    acts = mergeActs(acts, (await pullActivityPage(auth, addDays(now, -(RECENT_ACT_DAYS - 1)), now, 0)).acts);
+
+    // What you said about the last week's activities: a few requests, every run, so a
+    // ride's RPE shows the same day.
+    const detailIds = (from, cap) => Object.entries(acts)
+      .filter(([, a]) => !a.det && a.start && a.start.slice(0, 10) >= from)
+      .sort((x, y) => (x[1].start < y[1].start ? 1 : -1))
+      .slice(0, cap).map(([id]) => id);
+    const readDetails = async (ids) => {
+      for (const id of ids) {
+        if (budget - auth.used < 2) break;
+        const d = fromDetail(await garminGet(auth, `/activity-service/activity/${encodeURIComponent(id)}`));
+        // A workout name only matters where there was a workout to comply with.
+        if (d.comp != null && budget - auth.used >= 1) {
+          const w = workoutName(await garminGet(auth, `/activity-service/activity/${encodeURIComponent(id)}/workouts`));
+          if (w) d.workout = w;
+        }
+        acts = { ...acts, [id]: { ...acts[id], ...d, det: 1 } };
+        report.details = (report.details || 0) + 1;
+      }
+    };
+    await readDetails(detailIds(addDays(now, -(RECENT_ACT_DAYS - 1)), 6));
 
     // Daily history: a year at a time, back from the earliest day held.
     let dailyCursor = back.daily || addDays(now, -GARMIN_RECENT_DAYS);
@@ -330,11 +474,12 @@ export async function refreshGarmin(env, { today, budget = GARMIN_BUDGET } = {})
     if (dailyCursor <= GARMIN_FLOOR) {
       let actCursor = back.acts || addDays(now, -RECENT_ACT_DAYS);
       let page = back.actsPage || 0;
-      while (actCursor > GARMIN_FLOOR && budget - auth.used >= 1) {
+      // DETAIL_SHARE is held back for the detail backlog below.
+      while (actCursor > GARMIN_FLOOR && budget - auth.used >= 1 + DETAIL_SHARE) {
         const end = addDays(actCursor, -1);
         const start = maxDay(GARMIN_FLOOR, monthStart(end));
         const { acts: got, more } = await pullActivityPage(auth, start, end, page * ACT_PAGE);
-        acts = { ...acts, ...got };
+        acts = mergeActs(acts, got);
         report.actPages++;
         if (more) { page++; continue; }
         actCursor = start; page = 0;
@@ -342,6 +487,10 @@ export async function refreshGarmin(env, { today, budget = GARMIN_BUDGET } = {})
       back.acts = actCursor;
       back.actsPage = page;
     }
+    // The detail backlog, newest first, back to DETAIL_FLOOR: a share of the run while
+    // the activity history is still coming in, everything left once it is done.
+    const historyDone = dailyCursor <= GARMIN_FLOOR && (back.acts || '9') <= GARMIN_FLOOR;
+    await readDetails(detailIds(DETAIL_FLOOR, historyDone ? budget : DETAIL_SHARE));
   } catch (err) {
     // What is already held is still good; say what went wrong beside it.
     const msg = err.message;

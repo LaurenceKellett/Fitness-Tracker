@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   windows, addDays, fromSummaries, fromSleep, fromHrv, fromActivities, mergeDays, refreshGarmin,
   dayOf, wallOf, GARMIN_KV, GARMIN_ACTS_KV, GARMIN_FLOOR, GARMIN_BUDGET,
+  PC_SECS, inputOf, fromDetail, workoutName, mergeActs, DETAIL_FLOOR,
 } from '../garmin.js';
 import worker from '../worker.js';
 
@@ -46,14 +47,28 @@ const HRV = (day, o = {}) => ({ calendarDate: day, lastNightAvg: 58, weeklyAvg: 
 
 describe('reading Garmin\'s answers', () => {
   it('takes steps, resting HR, stress and Body Battery from the daily summaries', () => {
-    expect(fromSummaries({ data: [SUMMARY('2026-10-24')] })).toEqual({
+    expect(fromSummaries({ data: [SUMMARY('2026-10-24')] })).toMatchObject({
       '2026-10-24': { steps: 9120, stepGoal: 8000, rhr: 47, stress: 28, bbMax: 88, bbMin: 21 },
     });
   });
   it('takes duration and score from sleep, and skips a night with nothing recorded', () => {
     expect(fromSleep([SLEEP('2026-10-24'), SLEEP('2026-10-23', { sleepTimeSeconds: 0, sleepScores: null })]))
-      .toEqual({ '2026-10-24': { sleepSec: 26100, sleepScore: 82, sleepQ: 'GOOD', deepSec: 5400, lightSec: 14400, remSec: 6300,
+      .toMatchObject({ '2026-10-24': { sleepSec: 26100, sleepScore: 82, sleepQ: 'GOOD', deepSec: 5400, lightSec: 14400, remSec: 6300,
         awakeSec: 900, sleepStart: '2026-10-23T23:05', sleepEnd: '2026-10-24T06:40', sleepNeed: 480, resp: 14.2 } });
+    expect(Object.keys(fromSleep([SLEEP('2026-10-24'), SLEEP('2026-10-23', { sleepTimeSeconds: 0 })]))).toEqual(['2026-10-24']);
+  });
+  it('takes time at each stress level, Body Battery charged and drained, and intensity minutes', () => {
+    const d = fromSummaries([SUMMARY('2026-10-24', {
+      stress: { avgLevel: 28, restDurationInMillis: 30600000, lowStressDurationInMillis: 14400000, mediumStressDurationInMillis: 3600000, highStressDurationInMillis: 900000 },
+      bodyBattery: { maxValue: 88, minValue: 21, chargedValue: 62, drainedValue: 70 },
+      intensityMinutes: { goal: 150, moderate: 20, vigorous: '35' },
+    })])['2026-10-24'];
+    expect(d).toMatchObject({ stressRest: 30600, stressLow: 14400, stressMed: 3600, stressHigh: 900, bbCharged: 62, bbDrained: 70, imMod: 20, imVig: 35 });
+  });
+  it('takes what sleep need was built from, and the recommended bedtime', () => {
+    const d = fromSleep([SLEEP('2026-10-24', { sleepNeed: { baseline: 470, actual: 500, feedback: 'INCREASED', trainingFeedback: 'HIGH_LOAD',
+      sleepHistoryAdjustment: 'NO_CHANGE', hrvAdjustment: 'INCREASING', napAdjustment: 'NO_CHANGE', recommendedBedtimeStartMins: 1350, recommendedBedtimeEndMins: 1410 } })])['2026-10-24'];
+    expect(d).toMatchObject({ sleepNeed: 500, needBase: 470, needFb: 'INCREASED', needTrain: 'HIGH_LOAD', needHist: 'NO_CHANGE', needHrv: 'INCREASING', bedRecStart: 1350, bedRecEnd: 1410 });
   });
   it('takes last night\'s HRV with its balanced range and status', () => {
     expect(fromHrv({ hrvSummaries: [HRV('2026-10-24'), HRV('2026-10-23', { lastNightAvg: null })] })).toEqual({
@@ -78,6 +93,43 @@ describe('reading Garmin\'s answers', () => {
       zones: [300, 1500, 1200, 500, 100], aerobic: 3.4, anaerobic: 1.1, label: 'TEMPO', load: 112, bb: -18 });
     expect(a.power).toHaveLength(7);
     expect(fromActivities([ACT('2026-10-24', { hrTimeInZone_1: null, hrTimeInZone_2: null, hrTimeInZone_3: null, hrTimeInZone_4: null, hrTimeInZone_5: null })])['20261024'].zones).toBeNull();
+  });
+  it('reads the power curve, fitness markers and breathing, only where present', () => {
+    const a = fromActivities([ACT('2026-10-24', { maxAvgPower_1: 820, maxAvgPower_5: 700, maxAvgPower_60: 410, maxAvgPower_300: 300, maxAvgPower_1200: 262,
+      normPower: 251, avgPower: 230, trainingStressScore: 88.5, intensityFactor: 0.84, vO2MaxValue: 54, maxFtp: 285, lactateThresholdBpm: 166, avgRespirationRate: 31.2 })])['20261024'];
+    expect(a.pc).toHaveLength(PC_SECS.length);
+    expect(a.pc[PC_SECS.indexOf(1)]).toBe(820);
+    expect(a.pc[PC_SECS.indexOf(1200)]).toBe(262);
+    expect(a.pc[PC_SECS.indexOf(3600)]).toBeNull();
+    expect(a).toMatchObject({ np: 251, ap: 230, tss: 88.5, if: 0.84, vo2: 54, ftp: 285, lt: 166, resp: 31.2 });
+    const bare = fromActivities([ACT('2026-10-24')])['20261024'];
+    expect(bare.pc).toBeUndefined();
+    expect(bare.run).toBeUndefined();
+    expect(fromActivities([ACT('2026-10-24', { maxAvgPower_60: 400, excludeFromPowerCurveReports: true })])['20261024'].pc).toBeUndefined();
+  });
+  it('reads a run\'s form and fastest splits, and nothing of the sort for a ride', () => {
+    const r = fromActivities([ACT('2026-10-24', { activityType: { typeKey: 'trail_running' }, averageRunningCadenceInStepsPerMinute: 172, avgStrideLength: 112.4,
+      avgGroundContactTime: 241, avgGroundContactBalance: 50.6, avgVerticalOscillation: 8.9, avgVerticalRatio: 7.8, avgGradeAdjustedSpeed: 3.2,
+      fastestSplit_1000: 271, fastestSplit_5000: 1420 })])['20261024'];
+    expect(r.run).toMatchObject({ cad: 172, stride: 112.4, gct: 241, gcb: 50.6, vo: 8.9, vr: 7.8, gap: 3.2 });
+    expect(r.run.splits).toEqual([271, null, 1420, null, null, null]);
+    expect(fromActivities([ACT('2026-10-24', { averageRunningCadenceInStepsPerMinute: 90 })])['20261024'].run).toBeUndefined();
+  });
+  it('reads your RPE, feel and workout compliance, and recovery heart rate', () => {
+    expect(inputOf({ directWorkoutRpe: 70, directWorkoutFeel: 75, directWorkoutComplianceScore: 88, recoveryHeartRate: 34 }))
+      .toEqual({ rpe: 7, feel: 75, comp: 88, recHr: 34 });
+    expect(inputOf({ directWorkoutRpe: 6 })).toEqual({ rpe: 6 });                 // already on the 1 to 10 scale
+    expect(inputOf({ perceivedWorkoutEffort: 40 })).toEqual({ rpe: 4 });
+    expect(inputOf({ directWorkoutFeel: 0 })).toEqual({ feel: 0 });               // very weak is a feel, not a blank
+    expect(inputOf({})).toEqual({});
+    expect(fromDetail({ activityId: 1, summaryDTO: { directWorkoutRpe: 50, recoveryHeartRate: '28' } })).toEqual({ rpe: 5, recHr: 28 });
+    expect(fromDetail(null)).toEqual({});
+    expect(workoutName([{ workoutName: ' Threshold 3x10 ' }])).toBe('Threshold 3x10');
+    expect(workoutName({ workouts: [] })).toBeNull();
+  });
+  it('rereading an activity from the list keeps what its own record added', () => {
+    const m = mergeActs({ a: { start: 'x', hr: 140, rpe: 7, det: 1 } }, { a: { start: 'x', hr: 141 }, b: { start: 'y' } });
+    expect(m).toEqual({ a: { start: 'x', hr: 141, rpe: 7, det: 1 }, b: { start: 'y' } });
   });
   it('reads dates and times in every form Garmin sends them', () => {
     expect(dayOf({ date: '2026-10-24', localDate: '2026-10-24' })).toBe('2026-10-24');
@@ -161,6 +213,39 @@ describe('refreshing from Garmin', () => {
     expect(calls.filter((c) => c.method === 'GET')).toHaveLength(4);
     expect(calls.find((c) => c.u.includes('dailysummaries')).u).toContain('startDate=2026-10-21');
     expect(kv.puts.length).toBe(before);
+  });
+
+  it('reads what you said about the last week\'s activities each run, and the backlog back to 2021', async () => {
+    const kv = fakeKV({ [GARMIN_KV]: JSON.stringify({ days: {}, backfill: { daily: GARMIN_FLOOR, acts: GARMIN_FLOOR, actsPage: 0 } }),
+      [GARMIN_ACTS_KV]: JSON.stringify({ acts: {
+        old: { start: '2019-05-01T08:00:00' },
+        mid: { start: '2024-03-01T08:00:00' },
+        done: { start: '2025-01-01T08:00:00', det: 1, rpe: 3 },
+      } }) });
+    const calls = [];
+    globalThis.fetch = vi.fn(async (url, init = {}) => {
+      const u = String(url); calls.push(u);
+      if (u.includes('/personal-api-key/token')) return new Response('eyJ.token.sig');
+      if (u.includes('/activities/search/activities')) return json([ACT('2026-10-24')]);
+      if (u.endsWith('/activity-service/activity/20261024')) return json({ summaryDTO: { directWorkoutRpe: 80, directWorkoutFeel: 25, directWorkoutComplianceScore: 91, recoveryHeartRate: 31 } });
+      if (u.endsWith('/activity-service/activity/20261024/workouts')) return json([{ workoutName: 'Sweet spot 2x20' }]);
+      if (u.endsWith('/activity-service/activity/mid')) return json({ summaryDTO: { directWorkoutRpe: 40 } });
+      return json({}, 404);
+    });
+    await refreshGarmin({ GARMIN_API: 'k', CACHE: kv }, { today: '2026-10-24' });
+    const acts = JSON.parse(kv.m.get(GARMIN_ACTS_KV)).acts;
+    expect(acts['20261024']).toMatchObject({ rpe: 8, feel: 25, comp: 91, recHr: 31, workout: 'Sweet spot 2x20', det: 1, hr: 142 });
+    expect(acts.mid).toMatchObject({ rpe: 4, det: 1 });
+    expect(acts.done).toMatchObject({ rpe: 3 });
+    expect(calls.some((u) => u.endsWith('/activity/done'))).toBe(false);          // read once is enough
+    expect(calls.some((u) => u.endsWith('/activity/old'))).toBe(false);           // before DETAIL_FLOOR
+    expect(acts.old.det).toBeUndefined();
+    expect(DETAIL_FLOOR).toBe('2021-01-01');
+    // The next run rereads the week's list and keeps the detail it already has.
+    calls.length = 0;
+    await refreshGarmin({ GARMIN_API: 'k', CACHE: kv }, { today: '2026-10-24' });
+    expect(calls.some((u) => u.includes('/activity-service/'))).toBe(false);
+    expect(JSON.parse(kv.m.get(GARMIN_ACTS_KV)).acts['20261024']).toMatchObject({ rpe: 8, workout: 'Sweet spot 2x20' });
   });
 
   it('keeps the days it has and records the reason when the key has expired', async () => {

@@ -29,6 +29,8 @@
 
 import { syncCalendar, syncCalendarRoute, calendarConfigured, calNotionDate, CAL_DEFAULT_TZ } from './calendar.js';
 import { refreshGarmin, readGarmin, garminConfigured } from './garmin.js';
+import { buildWeekly, weekFor, maybeSendWeekly, sendWeekly, weeklyStatus } from './weekly.js';
+import { forgetEndpoints } from './jmap.js';
 
 // ---- IMPORTANT: replace this with your actual Worker URL ------------------
 const WORKER_URL = 'https://activities-api.lk-ff7.workers.dev/';
@@ -97,7 +99,7 @@ const ZWIFT_CACHE_TTL      = 600; // 10 minutes. Saves from the app clear it at 
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Methods': 'GET, PUT, PATCH, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
@@ -213,7 +215,7 @@ function withCors(response, request, env) {
   out.headers.delete('Access-Control-Allow-Origin');
   if (origin && allowedOrigins(env).includes(origin)) {
     out.headers.set('Access-Control-Allow-Origin', origin);
-    out.headers.set('Access-Control-Allow-Methods', 'GET, PUT, PATCH, OPTIONS');
+    out.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, OPTIONS');
     out.headers.set('Access-Control-Allow-Headers', 'Content-Type, ' + ADMIN_HEADER);
     out.headers.set('Access-Control-Expose-Headers', LEVEL_HEADER);
     out.headers.append('Vary', 'Origin');
@@ -253,6 +255,13 @@ export default {
       ctx.waitUntil(syncCalendar(env, calendarDeps(env)).catch(err => {
         console.error('Scheduled calendar sync failed:', err.message);
       }));
+      // The weekly email rides on this cron rather than one of its own: Cloudflare's
+      // free plan allows five cron triggers across the whole account, and the Tasks
+      // app has one of them. It decides for itself whether this firing is Tuesday
+      // morning; every other firing returns at once.
+      ctx.waitUntil(maybeSendWeekly(env, new Date(event.scheduledTime), () => weeklyData(env))
+        .then(r => { if (r && !r.skipped) console.log('[weekly] ' + JSON.stringify(r)); })
+        .catch(err => console.error('Weekly email failed:', err.message)));
       return;
     }
     ctx.waitUntil((async () => {
@@ -340,6 +349,34 @@ async function route(request, env, ctx) {
       }
       const stored = (await readGarmin(env)) || { days: {} };
       return new Response(JSON.stringify({ configured: true, ...stored, ...(note ? { error: note } : {}) }), { headers });
+    }
+    // The weekly email. Preview renders and sends nothing; send is a POST. All three need
+    // the key: the email carries health data.
+    case '/weekly/preview': {
+      const no = await admin(); if (no) return no;
+      const week = weekFor(url.searchParams.get('week'), env);
+      const mail = buildWeekly(await weeklyData(env), week);
+      const asText = url.searchParams.get('format') === 'text';
+      return new Response(asText ? mail.text : mail.html, { headers: { ...CORS,
+        'Content-Type': asText ? 'text/plain; charset=utf-8' : 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store, private', 'X-Weekly-Subject': encodeURIComponent(mail.subject) } });
+    }
+    case '/weekly/status': {
+      const no = await admin(); if (no) return no;
+      return new Response(JSON.stringify(await weeklyStatus(env, new Date())), { headers: { ...CORS, 'Content-Type': 'application/json', 'Cache-Control': 'no-store, private' } });
+    }
+    case '/weekly/send': {
+      if (request.method !== 'POST') return new Response('POST only.', { status: 405, headers: CORS });
+      const no = await admin(); if (no) return no;
+      const headers = { ...CORS, 'Content-Type': 'application/json', 'Cache-Control': 'no-store, private' };
+      try {
+        if (url.searchParams.get('reset')) await forgetEndpoints(env);
+        const week = weekFor(url.searchParams.get('week'), env);
+        const r = await sendWeekly(env, week, await weeklyData(env));
+        return new Response(JSON.stringify({ sent: true, ...r }), { headers });
+      } catch (err) {
+        return new Response(JSON.stringify({ sent: false, error: err.message }), { status: 502, headers });
+      }
     }
     default:
       if (url.pathname.startsWith('/zwift-routes/') && request.method === 'PATCH') {
@@ -2301,4 +2338,22 @@ function splitPolylineExcludingZones(str, zones) {
   }
   if (current.length >= 2) segments.push(current);
   return segments.map(encodePolyline);
+}
+
+// ── The weekly email ─────────────────────────────────────────────────────────
+// weekly.js decides when and builds it; this is what it reads: the stored activities,
+// Garmin's days and activities, and the Zwift routes (from Notion, or the cached copy
+// if Notion will not answer).
+async function weeklyData(env) {
+  let acts = [];
+  try {
+    const raw = (await env.CACHE.get(LAST_GOOD_KEY)) || (await env.CACHE.get(CACHE_KEY));
+    acts = (JSON.parse(raw || '{}').data) || [];
+  } catch (e) { acts = []; }
+  const g = garminConfigured(env) ? ((await readGarmin(env)) || { days: {} }) : { days: {} };
+  let routes = [];
+  try { routes = await fetchAllZwiftRoutes(env); } catch (e) {
+    try { routes = JSON.parse((await env.CACHE.get(ZWIFT_CACHE_KEY)) || '{}').data || []; } catch (e2) { routes = []; }
+  }
+  return { acts, days: g.days || {}, gacts: g.acts || {}, routes, garminError: g.error || null };
 }
