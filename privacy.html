@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fitness dashboard privacy</title>
+<meta name="description" content="What the fitness dashboard reads, keeps and shares.">
+<link rel="icon" href="icons/icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<!-- Google's OAuth consent screen asks for a privacy policy URL before the app that
+     syncs planned Zwift rides with Google Calendar can leave Testing (where its
+     token would lapse every seven days). This is that page. -->
+<style>
+  :root{--bg:#ffffff;--text:#222222;--muted:#6b6b6b;--accent:#ff385c;--border:#e3e3e3}
+  @media (prefers-color-scheme:dark){:root{--bg:#18191c;--text:#f2f2f2;--muted:#b4b4ba;--border:#45464e}}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif;line-height:1.6}
+  main{max-width:640px;margin:0 auto;padding:40px 16px 64px}
+  h1{font-size:26px;font-weight:700;margin:0 0 4px}
+  h2{font-size:16px;font-weight:700;margin:28px 0 6px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+  p,li{font-size:15px}
+  .muted{color:var(--muted);font-size:13px}
+  a{color:var(--text);text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:2px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Privacy</h1>
+  <p class="muted">The fitness dashboard at activities.laurencekellett.co.uk · updated 26 October 2026</p>
+
+  <p>This is a personal dashboard for one person, Laurence Kellett. It has no accounts, no sign-ups and no other users. Nothing here is sold, shared for advertising or used to train anything.</p>
+
+  <h2>Google Calendar</h2>
+  <p>The dashboard's server can add, move and remove events in its owner's own Google Calendar, so that a Zwift route planned in the dashboard shows as a private event, and dragging that event moves the plan back. It uses only the <code>calendar.events</code> permission, and it touches only the events it created itself, which it marks as its own. It never reads, changes or deletes any other event, and it never reads anyone else's calendar.</p>
+  <p>The access token Google grants is kept as an encrypted secret on the server (a Cloudflare Worker). It never reaches a browser and is not stored anywhere else. It can be revoked at any time from <a href="https://myaccount.google.com/permissions">Google account permissions</a>.</p>
+
+  <h2>Activity and health data</h2>
+  <p>Activities come from Strava, and health figures (sleep, heart rate, steps and the like) from Garmin, both for the owner only. Activities are shown publicly on the dashboard with GPS near home trimmed off. Health figures are never public: they are served only to a device holding an admin key, are not stored on the device, and are emailed only to the owner.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about any of this: <a href="mailto:hello@laurencekellett.co.uk">hello@laurencekellett.co.uk</a>.</p>
+</main>
+</body>
+</html>
