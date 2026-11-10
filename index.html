@@ -2336,6 +2336,7 @@ body.is-loading .stats-grid *{visibility:hidden}
           <button type="button" class="chart-ctl-btn" data-stepsunit="day" onclick="setStepsUnit('day')">Days</button>
           <button type="button" class="chart-ctl-btn" data-stepsunit="week" onclick="setStepsUnit('week')">Weeks</button>
           <button type="button" class="chart-ctl-btn" data-stepsunit="month" onclick="setStepsUnit('month')">Months</button>
+          <button type="button" class="chart-ctl-btn" data-stepsunit="year" onclick="setStepsUnit('year')">Years</button>
         </div>
       </div>
       <div class="chart-wrap"><canvas id="chartSteps"></canvas></div>
@@ -6247,12 +6248,13 @@ const SLEEP_Q_COL={EXCELLENT:'#15803d',GOOD:'#4ade80',FAIR:'#f59e0b',POOR:'#ef44
 const TE_COL={RECOVERY:'#94a3b8',AEROBIC_BASE:'#38bdf8',TEMPO:'#22c55e',LACTATE_THRESHOLD:'#f59e0b',VO2MAX:'#f97316',ANAEROBIC_CAPACITY:'#ef4444',SPRINT:'#a855f7',NO_BENEFIT:'#cbd5e1'};
 function bucketLabel(key,unit){
   const d=new Date(key+'T12:00:00');
+  if(unit==='year')return key.slice(0,4);
   return unit==='month'?d.toLocaleDateString('en-GB',{month:'short',year:'2-digit'}):d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
 }
 // The x axis and its ticks, shared by the period charts.
 function recoveryX(){return{grid:{display:false},ticks:{font:{size:10},color:chartTick(),maxTicksLimit:9,maxRotation:0,autoSkip:true}};}
 function recoveryY(extra){return Object.assign({grid:{color:chartGrid()},ticks:{font:{size:10},color:chartTick()}},extra||{});}
-function noteUnit(unit){return unit==='day'?'each night':unit==='week'?'averaged by week':'averaged by month';}
+function noteUnit(unit){return unit==='day'?'each night':unit==='week'?'averaged by week':unit==='year'?'averaged by year':'averaged by month';}
 
 function renderRecovery(){
   const head=document.getElementById('recoveryHeader');
@@ -6813,7 +6815,7 @@ function renderSteps(days){
   destroyChart('steps');
   charts.steps=upsertChart('steps',cv.getContext('2d'),{type:'bar',data:{labels:b.map(x=>bucketLabel(x.key,unit)),datasets:ds},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},
-      tooltip:{callbacks:{label:c=>c.dataset.label==='Goal'?`Goal ${c.raw.toLocaleString('en-GB')}`:`${c.raw.toLocaleString('en-GB')} ${unit==='day'?'steps':'a day'}`}}},
+      tooltip:{callbacks:{label:c=>c.dataset.label==='Goal'?`Goal ${c.raw.toLocaleString('en-GB')}`:`${c.raw.toLocaleString('en-GB')} ${unit==='day'?'steps':'a day'}`+(unit==='year'&&b[c.dataIndex].n<360?` (${b[c.dataIndex].n} days recorded)`:'')}}},
       scales:{x:recoveryX(),y:recoveryY({beginAtZero:true,ticks:{font:{size:10},color:chartTick(),callback:v=>v>=1000?(v/1000)+'k':v}})}}});
   const steps=keys.map(k=>days[k].steps);
   const avg=Math.round(steps.reduce((a,c)=>a+c,0)/steps.length);

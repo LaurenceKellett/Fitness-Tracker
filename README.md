@@ -1809,8 +1809,8 @@ not send.
 - **Bedtime and wake time**: floating bars from falling asleep to waking, with the spread of
   bedtimes as the steadiness figure.
 - **HRV**: overnight HRV against its balanced range.
-- **Steps**: a day's average against the goal, by day, week or month (auto from the period,
-  overridable). Today is left out, being half-counted.
+- **Steps**: a day's average against the goal, by day, week, month or year (auto from the
+  period, overridable; a year that is only partly recorded says how many days in its tooltip). Today is left out, being half-counted.
 - **What each workout costs you**: Body Battery used against hours moving, one dot per
   Garmin activity, coloured by sport, with Body Battery per hour as the chips.
 - **What kind of training it was**: hours under each Training Effect label, stacked by week
