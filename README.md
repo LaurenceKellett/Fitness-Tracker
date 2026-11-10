@@ -1840,7 +1840,9 @@ Charts → Running (only when Garmin holds runs with running dynamics):
 - **Fastest splits**: the period's and the all-time fastest at each distance, inside any
   run.
 
-These follow the period control (sleep, bedtime, HRV, steps, workout cost, Training
+Every chart here that groups days over time (sleep, bedtime, HRV, steps, sleep need,
+stress, Training Effect, recovery HR and running form) has a Days / Weeks / Months / Years
+switch (`pickUnit`); until one is pressed the period decides. These follow the period control (sleep, bedtime, HRV, steps, workout cost, Training
 Effect, sleep need, stress, power, recovery HR and running), bucketing by day up to 45 days, by week up to 400, by month beyond
 (`healthRange`, `healthAutoUnit`, `healthBuckets` in `calc.js`).
 

@@ -2307,21 +2307,32 @@ body.is-loading .stats-grid *{visibility:hidden}
           <button type="button" class="chart-ctl-btn" data-sleepview="score" onclick="setSleepView('score')">Score</button>
           <button type="button" class="chart-ctl-btn" data-sleepview="stages" onclick="setSleepView('stages')">Stages</button>
         </div>
+        <div class="chart-ctl" role="group" aria-label="Group by"><button type="button" class="chart-ctl-btn" data-unit-for="sleep" data-unit="day" onclick="setUnitPick('sleep','day')">Days</button><button type="button" class="chart-ctl-btn" data-unit-for="sleep" data-unit="week" onclick="setUnitPick('sleep','week')">Weeks</button><button type="button" class="chart-ctl-btn" data-unit-for="sleep" data-unit="month" onclick="setUnitPick('sleep','month')">Months</button><button type="button" class="chart-ctl-btn" data-unit-for="sleep" data-unit="year" onclick="setUnitPick('sleep','year')">Years</button></div>
       </div>
       <div class="chart-wrap"><canvas id="chartSleep"></canvas></div>
       <div id="sleepChips" class="chart-chips"></div>
       <div id="sleepVerdict" class="chart-verdict"></div>
     </div>
     <div class="chart-card" data-panel="bedtime">
-      <div class="chart-title">Bedtime and wake time</div>
-      <div class="chart-sub" id="bedtimeSub">When each night's sleep started and ended</div>
+      <div class="chart-head">
+        <div class="chart-head-text">
+          <div class="chart-title">Bedtime and wake time</div>
+          <div class="chart-sub" id="bedtimeSub">When each night's sleep started and ended</div>
+        </div>
+        <div class="chart-ctl" role="group" aria-label="Group by"><button type="button" class="chart-ctl-btn" data-unit-for="bedtime" data-unit="day" onclick="setUnitPick('bedtime','day')">Days</button><button type="button" class="chart-ctl-btn" data-unit-for="bedtime" data-unit="week" onclick="setUnitPick('bedtime','week')">Weeks</button><button type="button" class="chart-ctl-btn" data-unit-for="bedtime" data-unit="month" onclick="setUnitPick('bedtime','month')">Months</button><button type="button" class="chart-ctl-btn" data-unit-for="bedtime" data-unit="year" onclick="setUnitPick('bedtime','year')">Years</button></div>
+      </div>
       <div class="chart-wrap"><canvas id="chartBedtime"></canvas></div>
       <div id="bedtimeChips" class="chart-chips"></div>
       <div id="bedtimeVerdict" class="chart-verdict"></div>
     </div>
     <div class="chart-card" data-panel="hrv">
-      <div class="chart-title">HRV</div>
-      <div class="chart-sub" id="hrvSub">Overnight HRV against its balanced range</div>
+      <div class="chart-head">
+        <div class="chart-head-text">
+          <div class="chart-title">HRV</div>
+          <div class="chart-sub" id="hrvSub">Overnight HRV against its balanced range</div>
+        </div>
+        <div class="chart-ctl" role="group" aria-label="Group by"><button type="button" class="chart-ctl-btn" data-unit-for="hrv" data-unit="day" onclick="setUnitPick('hrv','day')">Days</button><button type="button" class="chart-ctl-btn" data-unit-for="hrv" data-unit="week" onclick="setUnitPick('hrv','week')">Weeks</button><button type="button" class="chart-ctl-btn" data-unit-for="hrv" data-unit="month" onclick="setUnitPick('hrv','month')">Months</button><button type="button" class="chart-ctl-btn" data-unit-for="hrv" data-unit="year" onclick="setUnitPick('hrv','year')">Years</button></div>
+      </div>
       <div class="chart-wrap"><canvas id="chartHrv"></canvas></div>
       <div id="hrvChips" class="chart-chips"></div>
       <div id="hrvVerdict" class="chart-verdict"></div>
@@ -2332,12 +2343,7 @@ body.is-loading .stats-grid *{visibility:hidden}
           <div class="chart-title">Steps</div>
           <div class="chart-sub" id="stepsSub">Steps a day</div>
         </div>
-        <div class="chart-ctl" role="group" aria-label="Group steps by">
-          <button type="button" class="chart-ctl-btn" data-stepsunit="day" onclick="setStepsUnit('day')">Days</button>
-          <button type="button" class="chart-ctl-btn" data-stepsunit="week" onclick="setStepsUnit('week')">Weeks</button>
-          <button type="button" class="chart-ctl-btn" data-stepsunit="month" onclick="setStepsUnit('month')">Months</button>
-          <button type="button" class="chart-ctl-btn" data-stepsunit="year" onclick="setStepsUnit('year')">Years</button>
-        </div>
+        <div class="chart-ctl" role="group" aria-label="Group steps by"><button type="button" class="chart-ctl-btn" data-unit-for="steps" data-unit="day" onclick="setUnitPick('steps','day')">Days</button><button type="button" class="chart-ctl-btn" data-unit-for="steps" data-unit="week" onclick="setUnitPick('steps','week')">Weeks</button><button type="button" class="chart-ctl-btn" data-unit-for="steps" data-unit="month" onclick="setUnitPick('steps','month')">Months</button><button type="button" class="chart-ctl-btn" data-unit-for="steps" data-unit="year" onclick="setUnitPick('steps','year')">Years</button></div>
       </div>
       <div class="chart-wrap"><canvas id="chartSteps"></canvas></div>
       <div id="stepsChips" class="chart-chips"></div>
@@ -2351,22 +2357,37 @@ body.is-loading .stats-grid *{visibility:hidden}
       <div id="bbcostVerdict" class="chart-verdict"></div>
     </div>
     <div class="chart-card" data-panel="teffect">
-      <div class="chart-title">What kind of training it was</div>
-      <div class="chart-sub" id="teffectSub">Garmin's Training Effect label for each activity, hours by week</div>
+      <div class="chart-head">
+        <div class="chart-head-text">
+          <div class="chart-title">What kind of training it was</div>
+          <div class="chart-sub" id="teffectSub">Garmin's Training Effect label for each activity, hours by week</div>
+        </div>
+        <div class="chart-ctl" role="group" aria-label="Group by"><button type="button" class="chart-ctl-btn" data-unit-for="teffect" data-unit="day" onclick="setUnitPick('teffect','day')">Days</button><button type="button" class="chart-ctl-btn" data-unit-for="teffect" data-unit="week" onclick="setUnitPick('teffect','week')">Weeks</button><button type="button" class="chart-ctl-btn" data-unit-for="teffect" data-unit="month" onclick="setUnitPick('teffect','month')">Months</button><button type="button" class="chart-ctl-btn" data-unit-for="teffect" data-unit="year" onclick="setUnitPick('teffect','year')">Years</button></div>
+      </div>
       <div class="chart-wrap"><canvas id="chartTeffect"></canvas></div>
       <div id="teffectChips" class="chart-chips"></div>
       <div id="teffectVerdict" class="chart-verdict"></div>
     </div>
     <div class="chart-card" data-panel="sleepneed">
-      <div class="chart-title">Sleep against what you needed</div>
-      <div class="chart-sub" id="sleepneedSub">Hours slept (bars) against Garmin's sleep need (line) and your baseline (dashed)</div>
+      <div class="chart-head">
+        <div class="chart-head-text">
+          <div class="chart-title">Sleep against what you needed</div>
+          <div class="chart-sub" id="sleepneedSub">Hours slept (bars) against Garmin's sleep need (line) and your baseline (dashed)</div>
+        </div>
+        <div class="chart-ctl" role="group" aria-label="Group by"><button type="button" class="chart-ctl-btn" data-unit-for="sleepneed" data-unit="day" onclick="setUnitPick('sleepneed','day')">Days</button><button type="button" class="chart-ctl-btn" data-unit-for="sleepneed" data-unit="week" onclick="setUnitPick('sleepneed','week')">Weeks</button><button type="button" class="chart-ctl-btn" data-unit-for="sleepneed" data-unit="month" onclick="setUnitPick('sleepneed','month')">Months</button><button type="button" class="chart-ctl-btn" data-unit-for="sleepneed" data-unit="year" onclick="setUnitPick('sleepneed','year')">Years</button></div>
+      </div>
       <div class="chart-wrap"><canvas id="chartSleepneed"></canvas></div>
       <div id="sleepneedChips" class="chart-chips"></div>
       <div id="sleepneedVerdict" class="chart-verdict"></div>
     </div>
     <div class="chart-card" data-panel="stress">
-      <div class="chart-title">Stress through the day</div>
-      <div class="chart-sub" id="stressSub">Hours a day at each of Garmin's stress levels</div>
+      <div class="chart-head">
+        <div class="chart-head-text">
+          <div class="chart-title">Stress through the day</div>
+          <div class="chart-sub" id="stressSub">Hours a day at each of Garmin's stress levels</div>
+        </div>
+        <div class="chart-ctl" role="group" aria-label="Group by"><button type="button" class="chart-ctl-btn" data-unit-for="stress" data-unit="day" onclick="setUnitPick('stress','day')">Days</button><button type="button" class="chart-ctl-btn" data-unit-for="stress" data-unit="week" onclick="setUnitPick('stress','week')">Weeks</button><button type="button" class="chart-ctl-btn" data-unit-for="stress" data-unit="month" onclick="setUnitPick('stress','month')">Months</button><button type="button" class="chart-ctl-btn" data-unit-for="stress" data-unit="year" onclick="setUnitPick('stress','year')">Years</button></div>
+      </div>
       <div class="chart-wrap"><canvas id="chartStress"></canvas></div>
       <div id="stressChips" class="chart-chips"></div>
       <div id="stressVerdict" class="chart-verdict"></div>
@@ -2389,8 +2410,13 @@ body.is-loading .stats-grid *{visibility:hidden}
       <div id="fitnessVerdict" class="chart-verdict"></div>
     </div>
     <div class="chart-card" data-panel="rechr">
-      <div class="chart-title">How fast your heart rate recovers</div>
-      <div class="chart-sub" id="rechrSub">Garmin's recovery heart rate after each activity</div>
+      <div class="chart-head">
+        <div class="chart-head-text">
+          <div class="chart-title">How fast your heart rate recovers</div>
+          <div class="chart-sub" id="rechrSub">Garmin's recovery heart rate after each activity</div>
+        </div>
+        <div class="chart-ctl" role="group" aria-label="Group by"><button type="button" class="chart-ctl-btn" data-unit-for="rechr" data-unit="day" onclick="setUnitPick('rechr','day')">Days</button><button type="button" class="chart-ctl-btn" data-unit-for="rechr" data-unit="week" onclick="setUnitPick('rechr','week')">Weeks</button><button type="button" class="chart-ctl-btn" data-unit-for="rechr" data-unit="month" onclick="setUnitPick('rechr','month')">Months</button><button type="button" class="chart-ctl-btn" data-unit-for="rechr" data-unit="year" onclick="setUnitPick('rechr','year')">Years</button></div>
+      </div>
       <div class="chart-wrap"><canvas id="chartRechr"></canvas></div>
       <div id="rechrChips" class="chart-chips"></div>
       <div id="rechrVerdict" class="chart-verdict"></div>
@@ -2408,6 +2434,7 @@ body.is-loading .stats-grid *{visibility:hidden}
           <button type="button" class="chart-ctl-btn" data-runview="stride" onclick="setRunView('stride')">Cadence and stride</button>
           <button type="button" class="chart-ctl-btn" data-runview="contact" onclick="setRunView('contact')">Contact and bounce</button>
         </div>
+        <div class="chart-ctl" role="group" aria-label="Group by"><button type="button" class="chart-ctl-btn" data-unit-for="runform" data-unit="day" onclick="setUnitPick('runform','day')">Days</button><button type="button" class="chart-ctl-btn" data-unit-for="runform" data-unit="week" onclick="setUnitPick('runform','week')">Weeks</button><button type="button" class="chart-ctl-btn" data-unit-for="runform" data-unit="month" onclick="setUnitPick('runform','month')">Months</button><button type="button" class="chart-ctl-btn" data-unit-for="runform" data-unit="year" onclick="setUnitPick('runform','year')">Years</button></div>
       </div>
       <div class="chart-wrap"><canvas id="chartRunform"></canvas></div>
       <div id="runformChips" class="chart-chips"></div>
@@ -6240,9 +6267,17 @@ function applyGarminActivities(){
   return changed;
 }
 
-let sleepView='score',stepsUnit=null;
+let sleepView='score';
+// Days, weeks, months or years, chosen on a chart; until then the period decides
+// (healthAutoUnit, or the chart's own default).
+const unitPick={};
+function setUnitPick(k,u){unitPick[k]=u;renderRecovery();}
+function pickUnit(k,range,auto){
+  const u=unitPick[k]||auto||(range?healthAutoUnit(range.from,range.to):'day');
+  document.querySelectorAll(`[data-unit-for="${k}"]`).forEach(b=>b.classList.toggle('active',b.dataset.unit===u));
+  return u;
+}
 function setSleepView(v){sleepView=v;renderRecovery();}
-function setStepsUnit(u){stepsUnit=u;renderRecovery();}
 
 const SLEEP_Q_COL={EXCELLENT:'#15803d',GOOD:'#4ade80',FAIR:'#f59e0b',POOR:'#ef4444'};
 const TE_COL={RECOVERY:'#94a3b8',AEROBIC_BASE:'#38bdf8',TEMPO:'#22c55e',LACTATE_THRESHOLD:'#f59e0b',VO2MAX:'#f97316',ANAEROBIC_CAPACITY:'#ef4444',SPRINT:'#a855f7',NO_BENEFIT:'#cbd5e1'};
@@ -6309,7 +6344,7 @@ function renderSleepNeed(days){
   const keys=range?Object.keys(days).filter(k=>k>=range.from&&k<=range.to&&days[k].sleepNeed&&days[k].sleepSec).sort():[];
   if(!keys.length){setChartEmpty('chartSleepneed','No sleep need from Garmin '+periodPhrase(activeYear)+'.');chartSummary('sleepneed',[],'');return;}
   setChartEmpty('chartSleepneed');
-  const unit=healthAutoUnit(range.from,range.to);
+  const unit=pickUnit('sleepneed',range);
   const pick=f=>healthBuckets(days,range.from,range.to,unit,r=>r.sleepNeed&&r.sleepSec?f(r):null,'avg').map(b=>b.value!=null?+b.value.toFixed(2):null);
   const slept=pick(r=>r.sleepSec/3600),need=pick(r=>r.sleepNeed/60),base=pick(r=>r.needBase?r.needBase/60:null);
   const labels=healthBuckets(days,range.from,range.to,unit,()=>null,'avg').map(b=>bucketLabel(b.key,unit));
@@ -6354,7 +6389,7 @@ function renderStress(days){
   const keys=range?Object.keys(days).filter(k=>k>=range.from&&k<=range.to&&has(days[k])).sort():[];
   if(!keys.length){setChartEmpty('chartStress','No stress levels from Garmin '+periodPhrase(activeYear)+'.');chartSummary('stress',[],'');return;}
   setChartEmpty('chartStress');
-  const unit=healthAutoUnit(range.from,range.to);
+  const unit=pickUnit('stress',range);
   const cols={stressRest:'#38bdf8',stressLow:'#fcd34d',stressMed:'#f59e0b',stressHigh:'#ea580c'};
   const series=STRESS_LEVELS.map(([k])=>healthBuckets(days,range.from,range.to,unit,r=>has(r)?(r[k]||0)/3600:null,'avg'));
   const sub=document.getElementById('stressSub');
@@ -6473,12 +6508,12 @@ function renderRecHr(acts){
   if(list.length<3){setChartEmpty('chartRechr','Too few activities with a recovery heart rate '+periodPhrase(activeYear)+'. Garmin records it only when you stop the activity on the watch and stand still for two minutes.');chartSummary('rechr',[],'');return;}
   setChartEmpty('chartRechr');
   const meaning=recHrMeaning(list.map(g=>g.recHr));
-  const unit=healthAutoUnit(range.from,range.to);
+  const auto=healthAutoUnit(range.from,range.to);
+  const bu=pickUnit('rechr',range,auto==='month'?'month':'week');
   const byDay={};list.forEach(g=>{byDay[g.start.slice(0,10)]={v:g.recHr};});
-  const avg=healthBuckets(byDay,range.from,range.to,unit==='day'?'week':unit,r=>r.v,'avg');
+  const avg=healthBuckets(byDay,range.from,range.to,bu,r=>r.v,'avg');
   const labels=avg.map(b=>b.key);
-  const bu=unit==='month'?'month':'week';
-  const pts=list.map(g=>({x:bucketLabel(periodStartISO(g.start.slice(0,10),bu),bu),y:g.recHr,g}));
+  const pts=list.map(g=>{const d=g.start.slice(0,10);return{x:bucketLabel(bu==='day'?d:periodStartISO(d,bu),bu),y:g.recHr,g};});
   const sub=document.getElementById('rechrSub');
   if(sub)sub.textContent=meaning==='drop'?'How far your heart rate fell in the two minutes after stopping (higher is fitter): each activity, and the average':'Your heart rate two minutes after stopping (lower is fitter): each activity, and the average';
   destroyChart('rechr');
@@ -6490,7 +6525,8 @@ function renderRecHr(acts){
     ]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},
       tooltip:{callbacks:{label:c=>c.raw&&c.raw.g?`${fmtDate(c.raw.g.start.slice(0,10))} · ${c.raw.y} bpm`:`Average ${c.raw} bpm`}}},
-      scales:{x:recoveryX(),y:recoveryY({ticks:{font:{size:10},color:chartTick(),callback:v=>v+' bpm'}})}}
+      // A few buckets (years, say) sit in from the edges rather than on them.
+      scales:{x:Object.assign(recoveryX(),{offset:labels.length<=8}),y:recoveryY({ticks:{font:{size:10},color:chartTick(),callback:v=>v+' bpm'}})}}
   });
   const vals=list.map(g=>g.recHr),m=vals.reduce((a,c)=>a+c,0)/vals.length;
   const best=meaning==='drop'?Math.max(...vals):Math.min(...vals);
@@ -6514,7 +6550,7 @@ function renderRunForm(acts){
   const keys=Object.keys(rd).sort();
   if(!keys.length){setChartEmpty('chartRunform','No runs with running dynamics from Garmin '+periodPhrase(activeYear)+'.');chartSummary('runform',[],'');return;}
   setChartEmpty('chartRunform');
-  const unit=keys.length<=12?'day':healthAutoUnit(range.from,range.to);
+  const unit=pickUnit('runform',range,keys.length<=12?'day':healthAutoUnit(range.from,range.to));
   const from=unit==='day'?keys[0]:range.from;
   const series=f=>healthBuckets(rd,from,range.to,unit,f,'avg');
   const base=series(()=>null);
@@ -6531,7 +6567,7 @@ function renderRunForm(acts){
     type:'line',
     data:{labels,datasets:pair.map(([l,f,col,ax])=>({label:l,data:vals(f),borderColor:col,backgroundColor:col,borderWidth:2,pointRadius:2.5,tension:.3,spanGaps:true,yAxisID:ax}))},
     options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
-      scales:{x:recoveryX(),y:recoveryY({beginAtZero:false}),y2:recoveryY({beginAtZero:false,position:'right',grid:{display:false}})}}
+      scales:{x:Object.assign(recoveryX(),{offset:labels.length<=8}),y:recoveryY({beginAtZero:false}),y2:recoveryY({beginAtZero:false,position:'right',grid:{display:false}})}}
   });
   const recs=keys.map(k=>rd[k]);
   const m=k=>{const xs=recs.map(r=>r[k]).filter(v=>v!=null);return xs.length?xs.reduce((a,c)=>a+c,0)/xs.length:null;};
@@ -6654,7 +6690,7 @@ function renderSleep(days){
   const inRange=range?Object.keys(days).filter(k=>k>=range.from&&k<=range.to&&days[k].sleepSec):[];
   if(!inRange.length){setChartEmpty('chartSleep','No sleep recorded by Garmin '+periodPhrase(activeYear)+'.');chartSummary('sleep',[],'');return;}
   setChartEmpty('chartSleep');
-  const unit=healthAutoUnit(range.from,range.to);
+  const unit=pickUnit('sleep',range);
   const labels=b=>bucketLabel(b.key,unit);
   const sub=document.getElementById('sleepSub');
   let config;
@@ -6703,7 +6739,7 @@ function renderBedtime(days){
   const keys=range?Object.keys(days).filter(k=>k>=range.from&&k<=range.to&&days[k].sleepStart&&days[k].sleepEnd).sort():[];
   if(!keys.length){setChartEmpty('chartBedtime','No bedtimes from Garmin '+periodPhrase(activeYear)+'.');chartSummary('bedtime',[],'');return;}
   setChartEmpty('chartBedtime');
-  const unit=healthAutoUnit(range.from,range.to);
+  const unit=pickUnit('bedtime',range);
   const bed=healthBuckets(days,range.from,range.to,unit,r=>nightMinutes(r.sleepStart),'avg');
   const wake=healthBuckets(days,range.from,range.to,unit,r=>nightMinutes(r.sleepEnd),'avg');
   const data=bed.map((b,i)=>b.value!=null&&wake[i].value!=null?[Math.round(b.value),Math.round(wake[i].value)]:null);
@@ -6750,7 +6786,7 @@ function renderHrv(days){
   const keys=range?Object.keys(days).filter(k=>k>=range.from&&k<=range.to&&days[k].hrv!=null).sort():[];
   if(!keys.length){setChartEmpty('chartHrv','No HRV from Garmin '+periodPhrase(activeYear)+'. HRV needs a watch that records it overnight.');chartSummary('hrv',[],'');return;}
   setChartEmpty('chartHrv');
-  const unit=healthAutoUnit(range.from,range.to);
+  const unit=pickUnit('hrv',range);
   const pick=f=>healthBuckets(days,range.from,range.to,unit,f,'avg').map(b=>b.value!=null?Math.round(b.value):null);
   const hrv=pick(r=>r.hrv),lo=pick(r=>r.hrvLow),hi=pick(r=>r.hrvHigh),wk=unit==='day'?pick(r=>r.hrvWeek):null;
   const labels=healthBuckets(days,range.from,range.to,unit,()=>null).map(b=>bucketLabel(b.key,unit));
@@ -6799,8 +6835,7 @@ function renderSteps(days){
   const today=todayLocalISO();
   // Today's count is still running, so it is left out of averages and records.
   const keys=range?Object.keys(days).filter(k=>k>=range.from&&k<=range.to&&k<today&&days[k].steps!=null).sort():[];
-  const unit=stepsUnit||(range?healthAutoUnit(range.from,range.to):'day');
-  document.querySelectorAll('[data-stepsunit]').forEach(b=>b.classList.toggle('active',b.dataset.stepsunit===unit));
+  const unit=pickUnit('steps',range);
   if(!keys.length){setChartEmpty('chartSteps','No steps from Garmin '+periodPhrase(activeYear)+'.');chartSummary('steps',[],'');return;}
   setChartEmpty('chartSteps');
   const b=healthBuckets(days,range.from,range.to,unit,(r,k)=>k<today?r.steps:null,'avg');
@@ -6863,7 +6898,7 @@ function renderTrainingEffect(){
   setChartEmpty('chartTeffect');
   const dates=acts.map(g=>g.start.slice(0,10)).sort();
   const range=activeYear==='All'?{from:dates[0],to:todayLocalISO()}:healthRange(activeYear,{[dates[0]]:1});
-  const unit=healthAutoUnit(range.from,range.to)==='month'?'month':'week';
+  const unit=pickUnit('teffect',range,healthAutoUnit(range.from,range.to)==='month'?'month':'week');
   const labelsSeen=TE_ORDER.filter(k=>acts.some(g=>g.label===k)).concat([...new Set(acts.map(g=>g.label))].filter(k=>!TE_ORDER.includes(k)));
   const byLabel={};
   labelsSeen.forEach(k=>{
