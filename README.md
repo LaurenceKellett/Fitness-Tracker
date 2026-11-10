@@ -1787,6 +1787,17 @@ reaches 2013 the activity backfill, a month at a time. Progress is kept in KV, s
 picks up where the last stopped. At eight runs a day the whole history lands in about two
 to three days; each `GET /health?refresh=1` (admin) runs an extra pass.
 
+**When Garmin refuses part of it.** Some accounts answer 400 to a request reaching back
+before they existed. A refusal like that (a 4xx other than 401 and 429) is about the
+request, not the moment, so it is noted in `backfill.skipped` and passed over, never
+retried for ever: a refused year of summaries is asked for again a month at a time, half
+a year per step (`back.sumWin`), and a refused month or sleep, HRV or activity window is
+skipped. The cursor is saved after every step and a run that fails part-way keeps what it
+read, the last few days included; before this, one refused year stopped the history there
+and threw each later run's new days away with it. The Recovery header says how far back
+the days go, whether the cron is still reading further, and how many spans Garmin would
+not send.
+
 **Where it shows.** Charts → Recovery, which exists only for a device holding the key:
 - **Resting heart rate and training**: the last 90 days, whatever the period control says,
   with resting HR as a line (red dots on nights HRV was outside its range) over training

@@ -2288,7 +2288,7 @@ body.is-loading .stats-grid *{visibility:hidden}
   </div>
   <!-- Garmin health data. Hidden until /health answers this device's admin key, and
        never drawn from anything stored on the device. -->
-  <div class="section-header" id="recoveryHeader" hidden><h2>Recovery</h2><span class="badge">From Garmin · shown only on a device with the admin key</span></div>
+  <div class="section-header" id="recoveryHeader" hidden><h2>Recovery</h2><span class="badge" id="recoveryBadge">From Garmin · shown only on a device with the admin key</span></div>
   <div class="charts-grid chart-zone" data-zone="recovery" data-zone-label="Recovery" id="recoveryZone" hidden>
     <div class="chart-card span-full" data-panel="readiness">
       <div class="chart-title">Resting heart rate and training</div>
@@ -6266,6 +6266,8 @@ function renderRecovery(){
   [['perfHeader',perf],['perfZone',perf],['runHeader',runs],['runZone',runs]].forEach(([id,on])=>{const el=document.getElementById(id);if(el)el.hidden=!on;});
   if(!show){['readiness','sleep','bedtime','hrv','steps','bbcost','teffect','sleepneed','stress','powercurve','fitness','rechr','runform'].forEach(destroyChart);return;}
   const days=HEALTH.days||{};
+  const badge=document.getElementById('recoveryBadge');
+  if(badge)badge.textContent=garminHistoryLine(days,HEALTH.backfill);
   if(!Object.keys(days).length&&HEALTH.error){
     chartSummary('readiness',[],'Garmin: '+HEALTH.error);
     setChartEmpty('chartReadiness','Nothing from Garmin yet.');
@@ -6557,6 +6559,19 @@ function renderRunBests(acts){
   el.innerHTML=`<table class="run-bests"><thead><tr><th>Distance</th>${both?`<th>${escapeHtml(periodLabel(activeYear))}</th>`:''}<th>All time</th><th>Set</th></tr></thead><tbody>${rows}</tbody></table>`;
   const newBest=SPLIT_M.map((m,i)=>cur[i]&&all[i]&&cur[i].sec===all[i].sec&&activeYear!=='All'?SPLIT_NAMES[i]:null).filter(Boolean);
   chartSummary('runbests',[],newBest.length?`All-time bests set ${periodPhrase(activeYear)}: ${newBest.join(', ')}.`:'These are the fastest stretches inside any run, not race results, so a fast 5 km inside a 10 km counts.');
+}
+
+// How far back Garmin's days go, and whether the cron is still reading further: the
+// first thing to know when a chart stops short.
+function garminHistoryLine(days,back){
+  const first=Object.keys(days||{}).filter(k=>{const r=days[k];return r&&(r.steps!=null||r.sleepSec||r.hrv!=null||r.rhr!=null);}).sort()[0];
+  if(!first)return'From Garmin · nothing yet';
+  const at=back&&back.daily;
+  const loading=at&&at>'2013-01-01';
+  const gaps=back&&Array.isArray(back.skipped)?back.skipped.length:0;
+  return`From Garmin · since ${fmtDate(first)}`
+    +(!at?'':loading?` · still reading back (at ${fmtDate(at)})`:' · everything Garmin holds')
+    +(gaps?` · ${gaps} span${gaps===1?'':'s'} Garmin would not send`:'');
 }
 
 // "This morning" on the Summary tab: last night's sleep and HRV (filed under today)

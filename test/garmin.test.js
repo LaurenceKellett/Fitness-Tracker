@@ -248,6 +248,54 @@ describe('refreshing from Garmin', () => {
     expect(JSON.parse(kv.m.get(GARMIN_ACTS_KV)).acts['20261024']).toMatchObject({ rpe: 8, workout: 'Sweet spot 2x20' });
   });
 
+  it('passes over a year Garmin refuses, a month at a time, and still reaches 2013', async () => {
+    // An account that begins in March 2018: Garmin answers 400 to any summaries
+    // request reaching back before then, as some accounts do.
+    const kv = fakeKV();
+    let runs = 0, last;
+    while (runs < 60) {
+      globalThis.fetch = vi.fn(async (url) => {
+        const u = String(url);
+        if (u.includes('/personal-api-key/token')) return new Response('eyJ.token.sig');
+        if (u.includes('/dailysummaries')) {
+          const from = u.match(/startDate=([\d-]+)/)[1], to = u.match(/endDate=([\d-]+)/)[1];
+          if (from < '2018-03-01') return new Response('bad range', { status: 400 });
+          return json({ data: [SUMMARY(to)] });
+        }
+        return json({}, 404);
+      });
+      last = await refreshGarmin({ GARMIN_API: 'k', CACHE: kv }, { today: '2026-10-24' });
+      runs++;
+      expect(globalThis.fetch.mock.calls.length).toBeLessThanOrEqual(GARMIN_BUDGET);
+      if (last.complete) break;
+    }
+    expect(last.complete).toBe(true);
+    const stored = JSON.parse(kv.m.get(GARMIN_KV));
+    expect(stored.error).toBeNull();
+    expect(stored.backfill.daily).toBe(GARMIN_FLOOR);
+    // Every month Garmin would answer is held: all but the one that straddles March 2018.
+    const stepDays = Object.keys(stored.days).filter((d) => stored.days[d].steps != null).sort();
+    expect(stepDays[0] >= '2018-03-01' && stepDays[0] < '2018-05-01').toBe(true);
+    expect(stored.backfill.skipped.every((x) => x.kind === 'summaries' && x.status === 400)).toBe(true);
+  });
+
+  it('keeps what a run read, and where it reached, when Garmin fails part-way', async () => {
+    const kv = fakeKV();
+    let n = 0;
+    globalThis.fetch = vi.fn(async (url) => {
+      const u = String(url);
+      if (u.includes('/personal-api-key/token')) return new Response('eyJ.token.sig');
+      if (u.includes('/dailysummaries')) return json({ data: [SUMMARY(u.match(/endDate=([\d-]+)/)[1])] });
+      if (u.includes('/hrv-service/') && ++n > 3) return new Response('down', { status: 503 });
+      return json({}, 404);
+    });
+    await expect(refreshGarmin({ GARMIN_API: 'k', CACHE: kv }, { today: '2026-10-24' })).rejects.toThrow(/503/);
+    const stored = JSON.parse(kv.m.get(GARMIN_KV));
+    expect(stored.days['2026-10-24'].steps).toBe(9120);     // the recent days were kept
+    expect(stored.error).toMatch(/503/);
+    expect(stored.backfill.daily).toBe('2026-10-20');        // and the year that failed is tried again
+  });
+
   it('keeps the days it has and records the reason when the key has expired', async () => {
     garmin();
     const kv = fakeKV();

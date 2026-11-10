@@ -60,10 +60,14 @@ export const GARMIN_FLOOR = '2013-01-01';
 // The longest span each endpoint accepts in one request, as seen on the live API.
 // HRV's limit is undocumented, so it is kept to 28 days to be safe.
 const WINDOW = { summaries: 365, sleep: 31, hrv: 28 };
-const YEAR_COST = 1 + Math.ceil(365 / WINDOW.sleep) + Math.ceil(365 / WINDOW.hrv);   // 27
 const ACT_PAGE = 45;
 // Requests one run may make, under the free plan's 50 with room for the token and retries.
 export const GARMIN_BUDGET = 40;
+const HARD_LIMIT = 47;
+// A refusal that is about the request rather than the moment: a date range Garmin will
+// not serve (some accounts refuse days before they existed). Retrying it changes
+// nothing, so it is skipped and noted rather than allowed to stop the history.
+const refused = (err) => err && err.status >= 400 && err.status < 500 && err.status !== 401 && err.status !== 429;
 // Sleep and HRV land the morning after, and watches sync late, so each refresh rereads
 // a few days rather than one; anything older is settled.
 export const GARMIN_RECENT_DAYS = 4;
@@ -361,6 +365,9 @@ async function garminGet(auth, path, params) {
   const url = GARMIN_BASE + path + (params ? '?' + new URLSearchParams(params).toString() : '');
   let renewed = false, waited = false;
   for (;;) {
+    // A hard stop under the free plan's 50, whatever a caller's own sums say: the run
+    // ends cleanly and keeps what it has, and the next run carries on.
+    if (auth.used >= HARD_LIMIT) throw Object.assign(new Error('Request budget spent.'), { budgetStop: true });
     auth.used++;
     const res = await fetch(url, { headers: { Accept: 'application/json', Authorization: `Bearer ${auth.token}` } });
     // 204 and 404 are "nothing for those days", not a failure.
@@ -374,7 +381,7 @@ async function garminGet(auth, path, params) {
       await new Promise((r) => setTimeout(r, wait * 1000));
       continue;
     }
-    if (!res.ok) throw new Error(`Garmin GET ${path} answered ${res.status}.`);
+    if (!res.ok) { const e = new Error(`Garmin GET ${path} answered ${res.status}.`); e.status = res.status; throw e; }
     const text = await res.text();
     return text ? JSON.parse(text) : null;
   }
@@ -385,19 +392,33 @@ async function newAuth(env) {
 }
 
 // Every day from `from` to `to`, inclusive, from the three endpoints that carry it.
-export async function pullDays(auth, from, to) {
+/* Every day from `from` to `to`, inclusive, from the three endpoints that carry it.
+ * `sumWin` is how many days one daily-summaries request asks for: a year normally, a
+ * month where Garmin has refused a year. A refused window is noted in `skipped` and
+ * passed over, except a refused year of summaries, which throws { split: true } so the
+ * caller can ask again a month at a time. */
+export async function pullDays(auth, from, to, { sumWin = WINDOW.summaries, skipped = [] } = {}) {
   const parts = [];
-  for (const [s, e] of windows(from, to, WINDOW.summaries)) {
-    parts.push(fromSummaries(await garminGet(auth, '/usersummary-service/v2/dailysummaries', { startDate: s, endDate: e })));
+  const tryGet = async (kind, s, e, path, params, parse) => {
+    try { parts.push(parse(await garminGet(auth, path, params))); } catch (err) {
+      if (!refused(err)) throw err;
+      if (kind === 'summaries' && sumWin > WINDOW.sleep) throw Object.assign(err, { split: true });
+      skipped.push({ kind, from: s, to: e, status: err.status });
+    }
+  };
+  for (const [s, e] of windows(from, to, sumWin)) {
+    await tryGet('summaries', s, e, '/usersummary-service/v2/dailysummaries', { startDate: s, endDate: e }, fromSummaries);
   }
   for (const [s, e] of windows(from, to, WINDOW.sleep)) {
-    parts.push(fromSleep(await garminGet(auth, '/sleep-service/sleep/dailySleepSummariesByDate', { startDate: s, endDate: e })));
+    await tryGet('sleep', s, e, '/sleep-service/sleep/dailySleepSummariesByDate', { startDate: s, endDate: e }, fromSleep);
   }
   for (const [s, e] of windows(from, to, WINDOW.hrv)) {
-    parts.push(fromHrv(await garminGet(auth, `/hrv-service/hrv/daily/${s}/${e}`)));
+    await tryGet('hrv', s, e, `/hrv-service/hrv/daily/${s}/${e}`, null, fromHrv);
   }
   return mergeDays({}, ...parts);
 }
+// Requests a step of the daily history costs, for a span of days and a summaries window.
+const stepCost = (span, sumWin) => Math.ceil(span / sumWin) + Math.ceil(span / WINDOW.sleep) + Math.ceil(span / WINDOW.hrv);
 
 // One page of activities in [from, to]; `more` says whether a fuller page may follow.
 async function pullActivityPage(auth, from, to, start) {
@@ -405,6 +426,18 @@ async function pullActivityPage(auth, from, to, start) {
     { start: String(start), limit: String(ACT_PAGE), startDate: from, endDate: to });
   const list = rows(json, 'activities');
   return { acts: fromActivities(list), more: list.length >= ACT_PAGE };
+}
+
+// Windows Garmin refused, kept (newest last, at most 40) so the dashboard can say the
+// history has gaps that are Garmin's rather than the cron's.
+function mergeSkipped(old, add) {
+  const seen = new Set();
+  return [...(old || []), ...(add || [])].filter((x) => {
+    const k = x.kind + x.from + x.to;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  }).slice(-40);
 }
 
 // The first day of iso's month.
@@ -432,9 +465,10 @@ export async function refreshGarmin(env, { today, budget = GARMIN_BUDGET } = {})
   let days = stored.days || {};
   let acts = storedActs.acts || {};
   const report = { recent: true, years: 0, actPages: 0 };
+  const skipped = [];
   try {
     const auth = await newAuth(env);
-    days = mergeDays(days, await pullDays(auth, addDays(now, -(GARMIN_RECENT_DAYS - 1)), now));
+    days = mergeDays(days, await pullDays(auth, addDays(now, -(GARMIN_RECENT_DAYS - 1)), now, { sumWin: WINDOW.sleep, skipped }));
     acts = mergeActs(acts, (await pullActivityPage(auth, addDays(now, -(RECENT_ACT_DAYS - 1)), now, 0)).acts);
 
     // What you said about the last week's activities: a few requests, every run, so a
@@ -458,16 +492,29 @@ export async function refreshGarmin(env, { today, budget = GARMIN_BUDGET } = {})
     };
     await readDetails(detailIds(addDays(now, -(RECENT_ACT_DAYS - 1)), 6));
 
-    // Daily history: a year at a time, back from the earliest day held.
+    // Daily history: a year at a time, back from the earliest day held. Where Garmin
+    // refuses a year of summaries, from then on half a year at a time with the summaries
+    // asked for a month at a time, which costs about the same as a year did. The cursor
+    // is saved after every step, so a run that stops part-way keeps what it read.
     let dailyCursor = back.daily || addDays(now, -GARMIN_RECENT_DAYS);
-    while (dailyCursor > GARMIN_FLOOR && budget - auth.used >= YEAR_COST) {
+    back.daily = dailyCursor;
+    for (;;) {
+      const sumWin = back.sumWin || WINDOW.summaries;
+      const span = sumWin >= WINDOW.summaries ? 365 : 182;
+      if (dailyCursor <= GARMIN_FLOOR || budget - auth.used < stepCost(span, sumWin)) break;
       const end = addDays(dailyCursor, -1);
-      const start = maxDay(GARMIN_FLOOR, addDays(end, -364));
-      days = mergeDays(days, await pullDays(auth, start, end));
+      const start = maxDay(GARMIN_FLOOR, addDays(end, -(span - 1)));
+      try {
+        days = mergeDays(days, await pullDays(auth, start, end, { sumWin, skipped }));
+      } catch (err) {
+        if (!err.split) throw err;
+        back.sumWin = WINDOW.sleep;
+        continue;
+      }
       dailyCursor = start;
+      back.daily = dailyCursor;
       report.years++;
     }
-    back.daily = dailyCursor;
 
     // Activities: a month at a time, a page at a time, once the days are done (the
     // days are what most charts need first).
@@ -478,27 +525,39 @@ export async function refreshGarmin(env, { today, budget = GARMIN_BUDGET } = {})
       while (actCursor > GARMIN_FLOOR && budget - auth.used >= 1 + DETAIL_SHARE) {
         const end = addDays(actCursor, -1);
         const start = maxDay(GARMIN_FLOOR, monthStart(end));
-        const { acts: got, more } = await pullActivityPage(auth, start, end, page * ACT_PAGE);
+        let got = {}, more = false;
+        try {
+          ({ acts: got, more } = await pullActivityPage(auth, start, end, page * ACT_PAGE));
+        } catch (err) {
+          if (!refused(err)) throw err;
+          skipped.push({ kind: 'activities', from: start, to: end, status: err.status });
+        }
         acts = mergeActs(acts, got);
         report.actPages++;
-        if (more) { page++; continue; }
-        actCursor = start; page = 0;
+        if (more) { page++; } else { actCursor = start; page = 0; }
+        back.acts = actCursor;
+        back.actsPage = page;
       }
-      back.acts = actCursor;
-      back.actsPage = page;
     }
     // The detail backlog, newest first, back to DETAIL_FLOOR: a share of the run while
     // the activity history is still coming in, everything left once it is done.
     const historyDone = dailyCursor <= GARMIN_FLOOR && (back.acts || '9') <= GARMIN_FLOOR;
     await readDetails(detailIds(DETAIL_FLOOR, historyDone ? budget : DETAIL_SHARE));
   } catch (err) {
-    // What is already held is still good; say what went wrong beside it.
-    const msg = err.message;
-    if (stored.error !== msg && env.CACHE) {
-      await env.CACHE.put(GARMIN_KV, JSON.stringify({ ...stored, error: msg, errorAt: new Date().toISOString() }));
+    // What this run read before it stopped is kept, the cursor where it reached, and
+    // the reason beside it. Running out of budget is not a failure: the next run goes on.
+    if (!err.budgetStop) {
+      if (env.CACHE) {
+        back.skipped = mergeSkipped(back.skipped, skipped);
+        await env.CACHE.put(GARMIN_KV, JSON.stringify({ days, backfill: back, updatedAt: new Date().toISOString(), error: err.message, errorAt: new Date().toISOString() }));
+        if (JSON.stringify(acts) !== JSON.stringify(storedActs.acts || {})) await env.CACHE.put(GARMIN_ACTS_KV, JSON.stringify({ acts, updatedAt: new Date().toISOString() }));
+      }
+      throw err;
     }
-    throw err;
+    report.stopped = 'budget';
   }
+  back.skipped = mergeSkipped(back.skipped, skipped);
+  if (!back.skipped.length) delete back.skipped;
   const next = { days, backfill: back, updatedAt: new Date().toISOString(), error: null };
   const daysChanged = JSON.stringify(days) !== JSON.stringify(stored.days || {})
     || JSON.stringify(back) !== JSON.stringify(stored.backfill || {}) || !!stored.error;
